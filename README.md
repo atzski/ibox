@@ -3,6 +3,18 @@
 Bibliothèque de jeux et frontend d'émulation immersif pour Windows (Tauri 2 · React · Three.js).
 [Télécharger iBox pour Windows](https://github.com/atzski/inbox-releases/releases/latest).
 
+## Aperçu
+
+**Étagère 3D Nintendo Switch**
+
+![Bibliothèque Nintendo Switch avec des boîtiers 3D en éventail et Kirby au premier plan](docs/screenshots/etagere-switch.webp)
+
+**Fiche du jeu et boîtier ouvert**
+
+![Fiche de Kirby dans iBox, avec le boîtier ouvert et sa cartouche](docs/screenshots/boitier-3d.webp)
+
+Les marques et illustrations de jeux visibles dans ces captures appartiennent à leurs ayants droit.
+
 ## Développement
 
 Node.js 24, Rust stable (MSVC), Visual Studio Build Tools avec C++ et WebView2 sont requis.
