@@ -1,0 +1,96 @@
+/*
+ * iBox — tokens graphiques.
+ * Source unique de vérité pour les couleurs, espacements, rayons, ombres et mouvements.
+ * Les valeurs sont exposées en variables CSS (thèmes dynamiques par console)
+ * puis mappées vers Tailwind via @theme dans global.css.
+ */
+:root {
+  /*
+   * Chaque couleur est déclarée via light-dark(clair, sombre) : le thème suit
+   * `color-scheme` (posé sur <html> selon le réglage Système / Clair / Sombre).
+   * Le mode sombre est une « nuit douce » bleu-violet, jamais un noir pur.
+   */
+  color-scheme: light;
+
+  /* — Palette de base — */
+  --ibox-cream: light-dark(#f8f7f3, #161a25);
+  --ibox-cream-deep: light-dark(#f1efe8, #1f2433);
+  /* « blanc » = surface des cartes (Tailwind bg-white y est relié) */
+  --ibox-white: light-dark(#ffffff, #252b3b);
+  --ibox-sky: #8ccdf1;
+  --ibox-sky-soft: light-dark(#ddf1fc, #1d3346);
+  --ibox-sky-deep: light-dark(#2f7fb0, #9ed8f7);
+  --ibox-lavender: #b9a6e8;
+  --ibox-lavender-soft: light-dark(#eee9fb, #2a2544);
+  --ibox-lavender-deep: light-dark(#6a54b4, #c9b9f2);
+  --ibox-mint: #a9dfc8;
+  --ibox-mint-soft: light-dark(#e6f6ef, #1c3530);
+  --ibox-mint-deep: light-dark(#2f7d5e, #7fd1ad);
+  --ibox-peach: #f5c4ac;
+  --ibox-peach-soft: light-dark(#fdeee6, #3a2a28);
+  --ibox-peach-deep: light-dark(#b25d3a, #f6c7b1);
+
+  /* Texte : contraste AA dans les deux thèmes */
+  --ibox-ink: light-dark(#344459, #e8ecf5); /* 9.4:1 / 13:1 */
+  --ibox-ink-soft: light-dark(#637184, #a7b0c3); /* 4.6:1 / 7.5:1 */
+  --ibox-ink-faint: light-dark(#8794a3, #7c869a); /* décoratif uniquement */
+  --ibox-line: light-dark(rgba(52, 68, 89, 0.08), rgba(232, 236, 245, 0.08));
+  --ibox-dots: light-dark(rgba(52, 68, 89, 0.07), rgba(232, 236, 245, 0.05));
+  /* Texte toujours clair, posé sur un fond d'accent saturé */
+  --ibox-on-accent: #ffffff;
+
+  /* — Accent dynamique (surchargé par le thème de console actif, voir platformTheme.ts) — */
+  --accent: var(--ibox-sky);
+  --accent-soft: var(--ibox-sky-soft);
+  /* fond saturé (boutons principaux) */
+  --accent-deep: #2f7fb0;
+  /* texte d'accent lisible sur le fond courant */
+  --accent-text: var(--ibox-sky-deep);
+  --accent-glow: rgba(140, 205, 241, 0.55);
+
+  /* — Espacements (base 4 px, en rem pour suivre l'échelle TV) — */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  /* — Rayons généreux — */
+  --radius-sm: 0.75rem;
+  --radius-md: 1.25rem;
+  --radius-lg: 1.75rem;
+  --radius-xl: 2.25rem;
+  --radius-pill: 999px;
+
+  /* — Ombres douces teintées d'encre — */
+  --shadow-xs: 0 1px 2px light-dark(rgba(52, 68, 89, 0.06), rgba(0, 0, 0, 0.3));
+  --shadow-sm: 0 2px 6px light-dark(rgba(52, 68, 89, 0.06), rgba(0, 0, 0, 0.25)),
+    0 8px 18px -6px light-dark(rgba(52, 68, 89, 0.1), rgba(0, 0, 0, 0.35));
+  --shadow-md: 0 4px 10px light-dark(rgba(52, 68, 89, 0.05), rgba(0, 0, 0, 0.25)),
+    0 18px 40px -12px light-dark(rgba(52, 68, 89, 0.18), rgba(0, 0, 0, 0.5));
+  --shadow-lg: 0 8px 20px light-dark(rgba(52, 68, 89, 0.06), rgba(0, 0, 0, 0.3)),
+    0 34px 70px -20px light-dark(rgba(52, 68, 89, 0.26), rgba(0, 0, 0, 0.6));
+  --shadow-inset: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.06));
+
+  /* — Typographie — */
+  --font-display: "Cal Sans", "Nunito Variable", system-ui, sans-serif;
+  --font-body: "Cal Sans", "Nunito Variable", system-ui, sans-serif;
+
+  /* — Mouvement — */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 160ms;
+  --dur-base: 260ms;
+  --dur-slow: 480ms;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+html[data-theme="system"] {
+  color-scheme: light dark;
+}

@@ -1,0 +1,41 @@
+name: Windows build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: rustup update stable
+      - run: npm ci
+      - run: npm test
+      - run: cargo +stable test --locked --manifest-path src-tauri/Cargo.toml
+      - run: npm run tauri build -- --bundles nsis --config src-tauri/tauri.ci.conf.json
+      - name: Record checksum
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter '*-setup.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'NSIS installer missing' }
+          $hash = (Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($exe.Name)" | Set-Content "$($exe.FullName).sha256" -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iBox-Windows-x64
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sha256
+          if-no-files-found: error

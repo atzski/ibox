@@ -1,0 +1,28 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+*.log
+.DS_Store
+*.tsbuildinfo
+/app/
+
+# outils de crÃ©ation (skills Claude Code), non distribuÃ©s
+.claude/skills/
+
+# itÃ©rations de modÃ©lisation (rendus et .blend intermÃ©diaires)
+3d-assets/renders/**/iter_*/
+*.blend1
+
+# Profiles, credentials and local tooling
+.agents/
+.claude/
+.env
+.env.*
+!.env.example
+*.key
+*.pfx
+*.p12
+*.pem
+*.db
+__pycache__/

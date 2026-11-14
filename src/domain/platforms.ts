@@ -1,0 +1,387 @@
+import type { Platform, PlatformId } from "./types";
+import formats from "../../shared/platform-formats.json";
+
+type FormatTable = Record<string, { extensions: string[]; folderHints: string[] }>;
+const FORMATS = formats.platforms as FormatTable;
+
+/** Extensions d'une console, lues dans la table partagée avec le scanner Rust. */
+function extensionsOf(id: string): string[] {
+  const f = FORMATS[id];
+  if (!f) throw new Error(`Formats manquants pour la console « ${id} » (shared/platform-formats.json)`);
+  return f.extensions;
+}
+
+export function folderHintsOf(id: string): string[] {
+  return FORMATS[id]?.folderHints ?? [];
+}
+
+/**
+ * Registre des consoles.
+ *
+ * Ajouter une console = ajouter une entrée ici (puis, si besoin, un modèle de
+ * boîtier dans `three/cases`). Aucune autre partie de l'application n'a à être
+ * réécrite : écrans, thèmes, filtres et scan lisent tous ce registre.
+ *
+ * Note : certaines extensions sont ambiguës (.iso, .chd, .cso…). Le scanner
+ * (phase 2) départagera grâce aux en-têtes des fichiers et au dossier associé.
+ */
+export const PLATFORMS: Platform[] = [
+  {
+    id: "gamecube",
+    name: "Nintendo GameCube",
+    shortName: "GameCube",
+    manufacturer: "Nintendo",
+    year: 2001,
+    theme: {
+      primary: "#B9A6E8",
+      soft: "#EFEAFB",
+      deep: "#6A54B4",
+      gradient: ["#F3EFFC", "#E4DBF8"],
+      mood: "light",
+      motion: "bouncy",
+    },
+    glyph: "cube",
+    caseKind: "gamecube",
+    media: "mini-disc",
+    extensions: extensionsOf("gamecube"),
+    emulatorHints: ["dolphin"],
+    layout: { coverAspect: 136 / 191, gridCardWidth: 11.5 },
+  },
+  {
+    id: "wii",
+    name: "Nintendo Wii",
+    shortName: "Wii",
+    manufacturer: "Nintendo",
+    year: 2006,
+    theme: {
+      primary: "#8CCDF1",
+      soft: "#EAF6FD",
+      deep: "#2F7FB0",
+      gradient: ["#FBFDFF", "#E3F2FC"],
+      mood: "light",
+      motion: "airy",
+    },
+    glyph: "slim-tower",
+    caseKind: "wii",
+    media: "disc",
+    extensions: extensionsOf("wii"),
+    emulatorHints: ["dolphin"],
+    layout: { coverAspect: 136 / 191, gridCardWidth: 11.5 },
+  },
+  {
+    id: "wiiu",
+    name: "Nintendo Wii U",
+    shortName: "Wii U",
+    manufacturer: "Nintendo",
+    year: 2012,
+    theme: {
+      primary: "#3FB6E8",
+      soft: "#E3F5FD",
+      deep: "#0A7FB5",
+      gradient: ["#F4FBFF", "#DDF1FB"],
+      mood: "light",
+      motion: "airy",
+    },
+    glyph: "hybrid",
+    caseKind: "wiiu",
+    media: "disc",
+    extensions: extensionsOf("wiiu"),
+    emulatorHints: ["cemu"],
+    layout: { coverAspect: 135 / 191, gridCardWidth: 11.5 },
+  },
+  {
+    id: "ds",
+    name: "Nintendo DS",
+    shortName: "DS",
+    manufacturer: "Nintendo",
+    year: 2004,
+    theme: {
+      primary: "#9DBEF0",
+      soft: "#E9F0FC",
+      deep: "#3D68AE",
+      gradient: ["#F2F6FD", "#DFE9FA"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "dual-screen",
+    caseKind: "ds",
+    media: "card",
+    extensions: extensionsOf("ds"),
+    emulatorHints: ["melonds"],
+    layout: { coverAspect: 137 / 125, gridCardWidth: 13 },
+  },
+  {
+    id: "3ds",
+    name: "Nintendo 3DS",
+    shortName: "3DS",
+    manufacturer: "Nintendo",
+    year: 2011,
+    theme: {
+      primary: "#F2A9BA",
+      soft: "#FCEBEF",
+      deep: "#B24D68",
+      gradient: ["#FDF3F5", "#F7E0E6"],
+      mood: "light",
+      motion: "floaty",
+    },
+    glyph: "dual-screen-3d",
+    caseKind: "3ds",
+    media: "card",
+    extensions: extensionsOf("3ds"),
+    emulatorHints: ["azahar"],
+    layout: { coverAspect: 137 / 125, gridCardWidth: 13 },
+  },
+  {
+    id: "n64",
+    name: "Nintendo 64",
+    shortName: "N64",
+    manufacturer: "Nintendo",
+    year: 1996,
+    theme: {
+      primary: "#A9DFC8",
+      soft: "#E7F6EF",
+      deep: "#2F7D5E",
+      gradient: ["#F1FAF6", "#DDF1E7"],
+      mood: "light",
+      motion: "bouncy",
+    },
+    glyph: "cartridge-wide",
+    caseKind: "retro-box",
+    media: "cartridge",
+    extensions: extensionsOf("n64"),
+    emulatorHints: ["simple64", "retroarch"],
+    layout: { coverAspect: 1.38, gridCardWidth: 16 },
+  },
+  {
+    id: "gb",
+    name: "Game Boy",
+    shortName: "Game Boy",
+    manufacturer: "Nintendo",
+    family: "gameboy",
+    year: 1989,
+    theme: {
+      primary: "#C3D78E",
+      soft: "#F2F7E3",
+      deep: "#5F7A26",
+      gradient: ["#F7FAEE", "#E8F0D2"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "handheld-portrait",
+    caseKind: "cartridge",
+    media: "cartridge",
+    extensions: extensionsOf("gb"),
+    emulatorHints: ["mgba", "retroarch"],
+    layout: { coverAspect: 0.86, gridCardWidth: 11 },
+  },
+  {
+    id: "gbc",
+    name: "Game Boy Color",
+    shortName: "GB Color",
+    manufacturer: "Nintendo",
+    family: "gameboy",
+    year: 1998,
+    theme: {
+      primary: "#8FD6CF",
+      soft: "#E4F6F4",
+      deep: "#237F78",
+      gradient: ["#F0FAF9", "#D9F1EE"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "handheld-portrait",
+    caseKind: "cartridge",
+    media: "cartridge",
+    extensions: extensionsOf("gbc"),
+    emulatorHints: ["mgba", "retroarch"],
+    layout: { coverAspect: 0.86, gridCardWidth: 11 },
+  },
+  {
+    id: "gba",
+    name: "Game Boy Advance",
+    shortName: "GB Advance",
+    manufacturer: "Nintendo",
+    family: "gameboy",
+    year: 2001,
+    theme: {
+      primary: "#A9AAF0",
+      soft: "#ECECFC",
+      deep: "#4E50B0",
+      gradient: ["#F4F4FE", "#E2E2FA"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "handheld-wide",
+    caseKind: "cartridge",
+    media: "cartridge",
+    extensions: extensionsOf("gba"),
+    emulatorHints: ["mgba", "retroarch"],
+    layout: { coverAspect: 0.86, gridCardWidth: 11 },
+  },
+  {
+    id: "snes",
+    name: "Super Nintendo",
+    shortName: "Super NES",
+    manufacturer: "Nintendo",
+    year: 1990,
+    theme: {
+      primary: "#C7C0DC",
+      soft: "#F1EFF7",
+      deep: "#5E5680",
+      gradient: ["#F7F6FA", "#E8E4F1"],
+      mood: "light",
+      motion: "calm",
+    },
+    glyph: "cartridge-wide",
+    caseKind: "retro-box",
+    media: "cartridge",
+    extensions: extensionsOf("snes"),
+    emulatorHints: ["snes9x", "bsnes", "retroarch"],
+    layout: { coverAspect: 1.38, gridCardWidth: 16 },
+  },
+  {
+    id: "switch",
+    name: "Nintendo Switch",
+    shortName: "Switch",
+    manufacturer: "Nintendo",
+    year: 2017,
+    theme: {
+      primary: "#F5B3A3",
+      soft: "#FDEDE8",
+      deep: "#B4513A",
+      gradient: ["#FEF5F2", "#F9E1DA"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "hybrid",
+    caseKind: "switch",
+    media: "card",
+    extensions: extensionsOf("switch"),
+    emulatorHints: ["lichii"],
+    layout: { coverAspect: 105 / 170, gridCardWidth: 10.5 },
+  },
+  {
+    id: "switch2",
+    name: "Nintendo Switch 2",
+    shortName: "Switch 2",
+    manufacturer: "Nintendo",
+    year: 2025,
+    theme: {
+      primary: "#E8A0AB",
+      soft: "#FCEEF0",
+      deep: "#A23B4C",
+      gradient: ["#FEF4F5", "#F8DEE2"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "hybrid",
+    caseKind: "switch",
+    media: "card",
+    extensions: extensionsOf("switch2"),
+    emulatorHints: ["lichii"],
+    layout: { coverAspect: 105 / 170, gridCardWidth: 10.5 },
+  },
+  {
+    id: "pc",
+    name: "PC",
+    shortName: "PC",
+    manufacturer: "Windows",
+    year: 1995,
+    // bleu ciel très clair, accents turquoise et menthe, blanc crème
+    theme: {
+      primary: "#8FD9D6",
+      soft: "#EEF9F8",
+      deep: "#2C8A8E",
+      gradient: ["#F4FBFC", "#E1F4F2"],
+      mood: "light",
+      motion: "calm",
+    },
+    glyph: "computer",
+    caseKind: "pc",
+    media: "disc",
+    extensions: extensionsOf("pc"),
+    emulatorHints: [],
+    layout: { coverAspect: 2 / 3, gridCardWidth: 12 },
+  },
+  {
+    id: "ps1",
+    name: "PlayStation",
+    shortName: "PS1",
+    manufacturer: "Sony",
+    year: 1994,
+    theme: {
+      primary: "#C3CAD4",
+      soft: "#F0F2F5",
+      deep: "#4F5A6B",
+      gradient: ["#F7F8FA", "#E5E9EE"],
+      mood: "light",
+      motion: "calm",
+    },
+    glyph: "disc-square",
+    caseKind: "ps1",
+    media: "disc",
+    extensions: extensionsOf("ps1"),
+    emulatorHints: ["duckstation", "retroarch"],
+    layout: { coverAspect: 142 / 125, gridCardWidth: 14 },
+  },
+  {
+    id: "ps2",
+    name: "PlayStation 2",
+    shortName: "PS2",
+    manufacturer: "Sony",
+    year: 2000,
+    theme: {
+      primary: "#7E8FC4",
+      soft: "#E5E9F6",
+      deep: "#2C3A66",
+      gradient: ["#2A3458", "#1B2240"],
+      mood: "dark",
+      motion: "calm",
+    },
+    glyph: "tower-stripes",
+    caseKind: "ps2",
+    media: "disc",
+    extensions: extensionsOf("ps2"),
+    emulatorHints: ["pcsx2"],
+    layout: { coverAspect: 135 / 190, gridCardWidth: 11.5 },
+  },
+  {
+    id: "psp",
+    name: "PlayStation Portable",
+    shortName: "PSP",
+    manufacturer: "Sony",
+    year: 2004,
+    theme: {
+      primary: "#B3C2D3",
+      soft: "#EEF2F7",
+      deep: "#46596F",
+      gradient: ["#F5F7FA", "#E1E8F0"],
+      mood: "light",
+      motion: "calm",
+    },
+    glyph: "handheld-oval",
+    caseKind: "psp",
+    media: "umd",
+    extensions: extensionsOf("psp"),
+    emulatorHints: ["ppsspp"],
+    layout: { coverAspect: 104 / 180, gridCardWidth: 10 },
+  },
+];
+
+const BY_ID = new Map(PLATFORMS.map((p) => [p.id, p]));
+
+export function getPlatform(id: PlatformId): Platform | undefined {
+  return BY_ID.get(id);
+}
+
+export function requirePlatform(id: PlatformId): Platform {
+  const p = BY_ID.get(id);
+  if (!p) throw new Error(`Console inconnue : ${id}`);
+  return p;
+}
+
+/** Consoles candidates pour une extension (peut en renvoyer plusieurs : ambiguïté gérée au scan). */
+export function platformsForExtension(ext: string): Platform[] {
+  const e = ext.toLowerCase().startsWith(".") ? ext.toLowerCase() : `.${ext.toLowerCase()}`;
+  return PLATFORMS.filter((p) => p.extensions.includes(e));
+}

@@ -1,0 +1,228 @@
+import { attachAutoJingles } from "@/services/jingles";
+import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
+import { attachSocial } from "@/services/social";
+import { useEffect } from "react";
+import { ProfileGate } from "@/components/start/ProfileGate";
+import { SetupWizard } from "@/components/start/SetupWizard";
+import { useSession } from "@/services/profiles";
+import { checkUpdatesLater, shellApi } from "@/services/shell";
+import { notify } from "@/services/notifications";
+import { attachInetbox } from "@/services/inetbox";
+import { InetboxModal } from "@/components/social/InetboxPanel";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { rememberedFocus, routeKey, useNav, useRoute, type Route } from "./navigation";
+import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shellState";
+import { useSettings } from "@/services/settings";
+import { setFullscreen, syncWindowTheme } from "@/services/native";
+import { music } from "@/services/music";
+import { input } from "@/input/InputController";
+import { attachGamepads } from "@/input/gamepad";
+import { FlightLayer, preload3D } from "@/three/lazy";
+import { useLibrary } from "@/services/library";
+import { useLauncher } from "@/services/launcher";
+import { usePlatformArtStore } from "@/services/platformArt";
+import { applyAppTheme } from "@/theme/appThemes";
+import { Backdrop } from "@/components/shell/Backdrop";
+import { TopBar } from "@/components/shell/TopBar";
+import { HintBar } from "@/components/shell/HintBar";
+import { BackgroundJobs } from "@/components/library/MetaStatus";
+import { LaunchOverlay } from "@/components/library/LaunchOverlay";
+import { HomeScreen } from "@/screens/HomeScreen";
+import { PlatformsScreen } from "@/screens/PlatformsScreen";
+import { LibraryScreen } from "@/screens/LibraryScreen";
+import { GameScreen } from "@/screens/GameScreen";
+import { SettingsScreen } from "@/screens/SettingsScreen";
+
+function Screen({ route }: { route: Route }) {
+  switch (route.name) {
+    case "home":
+      return <HomeScreen />;
+    case "platforms":
+      return <PlatformsScreen />;
+    case "library":
+      return <LibraryScreen platformId={route.platformId} shelfGameId={route.shelfGameId} />;
+    case "game":
+      return <GameScreen gameId={route.gameId} />;
+    case "settings":
+      return <SettingsScreen />;
+  }
+}
+
+/** Monte un écran et place le focus (élément mémorisé au retour, sinon focus initial). */
+function ScreenHost({ route }: { route: Route }) {
+  useEffect(() => {
+    const id = requestAnimationFrame(() => input.focusInitial(rememberedFocus(route)));
+    return () => {
+      cancelAnimationFrame(id);
+      clearAmbientGame();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <Screen route={route} />;
+}
+
+// Transitions d'écran : sortie très brève, entrée douce (glissé léger). Uniquement
+// opacité et transformations (calculées par la carte graphique) : pas de flou plein
+// écran, trop coûteux quand on navigue vite.
+const EASE = [0.22, 1, 0.36, 1] as const;
+const screenVariants = {
+  enter: (dir: number) => ({ opacity: dir < 0 ? 0.45 : 0, x: dir < 0 ? -8 : 24 }),
+  center: { opacity: 1, x: 0, scale: 1, transition: { duration: 0.3, ease: EASE } },
+  exit: (dir: number) => ({ opacity: 0, x: dir < 0 ? 6 : -14, transition: { duration: dir < 0 ? 0.07 : 0.11, ease: "easeIn" as const } }),
+};
+
+export function App() {
+  useEffect(() => attachInetbox(), []);
+  useEffect(() => attachSocial(), []);
+  useEffect(() => attachAutoJingles(), []);
+
+  // Démarrage : première configuration, puis « Qui joue ? »
+  const setupDone = useSettings((s) => s.setupDone);
+  const askProfile = useSettings((s) => s.askProfileOnStart);
+  const profileChosen = useSession((s) => s.chosen);
+
+  // iBox dans Windows : arrière-plan et fenêtre masquée pendant le jeu
+  const keepInTray = useSettings((s) => s.keepInTray);
+  const hideOnLaunch = useSettings((s) => s.hideOnLaunch);
+  useEffect(() => void shellApi.setBehavior(keepInTray, hideOnLaunch), [keepInTray, hideOnLaunch]);
+  // nouvelle version d'iBox : annoncée par une notification (installation dans Paramètres › Système)
+  useEffect(
+    () =>
+      checkUpdatesLater((version) =>
+        notify({ icon: "download", tone: "info", title: `iBox ${version} est disponible`, body: "Installez-la dans Paramètres › Système › Mises à jour." }),
+      ),
+    [],
+  );
+  // menu de l'icône de notification : Jeux ou Social
+  useEffect(() => {
+    const off = shellApi.onTrayNavigate((place) => {
+      if (place === "games") useNav.getState().go({ name: "library", platformId: "all" });
+      else if (place === "social") window.dispatchEvent(new Event("ibox:open-friends"));
+    });
+    return () => void off.then((f) => f());
+  }, []);
+  const libraryError = useLibrary((s) => s.status === "error" ? s.error : undefined);
+
+  const route = useRoute();
+  const direction = useNav((s) => s.direction);
+  const reduced = useReducedMotion();
+  const load = useLibrary((s) => s.load);
+
+  useEffect(() => {
+    void load();
+    void useLauncher.getState().load();
+    void usePlatformArtStore.getState().refresh();
+    const off = useLauncher.getState().attach();
+    return () => void off.then((f) => f());
+  }, [load]);
+
+  // Entrées : clavier, manettes + bouton « précédent » de la souris
+  useEffect(() => {
+    const detach = input.attachKeyboard();
+    const detachPads = attachGamepads();
+    preload3D();
+    const offBack = input.onBack(() => useNav.getState().back());
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        input.dispatch("back");
+      }
+    };
+    const onContextMenu = (e: MouseEvent) => e.preventDefault();
+    window.addEventListener("mouseup", onMouse);
+    window.addEventListener("contextmenu", onContextMenu);
+    return () => {
+      detach();
+      detachPads();
+      offBack();
+      window.removeEventListener("mouseup", onMouse);
+      window.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, []);
+
+  // Musique en boucle : piste de la console affichée si elle en a une, sinon musique de menu
+  const custom = useMenuMusic((s) => s.url);
+  const ambientTrack = useShell((s) => s.ambientPlatform?.ambience) ?? custom;
+  useEffect(() => music.attach(), []);
+  useEffect(() => attachMenuMusic(), []);
+  useEffect(() => { if (ambientTrack) music.play(ambientTrack); else music.stop(); }, [ambientTrack]);
+
+  // Thème : color-scheme pilote toutes les couleurs light-dark() des tokens
+  const theme = useSettings((s) => s.theme);
+  const dark = useIsDark();
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    void syncWindowTheme(theme);
+  }, [dark, theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.motion = reduced ? "reduced" : "full";
+  }, [reduced]);
+
+  const animatedBg = useSettings((s) => s.animatedBackground !== false);
+  useEffect(() => {
+    document.documentElement.dataset.bg = animatedBg ? "live" : "still";
+  }, [animatedBg]);
+
+  // Palette et taille de l'interface (Paramètres › Apparence, Thèmes)
+  const appTheme = useSettings((s) => s.appTheme ?? "ibox");
+  const uiScale = useSettings((s) => s.uiScale ?? 1);
+  useEffect(() => applyAppTheme(appTheme), [appTheme]);
+  useEffect(() => document.documentElement.style.setProperty("--ui-scale", String(uiScale)), [uiScale]);
+
+  // Plein écran : appliqué au démarrage et à chaque changement ; F11 bascule
+  const fullscreen = useSettings((s) => s.fullscreen);
+  useEffect(() => void setFullscreen(fullscreen), [fullscreen]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F11") return;
+      e.preventDefault();
+      const { fullscreen: on, set } = useSettings.getState();
+      set("fullscreen", !on);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  return (
+    <MotionConfig reducedMotion={reduced ? "always" : "never"}>
+      <Backdrop />
+      <div data-nav-root className="relative flex h-full flex-col">
+        <TopBar />
+        {libraryError && route.name !== "settings" && (
+          <div role="alert" className="mx-8 mb-2 flex items-center justify-between gap-4 rounded-lg bg-peach-soft p-3 text-ink">
+            <div className="min-w-0">
+              <p className="font-bold">La bibliothèque n’a pas pu être chargée.</p>
+              <p className="max-h-20 overflow-auto text-sm">{libraryError}</p>
+            </div>
+            <button data-focusable className="ibox-focusable shrink-0 rounded-lg bg-white px-4 py-2 font-bold"
+              onClick={() => useNav.getState().go({ name: "settings" })}>Paramètres</button>
+          </div>
+        )}
+        <main className="relative min-h-0 flex-1">
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
+            <motion.div
+              key={routeKey(route)}
+              custom={direction}
+              variants={screenVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="absolute inset-0"
+            >
+              <ScreenHost route={route} />
+            </motion.div>
+          </AnimatePresence>
+        </main>
+        <HintBar />
+      </div>
+      <BackgroundJobs />
+      <AnimatePresence>
+        {!setupDone ? <SetupWizard key="setup" /> : askProfile && !profileChosen ? <ProfileGate key="gate" /> : null}
+      </AnimatePresence>
+      <InetboxModal />
+      <LaunchOverlay />
+      <FlightLayer />
+    </MotionConfig>
+  );
+}

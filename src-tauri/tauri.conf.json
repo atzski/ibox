@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "iBox",
+  "version": "0.1.37",
+  "identifier": "app.ibox.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "iBox",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "center": true,
+        "backgroundColor": "#F8F7F3",
+        "fullscreen": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob: https://ddragon.leagueoflegends.com https://thumbnails.libretro.com https://cdn2.steamgriddb.com https://cdn.steamgriddb.com https://*.iisu.network; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' https://ddragon.leagueoflegends.com ipc: http://ipc.localhost; media-src 'self' data: blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "publisher": "iBox",
+    "copyright": "© 2026 iBox",
+    "category": "Game",
+    "shortDescription": "Votre bibliothèque de jeux : consoles et PC réunis",
+    "longDescription": "iBox réunit vos jeux de console (émulateurs) et vos jeux PC (Steam, Epic, GOG, EA, Ubisoft, Xbox, Riot) dans une seule bibliothèque, avec leurs vraies jaquettes en 3D.",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "languages": [
+          "French"
+        ],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser",
+        "startMenuFolder": "iBox"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBFNUE1M0JBREU4REZBQzcKUldUSCtvM2V1bE5hRG9Ld0w1ajJiQXdQL3lLcVcxOVhOTVJrU0RoTFB1Z2poTkQzN3NHYzZpSlYK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

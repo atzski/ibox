@@ -1,0 +1,109 @@
+import { useRef } from "react";
+import { tuneRenderer } from "../rendererTuning";
+import { Canvas, useFrame } from "@react-three/fiber";
+import type { Group } from "three";
+import type { Game } from "@/domain/types";
+import { CaseModel } from "../cases/CaseModel";
+import type { CaseSpec } from "../cases/caseSpecs";
+import { useCaseTextures } from "../useCaseTextures";
+import { landFlight, useFlight, type ScreenPose } from "../handoff";
+import { InspectController } from "../inspectController";
+import { StudioLights } from "./StudioLights";
+import { useIsDark } from "@/app/shellState";
+
+const FOV = 26;
+const CAMERA_Z = 10;
+/** Durée du vol (s). */
+const DURATION = 0.78;
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/**
+ * Couche du vol étagère → fiche : un canevas transparent par-dessus tout
+ * l'écran, le temps que le boîtier glisse jusqu'à la visionneuse.
+ */
+export function FlightLayer() {
+  const game = useFlight((s) => s.game);
+  const spec = useFlight((s) => s.spec);
+  const dark = useIsDark();
+  if (!game || !spec) return null;
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
+      <Canvas
+        flat
+        dpr={[1, 2]}
+        camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 50 }}
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => tuneRenderer(gl)}
+      >
+        <StudioLights tint={spec.model === "box" ? spec.cardboard : spec.plastic} dark={dark} />
+        <Flyer key={game.id} game={game} spec={spec} />
+      </Canvas>
+    </div>
+  );
+}
+
+/** Place d'arrivée estimée tant que la visionneuse n'a pas publié la sienne. */
+function estimate(): ScreenPose {
+  const f = useFlight.getState();
+  if (f.back && f.from) return f.from;
+  return {
+    cx: window.innerWidth * 0.66,
+    cy: window.innerHeight * 0.5,
+    h: window.innerHeight * 0.55,
+    yaw: InspectController.REST_YAW,
+    pitch: InspectController.REST_PITCH + 0.06,
+  };
+}
+
+function Flyer({ game, spec }: { game: Game; spec: CaseSpec }) {
+  const textures = useCaseTextures(game, spec);
+  const group = useRef<Group>(null);
+  const t = useRef(0);
+  const waited = useRef(0);
+  const waitedTarget = useRef(0);
+
+  useFrame((_, dt) => {
+    const g = group.current;
+    if (!g) return;
+    // pas de vol sans textures (sinon un boîtier nu apparaîtrait une image)
+    if (!textures) {
+      g.visible = false;
+      return;
+    }
+    g.visible = true;
+    const { from, to, viewerReady, back } = useFlight.getState();
+    if (!from) return;
+    // vol retour : la place sur l'étagère arrive une ou deux images plus tard
+    if (back && !to && waitedTarget.current < 0.6) waitedTarget.current += dt;
+    else t.current = Math.min(1, t.current + dt / (back ? DURATION * 1.05 : DURATION));
+    const e = easeInOut(t.current);
+    const target = to ?? estimate();
+    const mix = (a: number, b: number) => a + (b - a) * e;
+
+    // léger arc vers le haut et vers l'avant pendant le trajet
+    const lift = Math.sin(Math.PI * t.current);
+    const cx = mix(from.cx, target.cx);
+    const cy = mix(from.cy, target.cy) - lift * window.innerHeight * 0.035;
+    const h = mix(from.h, target.h) * (1 + lift * 0.06);
+
+    // pixels → monde (caméra fixe, plan z = 0)
+    const visibleH = 2 * CAMERA_Z * Math.tan((FOV * Math.PI) / 360);
+    const k = visibleH / window.innerHeight;
+    g.position.set((cx - window.innerWidth / 2) * k, -(cy - window.innerHeight / 2) * k, 0);
+    g.scale.setScalar((h * k) / spec.height);
+    g.rotation.set(mix(from.pitch, target.pitch), mix(from.yaw, target.yaw) + lift * 0.12, 0);
+
+    // arrivé : la visionneuse reprend la main dès qu'elle est prête (2 s au plus)
+    if (t.current >= 1) {
+      waited.current += dt;
+      if (viewerReady || waited.current > 2) landFlight();
+    }
+  });
+
+  return (
+    <group ref={group} visible={false}>
+      <CaseModel spec={spec} textures={textures} lite />
+    </group>
+  );
+}

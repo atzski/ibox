@@ -1,0 +1,252 @@
+{
+  "$comment": "Source unique des formats de fichiers reconnus, lue par l'interface (TypeScript) et par le scanner (Rust). Les extensions partagées (.iso, .chd, .cso, .bin, .pbp) sont départagées par les en-têtes et le dossier associé.",
+  "platforms": {
+    "gamecube": {
+      "extensions": [
+        ".iso",
+        ".gcm",
+        ".tgc",
+        ".ciso",
+        ".gcz",
+        ".rvz",
+        ".wia",
+        ".bin"
+      ],
+      "folderHints": [
+        "gamecube",
+        "game cube",
+        "gc",
+        "ngc",
+        "dolphin"
+      ]
+    },
+    "wii": {
+      "extensions": [
+        ".iso",
+        ".wbfs",
+        ".rvz",
+        ".wia",
+        ".gcz",
+        ".ciso",
+        ".wad",
+        ".bin"
+      ],
+      "folderHints": [
+        "wii"
+      ]
+    },
+    "wiiu": {
+      "extensions": [
+        ".wux",
+        ".wud",
+        ".wua",
+        ".rpx"
+      ],
+      "folderHints": [
+        "wii u",
+        "wiiu",
+        "cemu"
+      ]
+    },
+    "ds": {
+      "extensions": [
+        ".nds",
+        ".srl",
+        ".dsi",
+        ".ids",
+        ".zip",
+        ".7z",
+        ".rar"
+      ],
+      "folderHints": [
+        "nds",
+        "ds",
+        "nintendo ds"
+      ]
+    },
+    "3ds": {
+      "extensions": [
+        ".3ds",
+        ".cci",
+        ".cxi",
+        ".3dsx",
+        ".app",
+        ".z3dsx",
+        ".zcci",
+        ".zcxi",
+        ".bcci"
+      ],
+      "folderHints": [
+        "3ds",
+        "nintendo 3ds"
+      ]
+    },
+    "n64": {
+      "extensions": [
+        ".z64",
+        ".n64",
+        ".v64",
+        ".ndd",
+        ".u1",
+        ".bin",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "n64",
+        "nintendo 64"
+      ]
+    },
+    "gb": {
+      "extensions": [
+        ".gb",
+        ".sgb",
+        ".dmg",
+        ".rom",
+        ".bin",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "gb",
+        "game boy",
+        "gameboy"
+      ]
+    },
+    "gbc": {
+      "extensions": [
+        ".gbc",
+        ".rom",
+        ".bin",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "gbc",
+        "game boy color",
+        "gameboy color"
+      ]
+    },
+    "gba": {
+      "extensions": [
+        ".gba",
+        ".agb",
+        ".mb",
+        ".rom",
+        ".bin",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "gba",
+        "game boy advance",
+        "gameboy advance"
+      ]
+    },
+    "snes": {
+      "extensions": [
+        ".sfc",
+        ".smc",
+        ".swc",
+        ".fig",
+        ".bs",
+        ".st",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "snes",
+        "super nintendo",
+        "super nes",
+        "sfc"
+      ]
+    },
+    "switch": {
+      "extensions": [
+        ".nsp",
+        ".nsz",
+        ".xci",
+        ".xcz",
+        ".nup",
+        ".nro"
+      ],
+      "folderHints": [
+        "switch",
+        "nintendo switch",
+        "nsw"
+      ]
+    },
+    "switch2": {
+      "extensions": [
+        ".nup",
+        ".nsp",
+        ".nsz",
+        ".xci",
+        ".xcz"
+      ],
+      "folderHints": [
+        "switch 2",
+        "switch2",
+        "nintendo switch 2",
+        "nsw2",
+        "ns2"
+      ]
+    },
+    "ps1": {
+      "extensions": [
+        ".cue",
+        ".bin",
+        ".img",
+        ".iso",
+        ".chd",
+        ".ecm",
+        ".mds",
+        ".ccd",
+        ".pbp",
+        ".m3u"
+      ],
+      "folderHints": [
+        "ps1",
+        "psx",
+        "playstation",
+        "playstation 1"
+      ]
+    },
+    "ps2": {
+      "extensions": [
+        ".iso",
+        ".bin",
+        ".cue",
+        ".mdf",
+        ".chd",
+        ".cso",
+        ".zso",
+        ".gz"
+      ],
+      "folderHints": [
+        "ps2",
+        "playstation 2"
+      ]
+    },
+    "psp": {
+      "extensions": [
+        ".iso",
+        ".cso",
+        ".chd",
+        ".pbp"
+      ],
+      "folderHints": [
+        "psp",
+        "playstation portable"
+      ]
+    },
+    "pc": {
+      "extensions": [],
+      "folderHints": [
+        "pc",
+        "jeux pc",
+        "windows"
+      ]
+    }
+  }
+}

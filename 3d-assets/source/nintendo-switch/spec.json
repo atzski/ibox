@@ -1,0 +1,97 @@
+{
+  "name": "Nintendo Switch game case (1st gen, standard)",
+  "units": "mm",
+  "overall": {
+    "dims": [
+      105,
+      11.7,
+      170
+    ],
+    "tol": 1.5
+  },
+  "contact_tolerance": 0.6,
+  "parts": {
+    "Tray": {
+      "dims": [
+        105,
+        170,
+        9.8
+      ],
+      "tol": 0.6
+    },
+    "Front_Cover": {
+      "dims": [
+        105,
+        170,
+        1.2
+      ],
+      "tol": 0.6,
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Front_Lip": {
+      "attached_to": [
+        "Front_Cover"
+      ]
+    },
+    "Hinge": {
+      "attached_to": [
+        "Tray",
+        "Front_Cover"
+      ]
+    },
+    "Card_Body": {
+      "dims": [
+        21,
+        31,
+        3
+      ],
+      "tol": 0.4,
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Card_Pad": {
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Card_Clip_L": {
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Card_Clip_R": {
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Card_Clip_T": {
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Card_Clip_B": {
+      "attached_to": [
+        "Tray"
+      ]
+    },
+    "Manual_Clip_T": {
+      "attached_to": [
+        "Front_Cover"
+      ]
+    },
+    "Manual_Clip_B": {
+      "attached_to": [
+        "Front_Cover"
+      ]
+    },
+    "Card_Rim": {
+      "attached_to": [
+        "Card_Body"
+      ]
+    }
+  },
+  "_note": "part dims are in each object's own axes: slabs are modelled flat (X width, Y height, Z thickness) then stood up"
+}
