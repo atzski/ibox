@@ -7,11 +7,11 @@ Bibliothèque de jeux et frontend d'émulation immersif pour Windows (Tauri 2 ·
 
 **Étagère 3D Nintendo Switch**
 
-![Bibliothèque Nintendo Switch avec des boîtiers 3D en éventail et Kirby au premier plan](docs/screenshots/etagere-switch.webp)
+![Bibliothèque Nintendo Switch avec des boîtiers 3D en éventail et Kirby au premier plan](screenshots/etagere-switch.webp)
 
 **Fiche du jeu et boîtier ouvert**
 
-![Fiche de Kirby dans iBox, avec le boîtier ouvert et sa cartouche](docs/screenshots/boitier-3d.webp)
+![Fiche de Kirby dans iBox, avec le boîtier ouvert et sa cartouche](screenshots/boitier-3d.webp)
 
 Les marques et illustrations de jeux visibles dans ces captures appartiennent à leurs ayants droit.
 
@@ -50,13 +50,13 @@ npm run tauri build -- --bundles nsis --config src-tauri/tauri.ci.conf.json
 
 ## Documentation
 
-- [Architecture et design system](docs/ARCHITECTURE.md)
-- [Phase 2 — bibliothèque réelle](docs/PHASE2.md)
-- [Phase 3 — métadonnées et jaquettes](docs/PHASE3.md)
-- [Phase 4 — émulateurs](docs/PHASE4.md)
-- [Phase 5 — boîtiers par console, manette](docs/PHASE5.md)
-- [Sources et licences](docs/PROVIDERS.md)
-- [Profils de lancement des émulateurs](docs/EMULATORS.md)
+- [Architecture et design system](ARCHITECTURE.md)
+- [Phase 2 — bibliothèque réelle](PHASE2.md)
+- [Phase 3 — métadonnées et jaquettes](PHASE3.md)
+- [Phase 4 — émulateurs](PHASE4.md)
+- [Phase 5 — boîtiers par console, manette](PHASE5.md)
+- [Sources et licences](PROVIDERS.md)
+- [Profils de lancement des émulateurs](EMULATORS.md)
 
 ### Données et restauration
 
@@ -72,4 +72,4 @@ Ouvrir **Paramètres → Profil → Personnaliser** pour éditer le profil local
 
 ## Licence
 
-Le code iBox est distribué sous licence [MIT](LICENSE). La police Cal Sans est sous [SIL Open Font License](src/assets/fonts/cal-sans/OFL.txt). Les avis de licence présents dans le dépôt restent applicables aux composants concernés.
+Le code iBox est distribué sous licence [MIT](../LICENSE). La police Cal Sans est sous [SIL Open Font License](../src/assets/fonts/cal-sans/OFL.txt). Les avis de licence présents dans le dépôt restent applicables aux composants concernés.
