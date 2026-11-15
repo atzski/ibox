@@ -20,6 +20,8 @@ iBox brings your PC games and console collection together in one place. Browse a
 - **iNetbox:** optionally add friends, share your status and send game invitations.
 - **Your activity:** revisit recently played games and track playtime.
 
+> **New to iBox?** Follow the [step-by-step setup and API keys guide (French)](docs/GUIDE.md).
+
 ## Download and setup
 
 1. Download the installer from the [latest release](https://github.com/atzski/inbox-releases/releases/latest).
