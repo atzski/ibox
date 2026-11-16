@@ -7,6 +7,7 @@
 //! - Clic droit sur l'icône : Ouvrir iBox, Jeux, Social, Quitter.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
@@ -125,7 +126,8 @@ pub fn shell_hide(app: AppHandle) {
 
 /// Pages d'aide ouvertes dans le navigateur par l'assistant de configuration.
 /// Liste fermée : aucune adresse venant d'ailleurs n'est ouverte.
-const HELP_PAGES: [&str; 6] = [
+const HELP_PAGES: [&str; 7] = [
+    "https://github.com/atzski/ibox/releases/latest",
     "https://retroachievements.org/settings",
     "https://iidb.iisu.network/",
     "https://buymeacoffee.com/atzski",
@@ -197,11 +199,42 @@ pub struct UpdateInfo {
     pub notes: Option<String>,
 }
 
+/// Délai maximal de la recherche d'une mise à jour (requête du manifeste).
+const CHECK_TIMEOUT: Duration = Duration::from_secs(25);
+/// Délai maximal du téléchargement de l'installeur.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// Délai maximal de toute l'opération, quoi qu'il arrive.
+const INSTALL_DEADLINE: Duration = Duration::from_secs(15 * 60);
+/// Événement de progression d'une installation (écouté par l'interface).
+pub const UPDATE_EVENT: &str = "update://progress";
+
 fn updater(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Updater>, String> {
     use tauri_plugin_updater::UpdaterExt;
     let Some(url) = UPDATE_URL else { return Ok(None) };
     let url = url.parse().map_err(|e| format!("adresse de mise à jour invalide ({e})"))?;
-    app.updater_builder().endpoints(vec![url]).map_err(|e| e.to_string())?.build().map(Some).map_err(|e| e.to_string())
+    app.updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .timeout(CHECK_TIMEOUT)
+        .build()
+        .map(Some)
+        .map_err(|e| e.to_string())
+}
+
+/// Journal des mises à jour (dossier des journaux d'iBox) : étapes et erreurs, sans chemin
+/// ni information personnelle. Sert à comprendre un échec chez un utilisateur.
+fn update_log(app: &AppHandle, line: &str) {
+    use std::io::Write;
+    let Ok(dir) = app.path().app_log_dir() else { return };
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("updates.log");
+    // journal court : repart de zéro au-delà de 64 Kio
+    if std::fs::metadata(&path).map(|m| m.len() > 64 * 1024).unwrap_or(false) {
+        let _ = std::fs::remove_file(&path);
+    }
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(f, "{} v{} {line}", crate::library::time::now_iso(), app.package_info().version);
+    }
 }
 
 #[tauri::command]
@@ -210,64 +243,107 @@ pub async fn update_check(app: AppHandle) -> Result<UpdateInfo, String> {
     let Some(u) = updater(&app)? else {
         return Ok(UpdateInfo { configured: false, current, available: None, notes: None });
     };
-    let found = u.check().await.map_err(check_error)?;
+    let found = u.check().await.map_err(|e| check_error(&app, e))?;
     Ok(UpdateInfo { configured: true, current, available: found.as_ref().map(|f| f.version.clone()), notes: found.and_then(|f| f.body) })
 }
 
 /// Échec de la vérification : message clair (le détail technique va dans le journal).
-fn check_error(e: tauri_plugin_updater::Error) -> String {
-    eprintln!("iBox : vérification des mises à jour impossible : {e}");
+fn check_error(app: &AppHandle, e: tauri_plugin_updater::Error) -> String {
+    update_log(app, &format!("recherche impossible : {e}"));
     "Impossible de joindre le serveur de mises à jour. Vérifiez votre connexion, puis réessayez.".into()
 }
 
 /// Étapes d'une mise à jour, envoyées à l'interface pendant l'installation.
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 #[serde(tag = "stage", rename_all = "camelCase")]
 pub enum UpdateProgress {
     Checking,
     Downloading { received: u64, total: Option<u64> },
     Verifying,
     Installing,
+    /// Échec : iBox reste ouvert, l'interface propose de réessayer ou de télécharger l'installeur.
+    Failed { message: String },
+    UpToDate,
 }
 
-/// Télécharge la mise à jour (signature vérifiée), l'installe et redémarre iBox.
+static INSTALLING: AtomicBool = AtomicBool::new(false);
+
+/// Lance l'installation de la mise à jour dans un fil dédié, avec son propre moteur réseau :
+/// rien d'autre dans iBox ne peut la ralentir ni la bloquer, et chaque étape a un délai maximal.
+/// La progression arrive par l'événement `update://progress` ; la commande répond aussitôt.
 #[tauri::command]
-pub async fn update_install(app: AppHandle, progress: tauri::ipc::Channel<UpdateProgress>) -> Result<(), String> {
-    static INSTALLING: AtomicBool = AtomicBool::new(false);
+pub fn update_install(app: AppHandle) -> Result<(), String> {
+    if UPDATE_URL.is_none() {
+        return Err("Mises à jour non configurées.".into());
+    }
     if INSTALLING.swap(true, Ordering::AcqRel) {
         return Err("Une mise à jour est déjà en cours.".into());
     }
-    struct ResetInstall;
-    impl Drop for ResetInstall {
-        fn drop(&mut self) {
-            INSTALLING.store(false, Ordering::Release);
-        }
-    }
-    let _guard = ResetInstall;
-    let _ = progress.send(UpdateProgress::Checking);
-    let Some(u) = updater(&app)? else { return Err("Mises à jour non configurées.".into()) };
-    let Some(update) = u.check().await.map_err(check_error)? else { return Err("iBox est déjà à jour.".into()) };
-    let _ = progress.send(UpdateProgress::Downloading { received: 0, total: None });
-    let mut received = 0;
-    let mut last_reported = 0;
-    let mut verifying = false;
-    let bytes = update.download(
-        |size, total| {
-            received += size as u64;
-            if last_reported == 0 || received - last_reported >= 128 * 1024 || total == Some(received) {
-                last_reported = received;
-                let _ = progress.send(UpdateProgress::Downloading { received, total });
+    let worker = app.clone();
+    let spawned = std::thread::Builder::new().name("ibox-update".into()).spawn(move || {
+        let app = worker;
+        let emit = |p: UpdateProgress| { let _ = app.emit(UPDATE_EVENT, p); };
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| format!("Moteur de mise à jour indisponible : {e}"))
+            .and_then(|rt| rt.block_on(async {
+                match tokio::time::timeout(INSTALL_DEADLINE, run_update(&app, &emit)).await {
+                    Ok(r) => r,
+                    Err(_) => Err("La mise à jour a pris trop de temps.".into()),
+                }
+            }));
+        INSTALLING.store(false, Ordering::Release);
+        match result {
+            Ok(()) => {}
+            Err(message) if message == UP_TO_DATE => emit(UpdateProgress::UpToDate),
+            Err(message) => {
+                update_log(&app, &format!("échec : {message}"));
+                emit(UpdateProgress::Failed { message });
             }
-        },
-        || {
-            verifying = true;
-            let _ = progress.send(UpdateProgress::Verifying);
-        },
-    ).await.map_err(|e| {
-        if verifying { format!("Signature de la mise à jour invalide : {e}") }
-        else { format!("Téléchargement impossible : {e}") }
-    })?;
-    let _ = progress.send(UpdateProgress::Installing);
+        }
+    });
+    if let Err(e) = spawned {
+        INSTALLING.store(false, Ordering::Release);
+        return Err(format!("Mise à jour impossible : {e}"));
+    }
+    Ok(())
+}
+
+const UP_TO_DATE: &str = "iBox est déjà à jour.";
+
+async fn run_update(app: &AppHandle, emit: &impl Fn(UpdateProgress)) -> Result<(), String> {
+    emit(UpdateProgress::Checking);
+    update_log(app, "recherche");
+    let u = updater(app)?.ok_or("Mises à jour non configurées.")?;
+    let mut update = u.check().await.map_err(|e| check_error(app, e))?.ok_or(UP_TO_DATE)?;
+    update_log(app, &format!("trouvée : {}", update.version));
+    update.timeout = Some(DOWNLOAD_TIMEOUT);
+    emit(UpdateProgress::Downloading { received: 0, total: None });
+    let mut received = 0u64;
+    let mut last_reported = 0u64;
+    let mut verifying = false;
+    let bytes = update
+        .download(
+            |size, total| {
+                received += size as u64;
+                if received - last_reported >= 256 * 1024 || total == Some(received) {
+                    last_reported = received;
+                    emit(UpdateProgress::Downloading { received, total });
+                }
+            },
+            || {
+                verifying = true;
+                emit(UpdateProgress::Verifying);
+            },
+        )
+        .await
+        .map_err(|e| {
+            if verifying { format!("Signature de la mise à jour invalide : {e}") } else { format!("Téléchargement impossible : {e}") }
+        })?;
+    update_log(app, &format!("téléchargée ({} octets), installation", bytes.len()));
+    emit(UpdateProgress::Installing);
+    // l'installeur prend le relais (mode discret), puis relance iBox ; ce processus se ferme
     update.install(bytes).map_err(|e| format!("Installation impossible : {e}"))?;
     app.restart();
 }
@@ -277,5 +353,38 @@ pub async fn update_install(app: AppHandle, progress: tauri::ipc::Channel<Update
 pub fn shell_minimize(app: AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.minimize();
+    }
+}
+
+#[cfg(test)]
+mod update_live {
+    //! Test réseau réel du canal de mise à jour publié (ignoré par défaut) :
+    //!   cargo test --lib update_live -- --ignored --nocapture
+    //! Lit le manifeste comme le fait iBox, télécharge l'installeur annoncé et vérifie sa
+    //! signature avec la clé publique intégrée à iBox (le même contrôle que l'installation).
+    use base64::Engine;
+
+    #[test]
+    #[ignore]
+    fn manifeste_installeur_et_signature() {
+        let b64 = base64::engine::general_purpose::STANDARD;
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let pubkey = String::from_utf8(b64.decode(conf["plugins"]["updater"]["pubkey"].as_str().unwrap()).unwrap()).unwrap();
+        let pk = minisign_verify::PublicKey::decode(&pubkey).unwrap();
+        let http = reqwest::blocking::Client::builder().timeout(std::time::Duration::from_secs(120)).build().unwrap();
+        for manifest in [
+            "https://github.com/atzski/ibox/releases/latest/download/latest.json",
+            "https://github.com/atzski/inbox-releases/releases/latest/download/latest.json",
+        ] {
+            let m: serde_json::Value = http.get(manifest).send().unwrap().error_for_status().unwrap().json().unwrap();
+            let win = &m["platforms"]["windows-x86_64"];
+            let url = win["url"].as_str().unwrap();
+            assert!(url.starts_with("https://github.com/atzski/ibox/releases/download/"), "{url}");
+            let bytes = http.get(url).send().unwrap().error_for_status().unwrap().bytes().unwrap();
+            let sig = String::from_utf8(b64.decode(win["signature"].as_str().unwrap()).unwrap()).unwrap();
+            let sig = minisign_verify::Signature::decode(&sig).unwrap();
+            pk.verify(&bytes, &sig, true).expect("signature valide");
+            println!("{manifest} -> {} : {} octets, signature valide", m["version"], bytes.len());
+        }
     }
 }

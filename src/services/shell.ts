@@ -17,6 +17,8 @@ export const HELP = {
   steamgriddbKey: "https://www.steamgriddb.com/profile/preferences/api",
   steamAccount: "https://store.steampowered.com/account/",
   support: "https://buymeacoffee.com/atzski",
+  /** Page des versions : installeur à télécharger si la mise à jour intégrée échoue. */
+  releases: "https://github.com/atzski/ibox/releases/latest",
 } as const;
 
 export interface UpdateInfo {
@@ -31,6 +33,11 @@ export type UpdateProgress =
   | { stage: "checking" | "verifying" | "installing" }
   | { stage: "downloading"; received: number; total: number | null };
 
+type NativeProgress = UpdateProgress | { stage: "failed"; message: string } | { stage: "upToDate" };
+
+/** Sans nouvelle étape pendant ce délai, l'installation est considérée comme bloquée. */
+const STALL_MS = 90_000;
+
 export const shellApi = {
   autostartGet: () => invoke<boolean>("autostart_get"),
   autostartSet: (enabled: boolean) => invoke<boolean>("autostart_set", { enabled }),
@@ -38,10 +45,40 @@ export const shellApi = {
   saveDiagnostic: (text: string) => invoke<string>("diagnostic_save", { text }),
   updateToast: (version: string) => invoke<void>("toast_update", { version }),
   checkUpdate: () => invoke<UpdateInfo>("update_check"),
+  /**
+   * Installe la mise à jour : le travail se fait côté natif, dans un fil dédié ; la progression
+   * arrive par événements. Se termine en erreur si l'installation échoue ou ne progresse plus.
+   */
   installUpdate: async (onProgress: (event: UpdateProgress) => void) => {
     if (!isTauri()) throw new Error("Installation disponible dans l’application Windows.");
-    const { Channel } = await import("@tauri-apps/api/core");
-    return invoke<void>("update_install", { progress: new Channel(onProgress) });
+    const { listen } = await import("@tauri-apps/api/event");
+    const { invoke: call } = await import("@tauri-apps/api/core");
+    return new Promise<void>((resolve, reject) => {
+      let stall = 0;
+      let off: (() => void) | undefined;
+      const finish = (error?: Error) => {
+        window.clearTimeout(stall);
+        off?.();
+        if (error) reject(error); else resolve();
+      };
+      const arm = () => {
+        window.clearTimeout(stall);
+        stall = window.setTimeout(() => finish(new Error("La mise à jour ne progresse plus. Vérifiez votre connexion, puis réessayez, ou téléchargez l’installeur.")), STALL_MS);
+      };
+      void listen<NativeProgress>("update://progress", ({ payload }) => {
+        if (payload.stage === "failed") return finish(new Error(payload.message));
+        if (payload.stage === "upToDate") return finish();
+        arm();
+        onProgress(payload);
+        // l'installeur prend le relais : iBox va se fermer puis redémarrer
+        if (payload.stage === "installing") window.clearTimeout(stall);
+      }).then((unlisten) => {
+        off = unlisten;
+        arm();
+        onProgress({ stage: "checking" });
+        call<void>("update_install").catch((e) => finish(e instanceof Error ? e : new Error(String(e))));
+      }, (e) => finish(e instanceof Error ? e : new Error(String(e))));
+    });
   },
   setBehavior: (keepInTray: boolean, hideOnLaunch: boolean) => invoke<void>("shell_behavior_set", { keepInTray, hideOnLaunch }),
   hide: () => invoke<void>("shell_hide"),

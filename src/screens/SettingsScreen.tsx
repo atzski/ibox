@@ -1302,7 +1302,7 @@ function UpdatesPanel() {
               : version
                 ? `Nouvelle version ${version} disponible${info ? ` (vous avez la ${info.current})` : ""}.`
                 : info ? `iBox est à jour (version ${info.current}). iBox vérifie tout seul toutes les 30 minutes.` : "Vérifiez si une nouvelle version d'iBox est disponible."}
-        {(notes ?? info?.notes) && version && <p className="mt-1 whitespace-pre-line text-ink">{notes ?? info?.notes}</p>}
+        {(notes ?? info?.notes) && version && <p data-no-i18n className="mt-1 whitespace-pre-line text-ink">{notes ?? info?.notes}</p>}
         {installing && <p role="status" className="mt-2">{status}</p>}
         {installing && progress?.stage === "downloading" && (
           <progress className="mt-1 w-full" aria-label="Téléchargement de la mise à jour" max={100} value={percent} />
@@ -1310,9 +1310,14 @@ function UpdatesPanel() {
         {(error ?? state.error) && <p role="alert" className="mt-2 text-peach-deep">{error ?? state.error}</p>}
       </div>
       {version ? (
-        <Button variant="primary" icon="download" disabled={installing} onClick={() => void install()}>
-          {installing ? "Mise à jour en cours…" : error ? "Réessayer l’installation" : "Installer et redémarrer"}
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button variant="primary" icon="download" disabled={installing} onClick={() => void install()}>
+            {installing ? "Mise à jour en cours…" : error ? "Réessayer l’installation" : "Installer et redémarrer"}
+          </Button>
+          {error && !installing && (
+            <Button icon="globe" onClick={() => void shellApi.openHelp(HELP.releases)}>Télécharger l’installeur</Button>
+          )}
+        </div>
       ) : (
         <Button icon="reset" disabled={state.busy} onClick={() => void lookup()}>
           {state.busy ? "Vérification…" : state.error ? "Réessayer la recherche" : "Rechercher"}

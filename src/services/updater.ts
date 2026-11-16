@@ -41,7 +41,7 @@ export const useUpdater = create<UpdaterState>((set, get) => ({
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       set({ error });
-      notify({ icon: "download", tone: "warn", title: "Mise à jour non installée", body: `${error} Cliquez pour réessayer.`, link: { kind: "update" } });
+      notify({ icon: "download", tone: "warn", title: "Mise à jour non installée", body: `${error} Cliquez pour réessayer ; l’installeur est aussi téléchargeable dans Paramètres › Système.`, link: { kind: "update" } });
     } finally {
       set({ installing: false, progress: null });
     }
