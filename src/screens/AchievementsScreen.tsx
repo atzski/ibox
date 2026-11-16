@@ -235,11 +235,8 @@ function TrophyRoomHero({ user, profile, entries, awards, error, onRefresh }: {
       </div>
       <div className="relative flex flex-wrap items-end gap-5 px-7 pt-7 pb-5">
         <span className="relative">
-          {profile ? (
-            <img src={profile.pic} alt="" className="size-28 rounded-[1.8rem] bg-white object-cover shadow-lg ring-4 ring-white" />
-          ) : (
-            <span className="block rounded-[1.8rem] bg-white p-1 shadow-lg"><Avatar size={104} choice={avatar} name={name} /></span>
-          )}
+          {/* toujours la photo du profil iBox, quel que soit le compte de succès relié */}
+          <span className="block rounded-[1.8rem] bg-white p-1 shadow-lg"><Avatar size={104} choice={avatar} name={name} /></span>
           <motion.span
             initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.3 }}
             className="absolute -right-3 -bottom-3 grid size-14 place-items-center rounded-full font-display text-white shadow-lg ring-4 ring-white"
@@ -250,7 +247,7 @@ function TrophyRoomHero({ user, profile, entries, awards, error, onRefresh }: {
           </motion.span>
         </span>
         <div className="min-w-0 flex-1 pb-1">
-          <div data-no-i18n className="truncate font-display text-[2rem] leading-tight font-semibold text-ink">{profile?.user ?? name}</div>
+          <div data-no-i18n className="truncate font-display text-[2rem] leading-tight font-semibold text-ink">{name}{profile?.user && profile.user !== name && <span className="ml-2 align-middle text-[0.9rem] font-bold text-ink-soft">@{profile.user}</span>}</div>
           {profile?.motto && <div data-no-i18n className="truncate text-[0.92rem] font-semibold text-ink-soft italic">« {profile.motto} »</div>}
           {profile?.richPresence && <div data-no-i18n className="mt-0.5 truncate text-[0.84rem] font-bold text-[#2F7A57]">▶ {profile.richPresence}</div>}
           <div className="mt-2.5 max-w-[30rem]">

@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.49"
+version = "0.1.50"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -32,9 +32,12 @@ keyring-core = "1.0.1"
 windows-native-keyring-store = "1.1.0"
 tokio = { version = "1", features = ["rt", "time"] }
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
+png = "0.18"
+gif = "0.13"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 [profile.release]
 codegen-units = 1

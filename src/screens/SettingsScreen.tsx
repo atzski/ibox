@@ -1074,6 +1074,14 @@ function SystemPage() {
           </Button>
         </Row>
       </Group>
+      <Group title="Overlay en jeu" icon="gamepad">
+        <Row label="Raccourci Alt+E" note="Pendant une partie, ouvre l’overlay iBox (captures, clips, Communauté). Hors partie, Alt+E reste libre.">
+          <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Raccourci Alt+E" />
+        </Row>
+        <Row label="Clips des 12 dernières secondes" note="iBox garde en mémoire les dernières secondes de jeu, rien n’est écrit sans votre demande.">
+          <Toggle checked={s.captureClips !== false} onChange={(v) => s.set("captureClips", v)} label="Clips" />
+        </Row>
+      </Group>
       <Group title="Sauvegardes de la bibliothèque" icon="database">
         <div className="border-none">
           <BackupsPanel />

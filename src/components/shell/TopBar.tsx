@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { NotificationsButton, UpdateChip } from "./NotificationsButton";
 import { PlayersIndicator } from "./Players";
+import { UserSwitcher } from "@/components/home/HomeQuickBar";
 import { FriendsButton } from "./FriendsButton";
 import { Avatar } from "@/components/profile/Avatar";
 import { ProfileModal } from "@/components/profile/ProfileModal";
@@ -34,6 +35,8 @@ export function TopBar() {
   const now = useClock();
   const isHome = route.name === "home";
   const [editing, setEditing] = useState(false);
+  // grille de jaquettes en défilement : seuls Retour, le titre et Accueil restent
+  const immersive = useShell((s) => s.immersive) && !isHome;
 
   const clock12h = useSettings((s) => s.clock12h === true);
   const showDate = useSettings((s) => s.showDate !== false);
@@ -42,7 +45,12 @@ export function TopBar() {
   const date = now.toLocaleDateString(language, { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <header className="relative z-20 flex h-[5.25rem] shrink-0 items-center gap-4 px-[3rem]">
+    <motion.header
+      initial={false}
+      animate={{ height: immersive ? "3.6rem" : "5.25rem" }}
+      transition={{ type: "spring", stiffness: 260, damping: 32 }}
+      className="relative z-20 flex shrink-0 items-center gap-4 px-[3rem]"
+    >
       <AnimatePresence mode="popLayout" initial={false}>
         {isHome ? (
           <motion.div
@@ -65,6 +73,7 @@ export function TopBar() {
               <Avatar size={48} />
               <span className="font-display text-[1.15rem] font-semibold text-ink">{profile}</span>
             </button>
+            <UserSwitcher />
           </motion.div>
         ) : (
           <motion.div
@@ -91,10 +100,19 @@ export function TopBar() {
       </AnimatePresence>
 
       <div className="ml-auto flex items-center gap-3">
+        <motion.div
+          initial={false}
+          animate={immersive ? { opacity: 0, y: -14, filter: "blur(4px)" } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ type: "spring", stiffness: 260, damping: 30 }}
+          style={{ pointerEvents: immersive ? "none" : undefined }}
+          inert={immersive}
+          className="flex items-center gap-3"
+        >
         <div className="mr-2 text-right leading-tight">
           <div className="font-display text-[1.45rem] font-semibold text-ink tabular-nums">{time}</div>
           {showDate && <div className="text-[0.78rem] font-semibold text-ink-soft capitalize">{date}</div>}
         </div>
+        </motion.div>
         {!isHome && (
           <button
             data-focusable
@@ -108,6 +126,14 @@ export function TopBar() {
             <Icon name="home" size="1.3em" />
           </button>
         )}
+        <motion.div
+          initial={false}
+          animate={immersive ? { opacity: 0, y: -14, filter: "blur(4px)" } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ type: "spring", stiffness: 260, damping: 30, delay: immersive ? 0 : 0.05 }}
+          style={{ pointerEvents: immersive ? "none" : undefined }}
+          inert={immersive}
+          className="flex items-center gap-3"
+        >
         <PlayersIndicator />
         <UpdateChip />
         <FriendsButton />
@@ -127,8 +153,9 @@ export function TopBar() {
         )}
         <MinimizeButton />
         <PowerButton />
+        </motion.div>
       </div>
       {editing && <ProfileModal onClose={() => setEditing(false)} />}
-    </header>
+    </motion.header>
   );
 }

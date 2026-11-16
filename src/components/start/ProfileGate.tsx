@@ -30,17 +30,15 @@ export function ProfileGate() {
   const pick = (id: string) => {
     if (editing) return;
     sound.play("select");
-    switchProfile(id);
-    choose();
+    void switchProfile(id).finally(choose);
   };
   const add = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     sound.play("select");
-    createProfile(name);
+    void createProfile(name).finally(choose);
     setName("");
     setAdding(false);
-    choose();
   };
 
   // écran au premier plan : la manette et le clavier y restent, « Retour » ne le ferme pas
@@ -90,7 +88,7 @@ export function ProfileGate() {
                 aria-label={`Supprimer le profil ${p.name}`}
                 onClick={() => {
                   sound.play("back");
-                  deleteProfile(p.id);
+                  void deleteProfile(p.id);
                 }}
                 className="ibox-focusable absolute top-2 right-4 grid size-9 place-items-center rounded-full bg-peach-deep text-white shadow-md [--ring-radius:999px]"
               >

@@ -20,6 +20,8 @@ interface ShellState {
   /** Fiche du jeu : fond net en haut de l'écran plutôt que flou. */
   ambientStage: boolean;
   title: string | null;
+  /** Lecture immersive (grille de jaquettes) : le haut de l'écran se replie. */
+  immersive: boolean;
   set: (patch: Partial<Omit<ShellState, "set">>) => void;
 }
 
@@ -30,6 +32,7 @@ export const useShell = create<ShellState>((set) => ({
   ambientGame: null,
   ambientStage: false,
   title: null,
+  immersive: false,
   set: (patch) => set(patch),
 }));
 

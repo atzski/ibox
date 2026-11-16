@@ -70,3 +70,11 @@ describe("joueurs", () => {
     expect(back.map((p) => [p.index, p.slot])).toEqual([[2, 1], [1, 2]]);
   });
 });
+
+describe("jusqu'à 8 joueurs", () => {
+  it("numérote P1 à P8 et ignore une neuvième manette", () => {
+    const pads = Array.from({ length: 9 }, (_, i) => ({ index: i, id: `Pad ${i}` }));
+    const players = assignSlots([], pads);
+    expect(players.map((p) => p.slot)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+});

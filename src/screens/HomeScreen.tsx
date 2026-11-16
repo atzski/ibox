@@ -1,4 +1,5 @@
 import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
+import { HomeQuickBar } from "@/components/home/HomeQuickBar";
 import { AnimatePresence, motion } from "motion/react";
 import { CollectionsRow } from "@/components/extras/CollectionsRow";
 import { WhatsNew } from "@/components/extras/WhatsNew";
@@ -207,11 +208,14 @@ export function HomeScreen() {
         setSetting("homeBlocks", blocks.map((block) => block.id === "collections" ? { ...block, visible: true } : block));
         requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("ibox:open-collection", { detail: id })));
       }} />}
-      {!editing && <div className="flex justify-end gap-2 px-[3rem] pt-4">
-        <Button icon="trophy" onClick={() => go({ name: "achievements" })}>Succès</Button>
-        <Button icon="front" onClick={() => setPicking(true)} title="Changer le fond de l’accueil">Fond</Button>
-        <Button icon="search" onClick={() => setSearch(true)}>Recherche rapide</Button>
-      </div>}
+      {!editing && (
+        <HomeQuickBar
+          onAchievements={() => go({ name: "achievements" })}
+          onCommunity={() => go({ name: "community" })}
+          onBackground={() => setPicking(true)}
+          onSearch={() => setSearch(true)}
+        />
+      )}
       {picking && <HomeBackgroundPicker onClose={() => setPicking(false)} />}
       <AnimatePresence initial={false}>
         {editing && (

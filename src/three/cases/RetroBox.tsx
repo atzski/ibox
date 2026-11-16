@@ -9,6 +9,8 @@ import { createCaseAnim, type KeepCaseAnim } from "./KeepCase";
 
 /** Course du plateau qui sort de la boîte (fraction de la largeur). */
 export const TRAY_TRAVEL = 1.02;
+/** Ouverture maximale du rabat latéral (radians). */
+const FLAP_ANGLE = 1.95;
 
 /**
  * Boîte en carton rétro (N64, Super Nintendo, Game Boy…) : un plateau
@@ -36,6 +38,7 @@ export function RetroBox({
   const localAnim = useRef<KeepCaseAnim>(createCaseAnim());
   const a = anim ?? localAnim;
   const tray = useRef<Group>(null);
+  const flap = useRef<Group>(null);
   const cartGroup = useRef<Group>(null);
 
   const mats = useMemo(() => {
@@ -45,9 +48,13 @@ export function RetroBox({
     const front = art(textures?.front);
     const back = art(textures?.back);
     const side = art(textures?.spine);
+    const hole = new MeshStandardMaterial({ visible: false });
     return {
       // ordre des faces d'une BoxGeometry : +x, -x, +y, -y, +z, -z
       box: [side, side, board, board, front, back],
+      // côté droit remplacé par un rabat articulé (vue détaillée)
+      shell: [hole, side, board, board, front, back],
+      flap: [side, board, board, board, board, board],
       tray: new MeshStandardMaterial({ color: spec.tray, roughness: 0.9 }),
       plastic: new MeshStandardMaterial({ color: cart.color, roughness: 0.55 }),
       label: new MeshStandardMaterial({ map: textures?.label ?? null, color: textures ? "#ffffff" : "#e8e4f3", roughness: 0.6 }),
@@ -57,7 +64,7 @@ export function RetroBox({
 
   useEffect(
     () => () => {
-      for (const m of [...mats.all, mats.tray, mats.plastic, mats.label]) m.dispose();
+      for (const m of [...mats.all, mats.tray, mats.plastic, mats.label, mats.shell[0]]) m.dispose();
     },
     [mats],
   );
@@ -82,7 +89,10 @@ export function RetroBox({
       }
       stepSpring(st.disc, outTarget, dt, 85, 14);
     }
-    if (tray.current) tray.current.position.x = W * TRAY_TRAVEL * st.open.x;
+    // le rabat s'ouvre d'abord, puis le plateau coulisse par l'ouverture
+    const o = st.open.x;
+    if (flap.current) flap.current.rotation.y = FLAP_ANGLE * Math.min(1, Math.max(0, o / 0.45));
+    if (tray.current) tray.current.position.x = W * TRAY_TRAVEL * Math.max(0, (o - 0.3) / 0.7);
     if (cartGroup.current) {
       const k = st.disc.x;
       cartGroup.current.position.set(0, 0, -trayD / 2 + wall + cart.depth / 2 + k * (D + 0.5));
@@ -95,9 +105,21 @@ export function RetroBox({
   return (
     <group>
       {/* boîte (fourreau) */}
-      <mesh material={mats.box}>
+      <mesh material={lite ? mats.box : mats.shell}>
         <boxGeometry args={[W, H, D]} />
       </mesh>
+      {!lite && (
+        // rabat latéral, charnière sur l'arête arrière : la boîte s'ouvre vraiment
+        <group ref={flap} position={[W / 2, 0, -D / 2]}>
+          <mesh position={[0.004, 0, D / 2]} material={mats.flap}>
+            <boxGeometry args={[0.008, H, D]} />
+          </mesh>
+          {/* languette à glisser */}
+          <mesh position={[-0.02, 0, D - 0.002]} material={mats.flap[1]}>
+            <boxGeometry args={[0.04, H * 0.92, 0.004]} />
+          </mesh>
+        </group>
+      )}
 
       {!lite && (
         <group ref={tray}>

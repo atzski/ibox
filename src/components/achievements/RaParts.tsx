@@ -231,7 +231,7 @@ export async function loadGameAchievements(game: Game, raUser?: string): Promise
  * Carte « Succès » d'une fiche de jeu (consoles et Steam) : anneau de progression, dernières
  * médailles et prochain objectif. Un clic ouvre la page du jeu dans l'univers des succès.
  */
-export function AchievementsCard({ game, inline = false }: { game: Game; inline?: boolean }) {
+export function AchievementsCard({ game, inline = false, compact = false }: { game: Game; inline?: boolean; compact?: boolean }) {
   const user = useSettings((s) => s.raUsername);
   const [detail, setDetail] = useState<RaGameDetail | null | undefined>();
   const steam = game.platformId === "pc" ? steamAppId(game) : undefined;
@@ -253,6 +253,30 @@ export function AchievementsCard({ game, inline = false }: { game: Game; inline?
     sound.play("open");
     useNav.getState().go({ name: "achievements", gameId: game.id });
   };
+  if (compact) {
+    // pastille discrète incrustée dans la vitrine 3D : ne recouvre plus le dock
+    return (
+      <motion.button
+        type="button"
+        data-focusable
+        onClick={go}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 280, damping: 26, delay: 0.25 }}
+        whileHover={{ scale: 1.03 }}
+        title={steam ? "Succès Steam" : "Succès RetroAchievements"}
+        className="ibox-focusable z-20 flex items-center gap-2 rounded-full bg-white/70 py-1 pr-3.5 pl-1 text-left shadow-[0_8px_20px_-14px_rgba(30,40,70,0.6)] ring-1 ring-black/5 backdrop-blur [--ring-radius:999px]"
+      >
+        <ProgressRing value={ratio} size={30} stroke={3.5} color={left === 0 && total ? GOLD : SKY}>
+          <span className="grid size-[1.3rem] place-items-center rounded-full" style={{ background: `linear-gradient(140deg, ${GOLD_SOFT}, ${GOLD})` }}>
+            <Icon name="trophy" size="0.75rem" className="text-[#6B4700]" />
+          </span>
+        </ProgressRing>
+        <span className="text-[0.78rem] font-extrabold text-ink">{status}</span>
+        {detail?.award && <Icon name="star" size="0.85rem" filled className="text-[#C9821A]" />}
+      </motion.button>
+    );
+  }
   return (
     <motion.button
       type="button"

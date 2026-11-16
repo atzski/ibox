@@ -5,10 +5,23 @@
 export interface Release {
   version: string;
   date: string;
-  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe" | "trophy" | "copy" | "download"; title: string; text: string }[];
+  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe" | "trophy" | "copy" | "download" | "key"; title: string; text: string }[];
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: "0.1.50",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "globe", title: "Hub de la communauté", text: "En pleine partie, Alt+E ouvre l’overlay iBox : gardez une capture d’écran, un clip des 12 dernières secondes, puis partagez-les avec vos amis dans la Communauté." },
+      { icon: "user", title: "Chaque joueur chez soi", text: "Changez d’utilisateur depuis l’accueil. Chaque profil a son compte iNetbox, ses fonds, son thème et ses réglages ; seuls les jeux restent communs." },
+      { icon: "key", title: "Compte par e-mail", text: "L’inscription demande une adresse e-mail ; on peut se connecter avec, et réinitialiser un mot de passe oublié grâce à un code reçu par e-mail." },
+      { icon: "gamepad", title: "Jusqu’à 8 manettes", text: "De P1 à P8 : à partir de trois manettes, une pastille compacte « P1,2 +N » déplie la liste complète." },
+      { icon: "grid", title: "Jaquettes en plein écran", text: "En faisant défiler la grille, tout le haut de l’écran s’efface en douceur ; il revient dès que vous remontez." },
+      { icon: "disc", title: "Boîtes qui s’ouvrent", text: "Game Boy et autres boîtes carton : le rabat s’ouvre avant que la cartouche sorte." },
+      { icon: "trophy", title: "Succès mieux intégrés", text: "Pastille discrète sur les fiches console, raccourcis Succès et Fond plus petits sur l’accueil, et votre photo de profil iBox dans la salle des trophées." },
+    ],
+  },
   {
     version: "0.1.49",
     date: "2026-11-16",

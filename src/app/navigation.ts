@@ -13,7 +13,9 @@ export type Route =
   | { name: "game"; gameId: string }
   | { name: "settings"; category?: string }
   /** Univers RetroAchievements : tableau de bord, ou la page d'un jeu. */
-  | { name: "achievements"; gameId?: string };
+  | { name: "achievements"; gameId?: string }
+  /** Hub de la communauté : captures et clips partagés. */
+  | { name: "community" };
 
 interface NavState {
   stack: Route[];

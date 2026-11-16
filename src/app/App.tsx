@@ -36,6 +36,9 @@ import { PlatformsScreen } from "@/screens/PlatformsScreen";
 import { LibraryScreen } from "@/screens/LibraryScreen";
 import { GameScreen } from "@/screens/GameScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
+import { CommunityScreen } from "@/screens/CommunityScreen";
+import { captures } from "@/services/community";
+import { isTauri } from "@/services/native";
 
 function Screen({ route }: { route: Route }) {
   switch (route.name) {
@@ -51,6 +54,8 @@ function Screen({ route }: { route: Route }) {
       return <SettingsScreen category={route.category} />;
     case "achievements":
       return <AchievementsScreen gameId={route.gameId} />;
+    case "community":
+      return <CommunityScreen />;
   }
 }
 
@@ -86,6 +91,7 @@ export function App() {
   const setupDone = useSettings((s) => s.setupDone);
   const askProfile = useSettings((s) => s.askProfileOnStart);
   const profileChosen = useSession((s) => s.chosen);
+  const gateForced = useSession((s) => s.forced);
 
   // iBox dans Windows : arrière-plan et fenêtre masquée pendant le jeu
   const keepInTray = useSettings((s) => s.keepInTray);
@@ -98,6 +104,15 @@ export function App() {
     () => useLauncher.getState().phase === "running",
     (fn) => useLauncher.subscribe((s, p) => { if ((s.phase === "running") !== (p.phase === "running")) fn(s.phase === "running"); }),
   ), []);
+  // overlay en jeu (Alt+E) : réglages des clips et du raccourci, ouverture de la Communauté
+  const captureClips = useSettings((s) => s.captureClips !== false);
+  const captureHotkey = useSettings((s) => s.captureHotkey !== false);
+  useEffect(() => void captures.settings(captureClips, captureHotkey).catch(() => undefined), [captureClips, captureHotkey]);
+  useEffect(() => {
+    if (!isTauri()) return;
+    const off = import("@tauri-apps/api/event").then(({ listen }) => listen("open-community", () => useNav.getState().go({ name: "community" })));
+    return () => void off.then((f) => f());
+  }, []);
   // menu de l'icône de notification : Jeux ou Social
   useEffect(() => {
     const off = shellApi.onTrayNavigate((place) => {
@@ -223,7 +238,7 @@ export function App() {
       </div>
       <BackgroundJobs />
       <AnimatePresence>
-        {!setupDone ? <SetupWizard key="setup" /> : askProfile && !profileChosen ? <ProfileGate key="gate" /> : null}
+        {!setupDone ? <SetupWizard key="setup" /> : (askProfile || gateForced) && !profileChosen ? <ProfileGate key="gate" /> : null}
       </AnimatePresence>
       <InetboxModal />
       <DuplicatesHost />

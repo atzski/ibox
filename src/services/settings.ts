@@ -49,6 +49,8 @@ export interface LocalProfile {
   platform?: string;
   game?: string;
   featuredGames?: string[];
+  /** Réglages propres au joueur (apparence, fonds, sons…), voir services/profiles. */
+  prefs?: Partial<SettingsState>;
 }
 
 export interface SettingsState {
@@ -146,6 +148,10 @@ export interface SettingsState {
   pcConnectors: Record<string, boolean>;
   /** Jeux de la Famille Steam (avec la clé API Web Steam). */
   steamFamily: boolean;
+  /** Overlay en jeu : mémoire des dernières secondes pour les clips. */
+  captureClips?: boolean;
+  /** Overlay en jeu : raccourci Alt+E pendant les parties. */
+  captureHotkey?: boolean;
   /** Bouton de validation de la manette : auto (selon la famille), en bas, à droite. */
   gamepadConfirm: "auto" | "south" | "east";
 

@@ -112,14 +112,16 @@ export class PadProcessor {
 export interface PadPlayer {
   /** Index de la manette pour le navigateur (navigator.getGamepads). */
   index: number;
-  /** Joueur 1, 2, 3, 4. */
+  /** Joueur 1 à 8. */
   slot: number;
   name: string;
   family: PadFamily;
 }
 
 /** Couleurs des joueurs (comme les témoins d'une console). */
-export const PLAYER_COLORS = ["#2F8CF0", "#F0503C", "#33B86B", "#F2B21B"] as const;
+export const PLAYER_COLORS = ["#2F8CF0", "#F0503C", "#33B86B", "#F2B21B", "#9B5CF0", "#F0761E", "#1FB5B5", "#E8509A"] as const;
+/** Nombre maximal de joueurs (P1 à P8). */
+export const MAX_PLAYERS = 8;
 
 /** Numéros de joueur : on garde ceux déjà attribués, les nouvelles manettes prennent le premier libre. */
 export function assignSlots(previous: PadPlayer[], pads: { index: number; id: string }[]): PadPlayer[] {
@@ -133,6 +135,7 @@ export function assignSlots(previous: PadPlayer[], pads: { index: number; id: st
     if (out.some((p) => p.index === pad.index)) continue;
     let slot = 1;
     while (taken.has(slot)) slot++;
+    if (slot > MAX_PLAYERS) break;
     taken.add(slot);
     out.push({ index: pad.index, slot, name: pad.id, family: detectFamily(pad.id) });
   }

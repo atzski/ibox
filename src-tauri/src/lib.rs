@@ -16,6 +16,8 @@ pub mod scanner;
 pub mod shell;
 pub mod wallpaper;
 pub mod inetbox;
+pub mod profile;
+pub mod capture;
 pub mod toast;
 mod achievements;
 
@@ -79,12 +81,28 @@ pub fn run() {
                     let _ = w.hide();
                 }
             }
+            profile::load(app.handle());
             inetbox::start(app.handle().clone());
+            capture::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
             inetbox::inetbox_call,
+            profile::profile_activate,
+            capture::overlay_state,
+            capture::overlay_preview,
+            capture::overlay_save_shot,
+            capture::overlay_save_clip,
+            capture::overlay_close,
+            capture::overlay_open_community,
+            capture::capture_settings,
+            capture::captures_list,
+            capture::captures_read,
+            capture::captures_delete,
+            capture::captures_folder,
+            capture::community_share,
+            capture::community_media,
             meta_cmd::avatar_steam_search,
             meta_cmd::avatar_steam_images,
             meta_cmd::avatar_steam_download,

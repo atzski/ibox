@@ -11,6 +11,8 @@ export interface AchievementHighlight { source: "Steam" | "RetroAchievements"; t
 export interface FeaturedGame { title: string; platformId: string; cover?: string }
 export interface InetUser {
   id: string; username: string; displayName: string; friendCode: string;
+  /** Adresse e-mail du compte (connexion, mot de passe oublié). */
+  email?: string | null;
   avatar?: AvatarChoice | null;
   featuredGames?: FeaturedGame[];
   achievementHighlight?: AchievementHighlight | null;
@@ -28,7 +30,7 @@ export interface Unread { friendId: string; displayName: string; unread: number;
 export interface GameInvite { id: string; fromId: string; fromName: string; gameTitle: string; platformId: string; createdAt: number }
 interface Snapshot { user: InetUser; friends: InetFriend[]; invitations: InetInvitation[]; blocks: { id: string; displayName: string }[]; gameInvites: GameInvite[]; gameInvitesSupported: boolean; unread?: Unread[]; socialSupported?: boolean }
 interface InetError { code: string; message: string; retryAfterSeconds?: number }
-type Action = "login" | "register" | "profile" | "invite" | "accept" | "remove" | "block" | "unblock" | "deleteAccount" | "logout" | "logoutAll" | "gameInvite" | "dismissInvite" | "favorite" | "unfavorite" | "sendMessage";
+type Action = "login" | "register" | "forgot" | "reset" | "setEmail" | "profile" | "invite" | "accept" | "remove" | "block" | "unblock" | "deleteAccount" | "logout" | "logoutAll" | "gameInvite" | "dismissInvite" | "favorite" | "unfavorite" | "sendMessage";
 interface State extends Omit<Snapshot, "user" | "unread" | "socialSupported"> {
   user: InetUser | null;
   unread: Unread[];
@@ -45,6 +47,8 @@ interface State extends Omit<Snapshot, "user" | "unread" | "socialSupported"> {
   show: () => void;
   close: () => void;
   restore: () => Promise<void>;
+  /** Changement de profil local : oublie le compte affiché et relit celui du profil. */
+  switchAccount: () => Promise<void>;
   refresh: () => Promise<void>;
   act: (action: Action, body?: object, id?: string) => Promise<boolean>;
 }
@@ -57,7 +61,7 @@ let nextPresence = 0;
 let presenceTimer: ReturnType<typeof setTimeout> | undefined;
 const nextAction = new Map<Action, number>();
 const actionDelay: Partial<Record<Action, number>> = {
-  login: 6500, register: 6500, deleteAccount: 6500, profile: 4500,
+  login: 6500, register: 6500, forgot: 20000, reset: 4000, setEmail: 4000, deleteAccount: 6500, profile: 4500,
   invite: 3500, gameInvite: 6500,
 };
 const reads = new Map<string, Promise<unknown>>();
@@ -118,6 +122,13 @@ export const useInetbox = create<State>((set, get) => ({
     finally { loading = false; set({ initialized: true }); }
     if (get().user && get().status === "online") await get().refresh();
   },
+  switchAccount: async () => {
+    epoch++;
+    loading = false;
+    failures = 0; retryAt = 0;
+    set({ ...empty, status: "signedOut", busy: false, error: null, message: null, initialized: false });
+    await get().restore();
+  },
   refresh: async () => {
     if (loading || get().busy || !get().user || Date.now() < retryAt) return;
     loading = true;
@@ -157,14 +168,17 @@ export const useInetbox = create<State>((set, get) => ({
         clearTimeout(presenceTimer);
         set({ ...empty, status: "signedOut", presenceCooling: false, message: action === "deleteAccount" ? "Compte supprimé." : (data as { revoked: boolean }).revoked
           ? "Vous êtes déconnecté." : "Session retirée de ce PC. Le serveur est injoignable : la révocation distante reste à faire depuis un appareil connecté." });
-      } else if (["login", "register", "profile"].includes(action)) {
+      } else if (action === "forgot") {
+        set({ message: "Si un compte utilise cette adresse, un code vient de partir par e-mail (pensez aux indésirables)." });
+      } else if (["login", "register", "profile", "reset", "setEmail"].includes(action)) {
         set({ user: data as InetUser, status: "online" });
         if (presence || action !== "profile") void call("heartbeat").catch(() => undefined);
       } else set({ message: action === "invite" || action === "gameInvite" ? "Invitation envoyée." : ["dismissInvite", "favorite", "unfavorite", "sendMessage"].includes(action) ? null : "Modification enregistrée." });
       failures = 0; retryAt = 0; success = true;
-    } catch (e) { handleError(e, action === "deleteAccount" || action === "login" || action === "register"); }
+    } catch (e) { handleError(e, ["deleteAccount", "login", "register", "forgot", "reset"].includes(action)); }
     finally { set({ busy: false }); }
-    if (success && get().user && action !== "profile") await get().refresh();
+    if (success && action === "setEmail") set({ message: "Adresse e-mail enregistrée." });
+    if (success && get().user && action !== "profile" && action !== "setEmail") await get().refresh();
     return success;
   },
 }));
@@ -212,7 +226,10 @@ export function attachInetbox() {
   const offAnnounce = useInetbox.subscribe((state, prev) => {
     if (state.friends !== prev.friends || state.gameInvites !== prev.gameInvites || state.user !== prev.user) announce(state);
   });
-  void useInetbox.getState().restore();
+  // le compte iNetbox suit le profil local actif (session propre à chaque joueur)
+  void import("./profiles").then(({ activateNativeProfile }) => activateNativeProfile())
+    .catch(() => undefined)
+    .finally(() => void useInetbox.getState().restore());
   const timer = setInterval(() => {
     const state = useInetbox.getState();
     if (Date.now() < retryAt) return;

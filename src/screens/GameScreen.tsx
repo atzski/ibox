@@ -181,7 +181,6 @@ function GameSheet({ game }: { game: Game }) {
 
   return (
     <div className="relative grid h-full grid-cols-[minmax(24rem,31rem)_minmax(0,1fr)] gap-8 px-[3rem] pb-4" style={themeVars(platform)}>
-      <Achievements key={game.id} game={game} />
       {/* ——— Informations ——— */}
       <motion.aside
         initial={{ opacity: 0, x: -24 }}
@@ -320,6 +319,9 @@ function GameSheet({ game }: { game: Game }) {
               dark={dark}
               onToggleOpen={toggleOpen}
             />
+            <div className="absolute top-4 left-5 z-20">
+              <Achievements key={game.id} game={game} compact />
+            </div>
             <div className="pointer-events-none absolute top-5 right-6 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-[0.78rem] font-bold text-ink-soft">
               <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner · gâchettes pour zoomer" : "Glisser pour tourner · molette pour zoomer"}
             </div>

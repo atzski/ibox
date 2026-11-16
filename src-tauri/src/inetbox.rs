@@ -21,6 +21,7 @@ const SERVICE: &str = match option_env!("IBOX_INETBOX_URL") { Some(url) => url, 
 #[serde(rename_all = "camelCase")]
 pub struct Error { code: String, message: String, retry_after_seconds: Option<u64> }
 type Result<T> = std::result::Result<T, Error>;
+impl Error { pub(crate) fn new(code: &str, message: &str) -> Self { err(code, message) } }
 fn err(code: &str, message: &str) -> Error { Error { code: code.into(), message: message.into(), retry_after_seconds: None } }
 fn vault_error() -> Error { err("VAULT_ERROR", "Le coffre Windows est indisponible.") }
 fn base_url(raw: &str) -> Result<Url> {
@@ -31,7 +32,16 @@ fn base_url(raw: &str) -> Result<Url> {
     }
     Ok(u)
 }
-fn credential() -> String { format!("inetbox-session-{:016x}", xxhash_rust::xxh3::xxh3_64(SERVICE.as_bytes())) }
+/// Session propre au profil local actif : chaque joueur du PC a son compte iNetbox.
+fn credential() -> String { format!("inetbox-session-{:016x}{}", xxhash_rust::xxh3::xxh3_64(SERVICE.as_bytes()), crate::profile::suffix()) }
+/// Changement de profil : oublie l'état en mémoire (la session du profil reste dans le coffre).
+pub fn forget_session() {
+    if let Ok(mut g) = SNAPSHOT.lock() { *g = None; }
+    if let Ok(mut g) = HEARTBEAT.lock() { *g = None; }
+    if let Ok(mut g) = USER.lock() { *g = None; }
+    if let Ok(mut g) = SEEN.lock() { *g = None; }
+    ACTIVE.store(false, Ordering::Relaxed);
+}
 fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() }
 fn http(client: &Client, method: Method, path: &str, token: Option<&str>, body: Option<&Value>) -> Result<Value> {
     let wait = RETRY_AT.load(Ordering::Relaxed).saturating_sub(now());
@@ -55,6 +65,17 @@ fn http(client: &Client, method: Method, path: &str, token: Option<&str>, body: 
     if bytes.len() > 512 * 1024 { return Err(err("INVALID_RESPONSE", "Réponse iNetbox trop volumineuse.")); }
     let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     if !status.is_success() {
+        // codes connus du serveur (comptes par e-mail) : messages fixes, jamais le texte reçu
+        let known = match value["error"]["code"].as_str().unwrap_or_default() {
+            "INVALID_CODE" => Some(("INVALID_CODE", "Code incorrect ou expiré. Demandez-en un nouveau.")),
+            "EMAIL_UNAVAILABLE" => Some(("EMAIL_UNAVAILABLE", "Cette adresse e-mail est déjà utilisée par un autre compte.")),
+            "MAIL_UNAVAILABLE" => Some(("MAIL_UNAVAILABLE", "L’envoi d’e-mails n’est pas encore disponible sur iNetbox.")),
+            "MAIL_FAILED" => Some(("MAIL_FAILED", "L’e-mail n’a pas pu partir. Réessayez dans un instant.")),
+            _ => None,
+        };
+        if let Some((code, message)) = known {
+            return Err(Error { code: code.into(), message: message.into(), retry_after_seconds: None });
+        }
         let (code, message) = match status.as_u16() {
             401 => ("UNAUTHENTICATED", "Identifiants incorrects ou session expirée. Reconnectez-vous."),
             400 => ("INVALID_INPUT", "Vérifiez les champs envoyés."),
@@ -86,6 +107,7 @@ fn public_user(user: &Value) -> Result<Value> {
     if user["privacy"]["publicProfile"].is_boolean() { safe["privacy"]["publicProfile"] = user["privacy"]["publicProfile"].clone(); }
     if user["featuredGames"].is_array() { safe["featuredGames"] = user["featuredGames"].clone(); }
     safe["achievementHighlight"] = user["achievementHighlight"].clone();
+    if user["email"].is_string() { safe["email"] = user["email"].clone(); }
     Ok(safe)
 }
 fn set_user(user: Value) -> Result<Value> {
@@ -96,11 +118,12 @@ fn set_user(user: Value) -> Result<Value> {
 }
 fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
     let id = id.unwrap_or("");
-    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
+    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
         return Err(err("INVALID_INPUT", "Identifiant invalide."));
     }
     Ok(match action {
         "profile" => (Method::PATCH, "/v1/me".into()),
+        "setEmail" => (Method::PUT, "/v1/me/email".into()),
         "invite" => (Method::POST, "/v1/friend-requests".into()),
         "accept" => (Method::POST, format!("/v1/friend-requests/{id}/accept")),
         "remove" => (Method::DELETE, format!("/v1/friends/{id}")),
@@ -118,10 +141,12 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "typing" => (Method::POST, format!("/v1/messages/{id}/typing")),
         "activity" => (Method::GET, "/v1/activity".into()),
         "library" => (Method::PUT, "/v1/library".into()),
+        "shares" => (Method::GET, "/v1/shares".into()),
+        "deleteShare" => (Method::DELETE, format!("/v1/shares/{id}")),
         _ => return Err(err("INVALID_ACTION", "Action iNetbox inconnue.")),
     })
 }
-fn activity(app: &AppHandle) -> Option<Value> {
+pub(crate) fn activity(app: &AppHandle) -> Option<Value> {
     let lib = app.state::<crate::library::commands::LibraryState>();
     let launched = crate::launcher::commands::launch_status(app.state());
     lib.with(|conn| {
@@ -134,6 +159,42 @@ fn activity(app: &AppHandle) -> Option<Value> {
         Ok(crate::pc::running::detect(conn).map(|(_, title)| json!({ "title": title.chars().take(160).collect::<String>(), "platformId": "pc" })))
     }).ok().flatten()
 }
+/// Communauté : envoi d'une capture (octets bruts, jusqu'à 8 Mo) sans bloquer le reste d'iNetbox.
+pub(crate) fn upload_share(meta: &[(&str, String)], bytes: Vec<u8>) -> Result<Value> {
+    let token = keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour partager."))?;
+    let client = Client::builder().timeout(Duration::from_secs(120)).connect_timeout(Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none()).build().map_err(|_| err("NETWORK_ERROR", "Connexion indisponible."))?;
+    let mut url = base_url(SERVICE)?.join("/v1/shares").map_err(|_| err("CONFIG_ERROR", "Route invalide."))?;
+    url.query_pairs_mut().extend_pairs(meta.iter().map(|(k, v)| (*k, v.as_str())));
+    let response = client.post(url).bearer_auth(token).header("content-type", "application/octet-stream").body(bytes).send()
+        .map_err(|_| err("NETWORK_ERROR", "iNetbox est injoignable."))?;
+    let status = response.status();
+    let value: Value = response.json().unwrap_or(Value::Null);
+    if status.is_success() { return Ok(value); }
+    Err(match status.as_u16() {
+        401 => err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour partager."),
+        413 => err("TOO_LARGE", "Capture trop lourde pour être partagée."),
+        429 => err("RATE_LIMITED", "Vous avez beaucoup partagé : réessayez un peu plus tard."),
+        _ => err("SERVICE_ERROR", "Le partage a échoué. Réessayez dans un instant."),
+    })
+}
+
+/// Communauté : image ou clip d'un partage visible (PNG ou GIF, 8 Mo au plus).
+pub(crate) fn share_media(id: &str) -> Result<Vec<u8>> {
+    if id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') { return Err(err("INVALID_INPUT", "Identifiant invalide.")); }
+    let token = keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox."))?;
+    let client = Client::builder().timeout(Duration::from_secs(60)).redirect(reqwest::redirect::Policy::none()).build()
+        .map_err(|_| err("NETWORK_ERROR", "Connexion indisponible."))?;
+    let url = base_url(SERVICE)?.join(&format!("/v1/shares/{id}/media")).map_err(|_| err("CONFIG_ERROR", "Route invalide."))?;
+    let response = client.get(url).bearer_auth(token).send().map_err(|_| err("NETWORK_ERROR", "iNetbox est injoignable."))?;
+    if !response.status().is_success() { return Err(err("NOT_FOUND", "Capture indisponible.")); }
+    let mut bytes = Vec::new();
+    response.take(8 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(|_| err("NETWORK_ERROR", "Téléchargement interrompu."))?;
+    let image = bytes.starts_with(&[0x89, b'P', b'N', b'G']) || bytes.starts_with(b"GIF8");
+    if bytes.len() > 8 * 1024 * 1024 || !image { return Err(err("INVALID_RESPONSE", "Capture invalide.")); }
+    Ok(bytes)
+}
+
 fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Result<Value> {
     let _guard = LOCK.lock().map_err(|_| vault_error())?;
     if CLIENT.get().is_none() {
@@ -143,7 +204,12 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
     }
     let client = CLIENT.get().unwrap();
     if action == "info" { return Ok(json!({ "url": SERVICE, "local": base_url(SERVICE)?.scheme() == "http" })); }
-    if matches!(action, "login" | "register") {
+    // mot de passe oublié : demande du code par e-mail (aucune session en jeu)
+    if action == "forgot" {
+        http(client, Method::POST, "/v1/auth/forgot", None, Some(&body))?;
+        return Ok(Value::Null);
+    }
+    if matches!(action, "login" | "register" | "reset") {
         if keys::get(&credential()).map_err(|_| vault_error())?.is_some() { return Err(err("SESSION_EXISTS", "Déconnectez le compte actuel avant de changer de compte.")); }
         let value = http(client, Method::POST, &format!("/v1/auth/{action}"), None, Some(&body))?;
         let token = value["token"].as_str().filter(|t| t.len() == 43).ok_or_else(|| err("INVALID_RESPONSE", "Session invalide."))?;
@@ -219,7 +285,7 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
                 }
                 let value = http(client, method, &path, Some(&token), payload)?;
                 if action == "deleteAccount" { clear_session()?; }
-                if action == "profile" {
+                if matches!(action, "profile" | "setEmail") {
                     if body.get("shareOnline").is_some() || body.get("shareGame").is_some() {
                         *HEARTBEAT.lock().map_err(|_| vault_error())? = None;
                     }

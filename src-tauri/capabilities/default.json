@@ -4,7 +4,8 @@
   "description": "Permissions de la fenêtre principale",
   "windows": [
     "main",
-    "toast"
+    "toast",
+    "overlay"
   ],
   "permissions": [
     "core:default",

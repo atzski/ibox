@@ -13,7 +13,8 @@ const NAME: &str = "wallpaper";
 const HOME: &str = "home";
 
 fn dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let d = app.path().app_data_dir().map_err(|e| e.to_string())?.join("wallpaper");
+    // chaque profil local a ses propres fonds
+    let d = crate::profile::scoped_dir(&app.path().app_data_dir().map_err(|e| e.to_string())?.join("wallpaper"));
     fs::create_dir_all(&d).map_err(|e| e.to_string())?;
     Ok(d)
 }

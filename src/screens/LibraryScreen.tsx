@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary, countByPlatform, isFavorite } from "@/services/library";
 import { useSettings, type LibraryView, type GridDensity } from "@/services/settings";
 import { rememberedFocus, useNav } from "@/app/navigation";
-import { useIsDark, useReducedMotion, useScreenChrome } from "@/app/shellState";
+import { useIsDark, useReducedMotion, useScreenChrome, useShell } from "@/app/shellState";
 import { getPlatform, PLATFORMS } from "@/domain/platforms";
 import { matchesQuery } from "@/domain/text";
 import { themeVars } from "@/theme/platformTheme";
@@ -91,6 +91,12 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
   // grille : l'en-tête se compacte et les filtres se replient dès qu'on fait défiler
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => setScrolled(false), [platformId, effView]);
+  // lecture immersive : en descendant, tout le haut s'efface (seuls Retour, titre et
+  // Accueil restent) ; il revient dès qu'on remonte, qu'on vise le haut ou qu'on y navigue
+  const { hidden, onGridScroll } = useImmersiveChrome(effView === "grid", `${platformId}:${effView}`, (top) => {
+    if (!scrolled && top > 32) setScrolled(true);
+    else if (scrolled && top < 4) setScrolled(false);
+  });
   // l'étagère de toute la collection a ses propres onglets de consoles
   const showPills = !(effView === "shelf" && platformId === "all") && !scrolled;
 
@@ -131,6 +137,13 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
 
   return (
     <div className="flex h-full flex-col px-[3rem] pb-3" style={themeVars(platform)}>
+      <motion.div
+        initial={false}
+        animate={hidden ? { height: 0, opacity: 0, y: -18, filter: "blur(6px)" } : { height: "auto", opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 210, damping: 30, mass: 0.9 }}
+        inert={hidden}
+        className={hidden ? "shrink-0 overflow-hidden" : "shrink-0"}
+      >
       {/* En-tête */}
       <ConsoleHeader platform={platform} total={total} compact={effView === "shelf" || scrolled}>
         {!isPc && (
@@ -249,6 +262,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
 
       {/* Zone secondaire : raccourcis d'une grande bibliothèque (pas pendant une recherche) */}
       {effView !== "shelf" && platform && !query && !pcDemo && total >= 8 && !scrolled && <ConsoleHighlights platform={platform} games={pool} />}
+      </motion.div>
 
       {/* Contenu */}
       <div className={`relative ${scrolled ? "mt-2" : "mt-4"} min-h-0 flex-1`}>
@@ -300,11 +314,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22 }}
                 data-cover-scroll-root
-                onScroll={(e) => {
-                  const top = e.currentTarget.scrollTop;
-                  if (!scrolled && top > 32) setScrolled(true);
-                  else if (scrolled && top < 4) setScrolled(false);
-                }}
+                onScroll={onGridScroll}
                 className="absolute inset-0 overflow-y-auto"
               >
                 <motion.div
@@ -339,6 +349,76 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
       </div>
     </div>
   );
+}
+
+/**
+ * Haut d'écran escamotable de la grille : se replie après un vrai mouvement vers le
+ * bas, revient après un vrai mouvement vers le haut (pas au moindre tressaillement),
+ * quand la souris s'attarde en haut de l'écran, ou quand le focus quitte la grille.
+ */
+function useImmersiveChrome(enabled: boolean, resetKey: string, onTop: (top: number) => void) {
+  const [hidden, setHidden] = useState(false);
+  const memo = useRef({ last: 0, up: 0, down: 0 });
+  const setShell = useShell((s) => s.set);
+  const active = enabled && hidden;
+
+  useEffect(() => {
+    memo.current = { last: 0, up: 0, down: 0 };
+    setHidden(false);
+  }, [resetKey]);
+  useEffect(() => setShell({ immersive: active }), [active, setShell]);
+  useEffect(() => () => setShell({ immersive: false }), [setShell]);
+
+  useEffect(() => {
+    if (!active) return;
+    const reveal = () => {
+      memo.current.up = 0;
+      memo.current.down = 0;
+      setHidden(false);
+    };
+    let timer: number | undefined;
+    const onMove = (e: PointerEvent) => {
+      // la souris qui s'attarde tout en haut fait revenir les boutons
+      if (e.clientY < 72) timer ??= window.setTimeout(reveal, 220);
+      else if (timer !== undefined) {
+        window.clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+    const onFocus = (e: FocusEvent) => {
+      if (!(e.target as Element | null)?.closest?.("[data-cover-scroll-root]")) reveal();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("focusin", onFocus);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("focusin", onFocus);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [active]);
+
+  const onGridScroll = (e: UIEvent<HTMLElement>) => {
+    const top = e.currentTarget.scrollTop;
+    onTop(top);
+    const m = memo.current;
+    const d = top - m.last;
+    m.last = top;
+    if (top < 24) {
+      m.up = m.down = 0;
+      if (hidden) setHidden(false);
+      return;
+    }
+    if (d > 0) {
+      m.down += d;
+      m.up = 0;
+      if (!hidden && m.down > 56 && top > 140) setHidden(true);
+    } else if (d < 0) {
+      m.up -= d;
+      m.down = 0;
+      if (hidden && m.up > 110) setHidden(false);
+    }
+  };
+  return { hidden: active, onGridScroll };
 }
 
 function FilterPill({ active, onClick, label, color }: { active: boolean; onClick: () => void; label: string; color?: string }) {
