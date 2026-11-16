@@ -19,6 +19,8 @@ import {
   type SourceChoice,
   type Sources,
 } from "@/services/remotePlayOnline";
+import { Avatar } from "@/components/profile/Avatar";
+import { useInetbox, type InetFriend } from "@/services/inetbox";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : String((e as { message?: string })?.message ?? e));
 const fmt = (v: number | null | undefined, digits = 1, unit = "") => (v === null || v === undefined || Number.isNaN(v) ? "—" : `${v.toFixed(digits)}${unit}`);
@@ -87,13 +89,30 @@ const PROFILES: { id: GuestProfile; label: string; note: string }[] = [
   { id: "collaborator", label: "Collaborateur", note: "Clavier et souris sur l'écran partagé (pas sur une fenêtre de jeu)." },
 ];
 
-/** « Inviter à jouer » depuis le profil d'un ami. */
-export function InviteDialog({ friendId, friendName, onClose }: { friendId: string; friendName: string; onClose: () => void }) {
-  const [config, setConfig] = useConfig();
+/** Formulaire d'invitation (droits, source partagée) pour un ami donné. */
+function InviteForm({
+  config,
+  friendId,
+  friendName,
+  defaultProfile = "spectator",
+  gameTitle,
+  onSent,
+  onCancel,
+}: {
+  config: RemotePlayConfig;
+  friendId: string;
+  friendName: string;
+  defaultProfile?: GuestProfile;
+  /** Invitation lancée depuis la fiche d'un jeu : propose de le lancer s'il ne tourne pas. */
+  gameTitle?: string;
+  onSent: (launchGame: boolean) => void;
+  onCancel: () => void;
+}) {
   const [sources, setSources] = useState<Sources | null>(null);
-  const [profile, setProfile] = useState<GuestProfile>("spectator");
+  const [profile, setProfile] = useState<GuestProfile>(defaultProfile);
   const [source, setSource] = useState<string>("primary");
   const [confirmed, setConfirmed] = useState(false);
+  const [launchAfter, setLaunchAfter] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,71 +128,202 @@ export function InviteDialog({ friendId, friendName, onClose }: { friendId: stri
     return kind === "window" ? { kind: "window", id: Number(id) } : kind === "monitor" ? { kind: "monitor", id: Number(id) } : { kind: "primary" };
   };
   const windowShare = source.startsWith("window:");
+  const gameRunning = sources?.game !== null && sources?.game !== undefined;
+  const offerLaunch = !!gameTitle && !!sources && !gameRunning;
 
   const send = () => {
     setBusy(true);
     setError(null);
-    onlineApi.invite(friendId, friendName, profile, choice(), confirmed).then(onClose, (e) => {
-      setError(errText(e));
-      setBusy(false);
-    });
+    onlineApi.invite(friendId, friendName, profile, choice(), confirmed).then(
+      () => onSent(offerLaunch && launchAfter),
+      (e) => {
+        setError(errText(e));
+        setBusy(false);
+      },
+    );
   };
 
   return (
-    <Modal title={`Inviter ${friendName} à jouer`} subtitle="Remote Play · expérimental" onClose={onClose}>
-      {!config ? (
-        <p className="text-ink-soft">Chargement…</p>
-      ) : !config.enabled ? (
-        <NotEnabled onClose={onClose} />
-      ) : !config.ipWarningSeen ? (
-        <IpWarning config={config} onDone={setConfig} />
-      ) : (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Droits de votre ami</p>
-            <div className="flex flex-wrap gap-2">
-              {PROFILES.map((p) => (
-                <Button key={p.id} aria-pressed={profile === p.id} variant={profile === p.id ? "primary" : "soft"} onClick={() => setProfile(p.id)} autoFocus={p.id === "spectator"}>
-                  {p.label}
-                </Button>
-              ))}
-            </div>
-            <p className="text-[0.85rem] text-ink-soft">{PROFILES.find((p) => p.id === profile)?.note}</p>
-            {needsConfirmation(profile) && (
-              <label className="flex items-start gap-2 rounded-xl bg-peach-soft/60 p-3 text-[0.85rem] font-semibold text-ink">
-                <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                <span>{`Je confirme : ${friendName} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}</span>
-              </label>
-            )}
-            {profile === "collaborator" && windowShare && <p className="text-[0.8rem] text-ink-soft">Sur une fenêtre de jeu, seules les manettes sont transmises.</p>}
-          </div>
-          <div className="space-y-2">
-            <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Ce qui est partagé</p>
-            <select className="ibox-focusable w-full rounded-xl bg-white px-3 py-2 text-ink" value={source} onChange={(e) => setSource(e.target.value)} data-focusable>
-              <option value="primary">Écran principal</option>
-              {sources?.items.map((s) =>
-                s.kind === "monitor" ? (
-                  <option key={`m${s.id}`} value={`monitor:${s.id}`}>
-                    {`${s.name} (${s.width}×${s.height})${s.primary ? " — principal" : ""}`}
-                  </option>
-                ) : (
-                  <option key={`w${s.id}`} value={`window:${s.id}`}>
-                    {`${s.id === sources.game ? "🎮 " : ""}${s.title}`}
-                  </option>
-                ),
-              )}
-            </select>
-            {sources?.gameTitle && sources.game !== null && <p className="text-[0.8rem] text-ink-soft">{`Jeu lancé depuis iBox sélectionné : ${sources.gameTitle}`}</p>}
-          </div>
-          <p className="text-[0.8rem] text-ink-soft">
-            {`${friendName} a 2 minutes pour accepter. Pendant le partage, un indicateur reste affiché en haut de l'écran ; verrouiller Windows coupe la session.`}
-          </p>
-          {error && <p role="alert" className="text-[0.85rem] font-semibold text-[#B4232C]">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button onClick={onClose}>Annuler</Button>
-            <Button variant="primary" icon="play" disabled={busy || (needsConfirmation(profile) && !confirmed)} onClick={send}>
-              {busy ? "Envoi…" : "Inviter"}
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Droits de votre ami</p>
+        <div className="flex flex-wrap gap-2">
+          {PROFILES.map((p) => (
+            <Button key={p.id} aria-pressed={profile === p.id} variant={profile === p.id ? "primary" : "soft"} onClick={() => setProfile(p.id)} autoFocus={p.id === defaultProfile}>
+              {p.label}
             </Button>
+          ))}
+        </div>
+        <p className="text-[0.85rem] text-ink-soft">{PROFILES.find((p) => p.id === profile)?.note}</p>
+        {profile !== "spectator" && (
+          <p className="text-[0.8rem] text-ink-soft">Sa manette apparaît sur ce PC comme une manette Xbox de plus : P2 si vous jouez déjà avec la vôtre.</p>
+        )}
+        {needsConfirmation(profile) && (
+          <label className="flex items-start gap-2 rounded-xl bg-peach-soft/60 p-3 text-[0.85rem] font-semibold text-ink">
+            <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+            <span>{`Je confirme : ${friendName} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}</span>
+          </label>
+        )}
+        {profile === "collaborator" && windowShare && <p className="text-[0.8rem] text-ink-soft">Sur une fenêtre de jeu, seules les manettes sont transmises.</p>}
+      </div>
+      <div className="space-y-2">
+        <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Ce qui est partagé</p>
+        <select className="ibox-focusable w-full rounded-xl bg-white px-3 py-2 text-ink" value={source} onChange={(e) => setSource(e.target.value)} data-focusable>
+          <option value="primary">Écran principal</option>
+          {sources?.items.map((s) =>
+            s.kind === "monitor" ? (
+              <option key={`m${s.id}`} value={`monitor:${s.id}`}>
+                {`${s.name} (${s.width}×${s.height})${s.primary ? " — principal" : ""}`}
+              </option>
+            ) : (
+              <option key={`w${s.id}`} value={`window:${s.id}`}>
+                {`${s.id === sources.game ? "🎮 " : ""}${s.title}`}
+              </option>
+            ),
+          )}
+        </select>
+        {sources?.gameTitle && gameRunning && <p className="text-[0.8rem] text-ink-soft">{`Jeu lancé depuis iBox sélectionné : ${sources.gameTitle}`}</p>}
+        {offerLaunch && (
+          <label className="flex items-start gap-2 rounded-xl bg-cream-deep p-3 text-[0.85rem] font-semibold text-ink">
+            <input type="checkbox" className="mt-1" checked={launchAfter} onChange={(e) => setLaunchAfter(e.target.checked)} />
+            <span>{`Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : votre ami voit le jeu dès qu'il démarre)`}</span>
+          </label>
+        )}
+      </div>
+      <p className="text-[0.8rem] text-ink-soft">
+        {`${friendName} a 2 minutes pour accepter. Pendant le partage, un indicateur reste affiché en haut de l'écran ; verrouiller Windows coupe la session.`}
+      </p>
+      {error && <p role="alert" className="text-[0.85rem] font-semibold text-peach-deep">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <Button onClick={onCancel}>Annuler</Button>
+        <Button variant="primary" icon="play" disabled={busy || (needsConfirmation(profile) && !confirmed)} onClick={send}>
+          {busy ? "Envoi…" : "Inviter"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Étapes préalables : chargement, activation, avertissement IP. */
+function Gate({ config, setConfig, onClose, inline }: { config: RemotePlayConfig | null; setConfig: (c: RemotePlayConfig) => void; onClose: () => void; inline?: boolean }) {
+  const [busy, setBusy] = useState(false);
+  if (!config) return <p className="text-ink-soft">Chargement…</p>;
+  if (!config.enabled) {
+    if (!inline) return <NotEnabled onClose={onClose} />;
+    return (
+      <div className="space-y-3">
+        <p className="text-[0.9rem] text-ink-soft">
+          Remote Play est désactivé. Activé, vos amis iNetbox peuvent voir votre jeu et jouer avec leur manette, directement d'ordinateur à ordinateur.
+        </p>
+        <Button
+          variant="primary"
+          icon="check"
+          autoFocus
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            remotePlayApi.setConfig({ ...config, enabled: true }).then(setConfig, () => setBusy(false));
+          }}
+        >
+          Activer Remote Play
+        </Button>
+      </div>
+    );
+  }
+  return <IpWarning config={config} onDone={setConfig} />;
+}
+
+const isReady = (c: RemotePlayConfig | null): c is RemotePlayConfig => !!c?.enabled && !!c.ipWarningSeen;
+
+/** « Inviter à jouer » depuis le profil d'un ami. */
+export function InviteDialog({ friendId, friendName, onClose }: { friendId: string; friendName: string; onClose: () => void }) {
+  const [config, setConfig] = useConfig();
+  return (
+    <Modal title={`Inviter ${friendName} à jouer`} subtitle="Remote Play · expérimental" onClose={onClose}>
+      {isReady(config) ? (
+        <InviteForm config={config} friendId={friendId} friendName={friendName} onSent={onClose} onCancel={onClose} />
+      ) : (
+        <Gate config={config} setConfig={setConfig} onClose={onClose} />
+      )}
+    </Modal>
+  );
+}
+
+const STATUS_TEXT = { online: "En ligne", away: "Absent", offline: "Hors ligne" } as const;
+const statusRank = (f: InetFriend) => (f.status === "online" ? 0 : f.status === "away" ? 1 : 2);
+
+/** Bouton « Remote Play » d'une fiche de jeu : choisir un ami et l'inviter, sans passer par les paramètres. */
+export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTitle: string; onLaunch?: () => void; onClose: () => void }) {
+  const [config, setConfig] = useConfig();
+  const user = useInetbox((s) => s.user);
+  const friends = useInetbox((s) => s.friends);
+  const [friend, setFriend] = useState<InetFriend | null>(null);
+  const sorted = [...friends].sort((a, b) => statusRank(a) - statusRank(b) || a.displayName.localeCompare(b.displayName));
+
+  return (
+    <Modal title="Remote Play" subtitle={`${gameTitle} · expérimental`} onClose={onClose}>
+      {!isReady(config) ? (
+        <Gate config={config} setConfig={setConfig} onClose={onClose} inline />
+      ) : !user ? (
+        <div className="space-y-3">
+          <p className="text-[0.9rem] text-ink-soft">Connectez-vous à iNetbox pour inviter un ami à jouer.</p>
+          <Button
+            variant="primary"
+            icon="user"
+            autoFocus
+            onClick={() => {
+              onClose();
+              useNav.getState().go({ name: "settings" });
+            }}
+          >
+            Ouvrir les paramètres
+          </Button>
+        </div>
+      ) : friend ? (
+        <div className="space-y-4">
+          <button
+            data-focusable
+            onClick={() => setFriend(null)}
+            className="ibox-focusable flex items-center gap-2 rounded-full bg-cream-deep py-1 pr-3 pl-1 text-[0.85rem] font-bold text-ink [--ring-radius:999px]"
+          >
+            <Avatar size={28} choice={friend.avatar ?? null} name={friend.displayName} />
+            <span data-no-i18n>{friend.displayName}</span>
+            <span className="text-ink-soft">· Changer</span>
+          </button>
+          <InviteForm
+            config={config}
+            friendId={friend.id}
+            friendName={friend.displayName}
+            defaultProfile="player"
+            gameTitle={onLaunch ? gameTitle : undefined}
+            onCancel={onClose}
+            onSent={(launch) => {
+              onClose();
+              if (launch) onLaunch?.();
+            }}
+          />
+        </div>
+      ) : sorted.length === 0 ? (
+        <p className="text-[0.9rem] text-ink-soft">Ajoutez d'abord un ami sur iNetbox pour jouer ensemble à distance.</p>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Inviter un ami</p>
+          <div className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            {sorted.map((f, i) => (
+              <button
+                key={f.id}
+                data-focusable
+                autoFocus={i === 0}
+                onClick={() => setFriend(f)}
+                className="ibox-focusable flex items-center gap-3 rounded-2xl bg-cream-deep p-2.5 text-left hover:bg-white"
+              >
+                <Avatar size={40} choice={f.avatar ?? null} name={f.displayName} />
+                <span className="min-w-0">
+                  <span data-no-i18n className="block truncate font-bold text-ink">{f.displayName}</span>
+                  <span className={`block text-[0.78rem] font-semibold ${f.status === "online" ? "text-mint-deep" : "text-ink-soft"}`}>{STATUS_TEXT[f.status]}</span>
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}

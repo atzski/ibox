@@ -73,7 +73,7 @@ export function RemotePlaySession() {
   const [offerBlob, setOfferBlob] = useState("");
   const [answerBlob, setAnswerBlob] = useState("");
   const [pasted, setPasted] = useState("");
-  const [profile, setProfile] = useState<GuestProfile>("spectator");
+  const [profile, setProfile] = useState<GuestProfile>("player");
   const [hostStats, setHostStats] = useState<HostStats | null>(null);
   const [guestStats, setGuestStats] = useState<GuestStats | null>(null);
   const [controlling, setControlling] = useState(false);
@@ -194,6 +194,11 @@ export function RemotePlaySession() {
               <option value="collaborator">Collaborateur (clavier, souris)</option>
             </select>
           </label>
+          {profile !== "spectator" && (
+            <p className="text-[0.78rem] font-semibold text-ink-soft">
+              La manette de l'invité apparaît sur ce PC comme une manette Xbox de plus : P2 si vous jouez déjà avec la vôtre.
+            </p>
+          )}
           <textarea
             className="h-20 w-full rounded-xl bg-white p-2 font-mono text-[0.7rem] text-ink"
             placeholder="Pour rejoindre : collez ici l'offre reçue de l'hôte"
@@ -279,7 +284,7 @@ export function RemotePlaySession() {
       )}
 
       {controlling && <p className="text-[0.8rem] font-semibold text-ink-soft">Clavier, souris sur l'image et première manette sont envoyés à l'hôte. Il peut tout arrêter avec son raccourci d'urgence.</p>}
-      {error && <p className="text-[0.85rem] font-semibold text-[#B4232C]">{error}</p>}
+      {error && <p className="text-[0.85rem] font-semibold text-peach-deep">{error}</p>}
       {hostStats && (
         <>
           <p className="pt-1 text-[0.8rem] font-extrabold uppercase tracking-wide text-ink-soft">Hôte (ce PC)</p>

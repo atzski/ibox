@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { MeshStandardMaterial, type Group } from "three";
+import { BackSide, MeshStandardMaterial, type Group } from "three";
 import type { BoxSpec, CartridgeSpec } from "./caseSpecs";
 import type { CaseTextures } from "../useCaseTextures";
 import { stepSpring } from "../springs";
@@ -49,7 +49,11 @@ export function RetroBox({
     const back = art(textures?.back);
     const side = art(textures?.spine);
     const hole = new MeshStandardMaterial({ visible: false });
+    // intérieur du fourreau : faces internes visibles quand le rabat est ouvert
+    const inner = new MeshStandardMaterial({ color: spec.cardboard, roughness: 0.9, side: BackSide });
     return {
+      liner: [hole, inner, inner, inner, inner, inner],
+      inner,
       // ordre des faces d'une BoxGeometry : +x, -x, +y, -y, +z, -z
       box: [side, side, board, board, front, back],
       // côté droit remplacé par un rabat articulé (vue détaillée)
@@ -64,7 +68,7 @@ export function RetroBox({
 
   useEffect(
     () => () => {
-      for (const m of [...mats.all, mats.tray, mats.plastic, mats.label, mats.shell[0]]) m.dispose();
+      for (const m of [...mats.all, mats.tray, mats.plastic, mats.label, mats.shell[0], mats.inner]) m.dispose();
     },
     [mats],
   );
@@ -73,6 +77,8 @@ export function RetroBox({
   const trayH = H * 0.93;
   const trayD = D * 0.82;
   const wall = 0.02;
+  /** Épaisseur du carton : la doublure intérieure et la languette restent sous les faces imprimées. */
+  const sheet = 0.004;
 
   useFrame((state, dt) => {
     const st = a.current;
@@ -109,14 +115,20 @@ export function RetroBox({
         <boxGeometry args={[W, H, D]} />
       </mesh>
       {!lite && (
+        // doublure : sans elle, l'intérieur de la boîte ouverte serait transparent
+        <mesh position={[sheet / 2, 0, 0]} material={mats.liner}>
+          <boxGeometry args={[W - sheet, H - 2 * sheet, D - 2 * sheet]} />
+        </mesh>
+      )}
+      {!lite && (
         // rabat latéral, charnière sur l'arête arrière : la boîte s'ouvre vraiment
         <group ref={flap} position={[W / 2, 0, -D / 2]}>
           <mesh position={[0.004, 0, D / 2]} material={mats.flap}>
             <boxGeometry args={[0.008, H, D]} />
           </mesh>
-          {/* languette à glisser */}
-          <mesh position={[-0.02, 0, D - 0.002]} material={mats.flap[1]}>
-            <boxGeometry args={[0.04, H * 0.92, 0.004]} />
+          {/* languette à glisser : rentre à l'intérieur, derrière la face avant (jamais au même plan que la jaquette) */}
+          <mesh position={[-0.024, 0, D - 3 * sheet]} material={mats.flap[1]}>
+            <boxGeometry args={[0.04, H * 0.9, sheet / 2]} />
           </mesh>
         </group>
       )}

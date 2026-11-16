@@ -239,6 +239,11 @@ impl Host {
         session.join(GUEST, &opts.guest_account).map_err(|e| format!("invité refusé : {e:?}"))?;
         session.set_profile(GUEST, opts.profile, false).map_err(|e| format!("profil refusé : {e:?}"))?;
         let grants = session.effective(GUEST);
+        if grants.has(Permission::Gamepad) {
+            // la manette de l'invité occupe l'emplacement de session 0 : branchée en manette
+            // Xbox 360 virtuelle, Windows lui donne le premier numéro libre (P2 si l'hôte joue déjà)
+            session.assign_pad(GUEST, Some(0)).map_err(|e| format!("manette refusée : {e:?}"))?;
+        }
         let pads: Box<dyn Pads> = if grants.has(Permission::Gamepad) {
             let rumble_tx = Mutex::new(tx.clone());
             let on_rumble: input::RumbleFn = Arc::new(move |pad, large, small| {

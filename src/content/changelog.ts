@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.57",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "globe", title: "Bouton « Remote Play » sur chaque jeu", text: "Sur la fiche d’un jeu, « Remote Play » choisit un ami iNetbox, règle ses droits (Joueur par défaut) et lance le jeu, sans passer par les paramètres. Remote Play s’active depuis ce menu." },
+      { icon: "gamepad", title: "Manette de l’ami reconnue", text: "La manette de l’invité est bien transmise et apparaît comme une manette de plus sur l’hôte (P2 si l’hôte joue déjà). Session d’essai : droits « Joueur » par défaut." },
+      { icon: "sparkle", title: "Lisibilité en mode sombre", text: "Commentaires des captures Communauté et résultats du diagnostic Remote Play bien lisibles en mode sombre ; nombreuses traductions anglaises ajoutées (profil, collections, sauvegardes…)." },
+      { icon: "disc", title: "Boîtes de cartouches réparées", text: "L’intérieur de la boîte ouverte est visible et le rabat ne se mélange plus à la jaquette en se refermant." },
+    ],
+  },
+  {
     version: "0.1.56",
     date: "2026-11-17",
     highlights: [

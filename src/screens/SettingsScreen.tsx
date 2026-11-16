@@ -13,6 +13,7 @@ import { StatsPanel } from "@/components/extras/StatsPanel";
 import { ConsolesPanel } from "@/components/extras/ConsolesPanel";
 import { LegalModal } from "@/components/extras/LegalModal";
 import { setTvMode } from "@/services/tvMode";
+import { tr } from "@/i18n";
 import { useSettings, type GridDensity, type MotionPreference, type Region, type ThemePreference } from "@/services/settings";
 import { useReducedMotion, useScreenChrome } from "@/app/shellState";
 import { useNav } from "@/app/navigation";
@@ -991,6 +992,8 @@ function RemotePlayPage() {
   const [host, setHost] = useState<HostReport | null>(null);
   const [guest, setGuest] = useState<GuestReport | null>(null);
   const [net, setNet] = useState<NetworkReport | null>(null);
+  const lang = useSettings((st) => st.language) ?? "fr";
+  const t = (text: string) => tr(text, lang);
 
   useEffect(() => {
     remotePlayApi.config().then(setConfig, () => setConfig(null));
@@ -1023,9 +1026,9 @@ function RemotePlayPage() {
   };
 
   const yes = (ok: boolean, good: string, bad: string) => (
-    <span className={`shrink-0 rounded-full px-3 py-1 text-[0.8rem] font-extrabold ${ok ? "bg-mint text-ink" : "bg-cream-deep text-ink-soft"}`}>{ok ? good : bad}</span>
+    <span className={`shrink-0 rounded-full px-3 py-1 text-[0.8rem] font-extrabold ${ok ? "bg-mint-soft text-mint-deep ring-1 ring-mint-deep/30" : "bg-peach-soft text-peach-deep ring-1 ring-peach-deep/30"}`}>{ok ? good : bad}</span>
   );
-  const encoders = (list: string[]) => (list.length ? list.join(" · ") : "Aucun");
+  const encoders = (list: string[]) => (list.length ? list.join(" · ") : t("Aucun"));
 
   return (
     <>
@@ -1069,7 +1072,7 @@ function RemotePlayPage() {
             {running ? "Analyse…" : "Analyser"}
           </Button>
         </Row>
-        {error && <p className="py-3 text-[0.85rem] font-semibold text-[#B4232C]">{error}</p>}
+        {error && <p className="py-3 text-[0.85rem] font-semibold text-peach-deep">{error}</p>}
         {host && (
           <>
             <Row label="Windows" note={host.windowsLabel}>
@@ -1078,7 +1081,7 @@ function RemotePlayPage() {
             <Row label="Capture de l'écran et des fenêtres" note={host.borderlessCapture ? "Windows Graphics Capture, sans bordure de capture" : "Windows Graphics Capture (bordure jaune visible)"}>
               {yes(host.graphicsCapture, "Disponible", "Indisponible")}
             </Row>
-            <Row label="Carte graphique" note={host.gpus.map((g) => `${g.name} (${Math.round(g.dedicatedMb / 1024)} Go)`).join(" · ") || "Aucune carte détectée"}>
+            <Row label="Carte graphique" note={host.gpus.map((g) => `${g.name} (${Math.round(g.dedicatedMb / 1024)} ${t("Go")})`).join(" · ") || "Aucune carte détectée"}>
               {yes(host.gpus.length > 0, "Détectée", "Absente")}
             </Row>
             <Row label="Encodage matériel H.264" note={encoders(host.hardwareEncoders.h264)}>
@@ -1106,7 +1109,7 @@ function RemotePlayPage() {
             label="Réception d'un stream"
             note={
               (Object.entries(guest.decode) as [string, { hardware: boolean }][])
-                .map(([codec, d]) => `${codec.toUpperCase()} ${d.hardware ? "matériel" : "logiciel"}`)
+                .map(([codec, d]) => `${codec.toUpperCase()} ${t(d.hardware ? "matériel" : "logiciel")}`)
                 .join(" · ") || "Aucun codec vidéo WebRTC"
             }
           >
@@ -1118,7 +1121,7 @@ function RemotePlayPage() {
             label="Connexion directe (UDP, STUN)"
             note={
               net.stun
-                ? `Adresse publique obtenue en ${net.elapsedMs} ms : ${net.publicFamilies.join(" et ")}`
+                ? `Adresse publique obtenue en ${net.elapsedMs} ms : ${net.publicFamilies.join(t(" et "))}`
                 : "Aucune réponse STUN : l'UDP sortant semble bloqué (pare-feu, réseau d'entreprise ou d'école)."
             }
           >

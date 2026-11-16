@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.56"
+version = "0.1.57"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 

@@ -42,7 +42,7 @@ export function ReactionBar({ summary, onReact, compact = false }: {
             initial={compact ? { scale: 0.6, opacity: 0 } : false}
             animate={{ scale: 1, opacity: 1 }}
             className={`ibox-focusable inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-[0.82rem] font-extrabold transition-colors [--ring-radius:999px] ${
-              mine ? "bg-[#FFE3D6] text-[#C2451E] shadow-[inset_0_0_0_2px_#F28A63]" : "bg-cream-deep text-ink hover:bg-white"
+              mine ? "bg-peach-soft text-peach-deep shadow-[inset_0_0_0_2px_#F28A63]" : "bg-cream-deep text-ink hover:bg-white"
             }`}
           >
             <motion.span key={`${r.key}-${mine}`} initial={mine ? { scale: 1.6, rotate: -12 } : false} animate={{ scale: 1, rotate: 0 }} className="text-[1.05rem] leading-none">{r.emoji}</motion.span>
@@ -123,7 +123,7 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
             <motion.div key={c.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
               className={`group flex items-start gap-2.5 ${c.mine ? "flex-row-reverse" : ""}`}>
               <Avatar size={30} choice={c.avatar} name={c.authorName} />
-              <div className={`max-w-[80%] rounded-[1.1rem] px-3.5 py-2 ${c.mine ? "rounded-tr-md bg-[#DCEBFF]" : "rounded-tl-md bg-white"}`}>
+              <div className={`max-w-[80%] rounded-[1.1rem] px-3.5 py-2 ${c.mine ? "rounded-tr-md bg-sky-soft" : "rounded-tl-md bg-white"}`}>
                 <div className="flex items-baseline gap-2 text-[0.72rem] font-bold text-ink-soft">
                   <span data-no-i18n className="text-ink">{c.authorName}</span>
                   <span>{relativeDay(new Date(c.createdAt).toISOString())}</span>
@@ -162,7 +162,7 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
           <Icon name="chevronRight" size="1.2rem" />
         </button>
       </form>
-      {error && <p className="mt-2 text-[0.82rem] font-bold text-[#C2451E]">{error}</p>}
+      {error && <p className="mt-2 text-[0.82rem] font-bold text-peach-deep">{error}</p>}
     </section>
   );
 }

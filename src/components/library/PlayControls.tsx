@@ -8,6 +8,22 @@ import { useLibrary } from "@/services/library";
 import { useNav } from "@/app/navigation";
 import { Button } from "@/components/ui/Button";
 import { ChooseEmulatorModal } from "./EmulatorsPanel";
+import { RemotePlayGameDialog } from "@/components/remoteplay/RemotePlayOnline";
+import { isTauri } from "@/services/native";
+
+/** « Remote Play » : inviter un ami iNetbox sur ce jeu, sans passer par les paramètres. */
+export function RemotePlayButton({ game, onLaunch }: { game: Game; onLaunch?: () => void }) {
+  const [open, setOpen] = useState(false);
+  if (!isTauri() || game.dbId === undefined) return null;
+  return (
+    <>
+      <Button variant="soft" icon="globe" className="self-start" onClick={() => setOpen(true)}>
+        Remote Play
+      </Button>
+      {open && <RemotePlayGameDialog gameTitle={game.title} onLaunch={onLaunch} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 /** État du bouton « Jouer » d'un jeu, avec la raison quand il est indisponible. */
 export function usePlayState(game: Game) {
@@ -100,6 +116,7 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
             {thisOne && busy ? "En cours…" : install?.source === "rsi" ? "Ouvrir RSI Launcher" : "Jouer"}
           </Button>
         )}
+        {action !== "install" && <RemotePlayButton game={game} onLaunch={why ? undefined : launch} />}
       </div>
     );
   }
@@ -120,6 +137,7 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
           {thisOne && busy ? "En cours…" : "Jouer"}
         </Button>
       )}
+      <RemotePlayButton game={game} onLaunch={reason || !configured ? undefined : launch} />
       {game.dbId !== undefined && (
         <div className="flex items-center gap-2 pl-2 text-[0.82rem] font-semibold text-ink-soft">
           {emulator ? (
