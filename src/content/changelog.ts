@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.49",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "download", title: "Mises à jour réparées", text: "L’installation d’une mise à jour ne reste plus bloquée : iBox se met à jour d’un clic, puis redémarre tout seul." },
+      { icon: "sparkle", title: "Notifications plus sûres", text: "La fenêtre de notification en bas à droite ne fige plus iBox quand elle s’ouvre pendant une partie." },
+    ],
+  },
+  {
     version: "0.1.48",
     date: "2026-11-17",
     highlights: [

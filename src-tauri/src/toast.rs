@@ -89,26 +89,32 @@ pub fn push(app: &AppHandle, payload: Value) {
         q.push_back(payload);
     }
     let app = app.clone();
-    let main = app.clone();
-    let _ = main.run_on_main_thread(move || {
-        let Some(w) = window(&app) else { return };
-        place(&w);
-        let _ = w.show();
-        raise(&w);
-        let _ = app.emit_to(LABEL, "toast-push", ());
-        keep_on_top(&app);
+    // La fenêtre est créée par la boucle d'événements, jamais pendant une commande en cours sur le
+    // fil principal : appelé depuis ce fil, run_on_main_thread exécute la tâche sur-le-champ, et
+    // créer une WebView2 à cet endroit bloque définitivement Windows (fil principal figé, plus
+    // aucune commande ne répond). Le passage par un autre fil met la tâche dans la file d'attente.
+    std::thread::spawn(move || {
+        let main = app.clone();
+        let _ = main.run_on_main_thread(move || {
+            let Some(w) = window(&app) else { return };
+            place(&w);
+            let _ = w.show();
+            raise(&w);
+            let _ = app.emit_to(LABEL, "toast-push", ());
+            keep_on_top(&app);
+        });
     });
 }
 
 #[tauri::command]
-pub fn toast_update(app: AppHandle, version: String) {
+pub async fn toast_update(app: AppHandle, version: String) {
     push(&app, serde_json::json!({"kind":"update","friendId":"","name":format!("iBox {version}"),"body":"Cliquez pour installer la mise à jour."}));
 }
 
 /// Notification d'iBox (bibliothèque, succès, mise à jour…) montrée en bas à droite de l'écran,
 /// quand iBox n'est pas au premier plan. `link` dit où mène le clic.
 #[tauri::command]
-pub fn toast_notice(app: AppHandle, title: String, body: Option<String>, icon: Option<String>, tone: Option<String>, link: Option<Value>, image: Option<String>) {
+pub async fn toast_notice(app: AppHandle, title: String, body: Option<String>, icon: Option<String>, tone: Option<String>, link: Option<Value>, image: Option<String>) {
     // seules les images des succès RetroAchievements sont affichées
     let image = image.filter(|u| u.starts_with("https://media.retroachievements.org/") && u.len() < 200);
     let clip = |s: String, n: usize| s.chars().take(n).collect::<String>();

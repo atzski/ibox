@@ -272,7 +272,7 @@ static INSTALLING: AtomicBool = AtomicBool::new(false);
 /// rien d'autre dans iBox ne peut la ralentir ni la bloquer, et chaque étape a un délai maximal.
 /// La progression arrive par l'événement `update://progress` ; la commande répond aussitôt.
 #[tauri::command]
-pub fn update_install(app: AppHandle) -> Result<(), String> {
+pub async fn update_install(app: AppHandle) -> Result<(), String> {
     if UPDATE_URL.is_none() {
         return Err("Mises à jour non configurées.".into());
     }
