@@ -61,6 +61,9 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![shell::HIDDEN_ARG])))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            if let Ok(dir) = app.path().app_data_dir() {
+                metadata::keys::set_fallback_dir(dir.join("vault"));
+            }
             if let Err(error) = metadata::keys::delete("igdb-avatar") {
                 eprintln!("iBox : nettoyage d’un ancien identifiant impossible : {error}");
             }
@@ -90,6 +93,7 @@ pub fn run() {
             app_info,
             inetbox::inetbox_call,
             profile::profile_activate,
+            profile::profile_delete,
             capture::overlay_state,
             capture::overlay_preview,
             capture::overlay_save_shot,

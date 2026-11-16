@@ -4,7 +4,9 @@ import { jinglesApi, useJingleSync } from "@/services/jingles";
 import { InetboxPanel } from "@/components/social/InetboxPanel";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { useSession } from "@/services/profiles";
+import { listProfiles, switchProfile, useSession } from "@/services/profiles";
+import { DeleteProfileModal } from "@/components/profile/DeleteProfileModal";
+import type { LocalProfile } from "@/services/settings";
 import { shellApi, type UpdateInfo, HELP } from "@/services/shell";
 import { buildDiagnostic } from "@/services/diagnostic";
 import { StatsPanel } from "@/components/extras/StatsPanel";
@@ -313,12 +315,43 @@ function ProfilePage() {
       </div>
       {editing && <ProfileModal onClose={() => setEditing(false)} />}
     </Group>
+    <PlayersGroup />
     <Group title="Statistiques" icon="clock">
       <div className="border-none">
         <StatsPanel />
       </div>
     </Group>
     </>
+  );
+}
+
+/** Joueurs de ce PC : passer de l'un à l'autre, ou en supprimer un. */
+function PlayersGroup() {
+  useSettings((s) => s.profiles);
+  const activeId = useSettings((s) => s.activeProfileId);
+  const profiles = listProfiles();
+  const [removing, setRemoving] = useState<LocalProfile | null>(null);
+  return (
+    <Group title="Joueurs de ce PC" icon="user">
+      {profiles.map((p) => (
+        <Row key={p.id} label={p.name} note={p.id === activeId ? "Profil en cours" : undefined}>
+          <div className="flex items-center gap-2">
+            <Avatar size={36} choice={p.avatar} name={p.name} />
+            {p.id !== activeId && (
+              <Button onClick={() => void switchProfile(p.id)}>
+                Utiliser
+              </Button>
+            )}
+            {profiles.length > 1 && (
+              <Button icon="x" cue="back" aria-label={`Supprimer le profil ${p.name}`} onClick={() => setRemoving(p)}>
+                Supprimer
+              </Button>
+            )}
+          </div>
+        </Row>
+      ))}
+      {removing && <DeleteProfileModal profile={removing} onClose={() => setRemoving(null)} />}
+    </Group>
   );
 }
 

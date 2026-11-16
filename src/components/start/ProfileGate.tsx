@@ -6,7 +6,9 @@ import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useSettings } from "@/services/settings";
-import { createProfile, deleteProfile, listProfiles, switchProfile, useSession } from "@/services/profiles";
+import { createProfile, listProfiles, switchProfile, useSession } from "@/services/profiles";
+import { DeleteProfileModal } from "@/components/profile/DeleteProfileModal";
+import type { LocalProfile } from "@/services/settings";
 import { useInetbox } from "@/services/inetbox";
 import { quitApp } from "@/services/native";
 import { sound } from "@/services/sound";
@@ -26,6 +28,7 @@ export function ProfileGate() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [removing, setRemoving] = useState<LocalProfile | null>(null);
 
   const pick = (id: string) => {
     if (editing) return;
@@ -86,10 +89,7 @@ export function ProfileGate() {
               <button
                 data-focusable
                 aria-label={`Supprimer le profil ${p.name}`}
-                onClick={() => {
-                  sound.play("back");
-                  void deleteProfile(p.id);
-                }}
+                onClick={() => setRemoving(p)}
                 className="ibox-focusable absolute top-2 right-4 grid size-9 place-items-center rounded-full bg-peach-deep text-white shadow-md [--ring-radius:999px]"
               >
                 <Icon name="x" size={16} />
@@ -162,6 +162,15 @@ export function ProfileGate() {
           Quitter
         </Button>
       </div>
+      {removing && (
+        <DeleteProfileModal
+          profile={removing}
+          onClose={() => {
+            setRemoving(null);
+            if (listProfiles().length <= 1) setEditing(false);
+          }}
+        />
+      )}
     </motion.div>,
     document.body,
   );

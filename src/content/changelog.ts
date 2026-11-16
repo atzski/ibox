@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.51",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "key", title: "Clés API enregistrées partout", text: "Sur certains PC, le coffre Windows refusait les clés API (erreur 8). iBox réessaie autrement, puis les garde dans un coffre chiffré propre à votre session Windows." },
+      { icon: "user", title: "Supprimer un joueur", text: "Paramètres › Profil › Joueurs de ce PC : supprimez un profil, ses réglages, fonds et captures. Son compte iNetbox, lui, n’est pas supprimé." },
+    ],
+  },
+  {
     version: "0.1.50",
     date: "2026-11-16",
     highlights: [

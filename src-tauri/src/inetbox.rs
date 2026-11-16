@@ -33,7 +33,12 @@ fn base_url(raw: &str) -> Result<Url> {
     Ok(u)
 }
 /// Session propre au profil local actif : chaque joueur du PC a son compte iNetbox.
-fn credential() -> String { format!("inetbox-session-{:016x}{}", xxhash_rust::xxh3::xxh3_64(SERVICE.as_bytes()), crate::profile::suffix()) }
+fn credential() -> String { credential_with(&crate::profile::suffix()) }
+fn credential_with(suffix: &str) -> String { format!("inetbox-session-{:016x}{}", xxhash_rust::xxh3::xxh3_64(SERVICE.as_bytes()), suffix) }
+/// Profil local supprimé : efface sa session de ce PC (le compte reste sur iNetbox).
+pub fn forget_stored_session(profile: &str) {
+    let _ = keys::delete(&credential_with(&crate::profile::suffix_for(profile)));
+}
 /// Changement de profil : oublie l'état en mémoire (la session du profil reste dans le coffre).
 pub fn forget_session() {
     if let Ok(mut g) = SNAPSHOT.lock() { *g = None; }

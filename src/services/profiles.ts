@@ -110,14 +110,21 @@ export async function createProfile(name: string, avatar: AvatarChoice | null = 
   return profile;
 }
 
-/** Supprime un profil (jamais le dernier). Le profil actif passe au premier restant. */
+/**
+ * Supprime un joueur de ce PC (jamais le dernier) : sa carte, ses réglages, ses
+ * fonds et captures, et sa session iNetbox locale. Le compte iNetbox lui-même
+ * n'est pas touché. Le profil actif passe d'abord au premier restant.
+ */
 export async function deleteProfile(id: string): Promise<void> {
   const list = listProfiles();
   if (list.length <= 1) return;
   const rest = list.filter((p) => p.id !== id);
-  // le profil actif passe d'abord au premier restant, puis disparaît de la liste
   if (useSettings.getState().activeProfileId === id) await switchProfile(rest[0].id);
   useSettings.setState({ profiles: listProfiles().filter((p) => p.id !== id) });
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("profile_delete", { id }).catch(() => undefined);
+  }
 }
 
 /** Session : le profil a été choisi pour ce lancement d'iBox. */

@@ -25,13 +25,20 @@ pub fn active() -> String {
 
 /// Suffixe propre au profil actif : vide pour le premier profil.
 pub fn suffix() -> String {
-    let id = active();
+    suffix_for(&active())
+}
+
+/// Suffixe d'un profil donné : vide pour le premier profil.
+pub fn suffix_for(id: &str) -> String {
     if id == FIRST { String::new() } else { format!("-{id}") }
 }
 
 /// Dossier propre au profil actif sous `base` (le premier profil garde `base`).
 pub fn scoped_dir(base: &Path) -> PathBuf {
-    let id = active();
+    dir_for(base, &active())
+}
+
+fn dir_for(base: &Path, id: &str) -> PathBuf {
     if id == FIRST { base.to_path_buf() } else { base.join("profiles").join(id) }
 }
 
@@ -62,6 +69,32 @@ pub fn profile_activate(app: tauri::AppHandle, id: String) -> Result<bool, Strin
     }
     if changed { crate::inetbox::forget_session(); }
     Ok(changed)
+}
+
+/// Supprime un profil local (jamais l'actif) : sa session iNetbox enregistrée sur
+/// ce PC et ses fichiers (fonds, captures). Le compte iNetbox lui-même reste intact.
+#[tauri::command]
+pub fn profile_delete(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let id = sanitize(&id);
+    if id == active() { return Err("Impossible de supprimer le profil en cours d'utilisation.".into()); }
+    crate::inetbox::forget_stored_session(&id);
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    for base in [data.join("wallpaper"), data.join("captures")] {
+        let dir = dir_for(&base, &id);
+        if id == FIRST {
+            // le premier profil vit à la racine, à côté du dossier des autres profils
+            if let Ok(items) = fs::read_dir(&dir) {
+                for item in items.flatten() {
+                    if item.file_name() == "profiles" { continue; }
+                    let p = item.path();
+                    let _ = if p.is_dir() { fs::remove_dir_all(&p) } else { fs::remove_file(&p) };
+                }
+            }
+        } else {
+            let _ = fs::remove_dir_all(&dir);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
