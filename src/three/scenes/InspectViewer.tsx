@@ -126,7 +126,11 @@ function Rig({ game, spec, controller, open, discOut, reduced, tint, dark = fals
 
     // cadrage selon la taille du boîtier (référence : GameCube, 1,91 de haut)
     const fit = caseExtent(spec) / 1.91;
-    const targetDist = BASE_DISTANCE * fit * controller.zoom * (1 + (spec.model === "box" ? 0.85 : 0.24) * p);
+    let targetDist = BASE_DISTANCE * fit * controller.zoom * (1 + (spec.model === "box" ? 0.85 : 0.24) * p);
+    // visionneuse étroite (fiche PC) : le boîtier ouvert, deux fois plus large, doit tenir en largeur
+    const halfTan = Math.tan((camera.fov * Math.PI) / 360);
+    const wide = spec.width * (1 + (spec.model === "box" ? 0.5 : 1) * p) * 1.14;
+    targetDist = Math.max(targetDist, (wide / 2 / (halfTan * Math.max(0.3, camera.aspect))) * controller.zoom);
     camera.position.z = reduced ? targetDist : damp(camera.position.z, targetDist, 5, dt);
     camera.lookAt(0, 0, 0);
 

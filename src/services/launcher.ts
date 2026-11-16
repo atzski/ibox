@@ -84,6 +84,7 @@ export const launcherApi = {
   detect: () => call<Suggestion[]>("emulators_detect"),
   status: () => call<Running | null>("launch_status"),
   launch: (gameId: number) => call<Running>("game_launch", { gameId }),
+  adoptRunning: () => call<Running | null>("game_adopt_running"),
 
   async pickExe(): Promise<string | null> {
     if (!isTauri()) return null;
@@ -115,6 +116,8 @@ interface LauncherState {
   play: (gameId: number, title: string) => Promise<void>;
   dismiss: () => void;
   attach: () => Promise<() => void>;
+  /** Jeu PC ajouté alors qu'il tourne déjà : suivi comme s'il avait été lancé par iBox. */
+  adoptRunning: () => Promise<void>;
 }
 
 export const useLauncher = create<LauncherState>((set, get) => ({
@@ -161,6 +164,14 @@ export const useLauncher = create<LauncherState>((set, get) => ({
       sound.play("error");
       set({ phase: "error", error: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  adoptRunning: async () => {
+    if (!isTauri() || get().phase !== "idle") return;
+    const running = await launcherApi.adoptRunning().catch(() => null);
+    if (!running) return;
+    music.setSuspended(true);
+    set({ phase: "running", current: { gameId: running.gameId, title: running.title, emulatorName: running.emulatorName, startedAt: Date.parse(running.startedAt) }, error: null, lastEnded: null });
   },
 
   dismiss: () => set({ phase: get().phase === "running" ? "running" : "idle", error: null, lastEnded: null }),

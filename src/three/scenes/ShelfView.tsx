@@ -560,7 +560,7 @@ export function ShelfView({
     if (reduced || !returnAt) return;
     const s = shelves[returnAt.row];
     const g = s?.games[returnAt.index];
-    if (!g || g.platformId === "pc") return;
+    if (!g) return;
     const from = takeViewerPose(g.id);
     if (from) startFlight(g, s.specs[returnAt.index], from, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -604,7 +604,7 @@ export function ShelfView({
     const grp = groups.current.get(g.id);
     const view = three.current;
     const spec = shelf.specs[shelf.games.indexOf(g)];
-    if (grp && view && spec && g.platformId !== "pc" && !flipped) {
+    if (grp && view && spec && !flipped) {
       const yaw = (grp.parent?.rotation.y ?? 0) + grp.rotation.y;
       startFlight(g, spec, screenPose(grp, spec, view.camera, view.gl.domElement, yaw, 0.04));
       setFlown(true);

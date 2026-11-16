@@ -595,7 +595,7 @@ export function Meta({ label, value }: { label: string; value?: ReactNode }) {
   );
 }
 
-function Dock({ children }: { children: ReactNode }) {
+export function Dock({ children }: { children: ReactNode }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -609,32 +609,37 @@ function Dock({ children }: { children: ReactNode }) {
   );
 }
 
-function DockDivider() {
+export function DockDivider() {
   return <span className="mx-1 h-7 w-px bg-ink/10" />;
 }
 
-function DockButton({
+export function DockButton({
   icon,
   label,
   onClick,
   active,
   primary,
+  compact,
 }: {
   icon: IconName;
   label: string;
   onClick: () => void;
   active?: boolean;
   primary?: boolean;
+  /** Icône seule (colonne étroite) : le libellé reste en infobulle et pour les lecteurs d'écran. */
+  compact?: boolean;
 }) {
   return (
     <button
       data-focusable
       aria-pressed={active}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
       onClick={() => {
         sound.play("toggle");
         onClick();
       }}
-      className={`ibox-focusable flex h-12 items-center gap-2 rounded-full px-4 text-[0.88rem] font-bold [--ring-radius:999px] ${
+      className={`ibox-focusable flex h-12 items-center gap-2 rounded-full text-[0.88rem] font-bold [--ring-radius:999px] ${compact ? "w-12 justify-center" : "px-4"} ${
         primary
           ? "bg-[var(--accent-deep)] text-on-accent"
           : active
@@ -643,7 +648,7 @@ function DockButton({
       }`}
     >
       <Icon name={icon} size="1.2em" />
-      {label}
+      {!compact && label}
     </button>
   );
 }

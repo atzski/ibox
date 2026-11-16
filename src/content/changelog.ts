@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.54",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "disc", title: "Jeux PC en boîtier 3D", text: "Comme sur console, chaque jeu PC a son boîtier DVD en 3D sur sa fiche : faites-le tourner, ouvrez-le, regardez le dos, la tranche et sortez le disque imprimé à son image." },
+      { icon: "front", title: "Jaquettes PC soignées", text: "Bandeau « PC DVD-ROM » et boutique sur la face, dos sombre avec la bannière, le résumé et les captures du jeu, disque avec son logo." },
+      { icon: "gamepad", title: "Jeu déjà lancé reconnu", text: "Ajoutez un jeu PC pendant qu’il tourne : iBox le considère aussitôt comme lancé (temps de jeu, Alt+E), sans le relancer." },
+      { icon: "key", title: "Adresse e-mail lisible", text: "La ligne « Adresse e-mail » du compte iNetbox se lit enfin en mode sombre." },
+    ],
+  },
+  {
     version: "0.1.53",
     date: "2026-11-16",
     highlights: [

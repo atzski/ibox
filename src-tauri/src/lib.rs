@@ -250,6 +250,7 @@ pub fn run() {
             launch_cmd::emulators_detect,
             launch_cmd::launch_status,
             launch_cmd::game_launch,
+            launch_cmd::game_adopt_running,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de iBox");

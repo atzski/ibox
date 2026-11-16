@@ -2,12 +2,12 @@ import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
-import { useEffect, useState, type PointerEvent } from "react";
-import { motion, useMotionValue, useSpring } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import type { Game, PcInstall } from "@/domain/types";
 import { requirePlatform } from "@/domain/platforms";
 import { relativeDay } from "@/domain/text";
-import { stageAmbientGame, useReducedMotion, useScreenChrome } from "@/app/shellState";
+import { stageAmbientGame, useIsDark, useReducedMotion, useScreenChrome } from "@/app/shellState";
 import { useIsFavorite, useLibrary } from "@/services/library";
 import { formatPlayTime } from "@/services/launcher";
 import { badgeSource, canInstall, isInstalled, pcApi, pcInstallsOf, sourceInfo, storePlaytime } from "@/services/pc";
@@ -16,7 +16,11 @@ import { mixHex } from "@/art/paint";
 import { useArtPalette } from "@/art/usePalette";
 import { useMediaUrl } from "@/art/useMediaUrl";
 import { trimStyle, useImageInfo } from "@/art/imageTone";
-import { CoverImage } from "@/components/game/CoverImage";
+import { caseFor, mediaLabel } from "@/three/cases/caseSpecs";
+import { InspectController, type CaseView, type ShownSide } from "@/three/inspectController";
+import { InspectViewer } from "@/three/lazy";
+import { useGamepad } from "@/input/gamepad";
+import { input } from "@/input/InputController";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { InstallButton, PlayControls } from "@/components/library/PlayControls";
 import { MediaModal } from "@/components/library/MediaModal";
@@ -24,13 +28,14 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { sound } from "@/services/sound";
-import { CorrectionModal, Notice } from "./GameScreen";
+import { CorrectionModal, Dock, DockButton, DockDivider, Notice } from "./GameScreen";
 
 /**
- * Fiche d'un jeu PC : pas de boîtier 3D. La grande illustration du jeu remplit
- * le fond (net, par l'arrière-plan d'iBox), la jaquette flotte au premier plan
- * avec un léger relief, et les versions disponibles (Steam, GOG, ajout
- * manuel…) se choisissent ici.
+ * Fiche d'un jeu PC. La grande illustration du jeu remplit le fond (net, par
+ * l'arrière-plan d'iBox) ; à gauche, le jeu dans son boîtier DVD PC en 3D
+ * (s'ouvre, se retourne, montre son disque), comme pour les consoles ; à
+ * droite, les informations et les versions disponibles (Steam, GOG, ajout
+ * manuel…).
  */
 export function PcGameSheet({ game }: { game: Game }) {
   useEffect(() => { playJingle(game.dbId); return stopJingle; }, [game.dbId]);
@@ -50,15 +55,35 @@ export function PcGameSheet({ game }: { game: Game }) {
   // Le fond du jeu (bannière SteamGridDB ou jaquette floutée) s'affiche net derrière la fiche
   useEffect(() => stageAmbientGame(game), [game]);
 
+  // boîtier 3D : ouvert, disque sorti
+  const spec = caseFor("pc");
+  const controller = useMemo(() => new InspectController(), []);
+  const [open, setOpen] = useState(false);
+  const [discOut, setDiscOut] = useState(false);
+  const [onViewer, setOnViewer] = useState(false);
+  useEffect(() => {
+    const sync = () => setOnViewer(!!(document.activeElement as HTMLElement | null)?.closest("[data-viewer]"));
+    sync();
+    window.addEventListener("focusin", sync);
+    return () => window.removeEventListener("focusin", sync);
+  }, []);
+  const backLabel = discOut ? mediaLabel(spec).putBack : open ? "Fermer" : "Retour";
+
   useScreenChrome({
     title: game.title,
     platform,
     tint: [mixHex(accent, "#ffffff", 0.35), mixHex(soft, "#ffffff", 0.2)],
-    hints: [
-      { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
-      { keys: ["Entrée"], label: "Valider" },
-      { keys: ["Échap"], label: "Retour" },
-    ],
+    hints: onViewer
+      ? [
+          { keys: ["←", "→"], label: "Pivoter" },
+          { keys: ["Entrée"], label: open ? "Fermer" : "Ouvrir" },
+          { keys: ["Échap"], label: backLabel },
+        ]
+      : [
+          { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
+          { keys: ["Entrée"], label: "Valider" },
+          { keys: ["Échap"], label: backLabel },
+        ],
   });
 
   const enter = (delay: number) => ({
@@ -68,16 +93,18 @@ export function PcGameSheet({ game }: { game: Game }) {
   });
 
   return (
-    <div className="relative grid h-full grid-cols-[minmax(17rem,25rem)_minmax(0,1fr)] gap-12 px-[3rem] pb-4" style={themeVars(platform)}>
-      {/* Jaquette en relief */}
+    <div className="relative grid h-full grid-cols-[minmax(19rem,27rem)_minmax(0,1fr)] gap-10 px-[3rem] pb-4" style={themeVars(platform)}>
+      {/* Boîtier DVD PC en 3D, puis les succès */}
       <motion.div
-        initial={{ opacity: 0, y: reduced ? 0 : 40, rotateY: reduced ? 0 : -14, scale: reduced ? 1 : 0.94 }}
-        animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 140, damping: 20 }}
-        className="flex min-h-0 flex-col items-center gap-5 overflow-y-auto pt-6 pb-4 [perspective:1400px]"
+        initial={{ opacity: 0, scale: reduced ? 1 : 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 200, damping: 26 }}
+        className="flex min-h-0 flex-col gap-4 pt-2 pb-3"
       >
-        <FloatingCover game={game} reduced={reduced} />
-        <Achievements key={game.id} game={game} inline />
+        <PcCase game={game} spec={spec} controller={controller} open={open} setOpen={setOpen} discOut={discOut} setDiscOut={setDiscOut} accent={accent} reduced={reduced} />
+        <div className="max-h-[38%] shrink-0 overflow-y-auto empty:hidden">
+          <Achievements key={game.id} game={game} inline />
+        </div>
       </motion.div>
 
       {/* Informations */}
@@ -154,7 +181,15 @@ export function PcGameSheet({ game }: { game: Game }) {
           {...enter(0.3)}
           className="mt-auto flex flex-wrap items-center gap-3 self-start rounded-[1.6rem] bg-white/45 p-2.5 pr-3 shadow-[0_10px_30px_rgba(30,40,70,0.10)] ring-1 ring-white/70 backdrop-blur-md"
         >
-          <PlayControls game={game} />
+          <PlayControls
+            game={game}
+            beforeLaunch={() => {
+              // le boîtier se referme pendant le lancement, comme pour les consoles
+              setDiscOut(false);
+              setOpen(false);
+              controller.setView("front");
+            }}
+          />
           <Button icon="star" cue="toggle" onClick={() => void toggleFavorite(game)} className={favorite ? "!text-[#E8A23A]" : ""}>
             {favorite ? "Favori" : "Ajouter aux favoris"}
           </Button>
@@ -225,34 +260,119 @@ function MergeVersions({ game, onClose }: { game: Game; onClose: () => void }) {
   );
 }
 
-/** Jaquette qui flotte et s'incline doucement vers le pointeur. */
-function FloatingCover({ game, reduced }: { game: Game; reduced: boolean }) {
-  const rx = useMotionValue(0);
-  const ry = useMotionValue(0);
-  const sx = useSpring(rx, { stiffness: 120, damping: 14 });
-  const sy = useSpring(ry, { stiffness: 120, damping: 14 });
-  const onMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (reduced) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    ry.set(((e.clientX - r.left) / r.width - 0.5) * 14);
-    rx.set(-((e.clientY - r.top) / r.height - 0.5) * 10);
+/**
+ * Le jeu dans son boîtier DVD PC : même visionneuse que les consoles (glisser
+ * pour tourner, ouvrir, voir le dos, la tranche et le disque), dans la colonne
+ * de gauche ; la barre d'outils est réduite aux icônes pour tenir dans la largeur.
+ */
+function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, accent, reduced }: {
+  game: Game;
+  spec: ReturnType<typeof caseFor>;
+  controller: InspectController;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  discOut: boolean;
+  setDiscOut: (v: boolean) => void;
+  accent: string;
+  reduced: boolean;
+}) {
+  const dark = useIsDark();
+  const padActive = useGamepad((g) => g.active);
+  const media = mediaLabel(spec);
+  const [view, setView] = useState<ShownSide>("front");
+
+  const toggleOpen = () => {
+    if (open) {
+      setDiscOut(false);
+      setOpen(false);
+      sound.play("caseClose");
+    } else {
+      controller.setView("front");
+      setView("front");
+      setOpen(true);
+      sound.play("caseOpen");
+    }
   };
+  const toggleDisc = () => {
+    if (discOut) {
+      setDiscOut(false);
+      sound.play("mediaIn");
+      return;
+    }
+    controller.setView("front");
+    setView("front");
+    if (!open) sound.play("caseOpen");
+    setOpen(true);
+    setDiscOut(true);
+    window.setTimeout(() => sound.play("mediaOut"), open ? 0 : 260);
+  };
+  const show = (v: CaseView) => {
+    if (open && v !== "front") {
+      setDiscOut(false);
+      setOpen(false);
+      sound.play("caseClose");
+    }
+    controller.setView(v);
+    setView(v);
+  };
+
+  // « Retour » range d'abord le disque, puis referme le boîtier, puis quitte la fiche
+  useEffect(
+    () =>
+      input.onBack(() => {
+        if (discOut) {
+          setDiscOut(false);
+          sound.play("mediaIn");
+          return "quiet";
+        }
+        if (open) {
+          setOpen(false);
+          sound.play("caseClose");
+          return "quiet";
+        }
+        return false;
+      }),
+    [open, discOut, setOpen, setDiscOut],
+  );
+
+  // boutons de face à jour après une rotation libre
+  useEffect(() => {
+    const id = window.setInterval(() => setView(controller.currentView()), 250);
+    return () => window.clearInterval(id);
+  }, [controller]);
+
   return (
-    <motion.div
-      onPointerMove={onMove}
-      onPointerLeave={() => {
-        rx.set(0);
-        ry.set(0);
+    <section
+      className="relative min-h-[22rem] flex-1 overflow-hidden rounded-xl"
+      style={{
+        // verre : le fond d'écran du jeu reste visible, à peine voilé
+        background: "linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 45%, rgba(10,14,28,0.10))",
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16), inset 0 1px 0 0 rgba(255,255,255,0.28), 0 18px 40px -28px rgba(10,14,28,0.5)",
       }}
-      style={{ rotateX: sx, rotateY: sy, transformStyle: "preserve-3d" }}
-      className={`relative w-full ${reduced ? "" : "ibox-float"}`}
     >
-      <div className="ibox-shine relative overflow-hidden rounded-xl shadow-[0_30px_60px_-20px_rgba(20,40,60,0.45),0_10px_24px_-12px_rgba(20,40,60,0.3)]">
-        <CoverImage game={game} rounded="rounded-xl" />
+      <InspectViewer game={game} spec={spec} controller={controller} open={open} discOut={discOut} reduced={reduced} tint={accent} dark={dark} onToggleOpen={toggleOpen} />
+      <div className="pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.72rem] font-bold whitespace-nowrap text-ink-soft">
+        <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner" : "Glisser pour tourner"}
       </div>
-      {/* reflet au sol */}
-      <div className="mx-auto mt-4 h-5 w-3/4 rounded-[50%] bg-[radial-gradient(closest-side,rgba(30,50,70,0.25),transparent)] blur-[2px]" />
-    </motion.div>
+      <Dock>
+        <DockButton compact primary icon={open ? "close" : "open"} label={open ? "Fermer" : "Ouvrir"} active={open} onClick={toggleOpen} />
+        <DockDivider />
+        <DockButton compact icon="front" label="Face" active={view === "front" && !open} onClick={() => show("front")} />
+        <DockButton compact icon="backFace" label="Dos" active={view === "back"} onClick={() => show("back")} />
+        <DockButton compact icon="spine" label="Tranche" active={view === "spine"} onClick={() => show("spine")} />
+        <DockDivider />
+        <DockButton compact icon="disc" label={discOut ? media.out : media.noun} active={discOut} onClick={toggleDisc} />
+        <DockButton
+          compact
+          icon="reset"
+          label="Recentrer"
+          onClick={() => {
+            controller.reset();
+            setView("front");
+          }}
+        />
+      </Dock>
+    </section>
   );
 }
 

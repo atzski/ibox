@@ -150,3 +150,49 @@ pub fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
     });
     Ok(info)
 }
+
+/// Jeu PC déjà ouvert au moment où il entre dans la bibliothèque : iBox le suit comme
+/// s'il l'avait lancé (session, temps de jeu, capture Alt+E), sans relancer le jeu.
+#[tauri::command]
+pub fn game_adopt_running(app: AppHandle) -> Option<Running> {
+    let state = app.state::<LauncherState>();
+    let mut running = state.running.lock().ok()?;
+    if running.is_some() {
+        return None;
+    }
+    crate::pc::running::forget();
+    let lib = app.state::<LibraryState>();
+    let (game_id, title, pid) = lib.with(|c| Ok(crate::pc::running::find_process(c))).ok().flatten()?;
+    let db_path = lib.db_path().to_path_buf();
+    let started_at = now_iso();
+    let session_id = {
+        let conn = crate::db::open(&db_path).ok()?;
+        conn.execute("UPDATE games SET last_played_at = ?2 WHERE id = ?1", rusqlite::params![game_id, started_at]).ok()?;
+        conn.execute("INSERT INTO play_sessions (game_id, started_at) VALUES (?1, ?2)", rusqlite::params![game_id, started_at]).ok()?;
+        conn.last_insert_rowid()
+    };
+    let info = Running { game_id, title: title.clone(), emulator_name: "PC".into(), started_at, pid };
+    *running = Some(info.clone());
+    drop(running);
+    let _ = app.emit("launch://started", &info);
+    crate::shell::game_started(&app);
+
+    let app2 = app.clone();
+    std::thread::spawn(move || {
+        let started = std::time::Instant::now();
+        while crate::pc::running::alive(pid) {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+        }
+        let seconds = started.elapsed().as_secs();
+        if let Ok(conn) = crate::db::open(&db_path) {
+            let _ = launch::finish_session(&conn, game_id, session_id, seconds, Some(0), None);
+        }
+        if let Ok(mut r) = app2.state::<LauncherState>().running.lock() {
+            *r = None;
+        }
+        let ended = Ended { game_id, title, seconds, exit_code: Some(0), error: None, detached: false };
+        let _ = app2.emit("launch://ended", &ended);
+        crate::shell::game_ended(&app2);
+    });
+    Some(info)
+}

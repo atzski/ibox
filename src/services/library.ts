@@ -212,6 +212,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
         await refresh();
         set({ pcSync: { running: false, summaries, at: Date.now() } });
         const added = summaries.reduce((n, s) => n + s.added, 0);
+        if (added > 0) void import("./launcher").then(({ useLauncher }) => useLauncher.getState().adoptRunning());
         if (added > 0) notify({ icon: "plus", tone: "ok", title: `${added} nouveau${added > 1 ? "x" : ""} jeu${added > 1 ? "x" : ""} PC`, body: summaries.filter((s) => s.added).map((s) => `${s.source} : ${s.added}`).join(" · "), link: { kind: "library", platformId: "pc" } });
         for (const s of summaries) if (s.warning) notify({ icon: "lock", tone: "warn", title: "Boutique PC", body: s.warning, link: { kind: "settings", category: "pc" } });
         // jaquettes, fonds et logos des nouveaux jeux

@@ -54,8 +54,11 @@ export function useCaseTextures(game: Game, spec: CaseSpec, detail: TextureDetai
       const dims = faceDims(spec, detail === "inspect" ? 1.6 : 1);
       const faces: CaseFace[] = ["front", "back", "spine", "disc", "label"];
       // carte de jeu : étiquette autocollante dédiée ; cartouche : étiquette classique
+      // PC : face avant habillée en boîtier DVD-ROM (la vignette de la bibliothèque reste nue)
       const art = (f: CaseFace): ArtFace =>
-        f === "label" && spec.model === "keep" && spec.media.type === "card" ? "cardLabel" : (f as ArtFace);
+        f === "label" && spec.model === "keep" && spec.media.type === "card" ? "cardLabel"
+          : f === "front" && spec.kind === "pc" ? "caseFront"
+          : (f as ArtFace);
       const pending = Promise.all(faces.map((f) => getArtCanvas(game, art(f), dims[f]))).then((canvases) => {
         const out = {} as CaseTextures;
         canvases.forEach((c, i) => {

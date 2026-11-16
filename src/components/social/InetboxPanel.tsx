@@ -125,7 +125,7 @@ function EmailCard({ disabled }: { disabled: boolean }) {
   const [password, setPassword] = useState("");
   const current = s.user?.email;
   return (
-    <div className={`rounded-2xl p-4 ${current ? "bg-cream-deep/60" : "bg-[#FFF4D6]"}`}>
+    <div className={`rounded-2xl p-4 ${current ? "bg-cream-deep/60" : "bg-peach/25 ring-1 ring-peach/50"}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-bold text-ink">Adresse e-mail</p>

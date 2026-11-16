@@ -17,6 +17,8 @@ export interface ArtAssets {
   screenshot?: ImageBitmap;
   /** Logo du jeu (SteamGridDB), utilisé au dos. */
   logo?: ImageBitmap;
+  /** Bannière paysage (jeux PC seulement : dos et disque du boîtier DVD). */
+  hero?: ImageBitmap;
   /** Couleurs de la vraie jaquette, sinon celles de l'habillage. */
   palette: Palette;
   /** Une vraie jaquette avant est disponible (téléchargée, importée ou scan complet). */
@@ -69,6 +71,7 @@ export function loadAssets(game: Game): Promise<ArtAssets> {
   if (!p) {
     p = (async () => {
       const kinds: MediaKind[] = ["front", "back", "spine", "full", "disc", "title", "screenshot", "logo"];
+      if (game.platformId === "pc") kinds.push("hero");
       const bitmaps = await Promise.all(kinds.map((k) => loadBitmap(game, k)));
       const a: Partial<ArtAssets> = {};
       kinds.forEach((k, i) => {

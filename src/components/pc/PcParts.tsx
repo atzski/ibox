@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { isInstalled, pcApi, sourceInfo } from "@/services/pc";
 import { useLibrary } from "@/services/library";
+import { useLauncher } from "@/services/launcher";
 import { useNav } from "@/app/navigation";
 import { sound } from "@/services/sound";
 
@@ -76,6 +77,8 @@ export function AddPcGameModal({ onClose }: { onClose: () => void }) {
       await reload();
       // jaquette, fond et logo (SteamGridDB, si une clé est enregistrée)
       void useLibrary.getState().fetchMetadata([id]);
+      // jeu déjà ouvert : iBox le considère lancé, sans le relancer
+      void useLauncher.getState().adoptRunning();
       sound.play("select");
       onClose();
       go({ name: "game", gameId: `lib-${id}` });

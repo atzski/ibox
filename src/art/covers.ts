@@ -42,7 +42,8 @@ function platformIcon(platformId: string): ImageBitmap | null {
  *     existe (ses couleurs, ses vraies captures, son vrai synopsis), sinon
  *     motif original (démo) ou aux couleurs de la console. Jamais de faux scan.
  */
-export type ArtFace = "front" | "boxFront" | "back" | "spine" | "disc" | "label" | "cardLabel";
+/** `caseFront` : face avant posée sur un boîtier 3D (PC : avec le bandeau DVD-ROM). */
+export type ArtFace = "front" | "boxFront" | "caseFront" | "back" | "spine" | "disc" | "label" | "cardLabel";
 
 /** Taille demandée pour une face (textures 3D aux proportions de chaque boîtier). */
 export type ArtDims = { w: number; h: number };
@@ -284,14 +285,14 @@ function drawContain(ctx: Ctx, src: ImageBitmap, x: number, y: number, w: number
 
 // ——— Face avant ———
 
-function paintFront(game: Game, a: ArtAssets, dims: { w: number; h: number }): HTMLCanvasElement {
+function paintFront(game: Game, a: ArtAssets, dims: { w: number; h: number }, onCase = false): HTMLCanvasElement {
   const { w, h } = dims;
   const [c, ctx] = makeCanvas(w, h);
 
   const platform = requirePlatform(game.platformId);
 
   // Jeu PC : vraie illustration habillée comme une boîte PC (bandeau, infos, reflet)
-  if (a.hasCover && platform.id === "pc") return paintPcFront(game, a, platform, c, ctx, w, h);
+  if (a.hasCover && platform.id === "pc") return paintPcFront(game, a, platform, c, ctx, w, h, onCase);
 
   // Vraie jaquette : affichée telle quelle (elle a souvent déjà son propre bandeau)
   if (a.hasCover) {
@@ -352,11 +353,17 @@ function paintFront(game: Game, a: ArtAssets, dims: { w: number; h: number }): H
 }
 
 /** Face d'une boîte PC : bandeau « PC », illustration, bande d'informations réelles, reflet. */
-function paintPcFront(game: Game, a: ArtAssets, _platform: Platform, c: HTMLCanvasElement, ctx: Ctx, w: number, h: number): HTMLCanvasElement {
+function paintPcFront(game: Game, a: ArtAssets, _platform: Platform, c: HTMLCanvasElement, ctx: Ctx, w: number, h: number, onCase = false): HTMLCanvasElement {
   ctx.fillStyle = a.palette[1];
   ctx.fillRect(0, 0, w, h);
-  // l'illustration occupe toute la face (pas de bandeau)
-  ctx.drawImage(scene(game, a, w, h), 0, 0);
+  if (onCase) {
+    // sur le boîtier 3D : bandeau noir « PC DVD-ROM », l'illustration dessous
+    const band = drawPcBand(ctx, game, w, h);
+    ctx.drawImage(scene(game, a, w, h - band), 0, band);
+  } else {
+    // vignette de la bibliothèque : l'illustration occupe toute la face
+    ctx.drawImage(scene(game, a, w, h), 0, 0);
+  }
   // bande du bas : éditeur / développeur et année (seulement les infos connues)
   const left = game.publisher ?? game.developer;
   const right = game.year ? String(game.year) : undefined;
@@ -412,6 +419,7 @@ function paintBack(game: Game, a: ArtAssets, dims: { w: number; h: number } = AR
     drawCover(ctx, a.full, 0, 0, w, h, [0, fullScanSplit(game.platformId, a.full).backEnd]);
     return c;
   }
+  if (game.platformId === "pc" && w <= h) return paintPcBack(game, a, w, h);
 
   const platform = requirePlatform(game.platformId);
   const p = a.palette;
@@ -759,6 +767,10 @@ function paintDisc(game: Game, a: ArtAssets): HTMLCanvasElement {
     ctx.restore();
     return c;
   }
+  if (game.platformId === "pc") {
+    ctx.restore();
+    return paintPcDisc(game, a, c, ctx, w);
+  }
 
   const src = scene(game, a);
   drawCover(ctx, src, 0, 0, w, w, undefined, 0.25);
@@ -815,9 +827,284 @@ function paintDisc(game: Game, a: ArtAssets): HTMLCanvasElement {
   return c;
 }
 
+// ——— Jeux PC : boîtier DVD-ROM ———
+
+/** Boutique du jeu PC (version préférée), en capitales pour le bandeau. */
+const PC_STORE_NAMES: Record<string, string> = {
+  steam: "Steam", "steam-family": "Steam", epic: "Epic Games", gog: "GOG", ubisoft: "Ubisoft Connect", ea: "EA app",
+  xbox: "Xbox", battlenet: "Battle.net", rockstar: "Rockstar", riot: "Riot Games", rsi: "RSI", itch: "itch.io",
+};
+function pcStores(game: Game): string[] {
+  const list = [...(game.pcInstalls ?? [])].sort((a, b) => Number(b.preferred) - Number(a.preferred));
+  return [...new Set(list.map((i) => PC_STORE_NAMES[i.source]).filter((n): n is string => !!n))];
+}
+
+/** Bandeau noir « PC DVD-ROM » d'un boîtier PC ; renvoie sa hauteur. */
+function drawPcBand(ctx: Ctx, game: Game, w: number, h: number): number {
+  const bh = Math.round(Math.min(h * 0.062, w * 0.09));
+  const g = ctx.createLinearGradient(0, 0, 0, bh);
+  g.addColorStop(0, "#1d222d");
+  g.addColorStop(1, "#0c0f16");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, bh);
+  ctx.fillStyle = alpha("#ffffff", 0.18);
+  ctx.fillRect(0, bh - Math.max(1, bh * 0.04), w, Math.max(1, bh * 0.04));
+  const pad = bh * 0.32;
+  // pastille « PC »
+  ctx.save();
+  ctx.font = `900 ${Math.round(bh * 0.5)}px ${DISPLAY}`;
+  ctx.textBaseline = "middle";
+  const pw = ctx.measureText("PC").width + bh * 0.5;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(pad, bh * 0.2, pw, bh * 0.6, bh * 0.12);
+  ctx.fill();
+  ctx.fillStyle = "#0c0f16";
+  ctx.textAlign = "center";
+  ctx.fillText("PC", pad + pw / 2, bh * 0.52);
+  // « DVD-ROM »
+  ctx.textAlign = "left";
+  ctx.font = `800 ${Math.round(bh * 0.3)}px ${BODY}`;
+  ctx.letterSpacing = `${Math.round(bh * 0.06)}px`;
+  ctx.fillStyle = alpha("#ffffff", 0.9);
+  ctx.fillText("DVD-ROM", pad + pw + bh * 0.28, bh * 0.52);
+  // boutique, à droite
+  const store = pcStores(game)[0];
+  if (store) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = alpha("#ffffff", 0.62);
+    ctx.font = `800 ${Math.round(bh * 0.26)}px ${BODY}`;
+    ctx.fillText(store.toUpperCase(), w - pad, bh * 0.52, w * 0.4);
+  }
+  ctx.restore();
+  return bh;
+}
+
+/** Dos d'un boîtier PC sans vrai scan : sombre, bannière du jeu, résumé, captures. */
+function paintPcBack(game: Game, a: ArtAssets, w: number, h: number): HTMLCanvasElement {
+  const [c, ctx] = makeCanvas(w, h);
+  const p = a.palette;
+  const s = w / 800;
+  const pad = Math.round(54 * s);
+  const deep = shade(p[2], -0.55);
+  ctx.fillStyle = vGradient(ctx, h, [[0, shade(p[1], -0.62)], [0.55, "#11141c"], [1, "#0a0c12"]]);
+  ctx.fillRect(0, 0, w, h);
+
+  const band = drawPcBand(ctx, game, w, h);
+  let y = band;
+
+  // bannière du jeu en tête, fondue dans le fond
+  const banner: Source | undefined = a.hero ?? a.screenshot ?? a.title;
+  const bannerH = Math.round(h * 0.3);
+  if (banner) {
+    drawCover(ctx, banner, 0, y, w, bannerH, undefined, 0.4);
+  } else {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    drawCover(ctx, scene(game, a), 0, y, w, bannerH, undefined, 0.3);
+    ctx.restore();
+  }
+  const fade = ctx.createLinearGradient(0, y + bannerH * 0.35, 0, y + bannerH);
+  fade.addColorStop(0, alpha("#0d1018", 0));
+  fade.addColorStop(1, "#11141c");
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, y, w, bannerH);
+
+  // logo (ou titre) posé sur la bannière
+  const logoH = Math.round(118 * s);
+  const logoY = y + bannerH - logoH * 0.85;
+  if (a.logo) {
+    ctx.save();
+    ctx.shadowColor = alpha("#000000", 0.6);
+    ctx.shadowBlur = 18 * s;
+    drawContain(ctx, a.logo, pad, logoY, w * 0.6, logoH);
+    ctx.restore();
+  } else {
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    const t = fitTitle(ctx, game.title, w - pad * 2, 64 * s, 34 * s, 2, DISPLAY);
+    ctx.font = `700 ${t.size}px ${DISPLAY}`;
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = alpha("#000000", 0.6);
+    ctx.shadowBlur = 14 * s;
+    t.lines.forEach((l, i) => ctx.fillText(l, pad, logoY + logoH - (t.lines.length - 1 - i) * t.size * 1.05));
+    ctx.shadowBlur = 0;
+  }
+  y += bannerH + 30 * s;
+
+  // accroche : genre · joueurs · année
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  const facts = [game.genre, game.players, game.year?.toString()].filter(Boolean).join("  ·  ");
+  if (facts) {
+    ctx.save();
+    ctx.font = `800 ${20 * s}px ${BODY}`;
+    ctx.letterSpacing = `${3 * s}px`;
+    ctx.fillStyle = mixHex(p[2], "#ffffff", 0.45);
+    ctx.fillText(facts.toUpperCase(), pad, y, w - pad * 2);
+    ctx.restore();
+    y += 46 * s;
+  }
+
+  const footerH = Math.round(118 * s);
+  const footerY = h - pad - footerH;
+  const shotsH = Math.round(150 * s);
+  const shots: Source[] = [a.screenshot, a.title, a.hero].filter((v): v is ImageBitmap => !!v);
+
+  // résumé : autant de lignes que la place le permet
+  ctx.font = `600 ${24 * s}px ${BODY}`;
+  ctx.fillStyle = alpha("#ffffff", 0.84);
+  const lineH = 35 * s;
+  const room = footerY - y - (shots.length ? shotsH + 36 * s : 20 * s);
+  const lines = wrapText(ctx, game.description ?? "", w - pad * 2).slice(0, Math.max(0, Math.floor(room / lineH)));
+  lines.forEach((l, i) => ctx.fillText(l, pad, y + i * lineH));
+
+  // captures d'écran
+  if (shots.length) {
+    const n = Math.min(3, Math.max(2, shots.length));
+    const gap = 18 * s;
+    const sw = (w - pad * 2 - gap * (n - 1)) / n;
+    const sy = footerY - 30 * s - shotsH;
+    for (let i = 0; i < n; i++) {
+      const img = shots[i % shots.length];
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(pad + i * (sw + gap), sy, sw, shotsH, 14 * s);
+      ctx.clip();
+      drawCover(ctx, img, pad + i * (sw + gap), sy, sw, shotsH, undefined, 0.25 + i * 0.25);
+      ctx.restore();
+      ctx.strokeStyle = alpha("#ffffff", 0.22);
+      ctx.lineWidth = 2 * s;
+      ctx.beginPath();
+      ctx.roundRect(pad + i * (sw + gap), sy, sw, shotsH, 14 * s);
+      ctx.stroke();
+    }
+  }
+
+  // pied blanc : éditeur, boutiques, code-barres
+  ctx.fillStyle = alpha("#ffffff", 0.94);
+  ctx.beginPath();
+  ctx.roundRect(pad, footerY, w - pad * 2, footerH, 18 * s);
+  ctx.fill();
+  const barW = 150 * s;
+  const textRoom = w - pad * 2 - barW - 70 * s;
+  ctx.fillStyle = "#11141c";
+  ctx.font = `900 ${26 * s}px ${DISPLAY}`;
+  ctx.fillText("PC DVD-ROM", pad + 26 * s, footerY + 18 * s, textRoom);
+  ctx.font = `700 ${18 * s}px ${BODY}`;
+  ctx.fillStyle = alpha("#11141c", 0.72);
+  const studio = [game.developer, game.publisher].filter((v, i, arr) => v && arr.indexOf(v) === i).join(" · ");
+  if (studio) ctx.fillText(studio, pad + 26 * s, footerY + 52 * s, textRoom);
+  const stores = pcStores(game);
+  ctx.fillStyle = deep;
+  ctx.font = `800 ${16 * s}px ${BODY}`;
+  ctx.fillText(stores.length ? `Disponible sur ${stores.join(" · ")}` : "Windows", pad + 26 * s, footerY + 80 * s, textRoom);
+  drawBarcode(ctx, game.title, w - pad - 24 * s - barW, footerY + 16 * s, barW, footerH - 32 * s, "#11141c");
+  drawGrain(ctx, w, h, 0.04);
+  return c;
+}
+
+/** Disque PC imprimé : illustration du jeu, logo, mention DVD-ROM. */
+function paintPcDisc(game: Game, a: ArtAssets, c: HTMLCanvasElement, ctx: Ctx, w: number): HTMLCanvasElement {
+  const r = w / 2;
+  const p = a.palette;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(r, r, r, 0, Math.PI * 2);
+  ctx.clip();
+  // fond : la bannière (paysage) couvre mieux un disque que la jaquette
+  const art: Source = a.hero ?? a.screenshot ?? scene(game, a);
+  drawCover(ctx, art, 0, 0, w, w, undefined, 0.4);
+  const veil = ctx.createRadialGradient(r, r, r * 0.3, r, r, r);
+  veil.addColorStop(0, alpha("#0b0e15", 0.05));
+  veil.addColorStop(1, alpha("#0b0e15", 0.5));
+  ctx.fillStyle = veil;
+  ctx.fillRect(0, 0, w, w);
+
+  // logo du jeu au-dessus du moyeu, sinon le titre
+  if (a.logo) {
+    ctx.save();
+    ctx.shadowColor = alpha("#000000", 0.55);
+    ctx.shadowBlur = 16;
+    drawContain(ctx, a.logo, r * 0.42, r * 0.2, r * 1.16, r * 0.42);
+    ctx.restore();
+  } else {
+    const t = fitTitle(ctx, game.title, r * 1.2, 72, 34, 2, DISPLAY);
+    ctx.font = `700 ${t.size}px ${DISPLAY}`;
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = alpha("#000000", 0.55);
+    ctx.shadowBlur = 12;
+    t.lines.forEach((l, i) => ctx.fillText(l, r, r * 0.4 + (i - (t.lines.length - 1) / 2) * t.size * 1.05));
+    ctx.shadowBlur = 0;
+  }
+
+  // bande du bas : « PC DVD-ROM » et l'éditeur
+  ctx.fillStyle = alpha("#0b0e15", 0.72);
+  ctx.fillRect(0, r * 1.5, w, r * 0.5);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `900 ${Math.round(r * 0.1)}px ${DISPLAY}`;
+  ctx.save();
+  ctx.letterSpacing = `${Math.round(r * 0.012)}px`;
+  ctx.fillText("PC DVD-ROM", r, r * 1.62);
+  ctx.restore();
+  const studio = game.publisher ?? game.developer;
+  if (studio) {
+    ctx.font = `700 ${Math.round(r * 0.06)}px ${BODY}`;
+    ctx.fillStyle = alpha("#ffffff", 0.72);
+    ctx.fillText(studio.toUpperCase().slice(0, 34), r, r * 1.76);
+  }
+  // liseré aux couleurs du jeu
+  ctx.strokeStyle = alpha(mixHex(p[2], "#ffffff", 0.3), 0.85);
+  ctx.lineWidth = r * 0.025;
+  ctx.beginPath();
+  ctx.arc(r, r, r * 0.93, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // reflet irisé
+  const shine = ctx.createConicGradient(Math.PI / 5, r, r);
+  shine.addColorStop(0, alpha("#ffffff", 0));
+  shine.addColorStop(0.12, alpha("#ffffff", 0.2));
+  shine.addColorStop(0.25, alpha("#ffffff", 0));
+  shine.addColorStop(0.62, alpha("#ffffff", 0));
+  shine.addColorStop(0.74, alpha("#ffffff", 0.14));
+  shine.addColorStop(0.86, alpha("#ffffff", 0));
+  ctx.fillStyle = shine;
+  ctx.fillRect(0, 0, w, w);
+
+  // moyeu transparent argenté
+  const hub = ctx.createRadialGradient(r, r, r * 0.19, r, r, r * 0.4);
+  hub.addColorStop(0, "#f4f6fa");
+  hub.addColorStop(0.5, "#cfd6e1");
+  hub.addColorStop(1, "#eef1f6");
+  ctx.fillStyle = hub;
+  ctx.beginPath();
+  ctx.arc(r, r, r * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = alpha("#8794a3", 0.5);
+  ctx.lineWidth = 3;
+  for (const k of [0.4, 0.3, 0.24]) {
+    ctx.beginPath();
+    ctx.arc(r, r, r * k, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = alpha("#ffffff", 0.8);
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.arc(r, r, r - 5, 0, Math.PI * 2);
+  ctx.stroke();
+  return c;
+}
+
 const PAINTERS: Record<ArtFace, (g: Game, a: ArtAssets, d?: ArtDims) => HTMLCanvasElement> = {
   front: (g, a, d) => paintFront(g, a, d ?? frontSize(g)),
   boxFront: (g, a, d) => paintFront(g, a, d ?? ART_SIZE.front),
+  caseFront: (g, a, d) => paintFront(g, a, d ?? ART_SIZE.front, true),
   back: (g, a, d) => paintBack(g, a, d),
   spine: (g, a, d) => paintSpine(g, a, d),
   disc: (g, a) => paintDisc(g, a),
