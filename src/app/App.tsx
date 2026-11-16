@@ -1,6 +1,8 @@
 import { attachAutoJingles } from "@/services/jingles";
 import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
 import { attachSocial } from "@/services/social";
+import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
+import { RemotePlayLayer } from "@/components/remoteplay/RemotePlayOnline";
 import { useEffect } from "react";
 import { ProfileGate } from "@/components/start/ProfileGate";
 import { SetupWizard } from "@/components/start/SetupWizard";
@@ -85,6 +87,7 @@ const screenVariants = {
 export function App() {
   useEffect(() => attachInetbox(), []);
   useEffect(() => attachSocial(), []);
+  useEffect(() => attachRemotePlayOnline(), []);
   useEffect(() => attachAutoJingles(), []);
 
   // Démarrage : première configuration, puis « Qui joue ? »
@@ -244,6 +247,7 @@ export function App() {
       <DuplicatesHost />
       <PlayerJoinedOverlay />
       <LaunchOverlay />
+      <RemotePlayLayer />
       <FlightLayer />
     </MotionConfig>
   );

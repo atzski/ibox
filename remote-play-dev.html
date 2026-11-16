@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iBox Remote Play — invité (développement)</title>
+    <style>
+      body { margin: 0; background: #111; color: #ddd; font: 12px ui-monospace, monospace; }
+      video { width: 100%; max-height: 60vh; background: #000; object-fit: contain; display: block; }
+      pre { margin: 8px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <!-- Page de développement seulement (servie par `vite`, absente du build) : invité réel face à
+         l'hôte de l'essai `phase1c_browser_bridge` (pont HTTP 127.0.0.1:47800). Voir docs/REMOTE-PLAY.md §11. -->
+    <video autoplay playsinline muted></video>
+    <pre>Connexion au pont 127.0.0.1:47800…</pre>
+    <script type="module" src="/src/dev/remotePlayDev.ts"></script>
+  </body>
+</html>

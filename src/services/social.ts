@@ -130,6 +130,10 @@ export interface ToastPayload {
   tone?: "info" | "ok" | "warn";
   link?: import("./links").AppLink | null;
   image?: string | null;
+  /** Invitation Remote Play (kind « invite »). */
+  remotePlay?: boolean;
+  inviteId?: string;
+  mode?: "watch" | "play";
 }
 export type FriendsTarget = { view: "requests" } | { view: "chat"; friendId: string } | { view: "profile"; friendId: string } | { view: "list" };
 
@@ -137,6 +141,11 @@ function onToastClick(p: ToastPayload) {
   if (p.kind === "update" || p.kind === "notice") {
     const link = p.kind === "update" ? { kind: "update" as const } : p.link;
     if (link) void import("./links").then(({ openLink }) => openLink(link));
+    return;
+  }
+  if (p.kind === "invite" && p.remotePlay && p.inviteId) {
+    const inviteId = p.inviteId;
+    void import("./remotePlayOnline").then(({ openInvite }) => openInvite(inviteId));
     return;
   }
   let target: FriendsTarget = { view: "list" };

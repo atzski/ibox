@@ -46,6 +46,9 @@ import { ArtworkPicker } from "@/components/assets/ArtworkPicker";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { matchesQuery } from "@/domain/text";
 import { padLabels, useGamepad, type ConfirmSide, type PadFamily } from "@/input/gamepad";
+import { RemotePlaySession } from "@/components/remoteplay/RemotePlaySession";
+import { ExperimentalBadge } from "@/components/remoteplay/RemotePlayOnline";
+import { onlineApi } from "@/services/remotePlayOnline";
 import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostReport, type NetworkReport, type RemotePlayConfig } from "@/services/remotePlay";
 import { BLOCK_INFO, DEFAULT_BLOCKS, normalizeBlocks } from "@/services/homeLayout";
 
@@ -997,6 +1000,15 @@ function RemotePlayPage() {
     if (!config) return;
     remotePlayApi.setConfig({ ...config, enabled }).then(setConfig, (e) => setError(String(e)));
   };
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const setAccept = (accept: boolean) => {
+    if (!config) return;
+    setAcceptError(null);
+    onlineApi.setAccept(accept).then(
+      (acceptRequests) => setConfig({ ...config, acceptRequests }),
+      (e) => setAcceptError(typeof e === "string" ? e : String((e as { message?: string })?.message ?? e)),
+    );
+  };
 
   const diagnose = async () => {
     setRunning(true);
@@ -1020,15 +1032,36 @@ function RemotePlayPage() {
       <Group
         title="Remote Play"
         icon="play"
-        note="Jouez à distance avec vos amis, directement d'ordinateur à ordinateur : le jeu tourne chez l'hôte, l'image et les commandes ne passent jamais par les serveurs iNetbox. En construction : le streaming n'est pas encore disponible."
+        note="Fonction expérimentale. Jouez à distance avec vos amis iNetbox, directement d'ordinateur à ordinateur : le jeu tourne chez l'hôte, l'image et les commandes ne passent jamais par les serveurs iNetbox. Pour inviter un ami : son profil › « Inviter à jouer »."
       >
-        <Row label="Activer Remote Play" note="Désactivé par défaut. Désactivé, aucune capture ni aucun contrôle à distance ne peut démarrer.">
-          <Toggle checked={!!config?.enabled} onChange={toggle} label="Activer Remote Play" />
+        <Row label="Activer Remote Play" note="Expérimental, désactivé par défaut. Désactivé, aucune capture, aucun contrôle à distance et aucune recherche d'invitations ne tourne.">
+          <span className="flex items-center gap-3">
+            <ExperimentalBadge />
+            <Toggle checked={!!config?.enabled} onChange={toggle} label="Activer Remote Play" />
+          </span>
         </Row>
-        <Row label="Connexions directes" note="En pair à pair, vos participants peuvent voir votre adresse IP. Aucun relais n'est utilisé sans votre accord.">
+        {config?.enabled && (
+          <Row
+            label="Accepter les demandes Remote Play de mes amis"
+            note={acceptError ?? "Désactivé par défaut. Activé, vos amis iNetbox peuvent vous inviter ; vous acceptez ou refusez chaque invitation."}
+          >
+            <Toggle checked={!!config?.acceptRequests} onChange={setAccept} label="Accepter les demandes Remote Play de mes amis" />
+          </Row>
+        )}
+        <Row label="Connexions directes" note="En pair à pair, vos participants voient votre adresse IP (avertissement avant la première session). Aucun relais n'est utilisé. Verrouiller Windows coupe le partage.">
           <span />
         </Row>
       </Group>
+
+      {config?.enabled && (
+        <Group
+          title="Session d'essai"
+          icon="play"
+          note="Sans serveur iNetbox : sur ce PC (boucle locale, vous êtes spectateur de votre propre écran) ou entre deux PC du même réseau en échangeant l'offre et la réponse à la main. Arrêt d'urgence de l'hôte : son raccourci (Ctrl+Alt+Shift+F12 par défaut)."
+        >
+          <RemotePlaySession />
+        </Group>
+      )}
 
       <Group title="Diagnostic de cet ordinateur" icon="search" note="Mesures réelles de Windows, de la carte graphique et du réseau. Le test réseau contacte uniquement les serveurs STUN.">
         <Row label="Lancer le diagnostic">

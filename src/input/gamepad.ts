@@ -199,6 +199,9 @@ function perform(action: PadAction): void {
  * Démarre la lecture des manettes. Toutes les manettes branchées pilotent l'interface ;
  * chacune a son numéro de joueur. Renvoie la fonction d'arrêt.
  */
+/** Vrai pendant qu'une session Remote Play envoie la manette à l'hôte : iBox ne navigue plus avec. */
+export const padCapture = { active: false };
+
 export function attachGamepads(): () => void {
   if (typeof navigator === "undefined" || !("getGamepads" in navigator)) return () => undefined;
   const processors = new Map<number, PadProcessor>();
@@ -229,7 +232,7 @@ export function attachGamepads(): () => void {
       refreshInfo();
       return;
     }
-    if (document.hasFocus()) {
+    if (document.hasFocus() && !padCapture.active) {
       const players = useGamepad.getState().players;
       for (const pad of pads) {
         const player = players.find((p) => p.index === pad.index);

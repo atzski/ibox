@@ -122,6 +122,8 @@ pub enum Denied {
     TooManyKeys,
     NeedsConfirmation,
     PadTaken,
+    /// Message réservé au sens hôte → invité (vibration).
+    WrongDirection,
 }
 
 #[derive(Debug, Default)]
@@ -328,6 +330,7 @@ impl Session {
                 }
                 fresh(&mut p.pad_seq, *seq)?;
             }
+            Message::Rumble { .. } => return Err(Denied::WrongDirection),
             Message::Chat { .. } => need(Permission::TextChat)?,
             Message::Ping { .. } | Message::Pong { .. } => {}
         }
@@ -407,6 +410,7 @@ mod tests {
         let released = s.enable_pad(1, false).unwrap();
         assert_eq!(released, vec![Message::Gamepad { pad: 0, seq: 0, state: PadState::default() }]);
         assert_eq!(s.authorize(1, pad(0, 3)), Err(Denied::PadDisabled));
+        assert_eq!(s.authorize(1, Message::Rumble { pad: 0, large: 9, small: 9 }), Err(Denied::WrongDirection));
     }
 
     #[test]

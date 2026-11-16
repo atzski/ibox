@@ -13,6 +13,8 @@ import type { AvatarChoice } from "@/services/settings";
 import { sound } from "@/services/sound";
 import { friendState, SettingTile } from "./Presence";
 import { gameKey } from "@/services/social";
+import { InviteDialog } from "@/components/remoteplay/RemotePlayOnline";
+import { isTauri } from "@/services/native";
 
 interface Activity { friendId?: string; displayName?: string; avatar?: AvatarChoice | null; gameTitle: string; platformId: string; startedAt: number }
 interface Profile { id: string; displayName: string; avatar: AvatarChoice | null; bio?: string; accent?: string | null; banner?: string | null; featuredGames?: FeaturedGame[]; achievementHighlight?: AchievementHighlight | null; since: number | null; activity: Activity[]; games: number | null }
@@ -87,6 +89,7 @@ export function ActivityView() {
 export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetFriend; onChat: () => void }) {
   const [p, setP] = useState<Profile | null>(null);
   const [failed, setFailed] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const connected = useInetbox((s) => s.status === "online");
   const act = useInetbox((s) => s.act);
   const st = friend ? friendState(friend, connected) : null;
@@ -112,7 +115,9 @@ export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetF
             label={friend.favorite ? "Favori" : "Ajouter aux favoris"}
             active={friend.favorite}
           />
+          {isTauri() && <Button icon="play" onClick={() => setInviting(true)}>Inviter à jouer</Button>}
         </div>} />
+      {friend && inviting && <InviteDialog friendId={friend.id} friendName={friend.displayName} onClose={() => setInviting(false)} />}
       {friend && p?.achievementHighlight && <section className="mt-3 rounded-2xl bg-cream-deep p-4 text-ink">
         <div className="flex items-center gap-2 font-bold"><Icon name="star" />{p.achievementHighlight.source}</div>
         <p data-no-i18n className="mt-1 break-words">{p.achievementHighlight.title}</p>

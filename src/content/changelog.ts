@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.56",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Remote Play (expérimental)", text: "Jouez à distance avec un ami iNetbox, directement d’ordinateur à ordinateur : invitez-le depuis Paramètres › Remote Play, il voit votre écran ou votre jeu et peut jouer avec sa manette. À activer vous-même ; désactivé par défaut." },
+      { icon: "key", title: "Vous gardez la main", text: "Chaque invité commence sans aucun droit ; vous choisissez Spectateur, Joueur ou Collaborateur. Un témoin reste affiché pendant le partage, avec un arrêt d’urgence au clavier. Le partage s’arrête quand Windows se verrouille." },
+      { icon: "globe", title: "Serveur iNetbox allégé", text: "iNetbox relit beaucoup moins de données à chaque mise à jour de la présence de vos amis." },
+    ],
+  },
+  {
     version: "0.1.55",
     date: "2026-11-16",
     highlights: [

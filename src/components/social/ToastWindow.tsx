@@ -102,6 +102,7 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
 
   const line =
     toast.kind === "game" ? <>lance <b className="text-ink">{toast.gameTitle}</b></>
+    : toast.kind === "invite" && toast.remotePlay ? <>{toast.mode === "play" ? "vous invite à jouer sur son PC (Remote Play)." : "vous invite à regarder son écran (Remote Play)."} Cliquez pour répondre.</>
     : toast.kind === "invite" ? <>vous invite à <b className="text-ink">{toast.gameTitle}</b></>
     : toast.kind === "request" ? <>vous a ajouté en ami. Cliquez pour accepter.</>
     : toast.kind === "notice" || toast.kind === "update" ? <>{toast.body}</>

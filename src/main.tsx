@@ -21,14 +21,18 @@ const windowLabel = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: {
 const isToast = windowLabel === "toast";
 // L'overlay en jeu (Alt+E) : captures et clips par-dessus la partie.
 const isOverlay = windowLabel === "overlay";
+// Remote Play : bandeau de l'hôte, toujours visible pendant un partage.
+const isIndicator = windowLabel === "remote-play-indicator";
 const root = createRoot(document.getElementById("root")!);
 const initialize = async () => {
-  if (!isToast && !isOverlay) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
+  if (!isToast && !isOverlay && !isIndicator) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
   const settings = useSettings.getState();
   if (!settings.language) settings.set("language", defaultLang());
   startTranslation(useSettings.getState().language ?? "fr");
 };
-if (isOverlay) {
+if (isIndicator) {
+  void initialize().then(() => import("./components/remoteplay/RemotePlayIndicator")).then(({ RemotePlayIndicator }) => root.render(<RemotePlayIndicator />));
+} else if (isOverlay) {
   void initialize().then(() => import("./components/overlay/OverlayWindow")).then(({ OverlayWindow }) => root.render(<OverlayWindow />));
 } else if (isToast) {
   void initialize().then(() => import("./components/social/ToastWindow")).then(({ ToastWindow }) => root.render(<ToastWindow />));

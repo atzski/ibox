@@ -21,6 +21,12 @@ export interface RemotePlayConfig {
   stunServers: string[];
   showStats: boolean;
   blockedAccounts: string[];
+  /** Raccourci global d'arrêt d'urgence, ex. « Ctrl+Alt+Shift+F12 ». */
+  stopHotkey: string;
+  /** « Accepter les demandes Remote Play de mes amis » (modifié par `onlineApi.setAccept`). */
+  acceptRequests: boolean;
+  /** Avertissement sur l'adresse IP lu avant la première session P2P. */
+  ipWarningSeen: boolean;
 }
 
 export interface HostReport {
@@ -53,10 +59,52 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   return invoke<T>(cmd, args);
 }
 
+/** Statistiques réelles de l'hôte (`remote_play::transport::stats::TransportStats`). */
+export interface HostStats {
+  state: string;
+  connected: boolean;
+  error: string | null;
+  connectMs: number | null;
+  elapsedS: number;
+  rttMs: number | null;
+  lossPct: number | null;
+  packetsLost: number | null;
+  jitterMs: number | null;
+  bweKbps: number | null;
+  targetKbps: number;
+  sentKbps: number;
+  fps: number;
+  frames: number;
+  keyframes: number;
+  plis: number;
+  firs: number;
+  nacks: number;
+  bitrateChanges: number;
+  encoder: string | null;
+  resolution: [number, number] | null;
+  encodeMsP50: number | null;
+  encodeMsMax: number | null;
+  localCandidate: string | null;
+  remoteCandidate: string | null;
+  /** Type de connexion : `loopback`, `lan` ou `internet` (P2P direct, jamais de relais). */
+  path: string | null;
+  natV4: string | null;
+  natV6: string | null;
+  inputs: { received: number; rejected: number; denied: number; injected: number; failed: number; pings: number };
+}
+
+export type GuestProfile = "spectator" | "player" | "collaborator";
+
 export const remotePlayApi = {
   config: () => (isTauri() ? invoke<RemotePlayConfig>("remote_play_config") : Promise.reject(new Error("iBox natif requis"))),
   setConfig: (config: RemotePlayConfig) => invoke<RemotePlayConfig>("remote_play_set_config", { config }),
   diagnoseHost: () => invoke<HostReport>("remote_play_diagnose"),
+  /** Démarre l'hôte : boucle locale (127.0.0.1, invité spectateur) ou réseau local. Renvoie l'offre SDP. */
+  hostStart: (lan: boolean, profile?: GuestProfile) => invoke<{ sdp: string; lan: boolean }>("remote_play_host_start", { args: { lan, profile } }),
+  /** Réponse de l'invité ; renvoie le code de vérification. */
+  hostAnswer: (sdp: string) => invoke<string>("remote_play_host_answer", { sdp }),
+  hostStats: () => invoke<HostStats | null>("remote_play_host_stats"),
+  hostStop: () => invoke<HostStats | null>("remote_play_host_stop"),
 };
 
 export interface NetworkReport {

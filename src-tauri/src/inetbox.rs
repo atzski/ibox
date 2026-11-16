@@ -21,7 +21,7 @@ const SERVICE: &str = match option_env!("IBOX_INETBOX_URL") { Some(url) => url, 
 #[serde(rename_all = "camelCase")]
 pub struct Error { code: String, message: String, retry_after_seconds: Option<u64> }
 type Result<T> = std::result::Result<T, Error>;
-impl Error { pub(crate) fn new(code: &str, message: &str) -> Self { err(code, message) } }
+impl Error { pub(crate) fn new(code: &str, message: &str) -> Self { err(code, message) } pub(crate) fn message(&self) -> &str { &self.message } }
 fn err(code: &str, message: &str) -> Error { Error { code: code.into(), message: message.into(), retry_after_seconds: None } }
 fn vault_error() -> Error { err("VAULT_ERROR", "Le coffre Windows est indisponible.") }
 fn base_url(raw: &str) -> Result<Url> {
@@ -46,6 +46,14 @@ pub fn forget_session() {
     if let Ok(mut g) = USER.lock() { *g = None; }
     if let Ok(mut g) = SEEN.lock() { *g = None; }
     ACTIVE.store(false, Ordering::Relaxed);
+}
+/// Remote Play : adresse du service, jeton de session et compte connecté, pour le client
+/// natif `remote_play::online::api` (le jeton ne quitte jamais le natif).
+pub(crate) fn rp_context() -> Result<(String, String, String)> {
+    let token = keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour utiliser Remote Play."))?;
+    let me = USER.lock().map_err(|_| vault_error())?.as_ref().and_then(|u| u["id"].as_str().map(str::to_string))
+        .ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour utiliser Remote Play."))?;
+    Ok((SERVICE.to_string(), token, me))
 }
 fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() }
 fn http(client: &Client, method: Method, path: &str, token: Option<&str>, body: Option<&Value>) -> Result<Value> {
@@ -350,6 +358,9 @@ fn pulse(app: &AppHandle) {
     let Ok(snap) = perform(app, "snapshot", Value::Null, None) else { return };
     let _ = app.emit_to("main", "inetbox-snapshot", &snap);
     for toast in news(&snap) { crate::toast::push(app, toast); }
+    // invitations Remote Play : seulement si la fonction est activée et les demandes acceptées
+    #[cfg(windows)]
+    crate::remote_play::online::pulse(app);
 }
 fn news(snap: &Value) -> Vec<Value> {
     let Ok(mut guard) = SEEN.lock() else { return vec![] };

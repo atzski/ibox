@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "toast",
-    "overlay"
+    "overlay",
+    "remote-play-indicator"
   ],
   "permissions": [
     "core:default",

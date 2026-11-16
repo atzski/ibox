@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::input::hotkey::{Hotkey, DEFAULT_HOTKEY};
 use super::permissions::Profile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,6 +60,13 @@ pub struct Config {
     pub stun_servers: Vec<String>,
     pub show_stats: bool,
     pub blocked_accounts: Vec<String>,
+    /// Raccourci global d'arrêt d'urgence (« Ctrl+Alt+Shift+F12 »).
+    pub stop_hotkey: String,
+    /// « Accepter les demandes Remote Play de mes amis » (`accounts.rp_accept_requests` sur
+    /// iNetbox) : désactivé par défaut.
+    pub accept_requests: bool,
+    /// Avertissement « vos participants voient votre adresse IP » lu avant la première session P2P.
+    pub ip_warning_seen: bool,
 }
 
 impl Default for Config {
@@ -83,6 +91,9 @@ impl Default for Config {
             stun_servers: vec!["stun:stun.cloudflare.com:3478".into(), "stun:stun.l.google.com:19302".into()],
             show_stats: false,
             blocked_accounts: Vec::new(),
+            stop_hotkey: DEFAULT_HOTKEY.into(),
+            accept_requests: false,
+            ip_warning_seen: false,
         }
     }
 }
@@ -111,6 +122,8 @@ impl Config {
         self.stun_servers.retain(|s| (s.starts_with("stun:") || s.starts_with("stuns:")) && s.len() <= 200);
         self.stun_servers.truncate(4);
         self.blocked_accounts.truncate(1000);
+        // un raccourci illisible ne doit jamais laisser l'hôte sans arrêt d'urgence
+        self.stop_hotkey = self.stop_hotkey.parse::<Hotkey>().unwrap_or_default().to_string();
         self
     }
 
@@ -166,6 +179,8 @@ mod tests {
         assert_eq!(c.computer_name, "PC  de salon");
         assert_eq!(c.stun_servers, vec!["stun:ok:3478".to_string()]);
         assert_eq!(Config { height: Some(0), ..Config::default() }.sanitized().height, Some(0));
+        assert_eq!(Config { stop_hotkey: "F12".into(), ..Config::default() }.sanitized().stop_hotkey, DEFAULT_HOTKEY);
+        assert_eq!(Config { stop_hotkey: "maj+ctrl+pause".into(), ..Config::default() }.sanitized().stop_hotkey, "Ctrl+Shift+Pause");
     }
 
     #[test]

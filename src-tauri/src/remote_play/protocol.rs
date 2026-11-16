@@ -63,6 +63,8 @@ pub enum Message {
     /// Liste des touches tenues ; toute autre touche tenue par ce participant doit être relâchée.
     KeyState { seq: u32, held: Vec<u16> },
     Gamepad { pad: u8, seq: u32, state: PadState },
+    /// Hôte → invité : vibration demandée par le jeu à la manette virtuelle (0–255 par moteur).
+    Rumble { pad: u8, large: u8, small: u8 },
     Chat { text: String },
     Ping { id: u32, micros: u64 },
     Pong { id: u32, micros: u64 },
@@ -183,6 +185,13 @@ pub fn decode(bytes: &[u8]) -> Result<Message, DecodeError> {
             };
             Message::Gamepad { pad, seq, state }
         }
+        0x31 => {
+            let pad = r.u8()?;
+            if pad >= MAX_PADS {
+                return Err(DecodeError::OutOfRange);
+            }
+            Message::Rumble { pad, large: r.u8()?, small: r.u8()? }
+        }
         0x40 => {
             let len = r.u16()? as usize;
             if len == 0 || len > MAX_CHAT_BYTES {
@@ -251,6 +260,7 @@ pub fn encode(msg: &Message) -> Vec<u8> {
                 out.extend(axis.to_le_bytes());
             }
         }
+        Message::Rumble { pad, large, small } => out.extend([0x31, *pad, *large, *small]),
         Message::Chat { text } => {
             // tronqué à une frontière de caractère pour rester décodable
             let mut end = text.len().min(MAX_CHAT_BYTES);
@@ -294,6 +304,7 @@ mod tests {
                 seq: 99,
                 state: PadState { buttons: 0xF00F, lt: 255, rt: 1, lx: i16::MIN, ly: i16::MAX, rx: 0, ry: -1 },
             },
+            Message::Rumble { pad: 1, large: 255, small: 0 },
             Message::Chat { text: "Salut ! On joue ? 🎮\nGo".into() },
             Message::Ping { id: 1, micros: 123_456_789 },
             Message::Pong { id: 1, micros: u64::MAX },
@@ -329,6 +340,7 @@ mod tests {
         let mut pad = encode(&samples()[8]);
         pad[1] = MAX_PADS;
         assert_eq!(decode(&pad), Err(DecodeError::OutOfRange));
+        assert_eq!(decode(&[0x31, MAX_PADS, 0, 0]), Err(DecodeError::OutOfRange));
         let mut keys = vec![0x21, 0, 0, 0, 0, 17];
         keys.extend(std::iter::repeat([0x1E, 0]).take(17).flatten());
         assert_eq!(decode(&keys), Err(DecodeError::OutOfRange));
