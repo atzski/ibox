@@ -249,7 +249,7 @@ impl Host {
             let on_rumble: input::RumbleFn = Arc::new(move |pad, large, small| {
                 let _ = rumble_tx.lock().map(|t| t.send(Msg::Rumble { pad, large, small }));
             });
-            input::host_pads(on_rumble).0
+            input::host_pads(on_rumble)
         } else {
             Box::new(input::NoPads)
         };

@@ -258,6 +258,14 @@ export class GuestSession {
   private latency: number[] = [];
   private minimalBuffer = false;
   private closed = false;
+  private seq = 0;
+
+  /** Numéro de séquence des entrées, commun à toute la session : l'hôte refuse tout numéro déjà vu
+   * (un compteur qui repartirait de 1 après « Rendre les commandes » serait ignoré). */
+  nextSeq(): number {
+    this.seq = (this.seq + 1) >>> 0;
+    return this.seq;
+  }
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -448,15 +456,65 @@ export class GuestSession {
 
 // ——— Entrées de l'invité ———
 
+/** Première manette branchée et vue par Windows (le navigateur n'en montre aucune avant le premier
+ * appui sur un de ses boutons). */
+function firstPad(): Gamepad | undefined {
+  return navigator.getGamepads?.().find((p): p is Gamepad => !!p && p.connected);
+}
+
 /**
- * Branche souris, clavier et première manette sur `session` tant que la fonction renvoyée n'est
- * pas appelée. Le clavier est capturé avant la navigation d'iBox ; tout ce qui est tenu est
- * relâché à la sortie (et l'hôte relâche tout à la déconnexion).
+ * Envoie la première manette de l'invité à l'hôte tant que la fonction renvoyée n'est pas appelée,
+ * dès qu'elle apparaît (branchée en cours de session comprise). `onPad` reçoit son nom, ou `null`
+ * tant qu'aucune n'est visible ; `onPadCapture` dit si iBox doit cesser de naviguer avec.
  */
-export function attachInputs(session: GuestSession, video: HTMLVideoElement, opts: { onPadCapture?: (active: boolean) => void } = {}): () => void {
-  let seq = 0;
+export function attachPad(session: GuestSession, opts: { onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {}): () => void {
+  let frame = 0;
+  let lastPad = "";
+  let lastSent = 0;
+  let name: string | null | undefined;
+  const announce = (pad: Gamepad | undefined) => {
+    const next = pad ? pad.id : null;
+    if (next === name) return;
+    name = next;
+    opts.onPad?.(next);
+    opts.onPadCapture?.(!!pad);
+  };
+  const pollPad = () => {
+    const pad = firstPad();
+    announce(pad);
+    if (pad) {
+      const wire = padWire([...pad.buttons], pad.axes);
+      const sig = JSON.stringify(wire);
+      const now = performance.now();
+      // état complet : envoyé à chaque changement et toutes les 100 ms (canal non fiable)
+      if (sig !== lastPad || now - lastSent > 100) {
+        session.send("input", encode.gamepad(0, session.nextSeq(), wire));
+        lastPad = sig;
+        lastSent = now;
+      }
+    }
+    frame = requestAnimationFrame(pollPad);
+  };
+  frame = requestAnimationFrame(pollPad);
+  return () => {
+    cancelAnimationFrame(frame);
+    if (name) session.send("input", encode.gamepad(0, session.nextSeq(), padWire([], [])));
+    opts.onPadCapture?.(false);
+  };
+}
+
+/**
+ * Branche souris, clavier et (si `pad` n'est pas `false`) première manette sur `session` tant que
+ * la fonction renvoyée n'est pas appelée. Le clavier est capturé avant la navigation d'iBox ; tout
+ * ce qui est tenu est relâché à la sortie (et l'hôte relâche tout à la déconnexion).
+ */
+export function attachInputs(
+  session: GuestSession,
+  video: HTMLVideoElement,
+  opts: { pad?: boolean; onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {},
+): () => void {
   const held = new Set<number>();
-  const next = () => (seq = (seq + 1) >>> 0);
+  const next = () => session.nextSeq();
   const area = () => contentRect(video.videoWidth, video.videoHeight, video.getBoundingClientRect());
 
   const move = (e: PointerEvent) => {
@@ -501,26 +559,7 @@ export function attachInputs(session: GuestSession, video: HTMLVideoElement, opt
   };
   const keyState = window.setInterval(() => session.send("input", encode.keyState(next(), [...held])), 250);
 
-  let frame = 0;
-  let lastPad = "";
-  let lastSent = 0;
-  const pollPad = () => {
-    const pad = navigator.getGamepads?.().find((p): p is Gamepad => !!p && p.connected);
-    if (pad) {
-      const wire = padWire([...pad.buttons], pad.axes);
-      const sig = JSON.stringify(wire);
-      const now = performance.now();
-      // état complet : envoyé à chaque changement et toutes les 100 ms (canal non fiable)
-      if (sig !== lastPad || now - lastSent > 100) {
-        session.send("input", encode.gamepad(0, next(), wire));
-        lastPad = sig;
-        lastSent = now;
-      }
-    }
-    frame = requestAnimationFrame(pollPad);
-  };
-  frame = requestAnimationFrame(pollPad);
-  opts.onPadCapture?.(true);
+  const detachPad = opts.pad === false ? null : attachPad(session, opts);
 
   video.addEventListener("pointermove", move);
   video.addEventListener("pointerdown", onDown);
@@ -533,8 +572,7 @@ export function attachInputs(session: GuestSession, video: HTMLVideoElement, opt
   return () => {
     releaseAll();
     window.clearInterval(keyState);
-    cancelAnimationFrame(frame);
-    opts.onPadCapture?.(false);
+    detachPad?.();
     video.removeEventListener("pointermove", move);
     video.removeEventListener("pointerdown", onDown);
     video.removeEventListener("pointerup", onUp);

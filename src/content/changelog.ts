@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.58",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Manette de l’invité connectée d’office", text: "En Remote Play, la manette de votre ami est détectée et envoyée toute seule dès qu’il la branche et appuie sur un bouton, sans rien cliquer. Son nom s’affiche en bas de l’écran." },
+      { icon: "download", title: "Pilote manette installé en un clic", text: "Sur l’hôte, la manette de l’invité a besoin du pilote ViGEmBus. S’il manque, iBox propose de l’installer (Windows demande votre accord) et la manette se branche aussitôt, sans relancer la session. Aussi dans Paramètres › Remote Play." },
+      { icon: "front", title: "Bandeau de partage réductible", text: "Le bandeau « Partage en cours avec » se réduit en une petite pastille dans le coin de l’écran ; un clic dessus le rouvre." },
+    ],
+  },
+  {
     version: "0.1.57",
     date: "2026-11-17",
     highlights: [

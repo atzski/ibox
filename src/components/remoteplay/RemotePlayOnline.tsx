@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { padCapture } from "@/input/gamepad";
 import { useNav } from "@/app/navigation";
 import { remotePlayApi, type GuestProfile, type HostStats, type RemotePlayConfig } from "@/services/remotePlay";
-import { attachInputs, GuestSession, type GuestStats } from "@/services/remotePlayGuest";
+import { attachInputs, attachPad, GuestSession, type GuestStats } from "@/services/remotePlayGuest";
 import {
   natLabel,
   needsConfirmation,
@@ -407,7 +407,9 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
   const [error, setError] = useState<string | null>(null);
   const [controlling, setControlling] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [pad, setPad] = useState<string | null>(null);
   const status = useRemotePlayOnline((s) => s.status);
+  const play = join.mode === "play";
 
   useEffect(() => {
     const s = new GuestSession(video.current!, rumble, join.stunServers);
@@ -426,8 +428,11 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       .then((answer) => onlineApi.answer(answer))
       .catch((e) => setError(errText(e)));
     const timer = window.setInterval(() => void s.stats().then(setStats, () => undefined), 1000);
+    // en mode Joueur, la manette de l'invité est envoyée d'office, dès qu'elle apparaît
+    const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a) }) : null;
     return () => {
       window.clearInterval(timer);
+      detachPad?.();
       detach.current?.();
       detach.current = null;
       padCapture.active = false;
@@ -443,7 +448,8 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       return;
     }
     if (!session.current || !video.current) return;
-    detach.current = attachInputs(session.current, video.current, { onPadCapture: (a) => (padCapture.active = a) });
+    // la manette est déjà envoyée d'office : seuls le clavier et la souris s'ajoutent ici
+    detach.current = attachInputs(session.current, video.current, { pad: false });
     setControlling(true);
   };
 
@@ -484,11 +490,22 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
           <Stat label="Image" value={stats.resolution ?? "—"} />
         </div>
       )}
-      <div className="flex flex-wrap gap-2 px-4 py-3">
-        {join.mode === "play" && !ended && (
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+        {play && !ended && (
           <Button icon="gamepad" onClick={toggleControl}>
-            {controlling ? "Rendre les commandes" : "Envoyer mes commandes"}
+            {controlling ? "Rendre le clavier et la souris" : "Envoyer clavier et souris"}
           </Button>
+        )}
+        {play && !ended && (
+          <span className={`rounded-full px-3 py-1.5 text-[0.8rem] font-bold ${pad ? "bg-[#33B86B]/25 text-[#9BE8B9]" : "bg-white/10 opacity-85"}`}>
+            {pad ? (
+              <>
+                Manette connectée : <span data-no-i18n>{pad.replace(/\s*\(.*\)\s*$/, "")}</span>
+              </>
+            ) : (
+              "Manette : branchez-la et appuyez sur un bouton"
+            )}
+          </span>
         )}
         <Button icon="front" onClick={() => void video.current?.requestFullscreen().catch(() => undefined)}>
           Plein écran

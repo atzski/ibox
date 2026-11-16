@@ -21,7 +21,7 @@ use super::protocol::{Message, PadState};
 pub use hotkey::{Hotkey, StopReason};
 pub use inject::{Area, InjectError, Injector, OsInput, Outcome, Screen, Sink};
 pub use local::LocalActivity;
-pub use pads::{NoPads, PadError, Pads, RumbleFn};
+pub use pads::{NoPads, PadError, Pads, RetryPads, RumbleFn, GUEST_PAD_WAITING};
 
 /// Résultat de l'exécution d'une action autorisée.
 pub type Done = Result<Outcome, InjectError>;
@@ -125,13 +125,13 @@ impl<S: Sink, D: Screen, P: Pads> Engine<S, D, P> {
 #[cfg(windows)]
 pub type HostEngine = Engine<win::WinSink, win::WinScreen, Box<dyn Pads>>;
 
-/// Manettes virtuelles si ViGEmBus est installé, sinon [`NoPads`] et l'erreur à afficher.
+/// Manettes virtuelles ViGEmBus, connectées au premier état reçu et rebranchées d'elles-mêmes
+/// dès que le pilote est installé (même en cours de session).
 #[cfg(windows)]
-pub fn host_pads(on_rumble: RumbleFn) -> (Box<dyn Pads>, Option<PadError>) {
-    match pads::VigemPads::connect(on_rumble) {
-        Ok(p) => (Box::new(p), None),
-        Err(e) => (Box::new(NoPads), Some(e)),
-    }
+pub fn host_pads(on_rumble: RumbleFn) -> Box<dyn Pads> {
+    Box::new(pads::RetryPads::new(Box::new(move || {
+        pads::VigemPads::connect(on_rumble.clone()).map(|p| Box::new(p) as Box<dyn Pads>)
+    })))
 }
 
 /// Démarre le fil de garde pour `engine` : raccourci d'arrêt d'urgence, verrouillage et

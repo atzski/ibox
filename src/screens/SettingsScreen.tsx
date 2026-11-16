@@ -1025,6 +1025,20 @@ function RemotePlayPage() {
     setRunning(false);
   };
 
+  const [installingPad, setInstallingPad] = useState(false);
+  const [padError, setPadError] = useState<string | null>(null);
+  const installPad = () => {
+    setInstallingPad(true);
+    setPadError(null);
+    remotePlayApi
+      .installPadDriver()
+      .then(
+        (d) => setHost((h) => (h ? { ...h, virtualPadDriver: d.installed } : h)),
+        (e) => setPadError(typeof e === "string" ? e : String((e as { message?: string })?.message ?? e)),
+      )
+      .finally(() => setInstallingPad(false));
+  };
+
   const yes = (ok: boolean, good: string, bad: string) => (
     <span className={`shrink-0 rounded-full px-3 py-1 text-[0.8rem] font-extrabold ${ok ? "bg-mint-soft text-mint-deep ring-1 ring-mint-deep/30" : "bg-peach-soft text-peach-deep ring-1 ring-peach-deep/30"}`}>{ok ? good : bad}</span>
   );
@@ -1096,8 +1110,17 @@ function RemotePlayPage() {
             <Row label="Son" note={`${host.audioOutputs} sortie(s), ${host.audioInputs} entrée(s)${host.processAudio ? " · son du jeu seul possible" : ""}`}>
               {yes(host.audioOutputs > 0, "Prêt", "Aucune sortie")}
             </Row>
-            <Row label="Manettes des invités" note={host.virtualPadDriver ? "Pilote ViGEmBus présent" : "Aucun pilote de manette virtuelle : il sera proposé, jamais installé sans votre accord"}>
-              {yes(host.virtualPadDriver, "Prêt", "À installer")}
+            <Row
+              label="Manettes des invités"
+              note={host.virtualPadDriver ? "Pilote ViGEmBus présent" : padError ?? "Pilote ViGEmBus absent : nécessaire pour que la manette de votre invité fonctionne (Windows demandera votre accord)"}
+            >
+              {host.virtualPadDriver ? (
+                yes(true, "Prêt", "")
+              ) : (
+                <Button variant="primary" icon="download" onClick={installPad} disabled={installingPad}>
+                  {installingPad ? "Installation…" : "Installer"}
+                </Button>
+              )}
             </Row>
             {host.errors.map((e) => (
               <p key={e} className="py-2 text-[0.82rem] font-semibold text-ink-soft">{e}</p>

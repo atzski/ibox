@@ -105,7 +105,18 @@ export const remotePlayApi = {
   hostAnswer: (sdp: string) => invoke<string>("remote_play_host_answer", { sdp }),
   hostStats: () => invoke<HostStats | null>("remote_play_host_stats"),
   hostStop: () => invoke<HostStats | null>("remote_play_host_stop"),
+  /** Pilote ViGEmBus (manettes des invités) et manette d'invité en attente. */
+  padDriver: () => invoke<PadDriver>("remote_play_pad_driver"),
+  /** Télécharge et installe ViGEmBus ; Windows demande l'accord (UAC). */
+  installPadDriver: () => invoke<PadDriver>("remote_play_install_pad_driver"),
+  /** Bandeau de l'hôte réduit en pastille ou affiché en entier. */
+  indicatorCompact: (compact: boolean) => invoke<void>("remote_play_indicator_compact", { compact }),
 };
+
+export interface PadDriver {
+  installed: boolean;
+  guestPadWaiting: boolean;
+}
 
 export interface NetworkReport {
   /** UDP sortant fonctionne et un serveur STUN a répondu */

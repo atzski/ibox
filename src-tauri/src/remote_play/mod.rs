@@ -15,6 +15,7 @@ pub mod encode;
 pub mod input;
 #[cfg(windows)]
 pub mod online;
+pub mod pad_driver;
 pub mod permissions;
 pub mod protocol;
 pub mod signaling;
@@ -92,6 +93,26 @@ pub fn remote_play_set_config(app: AppHandle, state: State<'_, RemotePlay>, mut 
 #[tauri::command]
 pub async fn remote_play_diagnose() -> Result<diagnostics::Report, String> {
     tauri::async_runtime::spawn_blocking(diagnostics::probe).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remote_play_pad_driver() -> pad_driver::PadDriver {
+    pad_driver::status()
+}
+
+/// Installe ViGEmBus (invite Windows = accord de l'utilisateur) pour les manettes des invités.
+#[tauri::command]
+pub async fn remote_play_install_pad_driver() -> Result<pad_driver::PadDriver, String> {
+    tauri::async_runtime::spawn_blocking(pad_driver::install).await.map_err(|e| e.to_string())?
+}
+
+/// Bandeau de l'hôte réduit en pastille (`true`) ou affiché en entier.
+#[tauri::command]
+pub async fn remote_play_indicator_compact(app: AppHandle, compact: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    online::set_indicator_compact(&app, compact);
+    let _ = (&app, compact);
+    Ok(())
 }
 
 /// Session d'hôte demandée par l'interface (échange manuel des SDP).

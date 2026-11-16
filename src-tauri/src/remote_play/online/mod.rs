@@ -179,7 +179,7 @@ fn show_indicator(app: &AppHandle) {
             }
             let built = tauri::WebviewWindowBuilder::new(&app, INDICATOR, tauri::WebviewUrl::App("index.html".into()))
                 .title("iBox Remote Play")
-                .inner_size(520.0, 64.0)
+                .inner_size(580.0, 64.0)
                 .decorations(false)
                 .transparent(true)
                 .shadow(false)
@@ -190,13 +190,39 @@ fn show_indicator(app: &AppHandle) {
                 .visible(false)
                 .build();
             if let Ok(w) = built {
-                if let Ok(Some(m)) = w.primary_monitor() {
-                    let area = m.work_area();
-                    let scale = m.scale_factor();
-                    let x = area.position.x + (area.size.width as i32 - (520.0 * scale) as i32) / 2;
-                    let _ = w.set_position(tauri::PhysicalPosition::new(x, area.position.y + (8.0 * scale) as i32));
-                }
+                place_indicator(&w, false);
                 let _ = w.show();
+            }
+        });
+    });
+}
+
+/// Bandeau entier centré en haut, ou pastille discrète dans le coin supérieur droit.
+fn place_indicator(w: &tauri::WebviewWindow, compact: bool) {
+    let (width, height) = if compact { (44.0, 44.0) } else { (580.0, 64.0) };
+    let _ = w.set_size(tauri::LogicalSize::new(width, height));
+    if let Ok(Some(m)) = w.primary_monitor() {
+        let area = m.work_area();
+        let scale = m.scale_factor();
+        let w_px = (width * scale) as i32;
+        let x = if compact {
+            area.position.x + area.size.width as i32 - w_px - (8.0 * scale) as i32
+        } else {
+            area.position.x + (area.size.width as i32 - w_px) / 2
+        };
+        let _ = w.set_position(tauri::PhysicalPosition::new(x, area.position.y + (8.0 * scale) as i32));
+    }
+}
+
+/// Réduit le bandeau de l'hôte en pastille (ou le rétablit). Il ne disparaît jamais tout à fait :
+/// une session partagée doit rester visible.
+pub fn set_indicator_compact(app: &AppHandle, compact: bool) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let main = app.clone();
+        let _ = main.run_on_main_thread(move || {
+            if let Some(w) = app.get_webview_window(INDICATOR) {
+                place_indicator(&w, compact);
             }
         });
     });
