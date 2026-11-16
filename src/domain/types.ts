@@ -165,5 +165,9 @@ export interface Game {
   emulatorId?: number | null;
   playCount?: number;
   playSeconds?: number;
+  /** Fiche principale dont ce jeu est une version (régions, révisions, doublons). */
+  variantOf?: number;
+  /** Fiche principale : ses autres versions (masquées de la bibliothèque). */
+  variants?: Game[];
   art: CoverArtSpec;
 }

@@ -12,6 +12,28 @@ export function sortKey(title: string): string {
     .trim();
 }
 
+/**
+ * Clé de regroupement des versions d'un même jeu : sans les étiquettes de région ou de
+ * révision ((Europe), [!], (Rev 1), v1.1…), sans extension ni ponctuation.
+ */
+export function variantKey(title: string): string {
+  return sortKey(
+    title
+      .replace(/\.(?:iso|rvz|wbfs|gcz|ciso|chd|cso|pbp|bin|cue|zip|7z|nds|3ds|cia|gba|gbc|gb|sfc|smc|nes|n64|z64|v64|xci|nsp|wua|wux|rpx)$/i, "")
+      .replace(/\s*[([][^)\]]*[)\]]/g, " ")
+      .replace(/\b(?:rev(?:ision)?\s*[a-z0-9.]+|v\d+(?:\.\d+)*)(?=\s|$)/gi, " "),
+  );
+}
+
+/** Étiquettes de version lisibles d'un nom de fichier : « Europe · Rev 1 ». */
+export function versionTags(fileName: string): string {
+  const base = fileName.split(/[\\/]/).pop() ?? fileName;
+  const tags = [...base.matchAll(/[([]([^)\]]+)[)\]]/g)]
+    .map((m) => m[1].trim())
+    .filter((t) => t && t !== "!");
+  return tags.join(" · ");
+}
+
 export function stripAccents(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }

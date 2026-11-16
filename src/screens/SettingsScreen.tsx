@@ -5,7 +5,7 @@ import { InetboxPanel } from "@/components/social/InetboxPanel";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { useSession } from "@/services/profiles";
-import { shellApi, type UpdateInfo, type UpdateProgress, HELP } from "@/services/shell";
+import { shellApi, type UpdateInfo, HELP } from "@/services/shell";
 import { buildDiagnostic } from "@/services/diagnostic";
 import { StatsPanel } from "@/components/extras/StatsPanel";
 import { ConsolesPanel } from "@/components/extras/ConsolesPanel";
@@ -20,6 +20,9 @@ import { sound } from "@/services/sound";
 import { getAppInfo, type AppInfo } from "@/services/native";
 import { BackupsPanel } from "@/components/library/BackupsPanel";
 import { FoldersPanel } from "@/components/library/FoldersPanel";
+import { duplicateGroups } from "@/components/game/Versions";
+import { useUpdater } from "@/services/updater";
+import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
 import { MetadataPanel } from "@/components/library/MetadataPanel";
 import { EmulatorsPanel } from "@/components/library/EmulatorsPanel";
 import { PcSettingsPanel } from "@/components/pc/PcSettingsPanel";
@@ -76,8 +79,22 @@ let lastCategory: CategoryId = "profile";
  * (pastille qui glisse vers la sélection), une page illustrée à droite.
  * Tout est enregistré automatiquement.
  */
-export function SettingsScreen() {
-  const [cat, setCat] = useState<CategoryId>(CATEGORIES.some((c) => c.id === lastCategory) ? lastCategory : "profile");
+const isCategory = (id: unknown): id is CategoryId => CATEGORIES.some((c) => c.id === id);
+
+export function SettingsScreen({ category }: { category?: string } = {}) {
+  const [cat, setCat] = useState<CategoryId>(() => {
+    if (isCategory(category)) lastCategory = category;
+    return isCategory(lastCategory) ? lastCategory : "profile";
+  });
+  // une notification peut ouvrir une catégorie précise alors que les Paramètres sont déjà affichés
+  useEffect(() => {
+    const onCategory = (e: Event) => {
+      const id = (e as CustomEvent<string | undefined>).detail;
+      if (isCategory(id)) { lastCategory = id; setCat(id); }
+    };
+    window.addEventListener("ibox:settings-category", onCategory);
+    return () => window.removeEventListener("ibox:settings-category", onCategory);
+  }, []);
   const current = CATEGORIES.find((c) => c.id === cat)!;
   const reduced = useReducedMotion();
   const name = useSettings((s) => s.profileName.trim() || "Joueur");
@@ -599,11 +616,11 @@ function WallpaperGroup() {
   );
   const shownHeroes = heroGames.filter((g) => matchesQuery(g.title, query));
   const heroPlatforms = PLATFORMS.filter((p) => rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
-  const [homeOnly, setHomeOnly] = useState(false);
-  const bg = homeOnly ? s.homeBackground : s.customBackground;
-  const style = homeOnly ? "image" : (s.backgroundStyle ?? "ambient");
-  const chooseArt = (art: NonNullable<typeof s.homeBackground>) =>
-    homeOnly ? s.set("homeBackground", art) : s.set("customBackground", art);
+  const homeOnly = false;
+  const [homePicker, setHomePicker] = useState(false);
+  const bg = s.customBackground;
+  const style = s.backgroundStyle ?? "ambient";
+  const chooseArt = (art: { type: "platform"; platformId: string } | { type: "game"; gameId: string }) => s.set("customBackground", art);
 
   const chooseFile = async () => {
     setWallError(null);
@@ -624,10 +641,10 @@ function WallpaperGroup() {
 
   return (
     <Group title="Fond d'écran" icon="front">
-      <Row label="Personnaliser uniquement l’accueil">
-        <Toggle checked={homeOnly} label="Accueil uniquement" onChange={setHomeOnly} />
+      <Row label="Fond de l’accueil" note="Un fond rien que pour l’écran d’accueil : motifs iBox, illustrations de jeux, galerie en ligne ou votre image">
+        <Button icon="home" onClick={() => setHomePicker(true)}>Choisir…</Button>
       </Row>
-      {homeOnly && bg && <Button icon="x" onClick={() => s.set("homeBackground", null)}>Réinitialiser le fond de l’accueil</Button>}
+      {homePicker && <HomeBackgroundPicker onClose={() => setHomePicker(false)} />}
       {!homeOnly && <div data-nav-group="settings-bg-style" className="grid grid-cols-3 gap-3 border-none py-1">
         {(
           [
@@ -799,6 +816,11 @@ function LibraryPage() {
         <div className="border-none">
           <FoldersPanel />
         </div>
+      </Group>
+      <Group title="Doublons et versions" icon="copy">
+        <Row label="Regrouper les doublons" note="Réunit les régions, révisions et copies d’un même jeu sur une seule fiche ; on choisit la version avant de jouer">
+          <DuplicatesButton />
+        </Row>
       </Group>
       <Group title="Préférences" icon="globe">
         <Row label="Région préférée" note="Variante de jaquette et de titre quand plusieurs régions existent">
@@ -1236,18 +1258,32 @@ function AutostartToggle() {
   );
 }
 
+function DuplicatesButton() {
+  const games = useLibrary((s) => s.realGames);
+  const count = useMemo(() => duplicateGroups(games).length, [games]);
+  return (
+    <Button icon="copy" onClick={() => window.dispatchEvent(new Event("ibox:open-duplicates"))}>
+      {count ? `${count} à regrouper` : "Vérifier"}
+    </Button>
+  );
+}
+
 function UpdatesPanel() {
+  const { available, notes, installing, progress, error, check, install } = useUpdater();
   const [state, setState] = useState<{ busy: boolean; info?: UpdateInfo; error?: string }>({ busy: false });
-  const [progress, setProgress] = useState<UpdateProgress | null>(null);
-  const check = async () => {
+  const lookup = async () => {
     setState({ busy: true });
     try {
+      await check();
       setState({ busy: false, info: (await shellApi.checkUpdate()) ?? undefined });
     } catch (e) {
       setState({ busy: false, error: e instanceof Error ? e.message : String(e) });
     }
   };
+  // la recherche automatique a peut-être déjà trouvé une version
+  useEffect(() => { void lookup(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const info = state.info;
+  const version = available ?? info?.available ?? undefined;
   const percent = progress?.stage === "downloading" && progress.total
     ? Math.min(100, Math.floor(progress.received * 100 / progress.total))
     : undefined;
@@ -1255,45 +1291,30 @@ function UpdatesPanel() {
     ? percent === undefined ? "Téléchargement de la mise à jour…" : `Téléchargement de la mise à jour… ${percent} %`
     : progress?.stage === "verifying" ? "Vérification de la signature…"
     : progress?.stage === "installing" ? "Installation et redémarrage d’iBox…"
-    : "Recherche d’une mise à jour…";
+    : "Préparation de la mise à jour…";
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="min-w-0 flex-1 text-[0.92rem] font-semibold text-ink-soft">
-        {!info
-            ? "Vérifiez si une nouvelle version d'iBox est disponible."
-            : !info.configured
+        {state.busy && !info
+            ? "Recherche d’une mise à jour…"
+            : info && !info.configured
               ? `Version ${info.current}. Les mises à jour automatiques seront actives dans les versions publiées d'iBox.`
-              : info.available
-                ? `Nouvelle version ${info.available} disponible (vous avez la ${info.current}).`
-                : `iBox est à jour (version ${info.current}).`}
-        {info?.notes && <p className="mt-1 whitespace-pre-line text-ink">{info.notes}</p>}
-        {state.busy && <p role="status" className="mt-2">{status}</p>}
-        {state.busy && progress?.stage === "downloading" && (
+              : version
+                ? `Nouvelle version ${version} disponible${info ? ` (vous avez la ${info.current})` : ""}.`
+                : info ? `iBox est à jour (version ${info.current}). iBox vérifie tout seul toutes les 30 minutes.` : "Vérifiez si une nouvelle version d'iBox est disponible."}
+        {(notes ?? info?.notes) && version && <p className="mt-1 whitespace-pre-line text-ink">{notes ?? info?.notes}</p>}
+        {installing && <p role="status" className="mt-2">{status}</p>}
+        {installing && progress?.stage === "downloading" && (
           <progress className="mt-1 w-full" aria-label="Téléchargement de la mise à jour" max={100} value={percent} />
         )}
-        {state.error && <p role="alert" className="mt-2 text-peach-deep">{state.error}</p>}
+        {(error ?? state.error) && <p role="alert" className="mt-2 text-peach-deep">{error ?? state.error}</p>}
       </div>
-      {info?.available ? (
-        <Button
-          variant="primary"
-          icon="download"
-          disabled={state.busy}
-          onClick={async () => {
-            setState({ info, busy: true });
-            setProgress({ stage: "checking" });
-            try {
-              await shellApi.installUpdate(setProgress);
-            } catch (e) {
-              setState({ busy: false, info, error: e instanceof Error ? e.message : String(e) });
-            } finally {
-              setProgress(null);
-            }
-          }}
-        >
-          {state.busy ? "Mise à jour en cours…" : state.error ? "Réessayer l’installation" : "Installer et redémarrer"}
+      {version ? (
+        <Button variant="primary" icon="download" disabled={installing} onClick={() => void install()}>
+          {installing ? "Mise à jour en cours…" : error ? "Réessayer l’installation" : "Installer et redémarrer"}
         </Button>
       ) : (
-        <Button icon="reset" disabled={state.busy} onClick={() => void check()}>
+        <Button icon="reset" disabled={state.busy} onClick={() => void lookup()}>
           {state.busy ? "Vérification…" : state.error ? "Réessayer la recherche" : "Rechercher"}
         </Button>
       )}

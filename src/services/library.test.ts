@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFavorite, rowToGame } from "./library";
+import { groupVariants, isFavorite, rowToGame } from "./library";
 import { summarize } from "@/components/library/ScanStatus";
 import type { GameRowDto, ScanSummary } from "./nativeLibrary";
 
@@ -35,7 +35,25 @@ const row: GameRowDto = {
   playCount: 0,
   playSeconds: 0,
   pcInstalls: [],
+  variantOf: null,
 };
+
+describe("groupVariants", () => {
+  it("range les versions sous leur fiche principale et cumule le temps de jeu", () => {
+    const main = rowToGame({ ...row, id: 1, playSeconds: 60, lastPlayedAt: "2026-11-01T10:00:00Z" });
+    const usa = rowToGame({ ...row, id: 2, variantOf: 1, playSeconds: 30, lastPlayedAt: "2026-11-10T10:00:00Z", duplicate: true });
+    const solo = rowToGame({ ...row, id: 3 });
+    const out = groupVariants([main, usa, solo]);
+    expect(out.map((g) => g.dbId)).toEqual([1, 3]);
+    expect(out[0].variants?.map((g) => g.dbId)).toEqual([2]);
+    expect(out[0].playSeconds).toBe(90);
+    expect(out[0].lastPlayedAt).toBe("2026-11-10T10:00:00Z");
+  });
+  it("garde une version dont la fiche principale a disparu", () => {
+    const orphan = rowToGame({ ...row, id: 2, variantOf: 99 });
+    expect(groupVariants([orphan]).map((g) => g.dbId)).toEqual([2]);
+  });
+});
 
 describe("rowToGame", () => {
   it("convertit une ligne SQLite en jeu affichable", () => {

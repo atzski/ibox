@@ -10,29 +10,37 @@ import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
 import type { ToastPayload } from "@/services/social";
 
-const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 12000 } as const;
+const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 14000, notice: 8000 } as const;
 const LOOK: Record<ToastPayload["kind"], { label: string; icon: IconName; from: string; to: string; ink: string }> = {
   update: { label: "Mise à jour disponible", icon: "download", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
   game: { label: "En jeu", icon: "play", from: "#DDF6EA", to: "#98DEBE", ink: "#2F7A57" },
   request: { label: "Demande d'ami", icon: "user", from: "#FFE1DA", to: "#F3AFA4", ink: "#B4513F" },
   message: { label: "Message", icon: "sparkle", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
   invite: { label: "Invitation à jouer", icon: "gamepad", from: "#E4D9FB", to: "#B5A0E9", ink: "#6A4FB3" },
+  notice: { label: "iBox", icon: "sparkle", from: "#FFF1C9", to: "#FFD27A", ink: "#A86A12" },
 };
+const NOTICE_TONE = {
+  info: { from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
+  ok: { from: "#DDF6EA", to: "#98DEBE", ink: "#2F7A57" },
+  warn: { from: "#FFE1DA", to: "#F3AFA4", ink: "#B4513F" },
+} as const;
 
 /** Jaquette du jeu s'il est dans la bibliothèque de l'utilisateur. */
-function useCover(title?: string, platformId?: string) {
+function useCover(title?: string, platformId?: string, gameId?: string) {
   const games = useLibrary((s) => s.realGames);
   const [url, setUrl] = useState<string>();
   useEffect(() => {
     setUrl(undefined);
-    if (!title) return;
-    const t = title.toLowerCase();
-    const game = games.find((g) => g.title.toLowerCase() === t && (!platformId || g.platformId === platformId)) ?? games.find((g) => g.title.toLowerCase() === t);
+    if (!title && !gameId) return;
+    const t = title?.toLowerCase();
+    const game = gameId
+      ? games.find((g) => g.id === gameId || g.variants?.some((v) => v.id === gameId))
+      : games.find((g) => g.title.toLowerCase() === t && (!platformId || g.platformId === platformId)) ?? games.find((g) => g.title.toLowerCase() === t);
     if (!game) return;
     let live = true;
     getArtUrl(game, "front").then((u) => live && setUrl(u)).catch(() => undefined);
     return () => { live = false; };
-  }, [games, title, platformId]);
+  }, [games, title, platformId, gameId]);
   return url;
 }
 
@@ -69,8 +77,11 @@ export function ToastWindow() {
 }
 
 function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
-  const look = LOOK[toast.kind];
-  const cover = useCover(toast.kind === "game" || toast.kind === "invite" ? toast.gameTitle : undefined, toast.platformId);
+  const look = toast.kind === "notice"
+    ? { ...LOOK.notice, ...(toast.tone ? NOTICE_TONE[toast.tone] : {}), icon: toast.icon ?? LOOK.notice.icon, label: toast.link?.kind === "achievements" ? "Succès" : "iBox" }
+    : LOOK[toast.kind];
+  const linkedGame = toast.link && "gameId" in toast.link ? toast.link.gameId : undefined;
+  const cover = useCover(toast.kind === "game" || toast.kind === "invite" ? toast.gameTitle : undefined, toast.platformId, linkedGame);
   const [paused, setPaused] = useState(false);
   const duration = DURATION[toast.kind];
   const left = useRef(duration);
@@ -93,6 +104,7 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
     toast.kind === "game" ? <>lance <b className="text-ink">{toast.gameTitle}</b></>
     : toast.kind === "invite" ? <>vous invite à <b className="text-ink">{toast.gameTitle}</b></>
     : toast.kind === "request" ? <>vous a ajouté en ami. Cliquez pour accepter.</>
+    : toast.kind === "notice" || toast.kind === "update" ? <>{toast.body}</>
     : <span className="italic">« {toast.body} »</span>;
 
   return (
@@ -110,14 +122,22 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
       {/* halo pastel du type de notification */}
       <span aria-hidden className="pointer-events-none absolute -top-10 -left-10 size-40 rounded-full opacity-60 blur-2xl" style={{ background: `radial-gradient(circle, ${look.to}, transparent 70%)` }} />
       <span className="relative shrink-0">
-        {cover ? (
+        {toast.kind === "notice" && toast.image ? (
+          <span className="relative grid size-[5rem] place-items-center rounded-2xl" style={{ background: `linear-gradient(140deg, #FFF3C4, #FFD36B)` }}>
+            <img src={toast.image} alt="" draggable={false} className="ibox-badge-pop size-[4rem] rounded-xl shadow-md ring-2 ring-white" />
+          </span>
+        ) : cover ? (
           <img src={cover} alt="" draggable={false} className="h-[5.5rem] w-[4.1rem] rounded-xl object-cover shadow-md ring-1 ring-black/5" />
+        ) : toast.kind === "notice" || toast.kind === "update" ? (
+          <span className="grid size-[5rem] place-items-center rounded-2xl text-white shadow-inner" style={{ background: `linear-gradient(140deg, ${look.from}, ${look.to})`, color: look.ink }}>
+            <Icon name={look.icon} size="2.4rem" />
+          </span>
         ) : (
           <span className="grid size-[5rem] place-items-center rounded-2xl" style={{ background: `linear-gradient(140deg, ${look.from}, ${look.to})` }}>
             <Avatar size={58} choice={toast.avatar ?? null} name={toast.name} />
           </span>
         )}
-        {cover && (
+        {cover && toast.kind !== "notice" && (
           <span className="absolute -right-2 -bottom-2">
             <Avatar size={32} choice={toast.avatar ?? null} name={toast.name} />
           </span>

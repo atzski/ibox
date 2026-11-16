@@ -116,7 +116,7 @@ function syncToasts() {
 
 /** Notification cliquée : iBox revient et ouvre ce qui la concerne. */
 export interface ToastPayload {
-  kind: "game" | "request" | "message" | "invite" | "update";
+  kind: "game" | "request" | "message" | "invite" | "update" | "notice";
   friendId: string;
   name: string;
   avatar?: AvatarChoice | null;
@@ -125,12 +125,18 @@ export interface ToastPayload {
   body?: string;
   /** Clic sur « Accepter » d'une demande d'ami. */
   accept?: boolean;
+  /** Notifications d'iBox (kind « notice ») : pictogramme, ton et destination. */
+  icon?: import("@/components/ui/Icon").IconName;
+  tone?: "info" | "ok" | "warn";
+  link?: import("./links").AppLink | null;
+  image?: string | null;
 }
 export type FriendsTarget = { view: "requests" } | { view: "chat"; friendId: string } | { view: "profile"; friendId: string } | { view: "list" };
 
 function onToastClick(p: ToastPayload) {
-  if (p.kind === "update") {
-    void import("./shell").then(({ shellApi }) => shellApi.installUpdate(() => undefined)).catch(console.error);
+  if (p.kind === "update" || p.kind === "notice") {
+    const link = p.kind === "update" ? { kind: "update" as const } : p.link;
+    if (link) void import("./links").then(({ openLink }) => openLink(link));
     return;
   }
   let target: FriendsTarget = { view: "list" };

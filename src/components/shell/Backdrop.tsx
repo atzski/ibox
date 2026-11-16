@@ -10,6 +10,7 @@ import { isTauri } from "@/services/native";
 import { usePlatformArt } from "@/services/platformArt";
 import { useLibrary } from "@/services/library";
 import { useWallpaperUrl } from "@/services/wallpaper";
+import { presetById, type HomePreset } from "@/services/homeBackgrounds";
 
 /**
  * Arrière-plan vivant : fond crème, halos pastel qui dérivent lentement et
@@ -46,11 +47,16 @@ export function Backdrop({ home = false }: { home?: boolean }) {
   const globalStyle = useSettings((s) => s.backgroundStyle ?? "ambient");
   const globalImage = useSettings((s) => s.customBackground);
   const homeImage = useSettings((s) => s.homeBackground);
-  const bgStyle = home && homeImage ? "image" : globalStyle;
-  const custom = home && homeImage ? homeImage : globalImage;
+  const onHome = home && !!homeImage;
+  const bgStyle = onHome ? "image" : globalStyle;
+  const custom = onHome ? homeImage : globalImage;
+  const preset = onHome && homeImage?.type === "preset" ? presetById(homeImage.id) : undefined;
   const customGame = useShellGame(bgStyle === "image" && custom?.type === "game" ? custom.gameId : null);
   const customPlatformHero = usePlatformArt(bgStyle === "image" && custom?.type === "platform" ? custom.platformId : "", "platform_hero");
-  const wallpaper = useWallpaperUrl(bgStyle === "image" && custom?.type === "file" ? custom.stamp : null);
+  const wallpaper = useWallpaperUrl(
+    bgStyle === "image" && custom?.type === "file" ? custom.stamp : null,
+    onHome ? "home_wallpaper_read" : "wallpaper_read",
+  );
   const fixedImage = bgStyle === "image" ? (wallpaper ?? customPlatformHero) : null;
   const shownGame = bgStyle === "calm" ? null : bgStyle === "image" ? customGame : game;
   const layer = useBackdropLayer(shownGame);
@@ -98,10 +104,14 @@ export function Backdrop({ home = false }: { home?: boolean }) {
         transition={transition}
       />
 
+      <AnimatePresence initial={false}>
+        {preset && <PresetBackdrop key={`preset|${preset.id}`} preset={preset} reduced={reduced} dark={dark} />}
+      </AnimatePresence>
+
       <motion.div className="absolute -inset-[3%]" style={{ x: sx, y: sy }}>
         <AnimatePresence initial={false}>
-          {fixedImage ? (
-            <GameBackdrop key={`p|${fixedImage}`} src={fixedImage} hero stage={stage} dark={dark} reduced={reduced} />
+          {preset ? null : fixedImage ? (
+            <GameBackdrop key={`p|${fixedImage}`} src={fixedImage} hero stage={stage || onHome} dark={dark} reduced={reduced} vivid={onHome} />
           ) : (
             shownGame && layer && <GameBackdrop key={layer.key} src={layer.src} hero={layer.hero} stage={stage} dark={dark} reduced={reduced} />
           )}
@@ -189,10 +199,35 @@ function useBackdropLayer(game: Game | null): Layer | null {
 }
 
 /** Image d'ambiance d'un jeu (déjà décodée). */
-function GameBackdrop({ src, hero, stage, dark, reduced }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean }) {
+/** Motif iBox de l'accueil : plein écran, qui glisse doucement. */
+function PresetBackdrop({ preset, reduced, dark }: { preset: HomePreset; reduced: boolean; dark: boolean }) {
+  return (
+    <motion.div
+      className="absolute inset-0"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: dark && !preset.dark ? 0.55 : 0.92 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduced ? 0 : 0.8, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div
+        className={`absolute inset-0 ${preset.drift && !preset.pattern && !reduced ? "ibox-pattern-drift" : ""}`}
+        style={{ background: preset.background, backgroundSize: preset.pattern ? undefined : preset.size }}
+      />
+      {preset.pattern && (
+        <div
+          className={`absolute inset-0 ${preset.drift && !reduced ? "ibox-pattern-drift" : ""}`}
+          style={{ backgroundImage: preset.pattern, backgroundSize: preset.size, backgroundRepeat: "repeat" }}
+        />
+      )}
+    </motion.div>
+  );
+}
+
+function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean; vivid?: boolean }) {
   // Fond large : net sur la fiche, adouci ailleurs. Jaquette : simple halo coloré.
+  // Fond choisi pour l'accueil : bien visible, presque sans voile.
   const blur = hero ? (stage ? 0 : 10) : 60;
-  const opacity = (hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
+  const opacity = (vivid ? 0.82 : hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
 
   return (
     <motion.div
@@ -210,7 +245,9 @@ function GameBackdrop({ src, hero, stage, dark, reduced }: { src: string; hero: 
           className={`h-full w-full object-cover ${reduced ? "" : "ibox-kenburns"}`}
           style={{
             filter: blur ? `blur(${blur}px) saturate(1.15)` : "saturate(1.05)",
-            maskImage: hero
+            maskImage: vivid
+              ? "linear-gradient(to bottom, black 0%, black 70%, rgba(0,0,0,0.55) 100%)"
+              : hero
               ? "linear-gradient(to bottom, black 0%, black 35%, transparent 92%)"
               : "radial-gradient(ellipse at 60% 40%, black 0%, transparent 75%)",
           }}

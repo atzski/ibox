@@ -11,7 +11,9 @@ export type Route =
   | { name: "platforms" }
   | { name: "library"; platformId: string | "all"; shelfGameId?: string }
   | { name: "game"; gameId: string }
-  | { name: "settings" };
+  | { name: "settings"; category?: string }
+  /** Univers RetroAchievements : tableau de bord, ou la page d'un jeu. */
+  | { name: "achievements"; gameId?: string };
 
 interface NavState {
   stack: Route[];
@@ -67,6 +69,8 @@ export function routeKey(r: Route): string {
       return `library:${r.platformId}`;
     case "game":
       return `game:${r.gameId}`;
+    case "achievements":
+      return "achievements";
     default:
       return r.name;
   }

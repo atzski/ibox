@@ -142,6 +142,57 @@ pub async fn achievements_ra_progress(username: String) -> Result<Value, String>
         Ok(json!(games))
     }).await.map_err(|_| "Synchronisation interrompue.".to_string())?
 }
+/// Points d'accès de l'API RetroAchievements que l'interface peut interroger (lecture seule).
+const RA_ENDPOINTS: &[&str] = &[
+    "API_GetUserSummary",
+    "API_GetUserProfile",
+    "API_GetUserCompletionProgress",
+    "API_GetUserRecentAchievements",
+    "API_GetUserAwards",
+    "API_GetUsersIFollow",
+    "API_GetGameInfoAndUserProgress",
+    "API_GetGameRankAndScore",
+];
+/// Paramètres acceptés (la clé `y` est ajoutée ici, jamais fournie par l'interface).
+const RA_PARAMS: &[&str] = &["u", "g", "a", "c", "o", "m", "t"];
+
+/// Vérifie une requête de l'interface ; renvoie l'adresse et les paramètres sûrs.
+fn ra_request(endpoint: &str, params: &serde_json::Map<String, Value>) -> Result<(String, Vec<(String, String)>), String> {
+    if !RA_ENDPOINTS.contains(&endpoint) {
+        return Err("Requête RetroAchievements refusée.".into());
+    }
+    let mut out = Vec::new();
+    for (name, value) in params {
+        if !RA_PARAMS.contains(&name.as_str()) {
+            return Err("Paramètre RetroAchievements refusé.".into());
+        }
+        let value = match value {
+            Value::String(s) => s.clone(),
+            Value::Number(n) => n.to_string(),
+            _ => return Err("Paramètre RetroAchievements invalide.".into()),
+        };
+        if value.is_empty() || value.len() > 32 || !value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.') {
+            return Err("Paramètre RetroAchievements invalide.".into());
+        }
+        out.push((name.clone(), value));
+    }
+    Ok((format!("https://retroachievements.org/API/{endpoint}.php"), out))
+}
+
+/// Lecture générique de l'API RetroAchievements avec la clé du coffre Windows.
+#[tauri::command]
+pub async fn ra_api(endpoint: String, params: serde_json::Map<String, Value>) -> Result<Value, String> {
+    let (url, params) = ra_request(&endpoint, &params)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let key = keys::get("retroachievements").ok().flatten().ok_or("Ajoutez votre clé RetroAchievements dans les paramètres.")?;
+        let mut all: Vec<(&str, &str)> = vec![("y", key.as_str())];
+        all.extend(params.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        fetch(&url, &all)
+    })
+    .await
+    .map_err(|_| "Lecture RetroAchievements interrompue.".to_string())?
+}
+
 #[tauri::command]
 pub fn achievements_ra_connected() -> Result<bool, String> {
     keys::get("retroachievements")
@@ -152,4 +203,24 @@ pub fn achievements_ra_connected() -> Result<bool, String> {
 #[tauri::command]
 pub fn achievements_ra_disconnect() -> Result<(), String> {
     keys::delete("retroachievements").map_err(|_| "Coffre Windows indisponible.".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn params(v: Value) -> serde_json::Map<String, Value> {
+        v.as_object().unwrap().clone()
+    }
+
+    #[test]
+    fn requetes_ra_filtrees() {
+        let (url, p) = ra_request("API_GetUserSummary", &params(json!({"u": "Player_1", "g": 5}))).unwrap();
+        assert_eq!(url, "https://retroachievements.org/API/API_GetUserSummary.php");
+        assert!(p.contains(&("g".into(), "5".into())));
+        assert!(ra_request("API_SetSomething", &params(json!({}))).is_err(), "point d'accès inconnu");
+        assert!(ra_request("API_GetUserSummary", &params(json!({"y": "volée"}))).is_err(), "la clé ne vient jamais de l'interface");
+        assert!(ra_request("API_GetUserSummary", &params(json!({"u": "a&b=c"}))).is_err());
+        assert!(ra_request("API_GetUserSummary", &params(json!({"u": ["x"]}))).is_err());
+    }
 }

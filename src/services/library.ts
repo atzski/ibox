@@ -112,11 +112,43 @@ export function rowToGame(row: GameRowDto): Game {
     playCount: row.playCount,
     playSeconds: row.playSeconds,
     pcInstalls: row.pcInstalls ?? [],
+    variantOf: row.variantOf ?? undefined,
     art: {
       motif: "placeholder",
       palette: t ? [t.soft, t.primary, t.deep, t.primary, "#ffffff"] : ["#EAF6FD", "#8CCDF1", "#2F7FB0", "#8CCDF1", "#ffffff"],
     },
   };
+}
+
+/**
+ * Rassemble les versions sous leur fiche principale : seules les fiches principales restent
+ * dans la liste ; elles portent leurs versions, le temps de jeu cumulé et la dernière partie.
+ */
+export function groupVariants(all: Game[]): Game[] {
+  const byDb = new Map(all.filter((g) => g.dbId !== undefined).map((g) => [g.dbId!, g]));
+  const children = new Map<number, Game[]>();
+  for (const g of all) {
+    if (g.variantOf === undefined || !byDb.has(g.variantOf)) continue;
+    children.set(g.variantOf, [...(children.get(g.variantOf) ?? []), g]);
+  }
+  if (!children.size) return all;
+  return all
+    .filter((g) => g.variantOf === undefined || !byDb.has(g.variantOf))
+    .map((g) => {
+      const variants = g.dbId !== undefined ? children.get(g.dbId) : undefined;
+      if (!variants) return g;
+      const family = [g, ...variants];
+      const last = family.map((v) => v.lastPlayedAt).filter(Boolean).sort().at(-1);
+      return {
+        ...g,
+        variants,
+        lastPlayedAt: last,
+        playSeconds: family.reduce((n, v) => n + (v.playSeconds ?? 0), 0),
+        playCount: family.reduce((n, v) => n + (v.playCount ?? 0), 0),
+        // un doublon regroupé n'est plus signalé comme doublon
+        duplicate: false,
+      };
+    });
 }
 
 function visible(all: Game[], showDemo: boolean): { games: Game[]; demoVisible: boolean } {
@@ -135,7 +167,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
   const refresh = async () => {
     const [rows, folders] = await Promise.all([nativeLibrary.listGames(), nativeLibrary.listFolders()]);
     set({ folders });
-    setReal(rows.map(rowToGame));
+    setReal(groupVariants(rows.map(rowToGame)));
   };
 
   return {
@@ -180,8 +212,8 @@ export const useLibrary = create<LibraryState>((set, get) => {
         await refresh();
         set({ pcSync: { running: false, summaries, at: Date.now() } });
         const added = summaries.reduce((n, s) => n + s.added, 0);
-        if (added > 0) notify({ icon: "plus", tone: "ok", title: `${added} nouveau${added > 1 ? "x" : ""} jeu${added > 1 ? "x" : ""} PC`, body: summaries.filter((s) => s.added).map((s) => `${s.source} : ${s.added}`).join(" · ") });
-        for (const s of summaries) if (s.warning) notify({ icon: "lock", tone: "warn", title: "Boutique PC", body: s.warning });
+        if (added > 0) notify({ icon: "plus", tone: "ok", title: `${added} nouveau${added > 1 ? "x" : ""} jeu${added > 1 ? "x" : ""} PC`, body: summaries.filter((s) => s.added).map((s) => `${s.source} : ${s.added}`).join(" · "), link: { kind: "library", platformId: "pc" } });
+        for (const s of summaries) if (s.warning) notify({ icon: "lock", tone: "warn", title: "Boutique PC", body: s.warning, link: { kind: "settings", category: "pc" } });
         // jaquettes, fonds et logos des nouveaux jeux
         const fresh = summaries.flatMap((s) => s.newGameIds);
         if (fresh.length && useSettings.getState().autoFetchMetadata) void get().fetchMetadata(fresh);
@@ -224,7 +256,12 @@ export const useLibrary = create<LibraryState>((set, get) => {
         await refresh();
         set({ scan: { running: false, summary, finishedAt: Date.now() } });
         if (summary.added > 0 || summary.missing > 0)
-          notify({ icon: "folder", tone: summary.missing ? "warn" : "ok", title: "Collection actualisée", body: [summary.added && `${summary.added} ajouté${summary.added > 1 ? "s" : ""}`, summary.missing && `${summary.missing} introuvable${summary.missing > 1 ? "s" : ""}`].filter(Boolean).join(" · ") });
+          notify({ icon: "folder", tone: summary.missing ? "warn" : "ok", title: "Collection actualisée", body: [summary.added && `${summary.added} ajouté${summary.added > 1 ? "s" : ""}`, summary.missing && `${summary.missing} introuvable${summary.missing > 1 ? "s" : ""}`].filter(Boolean).join(" · "), link: { kind: "library", platformId: "all" } });
+        if (summary.added > 0) {
+          const { duplicateGroups } = await import("@/components/game/Versions");
+          const groups = duplicateGroups(get().realGames).length;
+          if (groups > 0) notify({ icon: "copy", tone: "info", title: `${groups} jeu${groups > 1 ? "x" : ""} en plusieurs versions`, body: "Cliquez pour regrouper les doublons sur une seule fiche.", link: { kind: "duplicates" } });
+        }
         // Jaquettes et infos des nouveaux jeux, en arrière-plan
         if (useSettings.getState().autoFetchMetadata && (summary.added > 0 || summary.updated > 0 || summary.moved > 0)) {
           void get().fetchMetadata(null);
@@ -269,7 +306,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
         const summary = await metadataApi.fetch(gameIds, opts);
         await refresh();
         set({ meta: { running: false, summary, finishedAt: Date.now() } });
-        if (summary.images > 0) notify({ icon: "front", tone: "ok", title: "Jaquettes récupérées", body: `${summary.images} image${summary.images > 1 ? "s" : ""} pour ${summary.games} jeu${summary.games > 1 ? "x" : ""}` });
+        if (summary.images > 0) notify({ icon: "front", tone: "ok", title: "Jaquettes récupérées", body: `${summary.images} image${summary.images > 1 ? "s" : ""} pour ${summary.games} jeu${summary.games > 1 ? "x" : ""}`, link: { kind: "library", platformId: "all" } });
         return summary;
       } catch (e) {
         set({ meta: { running: false, error: message(e, "La récupération a échoué."), finishedAt: Date.now() } });
@@ -325,8 +362,12 @@ function message(e: unknown, fallback: string): string {
   return e instanceof Error && e.message ? e.message : fallback;
 }
 
+/** Fiche d'un jeu ; l'identifiant d'une version regroupée mène à sa fiche principale. */
 export const useGame = (id: string) =>
-  useLibrary((s) => s.games.find((g) => g.id === id) ?? PC_DEMO_GAMES.find((g) => g.id === id));
+  useLibrary((s) =>
+    s.games.find((g) => g.id === id)
+    ?? s.games.find((g) => g.variants?.some((v) => v.id === id))
+    ?? PC_DEMO_GAMES.find((g) => g.id === id));
 
 /** Favori : en base pour les vrais jeux, dans les réglages pour la démo. */
 export function isFavorite(game: Game, demoFavorites: string[]): boolean {

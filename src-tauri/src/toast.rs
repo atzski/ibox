@@ -2,12 +2,14 @@
 //! demande d'ami, message). Une petite fenêtre transparente, au premier plan,
 //! qui ne prend pas le focus : elle s'affiche même quand iBox est réduit.
 use serde_json::Value;
-use std::{collections::VecDeque, sync::{atomic::{AtomicBool, Ordering}, Mutex}};
+use std::{collections::VecDeque, sync::{atomic::{AtomicBool, Ordering}, Mutex}, time::Duration};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
 
 static QUEUE: Mutex<VecDeque<Value>> = Mutex::new(VecDeque::new());
 static ENABLED: AtomicBool = AtomicBool::new(true);
 static FRIENDS: AtomicBool = AtomicBool::new(true);
+/// Une veille garde la fenêtre au-dessus des jeux tant qu'elle est affichée.
+static KEEPER: AtomicBool = AtomicBool::new(false);
 const LABEL: &str = "toast";
 /// Taille de la fenêtre (en points) : une carte et son ombre.
 const WIDTH: f64 = 400.0;
@@ -44,9 +46,44 @@ fn place(w: &tauri::WebviewWindow) {
     let _ = w.set_position(PhysicalPosition::new(x, y));
 }
 
+/// Les notifications d'amis suivent le réglage « Amis » ; les mises à jour passent toujours
+/// (même en « Ne pas déranger ») ; les autres suivent le réglage général.
+fn allowed(kind: &str, enabled: bool, friends: bool) -> bool {
+    match kind {
+        "update" => true,
+        "notice" => enabled,
+        _ => enabled && friends,
+    }
+}
+
+/// Repasse la fenêtre au sommet des fenêtres « toujours au premier plan » : un jeu en plein
+/// écran fenêtré (le cas de la plupart des jeux récents) l'est aussi, et passerait devant.
+/// La fenêtre ne prend jamais le focus : le jeu n'est pas interrompu.
+fn raise(w: &tauri::WebviewWindow) {
+    let _ = w.set_always_on_top(false);
+    let _ = w.set_always_on_top(true);
+}
+
+/// Tant que la notification est visible, elle est replacée au premier plan régulièrement.
+fn keep_on_top(app: &AppHandle) {
+    if KEEPER.swap(true, Ordering::SeqCst) { return; }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_millis(800));
+            let Some(w) = app.get_webview_window(LABEL) else { break };
+            if !w.is_visible().unwrap_or(false) { break; }
+            let target = w.clone();
+            let _ = app.run_on_main_thread(move || raise(&target));
+        }
+        KEEPER.store(false, Ordering::SeqCst);
+    });
+}
+
 /// Ajoute une notification (ignorée si l'utilisateur les a coupées).
 pub fn push(app: &AppHandle, payload: Value) {
-    if !ENABLED.load(Ordering::Relaxed) || (payload["kind"] != "update" && !FRIENDS.load(Ordering::Relaxed)) { return; }
+    let kind = payload["kind"].as_str().unwrap_or_default();
+    if !allowed(kind, ENABLED.load(Ordering::Relaxed), FRIENDS.load(Ordering::Relaxed)) { return; }
     if let Ok(mut q) = QUEUE.lock() {
         if q.len() >= 6 { q.pop_front(); }
         q.push_back(payload);
@@ -57,14 +94,34 @@ pub fn push(app: &AppHandle, payload: Value) {
         let Some(w) = window(&app) else { return };
         place(&w);
         let _ = w.show();
-        let _ = w.set_always_on_top(true);
+        raise(&w);
         let _ = app.emit_to(LABEL, "toast-push", ());
+        keep_on_top(&app);
     });
 }
 
 #[tauri::command]
 pub fn toast_update(app: AppHandle, version: String) {
     push(&app, serde_json::json!({"kind":"update","friendId":"","name":format!("iBox {version}"),"body":"Cliquez pour installer la mise à jour."}));
+}
+
+/// Notification d'iBox (bibliothèque, succès, mise à jour…) montrée en bas à droite de l'écran,
+/// quand iBox n'est pas au premier plan. `link` dit où mène le clic.
+#[tauri::command]
+pub fn toast_notice(app: AppHandle, title: String, body: Option<String>, icon: Option<String>, tone: Option<String>, link: Option<Value>, image: Option<String>) {
+    // seules les images des succès RetroAchievements sont affichées
+    let image = image.filter(|u| u.starts_with("https://media.retroachievements.org/") && u.len() < 200);
+    let clip = |s: String, n: usize| s.chars().take(n).collect::<String>();
+    push(&app, serde_json::json!({
+        "kind": "notice",
+        "friendId": "",
+        "name": clip(title, 90),
+        "body": body.map(|b| clip(b, 180)),
+        "icon": icon.map(|i| clip(i, 24)),
+        "tone": tone.map(|t| clip(t, 8)),
+        "link": link,
+        "image": image,
+    }));
 }
 
 /// La fenêtre de notification récupère les notifications en attente.
@@ -92,4 +149,19 @@ pub fn toast_click(app: AppHandle, payload: Value) {
 pub fn toast_enabled(enabled: bool, friends: Option<bool>) {
     FRIENDS.store(friends.unwrap_or(true), Ordering::Relaxed);
     ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::allowed;
+
+    #[test]
+    fn mises_a_jour_toujours_annoncees() {
+        assert!(allowed("update", false, false));
+        assert!(allowed("notice", true, false));
+        assert!(!allowed("notice", false, true));
+        assert!(allowed("game", true, true));
+        assert!(!allowed("game", true, false));
+        assert!(!allowed("request", false, true));
+    }
 }

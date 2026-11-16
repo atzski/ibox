@@ -5,10 +5,22 @@
 export interface Release {
   version: string;
   date: string;
-  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe"; title: string; text: string }[];
+  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe" | "trophy" | "copy" | "download"; title: string; text: string }[];
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: "0.1.47",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "trophy", title: "Univers des succès", text: "Nouvel écran Succès : votre profil RetroAchievements, vos jeux en cours, la vitrine des maîtrises, le classement avec les joueurs que vous suivez, et une page par jeu avec la rareté de chaque succès." },
+      { icon: "sparkle", title: "Succès en direct", text: "Chaque succès débloqué pendant une partie s’affiche aussitôt, par-dessus le jeu, avec son badge." },
+      { icon: "copy", title: "Doublons regroupés", text: "Réunissez les régions et révisions d’un même jeu sur une seule fiche, puis choisissez la version à lancer." },
+      { icon: "front", title: "Fond de l’accueil", text: "Une galerie de fonds rien que pour l’accueil : motifs iBox, illustrations de vos jeux, galerie en ligne ou votre image." },
+      { icon: "clock", title: "Notifications utiles", text: "Chaque notification mène au bon endroit d’un clic, s’affiche même en plein jeu, et les tâches en cours se réduisent pour ne plus gêner." },
+      { icon: "download", title: "Mises à jour automatiques", text: "iBox vérifie tout seul les nouvelles versions et vous propose de les installer d’un clic." },
+    ],
+  },
   {
     version: "0.1.46",
     date: "2026-11-16",

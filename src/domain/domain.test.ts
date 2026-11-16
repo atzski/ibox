@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesQuery, relativeDay, sortKey } from "./text";
+import { matchesQuery, relativeDay, sortKey, variantKey, versionTags } from "./text";
 import { PLATFORMS, platformsForExtension, getPlatform, folderHintsOf } from "./platforms";
 import formats from "../../shared/platform-formats.json";
 import { DEMO_GAMES } from "./demoLibrary";
@@ -10,6 +10,20 @@ describe("sortKey", () => {
     expect(sortKey("The Legend of Pip")).toBe("legend of pip");
     expect(sortKey("L'Étoile filante")).toBe("etoile filante");
     expect(sortKey("  Mossback   Mountain! ")).toBe("mossback mountain");
+  });
+});
+
+describe("variantKey / versionTags", () => {
+  it("réunit les régions et révisions d'un même jeu", () => {
+    const k = variantKey("Super Mario Galaxy (Europe) (En,Fr)");
+    expect(variantKey("Super Mario Galaxy (USA)")).toBe(k);
+    expect(variantKey("Super Mario Galaxy [!] (Rev 1)")).toBe(k);
+    expect(variantKey("Super Mario Galaxy v1.1.iso")).toBe(k);
+    expect(variantKey("Super Mario Galaxy 2 (USA)")).not.toBe(k);
+  });
+  it("lit les étiquettes du nom de fichier", () => {
+    expect(versionTags("D:/Jeux/Zelda (Europe) (Rev 1) [!].rvz")).toBe("Europe · Rev 1");
+    expect(versionTags("Zelda.iso")).toBe("");
   });
 });
 

@@ -6,6 +6,13 @@ import type { JobSummary } from "@/services/metadata";
 import { Icon } from "@/components/ui/Icon";
 import { ScanStatus } from "./ScanStatus";
 import { sound } from "@/services/sound";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+/** Pastilles réduites (choix gardé) : elles ne gênent plus les clics dans l'interface. */
+const useJobsUi = create<{ collapsed: boolean; toggle: () => void }>()(
+  persist((set) => ({ collapsed: false, toggle: () => set((s) => ({ collapsed: !s.collapsed })) }), { name: "ibox.jobs-ui" }),
+);
 
 /** « 12 jaquettes · 9 fiches complétées · 2 à choisir ». */
 export function summarizeMeta(s: JobSummary): string {
@@ -157,11 +164,64 @@ function PlayingStatus() {
 
 /** Travaux en arrière-plan (en haut à droite, sous l'horloge) : partie en cours, actualisation, jaquettes. */
 export function BackgroundJobs() {
+  const collapsed = useJobsUi((s) => s.collapsed);
+  const toggle = useJobsUi((s) => s.toggle);
+  const meta = useLibrary((s) => s.meta);
+  const scan = useLibrary((s) => s.scan);
+  const playing = useLauncher((s) => s.phase === "running" && !!s.current);
+  const any = meta.running || scan.running || playing || !!meta.summary || !!meta.error || !!scan.summary || !!scan.error;
+  const ratio = (p?: { done: number; total: number }) => (p && p.total > 0 ? p.done / p.total : undefined);
+  const chips = [
+    playing && { id: "play", icon: "play" as const, tone: "bg-mint-soft text-mint-deep", label: "Partie en cours" },
+    meta.running && { id: "meta", icon: "front" as const, tone: "bg-lavender-soft text-lavender-deep", label: "Jaquettes et informations", ratio: ratio(meta.progress) },
+    scan.running && { id: "scan", icon: "folder" as const, tone: "bg-[#DDF6EA] text-[#3C8E69]", label: "Actualisation de la collection", ratio: ratio(scan.progress) },
+  ].filter(Boolean) as { id: string; icon: "play" | "front" | "folder"; tone: string; label: string; ratio?: number }[];
+
   return (
-    <div className="pointer-events-none fixed top-[5.75rem] right-[3rem] z-40 flex flex-col gap-3">
-      <PlayingStatus />
-      <MetaStatus />
-      <ScanStatus />
+    <div className="pointer-events-none fixed top-[5.75rem] right-[3rem] z-40 flex flex-col items-end gap-3">
+      {any && (
+        <button
+          onClick={() => { sound.play(collapsed ? "open" : "close"); toggle(); }}
+          aria-label={collapsed ? "Afficher les tâches en cours" : "Réduire les tâches en cours"}
+          title={collapsed ? "Afficher les tâches en cours" : "Réduire les tâches en cours"}
+          className="pointer-events-auto -mb-1 grid size-7 place-items-center rounded-full bg-white/90 text-ink-soft shadow-sm hover:text-ink"
+        >
+          <Icon name={collapsed ? "plus" : "minus"} size="0.9em" />
+        </button>
+      )}
+      {collapsed ? (
+        <div className="flex gap-2">
+          <AnimatePresence>
+            {chips.map((c) => (
+              <motion.button
+                key={c.id}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.6 }}
+                onClick={toggle}
+                title={c.ratio !== undefined ? `${c.label} · ${Math.round(c.ratio * 100)} %` : c.label}
+                aria-label={c.label}
+                className={`pointer-events-auto relative grid size-11 place-items-center rounded-full shadow-md ${c.tone}`}
+              >
+                <Icon name={c.icon} size="1.1em" className="animate-pulse" />
+                {c.ratio !== undefined && (
+                  <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90" aria-hidden>
+                    <circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" strokeOpacity="0.18" strokeWidth="3" />
+                    <circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                      strokeDasharray={`${Math.max(0.04, c.ratio) * 125.7} 125.7`} />
+                  </svg>
+                )}
+              </motion.button>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <>
+          <PlayingStatus />
+          <MetaStatus />
+          <ScanStatus />
+        </>
+      )}
     </div>
   );
 }

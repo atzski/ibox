@@ -22,8 +22,28 @@ export const wallpaperApi = {
   },
 };
 
+/** Fond propre à l'écran d'accueil (copie locale, PC ou galerie en ligne). */
+export const homeWallpaperApi = {
+  async chooseFile(): Promise<boolean> {
+    const path = await metadataApi.pickImage();
+    if (!path) return false;
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("home_wallpaper_set", { path });
+    return true;
+  },
+  async fromUrl(url: string): Promise<void> {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("home_wallpaper_from_url", { url });
+  },
+  async clear(): Promise<void> {
+    if (!isTauri()) return;
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("home_wallpaper_clear");
+  },
+};
+
 /** Adresse locale du fond personnel ; `stamp` change à chaque nouveau choix. */
-export function useWallpaperUrl(stamp: number | null): string | null {
+export function useWallpaperUrl(stamp: number | null, command: "wallpaper_read" | "home_wallpaper_read" = "wallpaper_read"): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (stamp === null || !isTauri()) {
@@ -35,7 +55,7 @@ export function useWallpaperUrl(stamp: number | null): string | null {
     void (async () => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        const bytes = await invoke<ArrayBuffer>("wallpaper_read");
+        const bytes = await invoke<ArrayBuffer>(command);
         if (!alive) return;
         made = URL.createObjectURL(new Blob([bytes]));
         const img = new Image();
@@ -54,6 +74,6 @@ export function useWallpaperUrl(stamp: number | null): string | null {
         setTimeout(() => URL.revokeObjectURL(u), 2000);
       }
     };
-  }, [stamp]);
+  }, [stamp, command]);
   return url;
 }

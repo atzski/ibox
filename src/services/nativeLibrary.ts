@@ -49,6 +49,8 @@ export interface GameRowDto {
   playCount: number;
   playSeconds: number;
   pcInstalls: import("@/domain/types").PcInstall[];
+  /** Version regroupée sous une autre fiche. */
+  variantOf: number | null;
 }
 
 export interface ScanProgress {
@@ -102,6 +104,10 @@ export const nativeLibrary = {
   cancelScan: () => call<void>("library_scan_cancel"),
   setFavorite: (id: number, favorite: boolean) => call<void>("game_set_favorite", { id, favorite }),
   updateGame: (id: number, patch: GamePatch) => call<void>("game_update", { id, patch }),
+  /** Regroupe `other` (et ses versions) sous la fiche `keep` ; renvoie la fiche principale. */
+  linkVariant: (keep: number, other: number) => call<number>("game_link_variant", { keep, other }),
+  unlinkVariant: (id: number) => call<void>("game_unlink_variant", { id }),
+  promoteVariant: (id: number) => call<void>("game_promote_variant", { id }),
 
   /** Abonnement à la progression d'un scan. Renvoie la fonction de désabonnement. */
   async onScanProgress(cb: (p: ScanProgress) => void): Promise<() => void> {

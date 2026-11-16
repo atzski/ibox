@@ -1,12 +1,12 @@
 # Getting started with iBox
 
-[← Home](../README.md) · [Download iBox](https://github.com/atzski/inbox-releases/releases/latest)
+[← Home](../README.md) · [Download iBox](https://github.com/atzski/ibox/releases/latest)
 
 This guide walks you through installation and connecting services. **API keys are optional**: they add features, but you can start using iBox without them.
 
 ## 1. Install iBox
 
-1. Open the [latest release](https://github.com/atzski/inbox-releases/releases/latest).
+1. Open the [latest release](https://github.com/atzski/ibox/releases/latest).
 2. Under **Assets**, download the Windows file ending in `-setup.exe`.
 3. Open the file, follow the installer, and launch iBox.
 4. Follow the setup wizard to choose your game folders and configure your emulators.

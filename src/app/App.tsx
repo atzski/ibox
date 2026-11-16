@@ -5,8 +5,11 @@ import { useEffect } from "react";
 import { ProfileGate } from "@/components/start/ProfileGate";
 import { SetupWizard } from "@/components/start/SetupWizard";
 import { useSession } from "@/services/profiles";
-import { checkUpdatesLater, shellApi } from "@/services/shell";
-import { notify } from "@/services/notifications";
+import { shellApi } from "@/services/shell";
+import { startUpdateWatch } from "@/services/updater";
+import { startRaWatch } from "@/services/retro";
+import { DuplicatesHost } from "@/components/game/Versions";
+import { AchievementsScreen } from "@/screens/AchievementsScreen";
 import { attachInetbox } from "@/services/inetbox";
 import { InetboxModal } from "@/components/social/InetboxPanel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
@@ -44,7 +47,9 @@ function Screen({ route }: { route: Route }) {
     case "game":
       return <GameScreen gameId={route.gameId} />;
     case "settings":
-      return <SettingsScreen />;
+      return <SettingsScreen category={route.category} />;
+    case "achievements":
+      return <AchievementsScreen gameId={route.gameId} />;
   }
 }
 
@@ -86,14 +91,12 @@ export function App() {
   const hideOnLaunch = useSettings((s) => s.hideOnLaunch);
   useEffect(() => void shellApi.setBehavior(keepInTray, hideOnLaunch), [keepInTray, hideOnLaunch]);
   // nouvelle version d'iBox : annoncée par une notification (installation dans Paramètres › Système)
-  useEffect(
-    () =>
-      checkUpdatesLater((version) => {
-        notify({ icon: "download", tone: "info", action: "update", title: `iBox ${version} est disponible`, body: "Installez-la dans Paramètres › Système › Mises à jour." });
-        if (!useSettings.getState().doNotDisturb) void shellApi.updateToast(version).catch(() => undefined);
-      }),
-    [],
-  );
+  useEffect(() => startUpdateWatch(), []);
+  // succès RetroAchievements débloqués pendant une partie : annoncés en direct
+  useEffect(() => startRaWatch(
+    () => useLauncher.getState().phase === "running",
+    (fn) => useLauncher.subscribe((s, p) => { if ((s.phase === "running") !== (p.phase === "running")) fn(s.phase === "running"); }),
+  ), []);
   // menu de l'icône de notification : Jeux ou Social
   useEffect(() => {
     const off = shellApi.onTrayNavigate((place) => {
@@ -222,6 +225,7 @@ export function App() {
         {!setupDone ? <SetupWizard key="setup" /> : askProfile && !profileChosen ? <ProfileGate key="gate" /> : null}
       </AnimatePresence>
       <InetboxModal />
+      <DuplicatesHost />
       <LaunchOverlay />
       <FlightLayer />
     </MotionConfig>

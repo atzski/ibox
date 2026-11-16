@@ -2,7 +2,7 @@
   <img src="docs/screenshots/ibox-wordmark.png" width="420" alt="iBox">
   <p><strong>Your games, together.</strong></p>
   <p>A personal game library for Windows, built for exploring and playing.</p>
-  <p><a href="https://github.com/atzski/inbox-releases/releases/latest"><strong>Download iBox for Windows</strong></a> · Windows 10 and 11 · 64-bit</p>
+  <p><a href="https://github.com/atzski/ibox/releases/latest"><strong>Download iBox for Windows</strong></a> · Windows 10 and 11 · 64-bit</p>
 </div>
 
 ## About iBox
@@ -24,11 +24,11 @@ iBox brings your PC games and console collection together in one place. Browse a
 
 ## Download and setup
 
-1. Download the installer from the [latest release](https://github.com/atzski/inbox-releases/releases/latest).
+1. Download the installer from the [latest release](https://github.com/atzski/ibox/releases/latest).
 2. Install iBox and follow the setup guide to add your game folders and configure your sources and emulators.
 3. Open your library and choose a game.
 
-Existing users can check for updates under **Settings → System → Updates**. Releases are hosted in a separate download repository to keep existing update links working.
+Existing users can check for updates under **Settings → System → Updates**. iBox also checks for new versions on its own and offers a one-click install.
 
 ## Games and privacy
 

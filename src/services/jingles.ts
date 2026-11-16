@@ -75,17 +75,17 @@ export const useJingleSync = create<JingleSync>((set, get) => ({
   start: async (quiet = false) => {
     if (get().running) return;
     set({ running: true, phase: "resolve", done: 0, total: 0, error: null });
-    if (!quiet) notify({ icon: "sound", tone: "info", title: "Jingles des jeux", body: "Téléchargement lancé." });
+    if (!quiet) notify({ icon: "sound", tone: "info", title: "Jingles des jeux", body: "Téléchargement lancé.", link: { kind: "settings", category: "sound" } });
     const { listen } = await import("@tauri-apps/api/event");
     const off = await listen<{ phase: string; done: number; total: number }>("games-art-progress", (e) => set({ phase: e.payload.phase, done: e.payload.done, total: e.payload.total }));
     try {
       const r = await jinglesApi.sync();
       useSettings.getState().set("gameSounds", true);
       set({ last: r });
-      if (!quiet || r.downloaded) notify({ icon: "sound", tone: "ok", title: r.downloaded ? `${r.downloaded} jingle${r.downloaded > 1 ? "s" : ""} téléchargé${r.downloaded > 1 ? "s" : ""}` : "Aucun nouveau jingle", body: r.missing ? `${r.missing} jeu${r.missing > 1 ? "x" : ""} sans son dans iiDB.` : undefined });
+      if (!quiet || r.downloaded) notify({ icon: "sound", tone: "ok", title: r.downloaded ? `${r.downloaded} jingle${r.downloaded > 1 ? "s" : ""} téléchargé${r.downloaded > 1 ? "s" : ""}` : "Aucun nouveau jingle", body: r.missing ? `${r.missing} jeu${r.missing > 1 ? "x" : ""} sans son dans iiDB.` : undefined, link: { kind: "settings", category: "sound" } });
     } catch (e) {
       set({ error: String(e) });
-      if (!quiet) notify({ icon: "sound", tone: "warn", title: "Jingles des jeux", body: String(e) });
+      if (!quiet) notify({ icon: "sound", tone: "warn", title: "Jingles des jeux", body: String(e), link: { kind: "settings", category: "sound" } });
     } finally {
       off();
       set({ running: false });

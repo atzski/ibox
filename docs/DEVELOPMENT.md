@@ -1,7 +1,7 @@
 # iBox
 
 Bibliothèque de jeux et frontend d'émulation immersif pour Windows (Tauri 2 · React · Three.js).
-[Télécharger iBox pour Windows](https://github.com/atzski/inbox-releases/releases/latest).
+[Télécharger iBox pour Windows](https://github.com/atzski/ibox/releases/latest).
 
 ## Aperçu
 

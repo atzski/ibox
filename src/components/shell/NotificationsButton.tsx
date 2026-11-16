@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { relativeDay } from "@/domain/text";
-import { shellApi } from "@/services/shell";
-import { useNotifications, useUnreadCount } from "@/services/notifications";
+import { linkOf, useNotifications, useUnreadCount } from "@/services/notifications";
+import { openLink } from "@/services/links";
+import { useUpdater } from "@/services/updater";
 import { input } from "@/input/InputController";
 import { sound } from "@/services/sound";
 
@@ -101,38 +102,96 @@ export function NotificationsButton() {
                   Rien de nouveau pour l'instant.
                 </p>
               )}
-              {items.map((n) => (
+              {items.map((n) => {
+                const link = linkOf(n);
+                const activate = () => {
+                  useNotifications.getState().markRead(n.id);
+                  if (!link) return;
+                  sound.play("select");
+                  close();
+                  openLink(link);
+                };
+                return (
                 <div
                   key={n.id}
                   data-focusable
                   tabIndex={0}
-                  role={n.action ? "button" : undefined}
-                  onClick={n.action === "update" ? () => {
-                    close();
-                    void shellApi.installUpdate(() => undefined).catch((error) => useNotifications.getState().push({
-                      icon: "download", title: "Installation indisponible", body: String(error), tone: "warn", action: "update",
-                    }));
-                  } : undefined}
-                  onKeyDown={n.action ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.currentTarget.click(); } } : undefined}
-                  className={`ibox-focusable flex gap-3 rounded-lg px-3 py-2.5 outline-none ${n.read ? "" : "bg-[var(--ibox-sky)]/25"}`}
+                  role="button"
+                  aria-label={`${n.title}${n.body ? `. ${n.body}` : ""}`}
+                  onClick={activate}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); }
+                    if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); useNotifications.getState().remove(n.id); }
+                  }}
+                  className={`ibox-focusable group relative flex gap-3 rounded-lg px-3 py-2.5 outline-none ${link ? "cursor-pointer hover:bg-black/[0.035]" : ""} ${n.read ? "" : "bg-[var(--ibox-sky)]/25"}`}
                 >
+                  {n.image ? (
+                    <img src={n.image} alt="" className="mt-0.5 size-9 shrink-0 rounded-lg shadow-xs ring-1 ring-black/5" />
+                  ) : (
                   <span
                     className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${n.tone === "warn" ? "bg-[#FFE1DA] text-[#C4624F]" : n.tone === "ok" ? "bg-[#DDF6EA] text-[#3C8E69]" : "bg-[#E4F3FF] text-[#2F7FB0]"}`}
                   >
                     <Icon name={n.icon} size="1em" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  )}
+                  <div className="min-w-0 flex-1 pr-5">
                     <div className="text-[0.88rem] font-bold text-ink">{n.title}</div>
                     {n.body && <div className="text-[0.8rem] font-semibold text-ink-soft">{n.body}</div>}
-                    <div className="mt-0.5 text-[0.7rem] font-semibold text-ink-faint">{relativeDay(n.at)}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] font-semibold text-ink-faint">
+                      {relativeDay(n.at)}
+                      {link && <span className="inline-flex items-center gap-0.5 font-extrabold text-[#2F7FB0]">· {LINK_LABEL[link.kind]} <Icon name="chevronRight" size="0.9em" /></span>}
+                    </div>
                   </div>
+                  <button
+                    aria-label="Retirer cette notification"
+                    tabIndex={-1}
+                    onClick={(event) => { event.stopPropagation(); sound.play("back"); useNotifications.getState().remove(n.id); }}
+                    className="absolute top-2 right-2 grid size-6 place-items-center rounded-full text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 hover:bg-black/5"
+                  >
+                    <Icon name="x" size="0.8em" />
+                  </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+const LINK_LABEL: Record<NonNullable<ReturnType<typeof linkOf>>["kind"], string> = {
+  game: "Voir le jeu",
+  library: "Voir la bibliothèque",
+  settings: "Ouvrir les réglages",
+  duplicates: "Regrouper",
+  update: "Installer",
+  achievements: "Voir les succès",
+  friends: "Ouvrir Amis",
+};
+
+/** Pastille « Mettre à jour » dans la barre du haut, tant qu'une version attend. */
+export function UpdateChip() {
+  const available = useUpdater((s) => s.available);
+  const installing = useUpdater((s) => s.installing);
+  const progress = useUpdater((s) => s.progress);
+  if (!available) return null;
+  const percent = progress?.stage === "downloading" && progress.total ? Math.floor((progress.received * 100) / progress.total) : undefined;
+  return (
+    <motion.button
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      data-focusable
+      disabled={installing}
+      title={`iBox ${available} : cliquez pour installer`}
+      onClick={() => { sound.play("open"); openLink({ kind: "update" }); }}
+      className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full bg-[linear-gradient(140deg,#DDF0FF,#88CBF5)] px-4 font-bold text-[#1F5C8F] shadow-sm [--ring-radius:999px]"
+    >
+      <Icon name="download" className={installing ? "animate-bounce" : ""} />
+      {installing ? (percent !== undefined ? `${percent} %` : "Installation…") : `iBox ${available}`}
+      {!installing && <span className="absolute -top-0.5 -right-0.5 size-3 animate-ping rounded-full bg-[#EE8F80]" />}
+    </motion.button>
   );
 }
 

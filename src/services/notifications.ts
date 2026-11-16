@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { IconName } from "@/components/ui/Icon";
+import type { AppLink } from "./links";
 
 /**
  * Centre de notifications d'iBox : ce qui s'est passé en arrière-plan
@@ -15,13 +16,25 @@ export interface Notice {
   body?: string;
   tone: "info" | "ok" | "warn";
   read: boolean;
+  /** Ancien format : remplacé par `link`. */
   action?: "update";
+  /** Où mène un clic sur la notification. */
+  link?: AppLink;
+  /** Image (badge d'un succès RetroAchievements). */
+  image?: string;
+}
+
+/** Destination d'une notification (anciennes notifications « update » comprises). */
+export function linkOf(n: Pick<Notice, "action" | "link">): AppLink | undefined {
+  return n.link ?? (n.action === "update" ? { kind: "update" } : undefined);
 }
 
 interface NotifState {
   items: Notice[];
   push: (n: Omit<Notice, "id" | "at" | "read">) => void;
   markAllRead: () => void;
+  markRead: (id: string) => void;
+  remove: (id: string) => void;
   clear: () => void;
 }
 
@@ -39,6 +52,8 @@ export const useNotifications = create<NotifState>()(
           return { items: [item, ...rest].slice(0, MAX) };
         }),
       markAllRead: () => set((s) => ({ items: s.items.map((i) => ({ ...i, read: true })) })),
+      markRead: (id) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, read: true } : i)) })),
+      remove: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
       clear: () => set({ items: [] }),
     }),
     {
@@ -65,5 +80,21 @@ export const notify = (n: Omit<Notice, "id" | "at" | "read">) => {
     /* réglages illisibles : on notifie */
   }
   useNotifications.getState().push(n);
+  forwardToScreen(n);
 };
+
+/**
+ * iBox n'est pas au premier plan (partie en cours, autre fenêtre) : la notification s'affiche
+ * aussi en bas à droite de l'écran, par-dessus le jeu. Les amis ont déjà leurs propres fenêtres.
+ */
+function forwardToScreen(n: Omit<Notice, "id" | "at" | "read">) {
+  const link = linkOf(n);
+  if (link?.kind === "friends" || link?.kind === "update") return;
+  if (typeof document === "undefined" || (document.visibilityState === "visible" && document.hasFocus())) return;
+  void import("./native").then(({ isTauri }) => {
+    if (!isTauri()) return;
+    return import("@tauri-apps/api/core").then(({ invoke }) =>
+      invoke("toast_notice", { title: n.title, body: n.body ?? null, icon: n.icon, tone: n.tone, link: link ?? null, image: n.image ?? null }));
+  }).catch(() => undefined);
+}
 export const useUnreadCount = () => useNotifications((s) => s.items.filter((i) => !i.read).length);

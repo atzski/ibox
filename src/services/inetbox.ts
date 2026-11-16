@@ -191,9 +191,9 @@ function announce(state: State) {
       if (!before) continue;
       const platform = f.platformId ? getPlatform(f.platformId)?.shortName : undefined;
       if (f.gameTitle && f.gameTitle !== before.gameTitle) {
-        notify({ icon: "gamepad", tone: "info", title: `${f.displayName} joue à ${f.gameTitle}`, body: platform });
+        notify({ icon: "gamepad", tone: "info", title: `${f.displayName} joue à ${f.gameTitle}`, body: platform, link: { kind: "friends", friendId: f.id } });
       } else if (before.status === "offline" && f.status !== "offline") {
-        notify({ icon: "user", tone: "info", title: `${f.displayName} est en ligne` });
+        notify({ icon: "user", tone: "info", title: `${f.displayName} est en ligne`, link: { kind: "friends", friendId: f.id } });
       }
     }
   }
@@ -201,7 +201,7 @@ function announce(state: State) {
     for (const i of state.gameInvites) {
       if (seenInvites.has(i.id)) continue;
       const platform = getPlatform(i.platformId)?.shortName;
-      notify({ icon: "play", tone: "ok", title: `${i.fromName} vous invite à jouer`, body: `${i.gameTitle}${platform ? ` · ${platform}` : ""} — ouvrez Amis pour répondre.` });
+      notify({ icon: "play", tone: "ok", title: `${i.fromName} vous invite à jouer`, body: `${i.gameTitle}${platform ? ` · ${platform}` : ""} — cliquez pour répondre.`, link: { kind: "friends", view: "list" } });
     }
   }
   seenFriends = friends;

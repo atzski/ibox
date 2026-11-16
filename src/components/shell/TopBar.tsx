@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
-import { NotificationsButton } from "./NotificationsButton";
+import { NotificationsButton, UpdateChip } from "./NotificationsButton";
 import { FriendsButton } from "./FriendsButton";
 import { Avatar } from "@/components/profile/Avatar";
 import { ProfileModal } from "@/components/profile/ProfileModal";
@@ -107,6 +107,7 @@ export function TopBar() {
             <Icon name="home" size="1.3em" />
           </button>
         )}
+        <UpdateChip />
         <FriendsButton />
         <NotificationsButton />
         {route.name !== "settings" && (

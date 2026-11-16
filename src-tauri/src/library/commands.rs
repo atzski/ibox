@@ -119,6 +119,21 @@ pub fn game_set_favorite(state: State<LibraryState>, id: i64, favorite: bool) ->
 }
 
 #[tauri::command]
+pub fn game_link_variant(state: State<LibraryState>, keep: i64, other: i64) -> Res<i64> {
+    state.with(|c| repo::link_variant(c, keep, other))
+}
+
+#[tauri::command]
+pub fn game_unlink_variant(state: State<LibraryState>, id: i64) -> Res<()> {
+    state.with(|c| repo::unlink_variant(c, id))
+}
+
+#[tauri::command]
+pub fn game_promote_variant(state: State<LibraryState>, id: i64) -> Res<()> {
+    state.with(|c| repo::promote_variant(c, id))
+}
+
+#[tauri::command]
 pub fn game_update(state: State<LibraryState>, id: i64, patch: repo::GamePatch) -> Res<()> {
     state.with(|c| repo::update_game(c, id, &patch))
 }

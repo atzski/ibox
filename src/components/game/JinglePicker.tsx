@@ -25,11 +25,11 @@ export function JinglePicker({ dbId, title }: { dbId?: number; title: string }) 
     try {
       await invoke("game_sound_import", { gameId: dbId, path });
       sound.play("select");
-      notify({ icon: "sound", tone: "ok", title: "Jingle personnalisé", body: title });
+      notify({ icon: "sound", tone: "ok", title: "Jingle personnalisé", body: title, link: { kind: "game", gameId: `lib-${dbId}` } });
       refresh();
       previewJingle(dbId);
     } catch (e) {
-      notify({ icon: "sound", tone: "warn", title: "Jingle refusé", body: String(e) });
+      notify({ icon: "sound", tone: "warn", title: "Jingle refusé", body: String(e), link: { kind: "game", gameId: `lib-${dbId}` } });
     } finally { setBusy(false); }
   };
   const remove = async () => {

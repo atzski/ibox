@@ -1739,7 +1739,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "0.1.46"
+version = "0.1.47"
 dependencies = [
  "crc32fast",
  "imagesize",

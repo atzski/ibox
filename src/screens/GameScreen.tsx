@@ -1,5 +1,6 @@
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
+import { VersionPicker, VersionsModal, familyOf, preferredVersion } from "@/components/game/Versions";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -66,6 +67,9 @@ function GameSheet({ game }: { game: Game }) {
   const [editingMedia, setEditingMedia] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [versioning, setVersioning] = useState(false);
+  const [versionId, setVersionId] = useState<string>();
+  const version = familyOf(game).find((v) => v.id === versionId) ?? preferredVersion(game);
 
   const [, soft, accent] = useArtPalette(game);
   const facts = [game.year, game.genre, game.publisher, game.players ? `${game.players}` : undefined]
@@ -231,8 +235,9 @@ function GameSheet({ game }: { game: Game }) {
 
         {/* actions : jouer d'abord, le reste en petit */}
         <div className="mt-auto pt-6">
+          <VersionPicker game={game} value={version} onChange={(v) => setVersionId(v.id)} />
           <PlayControls
-            game={game}
+            game={version}
             beforeLaunch={() => {
               // le boîtier se referme pendant l'animation de lancement
               setDiscOut(false);
@@ -256,6 +261,9 @@ function GameSheet({ game }: { game: Game }) {
                 </Button>
                 <Button icon="disc" cue="select" onClick={() => setSaving(true)}>
                   Sauvegardes
+                </Button>
+                <Button icon="copy" cue="select" onClick={() => setVersioning(true)}>
+                  {game.variants?.length ? `Versions (${game.variants.length + 1})` : "Versions"}
                 </Button>
                 <Button icon="gear" cue="select" onClick={() => setCorrecting(true)}>
                   Corriger
@@ -285,6 +293,7 @@ function GameSheet({ game }: { game: Game }) {
         {editingMedia && <MediaModal game={game} onClose={() => setEditingMedia(false)} />}
         {collecting && <CollectionsModal game={game} onClose={() => setCollecting(false)} />}
         {saving && <SavesModal game={game} onClose={() => setSaving(false)} />}
+        {versioning && <VersionsModal game={game} onClose={() => setVersioning(false)} />}
       </motion.aside>
 
       {/* ——— Boîtier 3D ——— */}

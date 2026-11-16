@@ -155,7 +155,7 @@ export const usePlatformArtStore = create<ArtState>((set, get) => ({
       const report = await artApi.sync();
       await get().refresh();
       set({ sync: { running: false, report } });
-      if (report.downloaded > 0) notify({ icon: "sparkle", tone: "ok", title: "Illustrations des consoles", body: `${report.downloaded} image${report.downloaded > 1 ? "s" : ""} iiDB` });
+      if (report.downloaded > 0) notify({ icon: "sparkle", tone: "ok", title: "Illustrations des consoles", body: `${report.downloaded} image${report.downloaded > 1 ? "s" : ""} iiDB`, link: { kind: "library", platformId: "all" } });
       return report;
     } catch (e) {
       set({ sync: { running: false, error: e instanceof Error ? e.message : String(e) } });
@@ -271,7 +271,7 @@ export const useGameArtSync = create<GameArtState>((set, get) => ({
     try {
       const report = await gameArtApi.sync();
       set({ running: false, report });
-      if (report.downloaded > 0 || report.needsChoice > 0) notify({ icon: "download", tone: "ok", title: "Images des jeux (iiDB)", body: `${report.downloaded} ajoutée${report.downloaded > 1 ? "s" : ""}${report.needsChoice ? ` · ${report.needsChoice} jeux à associer` : ""}` });
+      if (report.downloaded > 0 || report.needsChoice > 0) notify({ icon: "download", tone: "ok", title: "Images des jeux (iiDB)", body: `${report.downloaded} ajoutée${report.downloaded > 1 ? "s" : ""}${report.needsChoice ? ` · ${report.needsChoice} jeux à associer` : ""}`, link: { kind: "settings", category: "images" } });
     } catch (e) {
       set({ running: false, error: e instanceof Error ? e.message : String(e) });
     } finally {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useInetbox } from "@/services/inetbox";
 import type { Game } from "@/domain/types";
+import { RaGameCard } from "@/components/achievements/RaParts";
 
 type Achievement = { title: string; description?: string; earned: boolean; image?: string; unlockedAt?: number | string };
 
@@ -26,6 +27,7 @@ export function Achievements({ game, inline = false }: { game: Game; inline?: bo
   useEffect(() => {
     let current = true;
     async function preview() {
+      if (!steam) return;
       const linked = steam || id || (username && matchRaProgress(await syncRaProgress(username), game.platformId, game.title)?.id);
       if (!linked || (!steam && !username)) return;
       const rows = await invoke<Achievement[]>("achievements_read", { source: steam ? "steam" : "ra", game: Number(linked), username: username ?? null });
@@ -38,6 +40,8 @@ export function Achievements({ game, inline = false }: { game: Game; inline?: bo
   }, [steam, username, game.platformId, game.title, id]);
 
   if (!steam && !RA_SYSTEM[game.platformId]) return null;
+  // consoles : l'univers RetroAchievements a sa propre page
+  if (!steam) return <RaGameCard game={game} inline={inline} />;
   async function search() {
     setBusy(true);
     setError("");

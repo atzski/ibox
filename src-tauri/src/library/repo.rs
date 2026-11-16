@@ -185,6 +185,8 @@ pub struct GameRow {
     pub play_seconds: i64,
     /// Jeux PC : installations connues (source, lancement, statut).
     pub pc_installs: serde_json::Value,
+    /// Version regroupée sous une autre fiche (régions, révisions, doublons).
+    pub variant_of: Option<i64>,
 }
 
 pub fn list_games(conn: &Connection) -> Result<Vec<GameRow>> {
@@ -201,7 +203,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameRow>> {
                                                      'width', width, 'height', height, 'addedAt', added_at))
                    FROM media WHERE game_id = g.id),
                 g.media_status, g.meta_source, g.emulator_id, g.play_count, g.play_seconds,
-                {pc}
+                {pc}, g.variant_of
          FROM games g
          JOIN game_files m ON m.game_id = g.id AND m.role = 'main'
          ORDER BY g.sort_title",
@@ -242,9 +244,68 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameRow>> {
             play_count: r.get(28)?,
             play_seconds: r.get(29)?,
             pc_installs: serde_json::from_str(&r.get::<_, String>(30)?).unwrap_or(serde_json::Value::Array(vec![])),
+            variant_of: r.get(31)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// Regroupe `other` (et ses propres versions) sous la fiche `keep`, de la même console.
+/// Si `keep` est déjà une version, le regroupement se fait sous sa fiche principale.
+/// Rien n'est supprimé : chaque version garde son fichier et peut être séparée.
+pub fn link_variant(conn: &mut Connection, keep: i64, other: i64) -> Result<i64> {
+    let tx = conn.transaction()?;
+    let root: i64 = tx
+        .query_row("SELECT coalesce(variant_of, id) FROM games WHERE id = ?1", [keep], |r| r.get(0))
+        .optional()?
+        .ok_or(LibraryError::NotFound)?;
+    let platforms: Vec<String> = tx
+        .prepare("SELECT platform_id FROM games WHERE id IN (?1, ?2)")?
+        .query_map(params![root, other], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    if root == other || platforms.len() != 2 {
+        return Err(LibraryError::Media("Choisissez deux jeux distincts.".into()));
+    }
+    if platforms[0] != platforms[1] {
+        return Err(LibraryError::Media("Les deux jeux doivent être sur la même console.".into()));
+    }
+    if platforms[0] == "pc" {
+        return Err(LibraryError::Media("Les jeux PC se regroupent depuis leur fiche (« Regrouper une version »).".into()));
+    }
+    tx.execute("UPDATE games SET variant_of = ?1 WHERE id = ?2 OR variant_of = ?2", params![root, other])?;
+    tx.execute(
+        "UPDATE games SET favorite = max(favorite, (SELECT favorite FROM games WHERE id = ?2)) WHERE id = ?1",
+        params![root, other],
+    )?;
+    tx.commit()?;
+    Ok(root)
+}
+
+/// Sépare une version : elle redevient une fiche à part entière.
+pub fn unlink_variant(conn: &Connection, id: i64) -> Result<()> {
+    let n = conn.execute("UPDATE games SET variant_of = NULL WHERE id = ?1 AND variant_of IS NOT NULL", [id])?;
+    if n == 0 {
+        return Err(LibraryError::NotFound);
+    }
+    Ok(())
+}
+
+/// Choisit la version principale d'un groupe (celle affichée dans la bibliothèque).
+pub fn promote_variant(conn: &mut Connection, id: i64) -> Result<()> {
+    let tx = conn.transaction()?;
+    let root: i64 = tx
+        .query_row("SELECT variant_of FROM games WHERE id = ?1 AND variant_of IS NOT NULL", [id], |r| r.get(0))
+        .optional()?
+        .ok_or(LibraryError::NotFound)?;
+    tx.execute("UPDATE games SET variant_of = ?1 WHERE variant_of = ?2 AND id <> ?1", params![id, root])?;
+    tx.execute("UPDATE games SET variant_of = ?1 WHERE id = ?2", params![id, root])?;
+    tx.execute("UPDATE games SET variant_of = NULL WHERE id = ?1", [id])?;
+    tx.execute(
+        "UPDATE games SET favorite = max(favorite, (SELECT favorite FROM games WHERE id = ?2)) WHERE id = ?1",
+        params![id, root],
+    )?;
+    tx.commit()?;
+    Ok(())
 }
 
 pub fn set_favorite(conn: &Connection, id: i64, favorite: bool) -> Result<()> {
@@ -373,6 +434,41 @@ mod tests {
 #[cfg(test)]
 mod retrait_tests {
     use super::*;
+
+    #[test]
+    fn versions_regroupees_puis_separees() {
+        let mut conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch(
+            "INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence, favorite) VALUES
+               (1, 'wii', 'Zelda (Europe)', 'zelda', '2026-01-01', 'filename', 1, 0),
+               (2, 'wii', 'Zelda (USA)', 'zelda', '2026-01-01', 'filename', 1, 1),
+               (3, 'wii', 'Zelda (Japan)', 'zelda', '2026-01-01', 'filename', 1, 0),
+               (4, 'gamecube', 'Autre', 'autre', '2026-01-01', 'filename', 1, 0);",
+        )
+        .unwrap();
+        let parent = |c: &Connection, id: i64| -> Option<i64> {
+            c.query_row("SELECT variant_of FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+        };
+        assert_eq!(link_variant(&mut conn, 1, 2).unwrap(), 1);
+        assert_eq!(parent(&conn, 2), Some(1));
+        // favori repris par la fiche principale
+        let fav: bool = conn.query_row("SELECT favorite FROM games WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert!(fav);
+        // regrouper sous une version remonte à la fiche principale
+        assert_eq!(link_variant(&mut conn, 2, 3).unwrap(), 1);
+        assert_eq!(parent(&conn, 3), Some(1));
+        assert!(link_variant(&mut conn, 1, 4).is_err(), "consoles différentes");
+        assert!(link_variant(&mut conn, 1, 1).is_err());
+        // la version 3 devient principale : 1 et 2 passent dessous
+        promote_variant(&mut conn, 3).unwrap();
+        assert_eq!((parent(&conn, 1), parent(&conn, 2), parent(&conn, 3)), (Some(3), Some(3), None));
+        unlink_variant(&conn, 2).unwrap();
+        assert_eq!(parent(&conn, 2), None);
+        assert!(unlink_variant(&conn, 2).is_err());
+        // supprimer la fiche principale libère ses versions
+        conn.execute("DELETE FROM games WHERE id = 3", []).unwrap();
+        assert_eq!(parent(&conn, 1), None);
+    }
 
     #[test]
     fn retrait_seulement_si_introuvable() {

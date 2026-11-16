@@ -28,6 +28,13 @@ export type LibrarySort = "alpha" | "added";
 export type Region = "PAL" | "NTSC-U" | "NTSC-J";
 export type ThemePreference = "system" | "light" | "dark";
 
+/** Fond de l'écran d'accueil (remplace le fond général seulement là). */
+export type HomeBackground =
+  | { type: "platform"; platformId: string }
+  | { type: "game"; gameId: string }
+  | { type: "preset"; id: string }
+  | { type: "file"; stamp: number; label?: string };
+
 /** Profil local enregistré (apparence de la carte de joueur). */
 export interface LocalProfile {
   id: string;
@@ -123,7 +130,8 @@ export interface SettingsState {
   notificationsEnabled: boolean;
   /** Fond : jeu sélectionné, image choisie, ou halos seuls. */
   backgroundStyle: "ambient" | "image" | "calm";
-  homeBackground?: { type: "platform"; platformId: string } | { type: "game"; gameId: string } | null;
+  /** Fond de l'accueil seulement : motif iBox, illustration d'un jeu ou d'une console, image téléchargée ou du PC. */
+  homeBackground?: HomeBackground | null;
   customBackground: { type: "platform"; platformId: string } | { type: "game"; gameId: string } | { type: "file"; stamp: number } | null;
   librarySort: LibrarySort;
   /** Favoris des jeux de démonstration (ceux des vrais jeux sont en base). */
