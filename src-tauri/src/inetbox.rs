@@ -123,7 +123,7 @@ fn set_user(user: Value) -> Result<Value> {
 }
 fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
     let id = id.unwrap_or("");
-    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
+    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare" | "react" | "unreact" | "comments" | "comment" | "deleteComment") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
         return Err(err("INVALID_INPUT", "Identifiant invalide."));
     }
     Ok(match action {
@@ -148,6 +148,11 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "library" => (Method::PUT, "/v1/library".into()),
         "shares" => (Method::GET, "/v1/shares".into()),
         "deleteShare" => (Method::DELETE, format!("/v1/shares/{id}")),
+        "react" => (Method::PUT, format!("/v1/shares/{id}/reaction")),
+        "unreact" => (Method::DELETE, format!("/v1/shares/{id}/reaction")),
+        "comments" => (Method::GET, format!("/v1/shares/{id}/comments")),
+        "comment" => (Method::POST, format!("/v1/shares/{id}/comments")),
+        "deleteComment" => (Method::DELETE, format!("/v1/comments/{id}")),
         _ => return Err(err("INVALID_ACTION", "Action iNetbox inconnue.")),
     })
 }
@@ -407,6 +412,8 @@ mod tests {
         assert_eq!(route("block", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/blocks/550e8400-e29b-41d4-a716-446655440000");
         assert_eq!(route("dismissInvite", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/game-invites/550e8400-e29b-41d4-a716-446655440000");
         assert!(route("dismissInvite", Some("../x")).is_err());
+        assert!(route("comment", Some("../../v1/me")).is_err());
+        assert_eq!(route("deleteComment", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/comments/550e8400-e29b-41d4-a716-446655440000");
     }
     #[test]
     fn tokens_and_extra_fields_never_reach_the_webview() {

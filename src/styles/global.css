@@ -488,6 +488,8 @@ html[data-motion="reduced"] .ibox-node {
 
 /* Surface toujours claire (cases pastel, iNetbox) : encre sombre, même en mode sombre */
 .ibox-light-surface {
+  /* les jetons light-dark() (pastels, menthe, lavande…) restent clairs ici */
+  color-scheme: light;
   --ibox-ink: #344459;
   --ibox-ink-soft: #5d6a7e;
   --ibox-ink-faint: #8b95a6;

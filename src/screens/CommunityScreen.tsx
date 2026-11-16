@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useScreenChrome } from "@/app/shellState";
+import { Comments, ReactionBar } from "@/components/community/Reactions";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button, Segmented } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { getPlatform } from "@/domain/platforms";
 import { relativeDay } from "@/domain/text";
-import { captures, community, formatBytes, useCaptureUrl, type LocalCapture, type SharedCapture } from "@/services/community";
+import { captures, community, formatBytes, useCaptureUrl, type LocalCapture, type ReactionKey, type SharedCapture } from "@/services/community";
 import { useInetbox } from "@/services/inetbox";
 import { isTauri } from "@/services/native";
 import { sound } from "@/services/sound";
@@ -37,7 +38,7 @@ export function CommunityScreen() {
             <div className="text-[0.75rem] font-extrabold tracking-[0.18em] text-white/75 uppercase">Hub de la communauté</div>
             <h1 className="mt-1 font-display text-[2.3rem] leading-tight font-semibold">Vos meilleurs moments</h1>
             <p className="mt-1 max-w-[36rem] text-[0.95rem] font-semibold text-white/85">
-              En pleine partie, appuyez sur <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">Alt</kbd> + <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">E</kbd> : l’overlay iBox fige l’image et garde les 12 dernières secondes en clip.
+              À tout moment, appuyez sur <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">Alt</kbd> + <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">E</kbd>: l’overlay iBox fige l’écran ; en pleine partie, il garde aussi les 12 dernières secondes en clip.
             </p>
           </div>
           <Segmented<Tab>
@@ -64,7 +65,17 @@ function Feed({ onMine }: { onMine: () => void }) {
   const user = useInetbox((s) => s.user);
   const [items, setItems] = useState<SharedCapture[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<SharedCapture | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = items?.find((x) => x.id === openId) ?? null;
+  const patch = (id: string, change: Partial<SharedCapture>) => setItems((list) => list?.map((x) => (x.id === id ? { ...x, ...change } : x)) ?? list);
+  // réaction affichée tout de suite, puis corrigée par la réponse du serveur
+  const react = (item: SharedCapture, key: ReactionKey | null) => {
+    const counts = { ...(item.reactions ?? {}) };
+    if (item.myReaction) counts[item.myReaction] = Math.max(0, (counts[item.myReaction] ?? 1) - 1);
+    if (key) counts[key] = (counts[key] ?? 0) + 1;
+    patch(item.id, { reactions: counts, myReaction: key });
+    community.react(item.id, key).then((s) => patch(item.id, s)).catch(() => patch(item.id, { reactions: item.reactions, myReaction: item.myReaction }));
+  };
   const load = useCallback(() => {
     if (!user) return;
     setError(null);
@@ -95,14 +106,16 @@ function Feed({ onMine }: { onMine: () => void }) {
         <Button icon="reset" onClick={load}>Actualiser</Button>
       </div>
       <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] gap-5" data-nav-group="community-feed">
-        {items.map((it, i) => <SharedCard key={it.id} item={it} index={i} onOpen={() => setOpen(it)} />)}
+        {items.map((it, i) => <SharedCard key={it.id} item={it} index={i} onOpen={() => setOpenId(it.id)} onReact={(k) => react(it, k)} />)}
       </div>
       {open && (
-        <Viewer source={{ shared: open.id }} title={open.game ?? "Capture"} subtitle={`${open.authorName} · ${relativeDay(new Date(open.createdAt).toISOString())}`} caption={open.caption} onClose={() => setOpen(null)}>
+        <Viewer source={{ shared: open.id }} title={open.game ?? "Capture"} subtitle={`${open.authorName} · ${relativeDay(new Date(open.createdAt).toISOString())}`} caption={open.caption} onClose={() => setOpenId(null)}
+          after={<Comments shareId={open.id} onCount={(n) => patch(open.id, { commentCount: n })} />}>
+          <div className="flex-1"><ReactionBar summary={{ reactions: open.reactions ?? {}, myReaction: open.myReaction ?? null }} onReact={(k) => react(open, k)} /></div>
           {open.mine && (
             <Button icon="x" onClick={async () => {
               await community.remove(open.id).catch(() => undefined);
-              setOpen(null);
+              setOpenId(null);
               load();
             }}>Retirer le partage</Button>
           )}
@@ -112,19 +125,19 @@ function Feed({ onMine }: { onMine: () => void }) {
   );
 }
 
-function SharedCard({ item, index, onOpen }: { item: SharedCapture; index: number; onOpen: () => void }) {
+function SharedCard({ item, index, onOpen, onReact }: { item: SharedCapture; index: number; onOpen: () => void; onReact: (key: ReactionKey | null) => void }) {
   // miniature légère quand le partage en a une (sinon l'image entière, une seule fois grâce au cache)
   const url = useCaptureUrl({ shared: item.id, thumb: !!item.hasThumb });
   const platform = item.platformId ? getPlatform(item.platformId) : undefined;
+  const comments = item.commentCount ?? 0;
   return (
-    <motion.button
-      data-focusable
-      onClick={() => { sound.play("open"); onOpen(); }}
+    <motion.div
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.04 }}
-      className="ibox-focusable ibox-lift group overflow-hidden rounded-[1.4rem] bg-white text-left shadow-[0_14px_30px_-20px_rgba(30,40,70,0.55)] [--ring-radius:1.4rem]"
+      className="ibox-lift group flex flex-col overflow-hidden rounded-[1.4rem] bg-white text-left shadow-[0_14px_30px_-20px_rgba(30,40,70,0.55)]"
     >
+      <button data-focusable onClick={() => { sound.play("open"); onOpen(); }} className="ibox-focusable text-left [--ring-radius:1.4rem]">
       <div className="relative aspect-video bg-ink/10">
         {url && <img src={url} alt="" className="size-full object-cover" />}
         {item.kind === "clip" && <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[0.7rem] font-extrabold text-white"><Icon name="play" size="0.8em" /> Clip</span>}
@@ -139,8 +152,18 @@ function SharedCard({ item, index, onOpen }: { item: SharedCapture; index: numbe
         </div>
         <span className="shrink-0 text-[0.72rem] font-bold text-ink-soft">{relativeDay(new Date(item.createdAt).toISOString())}</span>
       </div>
-      {item.caption && <p data-no-i18n className="-mt-1 line-clamp-2 px-3 pb-3 text-[0.82rem] font-semibold text-ink">{item.caption}</p>}
-    </motion.button>
+      {item.caption && <p data-no-i18n className="-mt-1 line-clamp-2 px-3 pb-2 text-[0.82rem] font-semibold text-ink">{item.caption}</p>}
+      </button>
+      <div className="mt-auto flex items-center gap-2 border-t border-ink/5 px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <ReactionBar compact summary={{ reactions: item.reactions ?? {}, myReaction: item.myReaction ?? null }} onReact={onReact} />
+        </div>
+        <button type="button" data-focusable onClick={() => { sound.play("open"); onOpen(); }} title="Commenter"
+          className="ibox-focusable inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-cream-deep px-2.5 text-[0.8rem] font-extrabold text-ink-soft hover:bg-white hover:text-ink [--ring-radius:999px]">
+          <Icon name="chat" size="1rem" />{comments > 0 ? <span className="tabular-nums">{comments}</span> : <span>Commenter</span>}
+        </button>
+      </div>
+    </motion.div>
   );
 }
 
@@ -163,7 +186,7 @@ function Mine() {
         <Button icon="folder" onClick={() => void captures.folder()}>Ouvrir le dossier</Button>
       </div>
       {items.length === 0 ? (
-        <Empty icon="front" title="Aucune capture pour l’instant" body="Lancez un jeu depuis iBox, puis appuyez sur Alt+E au bon moment." />
+        <Empty icon="front" title="Aucune capture pour l’instant" body="Appuyez sur Alt+E au bon moment, en jeu ou non." />
       ) : (
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4" data-nav-group="community-mine">
           {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); }} />)}
@@ -228,17 +251,18 @@ function LocalCard({ item, index, onOpen }: { item: LocalCapture; index: number;
   );
 }
 
-function Viewer({ source, title, subtitle, caption, onClose, children }: {
-  source: { local: string } | { shared: string; thumb?: boolean }; title: string; subtitle: string; caption?: string; onClose: () => void; children?: React.ReactNode;
+function Viewer({ source, title, subtitle, caption, onClose, children, after }: {
+  source: { local: string } | { shared: string; thumb?: boolean }; title: string; subtitle: string; caption?: string; onClose: () => void; children?: React.ReactNode; after?: React.ReactNode;
 }) {
   const url = useCaptureUrl(source);
   return (
     <Modal title={title} subtitle={subtitle} width="min(70rem, 94vw)" onClose={onClose}>
       <div className="overflow-hidden rounded-2xl bg-black">
-        {url ? <img src={url} alt="" className="mx-auto max-h-[62vh] w-auto object-contain" /> : <div className="grid aspect-video place-items-center text-white/60">Chargement…</div>}
+        {url ? <img src={url} alt="" className="mx-auto max-h-[52vh] w-auto object-contain" /> : <div className="grid aspect-video place-items-center text-white/60">Chargement…</div>}
       </div>
       {caption && <p data-no-i18n className="mt-3 text-[0.95rem] font-semibold text-ink">{caption}</p>}
       {children && <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div>}
+      {after}
     </Modal>
   );
 }

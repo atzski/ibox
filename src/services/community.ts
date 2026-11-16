@@ -11,7 +11,26 @@ export interface LocalCapture { name: string; kind: "screenshot" | "clip"; game?
 export interface SharedCapture {
   id: string; kind: "screenshot" | "clip"; game: string | null; platformId: string | null; caption: string;
   size: number; createdAt: number; hasThumb?: boolean; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean;
+  reactions?: Partial<Record<ReactionKey, number>>; myReaction?: ReactionKey | null; commentCount?: number;
 }
+export interface ShareComment {
+  id: string; body: string; createdAt: number; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean; canDelete: boolean;
+}
+
+/** Réactions de la Communauté : clés stables côté serveur, émoji et nom côté iBox. */
+export const REACTIONS = [
+  { key: "love", emoji: "❤️", label: "J’adore" },
+  { key: "fire", emoji: "🔥", label: "Le feu" },
+  { key: "lol", emoji: "😂", label: "Trop drôle" },
+  { key: "wow", emoji: "😮", label: "Waouh" },
+  { key: "gg", emoji: "🏆", label: "GG" },
+  { key: "clap", emoji: "👏", label: "Bravo" },
+] as const;
+export type ReactionKey = (typeof REACTIONS)[number]["key"];
+export type ReactionSummary = { reactions: Partial<Record<ReactionKey, number>>; myReaction: ReactionKey | null };
+
+/** Petits mots tout prêts pour commenter d'un clic (ou d'un bouton de manette). */
+export const QUICK_COMMENTS = ["GG ! 🏆", "Trop fort 🔥", "Magnifique ✨", "Haha 😂", "Quel moment ! 😮", "On s’en fait une ? 🎮"];
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");
@@ -29,6 +48,11 @@ export const captures = {
 export const community = {
   feed: () => call<{ items: SharedCapture[] }>("shares").then((r) => r.items),
   remove: (id: string) => call<void>("deleteShare", undefined, id),
+  react: (id: string, emoji: ReactionKey | null) =>
+    emoji ? call<ReactionSummary>("react", { emoji }, id) : call<ReactionSummary>("unreact", undefined, id),
+  comments: (id: string) => call<{ items: ShareComment[] }>("comments", undefined, id).then((r) => r.items),
+  comment: (id: string, body: string) => call<{ id: string }>("comment", { body }, id),
+  removeComment: (id: string) => call<void>("deleteComment", undefined, id),
 };
 
 /**

@@ -3,8 +3,8 @@
 //! Communauté). Les captures restent dans le dossier de données d'iBox, propre
 //! à chaque profil ; rien ne part en ligne sans un partage explicite.
 //!
-//! Le raccourci n'est réservé que pendant qu'un jeu tourne : hors partie,
-//! Alt+E reste disponible pour les autres logiciels.
+//! Alt+E marche aussi hors partie (capture de tout l'écran) ; le clip des
+//! dernières secondes, lui, n'est tenu que pendant un jeu.
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -227,8 +227,8 @@ fn hotkey_thread(app: AppHandle) {
         let mut registered = false;
         let mut msg: MSG = std::mem::zeroed();
         loop {
-            // le raccourci n'est réservé que pendant une partie
-            let want = HOTKEY.load(Ordering::Relaxed) && GAME.lock().map(|g| g.is_some()).unwrap_or(false);
+            // réservé tant que le réglage est actif, en jeu ou non (capture de n'importe quoi)
+            let want = HOTKEY.load(Ordering::Relaxed);
             if want && !registered { registered = RegisterHotKey(null_mut(), ID, MOD_ALT | MOD_NOREPEAT, 'E' as u32) != 0; }
             if !want && registered { UnregisterHotKey(null_mut(), ID); registered = false; }
             while PeekMessageW(&mut msg, null_mut(), 0, 0, PM_REMOVE) != 0 {

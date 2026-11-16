@@ -234,36 +234,44 @@ function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfil
       onProfile={() => onProfile(f.id)} onChat={() => onChat(f.id)} />
   );
   const [opened, setOpened] = useState<string | null>(null);
+  const dnd = useSettings((s) => !!s.doNotDisturb);
+  const visible = connected && me.privacy.shareOnline;
 
   return (
     <>
       {/* moi : statut en un geste */}
       <div className="ibox-light-surface relative isolate mx-4 overflow-hidden rounded-[1.6rem] bg-gradient-to-br from-[#EEF1FF] via-[#F6E9FF] to-[#FFEFE6] p-4 shadow-[0_12px_30px_-18px_rgba(30,40,70,0.6)]">
         <MyScenery />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <span className="relative shrink-0 rounded-full p-[3px] shadow-md" style={{ background: "linear-gradient(140deg, #ffffff, var(--accent))" }}>
-            <Avatar size={54} name={me.displayName} choice={avatar} />
-            <StatusDot color={connected && me.privacy.shareOnline ? STATUS_COLOR.online : STATUS_COLOR.offline} />
+            <Avatar size={58} name={me.displayName} choice={avatar} />
+            <StatusDot size={16} color={!visible ? STATUS_COLOR.offline : dnd ? STATUS_COLOR.away : STATUS_COLOR.online} />
           </span>
           <div className="min-w-0 flex-1">
-            <div data-no-i18n className="truncate font-display text-[1.25rem] text-ink drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]">{me.displayName}</div>
-            <div className="text-[0.75rem] font-bold text-ink-soft">{connected && me.privacy.shareOnline ? "Visible par vos amis" : "Invisible"}</div>
+            <div data-no-i18n className="truncate font-display text-[1.3rem] leading-tight text-ink drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]">{me.displayName}</div>
+            <div data-no-i18n className="truncate text-[0.74rem] font-bold text-ink-faint">@{me.username}</div>
+            <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full bg-white/75 px-2 py-0.5 text-[0.72rem] font-extrabold text-ink-soft shadow-xs">
+              <span className="size-2 rounded-full" style={{ background: !visible ? STATUS_COLOR.offline : dnd ? STATUS_COLOR.away : STATUS_COLOR.online }} />
+              {!visible ? "Invisible pour vos amis" : dnd ? "En ligne · ne pas déranger" : "En ligne · visible par vos amis"}
+            </div>
           </div>
         </div>
         <MyGame />
-        <div className="mt-3 grid grid-cols-[auto_1fr_1fr] items-center gap-1.5 rounded-2xl bg-white/70 p-1.5 shadow-xs backdrop-blur-md [&>*]:min-w-0 [&>*]:justify-center">
-          <PresencePicker />
-          <DoNotDisturbToggle />
-          <GameShareToggle />
-          <LibraryShareToggle />
+        <div className="mt-3 rounded-[1.3rem] bg-white/72 p-2 shadow-xs ring-1 ring-white/80 backdrop-blur-md">
+          <PresencePicker wide />
+          <div className={`mt-2 grid gap-2 ${social.socialSupported ? "grid-cols-3" : "grid-cols-2"}`}>
+            <GameShareToggle tile />
+            <LibraryShareToggle tile />
+            <DoNotDisturbToggle tile />
+          </div>
         </div>
       </div>
 
-      {/* deux grandes actions */}
-      <div data-nav-group="friends-actions" className={`mx-4 mt-3 grid gap-2 ${social.socialSupported ? "grid-cols-3" : "grid-cols-2"}`}>
-        <BigAction icon="plus" label="Ajouter" tint="#5DBB8E" onClick={onAdd} autoFocus />
-        <BigAction icon="sparkle" label="Invitations" tint="#EE8F80" badge={incoming} onClick={onRequests} />
-        {social.socialSupported && <BigAction icon="clock" label="Activité" tint="#9A84E0" onClick={onActivity} />}
+      {/* raccourcis, façon menu de console : grands boutons ronds */}
+      <div data-nav-group="friends-actions" className={`mx-4 mt-3 grid gap-1 rounded-[1.4rem] bg-cream-deep/60 px-2 py-2.5 ${social.socialSupported ? "grid-cols-3" : "grid-cols-2"}`}>
+        <BigAction icon="plus" label="Ajouter" tint="#3FA578" onClick={onAdd} autoFocus />
+        <BigAction icon="sparkle" label="Invitations" tint="#E5735F" badge={incoming} onClick={onRequests} />
+        {social.socialSupported && <BigAction icon="clock" label="Activité" tint="#8A72D8" onClick={onActivity} />}
       </div>
 
       {social.gameInvites.length > 0 && <GameInvites invites={social.gameInvites} />}
@@ -654,16 +662,16 @@ function BigAction({ icon, label, onClick, badge = 0, autoFocus, tint = "#88CBF5
       data-focusable
       data-autofocus={autoFocus || undefined}
       onClick={onClick}
-      className="group ibox-focusable ibox-lift relative flex h-[4.6rem] flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl text-[0.85rem] font-bold text-ink shadow-xs ring-1 ring-ink/5 [--ring-radius:1rem]"
-      style={{ background: `linear-gradient(160deg, color-mix(in oklab, ${tint} 20%, white), color-mix(in oklab, ${tint} 8%, var(--ibox-cream-deep)))` }}
+      className="group ibox-focusable relative flex flex-col items-center gap-1.5 rounded-2xl py-1 text-[0.8rem] font-bold text-ink [--ring-radius:1rem]"
     >
-      <span className="grid size-9 place-items-center rounded-xl text-white shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105" style={{ background: `linear-gradient(140deg, ${tint}, color-mix(in oklab, ${tint} 70%, #1b2030))` }}>
-        <Icon name={icon} size="1.1em" />
+      <span className="relative grid size-[3.1rem] place-items-center rounded-full text-white shadow-[0_6px_14px_-6px_rgba(30,40,70,0.55)] ring-[3px] ring-white transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
+        style={{ background: `radial-gradient(circle at 30% 25%, color-mix(in oklab, ${tint} 70%, white), ${tint} 70%)` }}>
+        <Icon name={icon} size="1.35rem" />
+        {badge > 0 && (
+          <span className="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#E5735F] px-1 text-[0.7rem] font-extrabold text-white ring-2 ring-white">{badge}</span>
+        )}
       </span>
       {label}
-      {badge > 0 && (
-        <span className="absolute top-1.5 right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#EE8F80] px-1 text-[0.7rem] font-extrabold text-white shadow-sm">{badge}</span>
-      )}
     </button>
   );
 }

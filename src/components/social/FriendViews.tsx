@@ -11,7 +11,7 @@ import { useNav } from "@/app/navigation";
 import { getPlatform } from "@/domain/platforms";
 import type { AvatarChoice } from "@/services/settings";
 import { sound } from "@/services/sound";
-import { friendState } from "./Presence";
+import { friendState, SettingTile } from "./Presence";
 import { gameKey } from "@/services/social";
 
 interface Activity { friendId?: string; displayName?: string; avatar?: AvatarChoice | null; gameTitle: string; platformId: string; startedAt: number }
@@ -384,13 +384,14 @@ function TypingDots() {
 }
 
 /** Bouton « Ma bibliothèque visible » : les amis voient quels jeux vous avez en commun. */
-export function LibraryShareToggle() {
+export function LibraryShareToggle({ tile = false }: { tile?: boolean }) {
   const user = useInetbox((s) => s.user);
   const busy = useInetbox((s) => s.busy);
   const supported = useInetbox((s) => s.socialSupported);
   const act = useInetbox((s) => s.act);
   if (!user || !supported) return null;
   const on = !!user.privacy.shareLibrary;
+  if (tile) return <SettingTile icon="shelf" label="Mes jeux" state={on ? "Visibles" : "Cachés"} on={on} disabled={busy} onClick={() => { sound.play("toggle"); void act("profile", { shareLibrary: !on }); }} tint="#3E8FD6" title={on ? "Vos amis voient quels jeux vous avez en commun" : "Vos jeux restent privés"} />;
   return (
     <button
       data-focusable

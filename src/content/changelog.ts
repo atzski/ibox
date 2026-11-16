@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.53",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "sparkle", title: "Réactions et commentaires", text: "Dans la Communauté, réagissez aux partages de vos amis avec un émoji et commentez-les, avec des petits mots tout prêts." },
+      { icon: "user", title: "Onglet Amis repensé", text: "Votre carte est plus claire : statut en un geste, trois réglages bien rangés (partie, jeux, ne pas déranger) et de grands boutons ronds ; plus de texte illisible en mode sombre." },
+      { icon: "front", title: "Alt+E partout", text: "L’overlay de capture s’ouvre même quand iBox ne détecte aucun jeu : capturez n’importe quoi à l’écran." },
+      { icon: "trophy", title: "Salle des trophées ajustée", text: "Votre nom n’est plus caché par le bandeau, et la pastille de niveau est plus discrète." },
+    ],
+  },
+  {
     version: "0.1.52",
     date: "2026-11-16",
     highlights: [

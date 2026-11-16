@@ -106,7 +106,7 @@ export function OverlayWindow() {
               <img src="/logo.svg" alt="" className="size-9" />
               <div className="min-w-0 flex-1">
                 <div className="text-[0.7rem] font-extrabold tracking-[0.18em] text-white/55 uppercase">Overlay iBox</div>
-                <div data-no-i18n className="truncate font-display text-[1.3rem] font-semibold">{state?.game ?? "En jeu"}</div>
+                <div data-no-i18n className="truncate font-display text-[1.3rem] font-semibold">{state?.game ?? "Capture d’écran"}</div>
               </div>
               {platform && <span className="rounded-full bg-white/10 px-3 py-1 text-[0.8rem] font-bold">{platform.shortName}</span>}
               <button onClick={close} className="grid size-10 place-items-center rounded-full bg-white/10 hover:bg-white/20" aria-label="Reprendre la partie">
@@ -138,7 +138,7 @@ export function OverlayWindow() {
                 <Action icon="front" label="Garder la capture" hint="S" disabled={!state?.hasShot || !!busy} busy={busy === "screenshot"} onClick={() => void save("screenshot")} />
                 <Action
                   icon="play"
-                  label={state?.clips ? `Clip des ${Math.max(1, Math.min(12, state.clipSeconds))} dernières s` : "Clips désactivés"}
+                  label={!state?.clips ? "Clips désactivés" : !state.game ? "Clip : seulement en jeu" : `Clip des ${Math.max(1, Math.min(12, state.clipSeconds))} dernières s`}
                   hint="C"
                   disabled={!state?.clips || (state?.clipSeconds ?? 0) < 1 || !!busy}
                   busy={busy === "clip"}
@@ -149,7 +149,7 @@ export function OverlayWindow() {
               </div>
             </div>
             {error && <p className="mt-3 rounded-xl bg-[#E8433A]/25 px-3 py-2 text-[0.85rem] font-bold">{error}</p>}
-            <p className="mt-3 text-center text-[0.75rem] font-semibold text-white/45">Alt+E pendant une partie pour ouvrir ou fermer l’overlay</p>
+            <p className="mt-3 text-center text-[0.75rem] font-semibold text-white/45">Alt+E à tout moment pour ouvrir ou fermer l’overlay</p>
           </motion.div>
         )}
       </AnimatePresence>

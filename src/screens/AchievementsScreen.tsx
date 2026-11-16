@@ -233,17 +233,17 @@ function TrophyRoomHero({ user, profile, entries, awards, error, onRefresh }: {
           <Icon name="star" filled size="1rem" />
         </motion.span>
       </div>
-      <div className="relative flex flex-wrap items-end gap-5 px-7 pt-7 pb-5">
+      <div className="relative flex flex-wrap items-end gap-5 px-7 pt-[3.8rem] pb-5">
         <span className="relative">
           {/* toujours la photo du profil iBox, quel que soit le compte de succès relié */}
-          <span className="block rounded-[1.8rem] bg-white p-1 shadow-lg"><Avatar size={104} choice={avatar} name={name} /></span>
+          <span className="-mt-8 block rounded-[1.8rem] bg-white p-1 shadow-lg"><Avatar size={104} choice={avatar} name={name} /></span>
           <motion.span
             initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.3 }}
-            className="absolute -right-3 -bottom-3 grid size-14 place-items-center rounded-full font-display text-white shadow-lg ring-4 ring-white"
+            className="absolute -right-2 -bottom-2 grid size-10 place-items-center rounded-full font-display text-white shadow-md ring-[3px] ring-white"
             style={{ background: "linear-gradient(140deg, #FF7A59, #E8433A)" }}
             title={`Niveau ${level}`}
           >
-            <span className="text-center leading-none"><span className="block text-[0.55rem] font-extrabold tracking-wider uppercase">Niv.</span><b className="text-[1.25rem]">{level}</b></span>
+            <span className="text-center leading-none"><span className="block text-[0.45rem] font-extrabold tracking-wider uppercase">Niv.</span><b className="text-[0.95rem]">{level}</b></span>
           </motion.span>
         </span>
         <div className="min-w-0 flex-1 pb-1">

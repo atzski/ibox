@@ -1108,7 +1108,7 @@ function SystemPage() {
         </Row>
       </Group>
       <Group title="Overlay en jeu" icon="gamepad">
-        <Row label="Raccourci Alt+E" note="Pendant une partie, ouvre l’overlay iBox (captures, clips, Communauté). Hors partie, Alt+E reste libre.">
+        <Row label="Raccourci Alt+E" note="À tout moment, ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie). Désactivez-le si un autre logiciel utilise Alt+E.">
           <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Raccourci Alt+E" />
         </Row>
         <Row label="Clips des 12 dernières secondes" note="iBox garde en mémoire les dernières secondes de jeu, rien n’est écrit sans votre demande.">
