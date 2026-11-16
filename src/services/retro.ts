@@ -30,9 +30,16 @@ export interface RaAchievement {
   type?: "progression" | "win_condition" | "missable" | null;
   earnedAt?: string;
   earnedHardcoreAt?: string;
+  /** Steam : icônes complètes (obtenue / grisée), rareté mondiale en %, succès caché. */
+  image?: string;
+  imageLocked?: string;
+  percent?: number;
+  hidden?: boolean;
 }
 
 export interface RaGameDetail {
+  /** Origine des succès (RetroAchievements par défaut). */
+  source?: "ra" | "steam";
   id: number;
   title: string;
   console: string;
@@ -308,7 +315,7 @@ export function libraryGameFor(games: Game[], raId: number, title?: string, cons
 
 /** Rareté lisible d'un succès (part des joueurs du jeu qui l'ont obtenu). */
 export function rarity(a: RaAchievement, players: number): { percent: number; label: string; tier: "common" | "uncommon" | "rare" | "ultra" } {
-  const percent = players > 0 ? (a.numAwarded / players) * 100 : 0;
+  const percent = a.percent ?? (players > 0 ? (a.numAwarded / players) * 100 : 0);
   const tier = percent >= 40 ? "common" : percent >= 15 ? "uncommon" : percent >= 4 ? "rare" : "ultra";
   const label = { common: "Courant", uncommon: "Peu courant", rare: "Rare", ultra: "Ultra rare" }[tier];
   return { percent, label, tier };

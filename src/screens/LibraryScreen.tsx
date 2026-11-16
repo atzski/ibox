@@ -88,6 +88,11 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
 
   const total = isPc ? pool.length : platformId === "all" ? games.length : (counts.get(platformId) ?? 0);
   const effView = isPc ? "grid" : view;
+  // grille : l'en-tête se compacte et les filtres se replient dès qu'on fait défiler
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => setScrolled(false), [platformId, effView]);
+  // l'étagère de toute la collection a ses propres onglets de consoles
+  const showPills = !(effView === "shelf" && platformId === "all") && !scrolled;
 
   useScreenChrome({
     title: platform ? platform.name : "Toute la collection",
@@ -127,7 +132,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
   return (
     <div className="flex h-full flex-col px-[3rem] pb-3" style={themeVars(platform)}>
       {/* En-tête */}
-      <ConsoleHeader platform={platform} total={total} compact={effView === "shelf"}>
+      <ConsoleHeader platform={platform} total={total} compact={effView === "shelf" || scrolled}>
         {!isPc && (
         <Segmented<LibraryView>
           label="Mode d'affichage"
@@ -148,7 +153,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
       </ConsoleHeader>
 
       {/* Barre d'outils */}
-      <div className="mt-5 flex flex-wrap items-center gap-3" data-nav-group="library-tools">
+      <div className={`${scrolled ? "mt-3" : "mt-4"} flex flex-wrap items-center gap-3 transition-[margin]`} data-nav-group="library-tools">
         <label className="flex h-11 w-[17rem] items-center gap-2 rounded-full bg-white/90 px-4 shadow-xs focus-within:ring-2 focus-within:ring-[var(--accent)]">
           <Icon name="search" className="text-ink-soft" />
           <input
@@ -204,7 +209,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
           </Button>
         )}
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        {showPills && <div className="ml-auto flex flex-wrap items-center gap-2">
           <FilterPill active={platformId === "all"} onClick={() => switchPlatform("all")} label="Toutes" />
           {filterPlatforms.map((p) => (
             <FilterPill
@@ -215,7 +220,12 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
               color={p.theme.primary}
             />
           ))}
-        </div>
+        </div>}
+        {scrolled && filterPlatforms.length > 0 && (
+          <button data-focusable onClick={() => setScrolled(false)} className="ibox-focusable ml-auto inline-flex h-9 items-center gap-2 rounded-full bg-white/75 px-3.5 text-[0.85rem] font-bold text-ink-soft [--ring-radius:999px] hover:text-ink">
+            <Icon name="grid" size="1em" /> {platform ? platform.shortName : "Toutes les consoles"}
+          </button>
+        )}
       </div>
 
       {isPc && (
@@ -238,10 +248,10 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
       {addingPc && <AddPcGameModal onClose={() => setAddingPc(false)} />}
 
       {/* Zone secondaire : raccourcis d'une grande bibliothèque (pas pendant une recherche) */}
-      {effView !== "shelf" && platform && !query && !pcDemo && total >= 8 && <ConsoleHighlights platform={platform} games={pool} />}
+      {effView !== "shelf" && platform && !query && !pcDemo && total >= 8 && !scrolled && <ConsoleHighlights platform={platform} games={pool} />}
 
       {/* Contenu */}
-      <div className="relative mt-5 min-h-0 flex-1">
+      <div className={`relative ${scrolled ? "mt-2" : "mt-4"} min-h-0 flex-1`}>
         {total === 0 ? (
           <EmptyState
             icon={platform ? <PlatformGlyph glyph={platform.glyph} size={64} /> : <Icon name="grid" size="3rem" />}
@@ -290,6 +300,11 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22 }}
                 data-cover-scroll-root
+                onScroll={(e) => {
+                  const top = e.currentTarget.scrollTop;
+                  if (!scrolled && top > 32) setScrolled(true);
+                  else if (scrolled && top < 4) setScrolled(false);
+                }}
                 className="absolute inset-0 overflow-y-auto"
               >
                 <motion.div

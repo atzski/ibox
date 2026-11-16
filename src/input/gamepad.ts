@@ -108,6 +108,37 @@ export class PadProcessor {
 
 // ——— État partagé (barre d'aide, paramètres) ———
 
+/** Une manette branchée, avec son numéro de joueur (dans l'ordre de connexion). */
+export interface PadPlayer {
+  /** Index de la manette pour le navigateur (navigator.getGamepads). */
+  index: number;
+  /** Joueur 1, 2, 3, 4. */
+  slot: number;
+  name: string;
+  family: PadFamily;
+}
+
+/** Couleurs des joueurs (comme les témoins d'une console). */
+export const PLAYER_COLORS = ["#2F8CF0", "#F0503C", "#33B86B", "#F2B21B"] as const;
+
+/** Numéros de joueur : on garde ceux déjà attribués, les nouvelles manettes prennent le premier libre. */
+export function assignSlots(previous: PadPlayer[], pads: { index: number; id: string }[]): PadPlayer[] {
+  const out: PadPlayer[] = [];
+  const taken = new Set<number>();
+  for (const pad of pads) {
+    const known = previous.find((p) => p.index === pad.index);
+    if (known) { out.push({ ...known, name: pad.id, family: detectFamily(pad.id) }); taken.add(known.slot); }
+  }
+  for (const pad of pads) {
+    if (out.some((p) => p.index === pad.index)) continue;
+    let slot = 1;
+    while (taken.has(slot)) slot++;
+    taken.add(slot);
+    out.push({ index: pad.index, slot, name: pad.id, family: detectFamily(pad.id) });
+  }
+  return out.sort((a, b) => a.slot - b.slot);
+}
+
 interface GamepadInfo {
   connected: boolean;
   name: string;
@@ -115,6 +146,12 @@ interface GamepadInfo {
   /** La dernière interaction vient de la manette. */
   active: boolean;
   lastAction: PadAction | null;
+  /** Toutes les manettes branchées (joueur 1, joueur 2…). */
+  players: PadPlayer[];
+  /** Joueur qui a agi en dernier. */
+  lastSlot: number;
+  /** Dernier joueur arrivé (annonce « Joueur 2 connecté ! »). */
+  joined: { slot: number; at: number } | null;
 }
 
 export const useGamepad = create<GamepadInfo>(() => ({
@@ -123,6 +160,9 @@ export const useGamepad = create<GamepadInfo>(() => ({
   family: "generic",
   active: false,
   lastAction: null,
+  players: [],
+  lastSlot: 1,
+  joined: null,
 }));
 
 const KEYS: Record<PadAction, string> = {
@@ -152,42 +192,61 @@ function perform(action: PadAction): void {
   target.dispatchEvent(new KeyboardEvent("keydown", { key: KEYS[action], bubbles: true, cancelable: true }));
 }
 
-/** Démarre la lecture des manettes. Renvoie la fonction d'arrêt. */
+/**
+ * Démarre la lecture des manettes. Toutes les manettes branchées pilotent l'interface ;
+ * chacune a son numéro de joueur. Renvoie la fonction d'arrêt.
+ */
 export function attachGamepads(): () => void {
   if (typeof navigator === "undefined" || !("getGamepads" in navigator)) return () => undefined;
-  const processor = new PadProcessor();
+  const processors = new Map<number, PadProcessor>();
   let frame = 0;
   let running = false;
 
+  const connectedPads = () => navigator.getGamepads().filter((p): p is Gamepad => !!p && p.connected);
+
   const refreshInfo = () => {
-    const pad = navigator.getGamepads().find((p) => p && p.connected);
-    useGamepad.setState(pad ? { connected: true, name: pad.id, family: detectFamily(pad.id) } : { connected: false, name: "", active: false });
-    return pad;
+    const pads = connectedPads();
+    const before = useGamepad.getState().players;
+    const players = assignSlots(before, pads.map((p) => ({ index: p.index, id: p.id })));
+    for (const index of [...processors.keys()]) if (!pads.some((p) => p.index === index)) processors.delete(index);
+    const newcomer = players.find((p) => !before.some((b) => b.index === p.index) && p.slot > 1);
+    const first = players[0];
+    useGamepad.setState({
+      players,
+      ...(first ? { connected: true, name: first.name, family: first.family } : { connected: false, name: "", active: false }),
+      ...(newcomer ? { joined: { slot: newcomer.slot, at: Date.now() } } : {}),
+    });
+    return pads.length > 0;
   };
 
   const loop = () => {
-    const pad = navigator.getGamepads().find((p) => p && p.connected);
-    if (!pad) {
+    const pads = connectedPads();
+    if (!pads.length) {
       running = false;
       refreshInfo();
       return;
     }
     if (document.hasFocus()) {
-      const family = useGamepad.getState().family;
-      const confirm = confirmButton(family, useSettings.getState().gamepadConfirm);
-      const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), axes: [...pad.axes] }, confirm, performance.now());
-      if (actions.length) {
-        useGamepad.setState({ active: true, lastAction: actions[actions.length - 1] });
-        actions.forEach(perform);
+      const players = useGamepad.getState().players;
+      for (const pad of pads) {
+        const player = players.find((p) => p.index === pad.index);
+        let processor = processors.get(pad.index);
+        if (!processor) { processor = new PadProcessor(); processors.set(pad.index, processor); }
+        const confirm = confirmButton(player?.family ?? detectFamily(pad.id), useSettings.getState().gamepadConfirm);
+        const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), axes: [...pad.axes] }, confirm, performance.now());
+        if (actions.length) {
+          useGamepad.setState({ active: true, lastAction: actions[actions.length - 1], lastSlot: player?.slot ?? 1, ...(player ? { family: player.family } : {}) });
+          actions.forEach(perform);
+        }
+        // stick droit : rotation de l'objet 3D ; gâchettes : zoom
+        const rx = pad.axes[2] ?? 0;
+        const ry = pad.axes[3] ?? 0;
+        if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) {
+          window.dispatchEvent(new CustomEvent("ibox:analog", { detail: { x: rx, y: ry } }));
+        }
+        const zoom = (pad.buttons[B.rt]?.value ?? 0) - (pad.buttons[B.lt]?.value ?? 0);
+        if (Math.abs(zoom) > 0.1) window.dispatchEvent(new CustomEvent("ibox:zoom", { detail: { value: zoom } }));
       }
-      // stick droit : rotation de l'objet 3D ; gâchettes : zoom
-      const rx = pad.axes[2] ?? 0;
-      const ry = pad.axes[3] ?? 0;
-      if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) {
-        window.dispatchEvent(new CustomEvent("ibox:analog", { detail: { x: rx, y: ry } }));
-      }
-      const zoom = (pad.buttons[B.rt]?.value ?? 0) - (pad.buttons[B.lt]?.value ?? 0);
-      if (Math.abs(zoom) > 0.1) window.dispatchEvent(new CustomEvent("ibox:zoom", { detail: { value: zoom } }));
     }
     frame = requestAnimationFrame(loop);
   };

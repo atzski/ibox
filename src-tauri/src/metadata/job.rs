@@ -388,6 +388,22 @@ impl Job<'_> {
             }
         }
 
+        // galette du jeu (vrai scan) : GameTDB pour GameCube et Wii, sinon LaunchBox plus bas
+        if self.options.uses("gametdb") && wants(MediaKind::Disc)? {
+            for url in gametdb::disc_urls(conn, &game.platform, game.serial.as_deref(), &game.title)? {
+                self.check()?;
+                match self.download(&url) {
+                    Ok(bytes) => {
+                        self.store.save(conn, game.id, MediaKind::Disc, 0, &bytes, "gametdb", Some(&url))?;
+                        n += 1;
+                        break;
+                    }
+                    Err(MetaError::Http { status: 404, .. }) | Err(MetaError::Invalid(_)) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
         if self.options.uses("launchbox") && launchbox::supports(&game.platform) {
             let has_full = has_media(conn, game.id, MediaKind::Full)?;
             if let Some(images) = launchbox::box_images(conn, &game.platform, &game.title, pref)? {
@@ -397,6 +413,7 @@ impl Job<'_> {
                         "spine" => MediaKind::Spine,
                         "full" if !has_full => MediaKind::Full,
                         "front" => MediaKind::Front,
+                        "disc" if disc_platform(&game.platform) => MediaKind::Disc,
                         _ => continue,
                     };
                     if !wants(kind)? {
@@ -488,6 +505,11 @@ fn has_media(conn: &Connection, game_id: i64, kind: MediaKind) -> Result<bool> {
         .is_some())
 }
 
+/// Consoles à disque (galette affichée quand on ouvre le boîtier).
+fn disc_platform(platform: &str) -> bool {
+    matches!(platform, "gamecube" | "wii" | "wiiu" | "ps1" | "ps2" | "psp")
+}
+
 /// Jeux déjà traités sans dos ni scan complet, sur une console qui a des
 /// jaquettes complètes, pas recherchés depuis 30 jours.
 fn load_jacket_candidates(conn: &Connection) -> Result<Vec<GameInfo>> {
@@ -496,7 +518,9 @@ fn load_jacket_candidates(conn: &Connection) -> Result<Vec<GameInfo>> {
          FROM games g JOIN game_files m ON m.game_id = g.id AND m.role = 'main'
          WHERE m.status = 'present' AND g.meta_fetched_at IS NOT NULL
            AND (g.jacket_checked_at IS NULL OR julianday('now') - julianday(g.jacket_checked_at) > 30)
-           AND NOT EXISTS (SELECT 1 FROM media x WHERE x.game_id = g.id AND x.kind IN ('back', 'full'))
+           AND (NOT EXISTS (SELECT 1 FROM media x WHERE x.game_id = g.id AND x.kind IN ('back', 'full'))
+                OR (g.platform_id IN ('gamecube', 'wii', 'wiiu', 'ps1', 'ps2', 'psp')
+                    AND NOT EXISTS (SELECT 1 FROM media d WHERE d.game_id = g.id AND d.kind = 'disc')))
          ORDER BY g.sort_title",
     )?;
     let rows = stmt.query_map([], |r| {

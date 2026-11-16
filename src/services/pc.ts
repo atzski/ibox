@@ -61,7 +61,7 @@ export const pcApi = {
   /** Choix d'un exécutable (boîte de dialogue Windows). */
   pickExe: async (): Promise<string | null> => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ multiple: false, directory: false, filters: [{ name: "Programme", extensions: ["exe"] }] });
+    const picked = await open({ multiple: false, directory: false, filters: [{ name: "Programme ou fichier de commandes", extensions: ["exe", "bat", "cmd"] }] });
     return typeof picked === "string" ? picked : null;
   },
 };

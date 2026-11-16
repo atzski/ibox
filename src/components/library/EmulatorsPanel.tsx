@@ -187,7 +187,6 @@ export function EmulatorsPanel() {
           onClose={() => setChoosingFor(null)}
           onChoose={(id) => {
             const platform = choosingFor;
-            setChoosingFor(null);
             void run(() => launcherApi.setPlatform(platform, id));
           }}
         />
@@ -285,33 +284,96 @@ export function ChooseEmulatorModal({
   alternatives?: number[];
   onToggleAlternative?: (id: number) => void;
 }) {
+  // choix affichés aussitôt (l'enregistrement se fait en arrière-plan) : la fenêtre reste ouverte
+  const [current, setCurrent] = useState<number | null>(value);
+  const [alts, setAlts] = useState<number[]>(alternatives);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setCurrent(value), [value]);
+  const altKey = alternatives.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setAlts(alternatives), [altKey]);
+  useEffect(() => {
+    if (!saved) return;
+    const t = window.setTimeout(() => setSaved(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [saved]);
   const sorted = [...emulators].sort(
-    (a, b) => Number(alternatives.includes(b.id)) - Number(alternatives.includes(a.id)) ||
-    Number(b.suggestedPlatforms.includes(platform)) - Number(a.suggestedPlatforms.includes(platform)),
+    (a, b) => Number(b.suggestedPlatforms.includes(platform)) - Number(a.suggestedPlatforms.includes(platform)) || a.name.localeCompare(b.name),
   );
+  const choose = (id: number | null) => {
+    setCurrent(id);
+    // le profil par défaut n'est pas aussi une alternative
+    if (id !== null && alts.includes(id) && onToggleAlternative) {
+      setAlts((list) => list.filter((x) => x !== id));
+      onToggleAlternative(id);
+    }
+    onChoose(id);
+    setSaved(true);
+  };
+  const toggle = (id: number) => {
+    if (!onToggleAlternative || id === current) return;
+    sound.play("toggle");
+    setAlts((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
+    onToggleAlternative(id);
+    setSaved(true);
+  };
+  const name = (id: number) => emulators.find((e) => e.id === id)?.name ?? "?";
   return (
-    <Modal title={title} subtitle={onToggleAlternative ? "Choisissez le profil par défaut et cochez les alternatives." : undefined} onClose={onClose}>
-      <div className="flex flex-col gap-2">
-        <ChoiceRow label={noneLabel} detail="" active={value === null} autoFocus={value === null} onClick={() => onChoose(null)} />
-        {sorted.map((e) => (
-          <div key={e.id} className="flex items-center gap-3 [&>button:first-child]:flex-1">
-          <ChoiceRow
-            label={e.name}
-            detail={e.suggestedPlatforms.includes(platform) ? "Recommandé pour cette console" : e.profileId === "custom" ? "Profil personnalisé" : "Non prévu pour cette console"}
-            active={value === e.id}
-            autoFocus={value === e.id}
-            onClick={() => onChoose(e.id)}
-          />
-          {onToggleAlternative && (
-            <Switch checked={alternatives.includes(e.id)} onChange={() => onToggleAlternative(e.id)} label={`Alternative : ${e.name}`} />
+    <Modal title={title} subtitle={onToggleAlternative ? "Touchez un émulateur pour en faire le profil par défaut, cochez les alternatives proposées au lancement." : "Touchez un émulateur pour le choisir."} onClose={onClose}>
+      <div className="mb-3 flex items-center gap-2 rounded-xl bg-[var(--accent-soft)] px-4 py-3 text-[0.88rem] font-semibold text-ink">
+        <Icon name="star" filled size="1em" className="shrink-0 text-[var(--accent-deep)]" />
+        <span className="min-w-0 flex-1">
+          <b>Par défaut :</b> {current === null ? noneLabel : name(current)}
+          {onToggleAlternative && <><br /><b>Alternatives :</b> {alts.filter((a) => a !== current).map(name).join(", ") || "aucune"}</>}
+        </span>
+        <AnimatePresence>
+          {saved && (
+            <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[0.75rem] font-extrabold text-[#2F7A57]">
+              <Icon name="check" size="0.9em" /> Enregistré
+            </motion.span>
           )}
-          </div>
-        ))}
+        </AnimatePresence>
+      </div>
+      <div className="flex max-h-[52vh] flex-col gap-2 overflow-y-auto pr-1">
+        <ChoiceRow label={noneLabel} detail="" active={current === null} autoFocus={current === null} onClick={() => choose(null)} />
+        {sorted.map((e) => {
+          const isAlt = alts.includes(e.id) && e.id !== current;
+          return (
+            <div key={e.id} className="flex items-center gap-2 [&>button:first-child]:flex-1">
+              <ChoiceRow
+                label={e.name}
+                detail={e.suggestedPlatforms.includes(platform) ? "Recommandé pour cette console" : e.profileId === "custom" ? "Profil personnalisé" : "Non prévu pour cette console"}
+                active={current === e.id}
+                autoFocus={current === e.id}
+                onClick={() => choose(e.id)}
+              />
+              {onToggleAlternative && (
+                <button
+                  data-focusable
+                  aria-pressed={isAlt}
+                  disabled={e.id === current}
+                  onClick={() => toggle(e.id)}
+                  title={e.id === current ? "Profil par défaut" : isAlt ? "Retirer des alternatives" : "Ajouter aux alternatives"}
+                  className={`ibox-focusable flex h-14 w-36 shrink-0 items-center justify-center gap-1.5 rounded-lg text-[0.82rem] font-bold [--ring-radius:var(--radius-lg)] disabled:opacity-40 ${
+                    isAlt ? "bg-[#DDF6EA] text-[#2F7A57]" : "bg-cream-deep text-ink-soft hover:text-ink"
+                  }`}
+                >
+                  <Icon name={isAlt ? "check" : "plus"} size="1em" />
+                  {e.id === current ? "Par défaut" : isAlt ? "Alternative" : "Alternative"}
+                </button>
+              )}
+            </div>
+          );
+        })}
         {emulators.length === 0 && (
           <p className="rounded-lg bg-cream-deep px-4 py-3 text-[0.9rem] font-semibold text-ink-soft">
             Ajoutez d'abord un émulateur dans les paramètres.
           </p>
         )}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Button variant="primary" icon="check" onClick={onClose}>Terminé</Button>
       </div>
     </Modal>
   );

@@ -115,7 +115,7 @@ export const artApi = {
     call<void>("platform_link_choose", { platformId, remoteId, remoteName }),
   pickImage: async (): Promise<string | null> => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ multiple: false, directory: false, filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }] });
+    const picked = await open({ multiple: false, directory: false, filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }] });
     return typeof picked === "string" ? picked : null;
   },
   onProgress: async (cb: (p: { done: number; total: number; current: string }) => void) => {

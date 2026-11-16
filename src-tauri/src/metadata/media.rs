@@ -34,6 +34,9 @@ pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
         Some("jpg")
     } else if bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
         Some("webp")
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        // GIF (animé ou non) : affiché tel quel, l'animation est conservée
+        Some("gif")
     } else {
         None
     }
@@ -63,7 +66,7 @@ impl MediaStore {
         if bytes.len() > MAX_IMAGE_BYTES {
             return Err(MetaError::Invalid("image trop volumineuse (25 Mo maximum)".into()));
         }
-        let ext = sniff(bytes).ok_or_else(|| MetaError::Invalid("ce n'est pas une image PNG, JPEG ou WebP".into()))?;
+        let ext = sniff(bytes).ok_or_else(|| MetaError::Invalid("ce n'est pas une image PNG, JPEG, WebP ou GIF".into()))?;
         let size = imagesize::blob_size(bytes).map_err(|_| MetaError::Invalid("image illisible".into()))?;
         if size.width < 16 || size.height < 16 || size.width > 12_000 || size.height > 12_000 {
             return Err(MetaError::Invalid("dimensions d'image inattendues".into()));
@@ -80,7 +83,7 @@ impl MediaStore {
         let tmp = dir.join(format!("{stem}.tmp"));
         fs::write(&tmp, bytes)?;
         // supprime une version précédente dans un autre format
-        for other in ["png", "jpg", "webp"] {
+        for other in ["png", "jpg", "webp", "gif"] {
             if other != ext {
                 let _ = fs::remove_file(dir.join(format!("{stem}.{other}")));
             }

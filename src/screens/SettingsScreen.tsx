@@ -22,6 +22,7 @@ import { BackupsPanel } from "@/components/library/BackupsPanel";
 import { FoldersPanel } from "@/components/library/FoldersPanel";
 import { duplicateGroups } from "@/components/game/Versions";
 import { useUpdater } from "@/services/updater";
+import { DEFAULT_JINGLE_VOLUME } from "@/services/jingles";
 import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
 import { MetadataPanel } from "@/components/library/MetadataPanel";
 import { EmulatorsPanel } from "@/components/library/EmulatorsPanel";
@@ -680,7 +681,7 @@ function WallpaperGroup() {
                 Retirer mon image
               </Button>
             )}
-            <span className="text-[0.78rem] font-semibold text-ink-soft">PNG, JPEG ou WebP. iBox en garde une copie ; l'original n'est pas touché.</span>
+            <span className="text-[0.78rem] font-semibold text-ink-soft">PNG, JPEG, WebP ou GIF. iBox en garde une copie ; l'original n'est pas touché.</span>
           </div>}
           {wallError && <p className="mt-2 text-[0.85rem] font-bold text-peach-deep">{wallError}</p>}
 
@@ -1113,7 +1114,7 @@ function SystemPage() {
 /** Jingles des jeux : téléchargement accepté par l'utilisateur, retirables à tout moment. */
 function GameJingles() {
   const on = useSettings((st) => st.gameSounds !== false);
-  const volume = useSettings((st) => st.jingleVolume ?? 0.7);
+  const volume = useSettings((st) => st.jingleVolume ?? DEFAULT_JINGLE_VOLUME);
   const set = useSettings((st) => st.set);
   const sync = useJingleSync();
   const [status, setStatus] = useState<[number, number] | null>(null);

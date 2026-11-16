@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
 import { PlayerCard } from "@/components/profile/PlayerCard";
 import { Button } from "@/components/ui/Button";
@@ -209,59 +209,137 @@ function Chip({ icon, label, onClick, active, autoFocus }: { icon: "sparkle" | "
   );
 }
 
-/** Conversation avec un ami. */
-export function ChatView({ friend }: { friend: InetFriend }) {
-  const [items, setItems] = useState<Message[] | null>(null);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const unread = useInetbox((s) => s.unread.find((u) => u.friendId === friend.id)?.lastAt ?? 0);
+/** Intervalle de relève d'une conversation ouverte (plus lent quand iBox est en arrière-plan). */
+const CHAT_POLL_MS = 2500;
+const CHAT_IDLE_POLL_MS = 10_000;
+/** Signal « en train d'écrire » envoyé au plus toutes les 3 secondes. */
+const TYPING_EVERY_MS = 3000;
 
-  // chargement, puis à chaque nouveau message reçu (actualisation toutes les 25 s)
+type ChatMessage = Message & { pending?: boolean; failed?: boolean };
+
+/**
+ * Conversation avec un ami, en direct : nouveaux messages relevés toutes les 2,5 s (seulement
+ * les nouveaux), envoi instantané, bulle « … écrit » et « Vu » sous votre dernier message.
+ */
+export function ChatView({ friend }: { friend: InetFriend }) {
+  const [items, setItems] = useState<ChatMessage[] | null>(null);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [seenUpTo, setSeenUpTo] = useState<number | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const lastAt = useRef(0);
+  const lastTypingSent = useRef(0);
+
+  const merge = useCallback((incoming: Message[]) => {
+    if (!incoming.length) return;
+    lastAt.current = Math.max(lastAt.current, ...incoming.map((m) => m.createdAt));
+    setItems((v) => {
+      const base = (v ?? []).filter((m) => !incoming.some((n) => n.id === m.id));
+      return [...base, ...incoming].sort((a, b) => a.createdAt - b.createdAt);
+    });
+  }, []);
+
+  // premier chargement, puis relève régulière des seuls nouveaux messages
   useEffect(() => {
     let live = true;
-    call<{ items: Message[] }>("conversation", undefined, friend.id)
-      .then((r) => {
+    let timer = 0;
+    lastAt.current = 0;
+    setItems(null);
+    const poll = async (first: boolean) => {
+      try {
+        const r = await call<{ items: Message[]; typing?: boolean; seenUpTo?: number | null }>(
+          "conversation", first ? undefined : { after: lastAt.current }, friend.id);
         if (!live) return;
-        setItems(r.items);
-        useInetbox.setState((s) => ({ unread: s.unread.filter((u) => u.friendId !== friend.id) }));
-      })
-      .catch(() => live && setItems((v) => v ?? []));
-    return () => { live = false; };
-  }, [friend.id, unread]);
-  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight }); }, [items]);
+        if (first) {
+          setItems(r.items);
+          lastAt.current = Math.max(0, ...r.items.map((m) => m.createdAt));
+        } else {
+          if (r.items.some((m) => !m.mine)) sound.play("toggle");
+          merge(r.items);
+        }
+        setTyping(!!r.typing);
+        if (r.seenUpTo !== undefined) setSeenUpTo(r.seenUpTo);
+        useInetbox.setState((st) => ({ unread: st.unread.filter((u) => u.friendId !== friend.id) }));
+      } catch {
+        if (live && first) setItems((v) => v ?? []);
+      }
+      if (!live) return;
+      const visible = document.visibilityState === "visible" && document.hasFocus();
+      timer = window.setTimeout(() => void poll(false), visible ? CHAT_POLL_MS : CHAT_IDLE_POLL_MS);
+    };
+    void poll(true);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [friend.id, merge]);
 
-  const send = async () => {
-    const body = text.trim();
-    if (!body || sending) return;
-    setSending(true);
+  useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight, behavior: "smooth" }); }, [items, typing]);
+
+  const onType = (value: string) => {
+    setText(value);
+    const t = Date.now();
+    if (value.trim() && t - lastTypingSent.current > TYPING_EVERY_MS) {
+      lastTypingSent.current = t;
+      void call("typing", undefined, friend.id).catch(() => undefined);
+    }
+  };
+
+  const send = async (retry?: ChatMessage) => {
+    const body = retry?.body ?? text.trim();
+    if (!body) return;
+    const temp: ChatMessage = retry ?? { id: `local-${Date.now()}`, mine: true, body, createdAt: Date.now(), pending: true };
+    // affiché tout de suite ; confirmé (ou signalé) quand le serveur répond
+    setItems((v) => [...(v ?? []).filter((m) => m.id !== temp.id), { ...temp, pending: true, failed: false }]);
+    if (!retry) setText("");
     setError(null);
+    lastTypingSent.current = 0;
     try {
       const r = await call<{ id: string; createdAt: number }>("sendMessage", { friendId: friend.id, body });
       sound.play("select");
-      setItems((v) => [...(v ?? []), { id: r.id, mine: true, body, createdAt: r.createdAt }]);
-      setText("");
+      lastAt.current = Math.max(lastAt.current, r.createdAt);
+      setItems((v) => (v ?? []).map((m) => (m.id === temp.id ? { id: r.id, mine: true, body, createdAt: r.createdAt } : m)));
     } catch (e) {
+      sound.play("error");
+      setItems((v) => (v ?? []).map((m) => (m.id === temp.id ? { ...m, pending: false, failed: true } : m)));
       setError((e as { message?: string })?.message ?? "Envoi impossible.");
-    } finally { setSending(false); }
+    }
   };
+
+  const lastMine = [...(items ?? [])].reverse().find((m) => m.mine && !m.pending && !m.failed);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div ref={list} data-no-i18n className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-4 pb-3">
-        {items === null ? null : items.length === 0 ? (
+        {items === null ? (
+          <div className="flex justify-center pt-10"><TypingDots /></div>
+        ) : items.length === 0 ? (
           <p className="pt-10 text-center text-[0.9rem] font-bold text-ink-soft">Dites bonjour à {friend.displayName} !</p>
         ) : items.map((m) => (
-          <motion.div key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
-            <span
-              title={new Date(m.createdAt).toLocaleString()}
-              className={`max-w-[80%] rounded-[1.2rem] px-3.5 py-2 text-[0.92rem] font-semibold break-words whitespace-pre-wrap ${m.mine ? "rounded-br-md bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white" : "rounded-bl-md bg-cream-deep text-ink"}`}
+          <motion.div key={m.id} layout="position" initial={{ opacity: 0, y: 8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 520, damping: 32 }} className={`flex flex-col ${m.mine ? "items-end" : "items-start"}`}>
+            <button
+              type="button"
+              tabIndex={m.failed ? 0 : -1}
+              disabled={!m.failed}
+              onClick={() => { if (m.failed) void send(m); }}
+              title={m.failed ? "Envoi impossible : touchez pour réessayer" : new Date(m.createdAt).toLocaleString()}
+              className={`max-w-[80%] rounded-[1.2rem] px-3.5 py-2 text-left text-[0.92rem] font-semibold break-words whitespace-pre-wrap transition-opacity ${m.mine ? "rounded-br-md bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white" : "rounded-bl-md bg-cream-deep text-ink"} ${m.pending ? "opacity-60" : ""} ${m.failed ? "ring-2 ring-peach-deep" : ""}`}
             >
               {m.body}
-            </span>
+            </button>
+            {m.failed && <span className="mt-0.5 text-[0.7rem] font-bold text-peach-deep">Non envoyé · touchez pour réessayer</span>}
+            {m === lastMine && seenUpTo !== null && seenUpTo >= m.createdAt && (
+              <span className="mt-0.5 flex items-center gap-0.5 text-[0.7rem] font-bold text-ink-faint"><Icon name="check" size="0.9em" />Vu</span>
+            )}
           </motion.div>
         ))}
+        <AnimatePresence>
+          {typing && (
+            <motion.div key="typing" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
+              <span className="rounded-[1.2rem] rounded-bl-md bg-cream-deep px-3.5 py-2.5"><TypingDots /></span>
+              <span className="text-[0.74rem] font-bold text-ink-faint">{friend.displayName} écrit…</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       {error && <p className="px-4 pb-1 text-[0.8rem] font-bold text-peach-deep">{error}</p>}
       <form
@@ -273,7 +351,7 @@ export function ChatView({ friend }: { friend: InetFriend }) {
           data-autofocus
           value={text}
           maxLength={1000}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => onType(e.target.value)}
           placeholder={`Message à ${friend.displayName}`}
           aria-label="Votre message"
           className="ibox-focusable h-11 min-w-0 flex-1 rounded-full bg-cream-deep px-4 text-[0.92rem] font-semibold text-ink [--ring-radius:999px] placeholder:text-ink-faint"
@@ -282,13 +360,26 @@ export function ChatView({ friend }: { friend: InetFriend }) {
           data-focusable
           type="submit"
           aria-label="Envoyer"
-          disabled={!text.trim() || sending}
+          disabled={!text.trim()}
           className="ibox-focusable grid size-11 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white shadow-sm [--ring-radius:999px] disabled:opacity-45"
         >
           <Icon name="play" size="1em" filled />
         </button>
       </form>
     </div>
+  );
+}
+
+/** Trois points qui sautillent (« en train d'écrire »). */
+function TypingDots() {
+  return (
+    <span className="flex items-center gap-1" aria-label="En train d'écrire">
+      {[0, 1, 2].map((i) => (
+        <motion.span key={i} className="size-2 rounded-full bg-ink-faint"
+          animate={{ y: [0, -4, 0], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }} />
+      ))}
+    </span>
   );
 }
 

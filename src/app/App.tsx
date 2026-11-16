@@ -9,6 +9,7 @@ import { shellApi } from "@/services/shell";
 import { startUpdateWatch } from "@/services/updater";
 import { startRaWatch } from "@/services/retro";
 import { DuplicatesHost } from "@/components/game/Versions";
+import { PlayerJoinedOverlay } from "@/components/shell/Players";
 import { AchievementsScreen } from "@/screens/AchievementsScreen";
 import { attachInetbox } from "@/services/inetbox";
 import { InetboxModal } from "@/components/social/InetboxPanel";
@@ -226,6 +227,7 @@ export function App() {
       </AnimatePresence>
       <InetboxModal />
       <DuplicatesHost />
+      <PlayerJoinedOverlay />
       <LaunchOverlay />
       <FlightLayer />
     </MotionConfig>

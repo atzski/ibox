@@ -128,6 +128,32 @@ pub fn full_cover_urls(conn: &Connection, platform: &str, serial: Option<&str>, 
     Ok(out)
 }
 
+/// Consoles dont GameTDB publie les scans de galettes (disques GameCube et Wii).
+pub fn has_discs(platform: &str) -> bool {
+    matches!(platform, "gamecube" | "wii")
+}
+
+/// Adresses possibles de la galette d'un jeu (scan officiel, puis version retouchée),
+/// région de la sortie d'abord. Images PNG au trou central transparent.
+pub fn disc_urls(conn: &Connection, platform: &str, serial: Option<&str>, title: &str) -> Result<Vec<String>> {
+    if !has_discs(platform) {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for (id, region) in releases(conn, platform, serial, title)? {
+        for r in art_regions(platform, &id, region.as_deref()).iter().take(3) {
+            for kind in ["disc", "disccustom"] {
+                let url = format!("{ART_HOST}/wii/{kind}/{r}/{id}.png");
+                if !out.contains(&url) {
+                    out.push(url);
+                }
+            }
+        }
+    }
+    out.truncate(8);
+    Ok(out)
+}
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Row {
     pub serial: String,

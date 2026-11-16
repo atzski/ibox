@@ -23,6 +23,8 @@ import { loadAssets } from "@/art/assets";
 import { metadataApi } from "@/services/metadata";
 import { isTauri } from "@/services/native";
 import { MediaModal } from "@/components/library/MediaModal";
+import { usePlatformArt } from "@/services/platformArt";
+import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 
 /*
  * Étagère 3D « coverflow » : une seule rangée par console. Le jeu choisi
@@ -511,7 +513,7 @@ export function ShelfView({
   const [flown, setFlown] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [swap, setSwap] = useState<"out" | "in" | null>(null);
-  const [banner, setBanner] = useState<{ key: number; name: string } | null>(null);
+  const [banner, setBanner] = useState<{ key: number; platform: Platform } | null>(null);
   const [glow, setGlow] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   // une rangée qui arrive (premier affichage, changement de console) se pose en vague
@@ -637,14 +639,14 @@ export function ShelfView({
     }
     // la rangée s'efface, la nouvelle console s'annonce, puis ses boîtiers arrivent
     setSwap("out");
-    setBanner({ key: Date.now(), name: shelves[next].platform.name });
+    setBanner({ key: Date.now(), platform: shelves[next].platform });
     later(() => {
       setShelfIndex(next);
       setEntering(true);
       setSwap("in");
     }, 260);
     later(() => setSwap(null), 560);
-    later(() => setBanner(null), 1300);
+    later(() => setBanner(null), 1500);
     return true;
   };
 
@@ -807,23 +809,9 @@ export function ShelfView({
         </div>
       </div>
 
-      {/* nom de la console qui traverse l'écran au changement de rangée */}
+      {/* logo de la console qui arrive en flottant au changement de rangée, puis repart vers le bas */}
       <AnimatePresence>
-        {banner && (
-          <motion.div
-            key={banner.key}
-            className="pointer-events-none absolute inset-x-0 flex justify-center"
-            style={{ top: `${TRACK_Y * 100}%` }}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: -20 }}
-            exit={{ opacity: 0, y: -70 }}
-            transition={{ duration: 0.5, ease: [0.22, 0.9, 0.25, 1] }}
-          >
-            <div className="-translate-y-1/2 border-y border-[rgba(255,255,255,.16)] bg-[rgba(255,255,255,.08)] px-[12vw] py-4 text-[clamp(1.6rem,3.4vw,3rem)] font-extrabold tracking-[0.14em] uppercase backdrop-blur-md">
-              {banner.name}
-            </div>
-          </motion.div>
-        )}
+        {banner && <ConsoleLogoBanner key={banner.key} platform={banner.platform} />}
       </AnimatePresence>
 
       {/* images du jeu (jaquette, dos, tranche, fond) : sur le dos si le boîtier est retourné */}
@@ -880,5 +868,41 @@ function FlowAction({ icon, label, onClick, primary, disabled, title }: { icon: 
       <Icon name={icon} size="1.05em" filled={icon === "play"} />
       {label}
     </button>
+  );
+}
+
+/**
+ * Annonce d'une console sur l'étagère : son logo descend en flottant au-dessus de la rangée,
+ * avec un halo à ses couleurs, puis repart doucement vers le bas. Sans logo : pastille et nom.
+ */
+function ConsoleLogoBanner({ platform }: { platform: Platform }) {
+  const logo = usePlatformArt(platform.id, "platform_logo");
+  return (
+    <motion.div
+      className="pointer-events-none absolute inset-x-0 flex justify-center"
+      style={{ top: `${TRACK_Y * 100}%` }}
+      initial={{ opacity: 0, y: -90, scale: 0.85 }}
+      animate={{ opacity: 1, y: -30, scale: 1 }}
+      exit={{ opacity: 0, y: 70, scale: 0.92, filter: "blur(6px)" }}
+      transition={{ type: "spring", stiffness: 170, damping: 18, mass: 0.9 }}
+    >
+      <motion.div
+        className="relative -translate-y-1/2"
+        animate={{ y: [0, -6, 0] }}
+        transition={{ duration: 1.6, ease: "easeInOut", repeat: Infinity }}
+      >
+        <span aria-hidden className="absolute inset-[-40%] rounded-full opacity-70 blur-3xl" style={{ background: `radial-gradient(circle, ${platform.theme.primary}, transparent 65%)` }} />
+        {logo ? (
+          <img src={logo} alt={platform.name} draggable={false} className="relative max-h-[7.5rem] max-w-[min(34rem,60vw)] object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.45)]" />
+        ) : (
+          <span className="relative flex items-center gap-4 rounded-[1.8rem] bg-white/95 px-7 py-4 text-ink shadow-[0_18px_40px_-14px_rgba(0,0,0,0.55)]">
+            <span className="grid size-14 place-items-center rounded-2xl text-white" style={{ background: platform.theme.primary }}>
+              <PlatformGlyph glyph={platform.glyph} size={34} />
+            </span>
+            <span className="font-display text-[clamp(1.6rem,3vw,2.6rem)] font-semibold">{platform.shortName}</span>
+          </span>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

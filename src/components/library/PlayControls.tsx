@@ -149,7 +149,6 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
           noneLabel={consoleEmu ? `Celui de la console (${consoleEmu.name})` : "Celui de la console"}
           onClose={() => setChoosing(false)}
           onChoose={(id) => {
-            setChoosing(false);
             void launcherApi
               .setGame(game.dbId!, id)
               .then(() => Promise.all([reload(), load()]));

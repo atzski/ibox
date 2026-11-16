@@ -26,6 +26,8 @@ fn sniff(head: &[u8]) -> Option<&'static str> {
         Some("jpg")
     } else if head.len() >= 12 && &head[0..4] == b"RIFF" && &head[8..12] == b"WEBP" {
         Some("webp")
+    } else if head.starts_with(b"GIF87a") || head.starts_with(b"GIF89a") {
+        Some("gif")
     } else {
         None
     }
@@ -36,7 +38,7 @@ fn current(d: &Path) -> Option<PathBuf> {
 }
 
 fn current_named(d: &Path, name: &str) -> Option<PathBuf> {
-    ["png", "jpg", "webp"].iter().map(|e| d.join(format!("{name}.{e}"))).find(|p| p.is_file())
+    ["png", "jpg", "webp", "gif"].iter().map(|e| d.join(format!("{name}.{e}"))).find(|p| p.is_file())
 }
 
 /// Enregistre des octets d'image sous `name` (remplacement atomique, ancien fond gardé en cas d'échec).
@@ -44,7 +46,7 @@ fn store(d: &Path, name: &str, bytes: &[u8]) -> Result<(), String> {
     if bytes.len() as u64 > MAX_BYTES {
         return Err("Image trop lourde (40 Mo au maximum).".into());
     }
-    let ext = sniff(bytes).ok_or("Format non pris en charge : PNG, JPEG ou WebP.")?;
+    let ext = sniff(bytes).ok_or("Format non pris en charge : PNG, JPEG, WebP ou GIF.")?;
     let tmp = d.join(format!("{name}.part"));
     fs::write(&tmp, bytes).map_err(|e| e.to_string())?;
     if let Some(old) = current_named(d, name) {
@@ -62,7 +64,7 @@ fn install(d: &Path, source: &Path) -> Result<(), String> {
         return Err("Image trop lourde (40 Mo au maximum).".into());
     }
     let bytes = fs::read(source).map_err(|e| format!("Image illisible : {e}"))?;
-    let ext = sniff(&bytes).ok_or("Format non pris en charge : PNG, JPEG ou WebP.")?;
+    let ext = sniff(&bytes).ok_or("Format non pris en charge : PNG, JPEG, WebP ou GIF.")?;
     // écriture dans un fichier temporaire puis renommage : jamais d'image à moitié copiée
     let tmp = d.join(format!("{NAME}.part"));
     fs::write(&tmp, &bytes).map_err(|e| e.to_string())?;

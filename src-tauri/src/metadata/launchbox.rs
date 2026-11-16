@@ -57,6 +57,7 @@ fn kind_of(t: &str) -> Option<&'static str> {
         "Box - Back" => Some("back"),
         "Box - Spine" => Some("spine"),
         "Box - Full" => Some("full"),
+        "Disc" => Some("disc"),
         _ => None,
     }
 }

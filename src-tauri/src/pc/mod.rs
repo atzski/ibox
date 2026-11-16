@@ -54,9 +54,11 @@ pub fn add_manual(conn: &mut Connection, exe_path: &str, title: &str) -> Result<
         return Err(LibraryError::EmptyTitle);
     }
     let p = Path::new(exe_path);
-    let is_exe = p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("exe"));
-    if !is_exe {
-        return Err(invalid("Choisissez un fichier exécutable (.exe)."));
+    // programme (.exe) ou fichier de commandes (.bat, .cmd) qui lance le jeu
+    let runnable = p.extension().and_then(|e| e.to_str())
+        .is_some_and(|e| ["exe", "bat", "cmd"].iter().any(|ok| e.eq_ignore_ascii_case(ok)));
+    if !runnable {
+        return Err(invalid("Choisissez un programme (.exe) ou un fichier de commandes (.bat, .cmd)."));
     }
     let meta = std::fs::metadata(p).map_err(|_| invalid(format!("Fichier introuvable : {exe_path}")))?;
     if !meta.is_file() {
@@ -880,6 +882,10 @@ mod tests {
         assert!(add_manual(&mut conn, &path, "Encore").is_err());
         assert!(add_manual(&mut conn, &exe(tmp.path(), "notes.txt"), "Notes").is_err());
         assert!(add_manual(&mut conn, &exe(tmp.path(), "B/b.exe"), "  ").is_err());
+        // fichiers de commandes acceptés
+        assert!(add_manual(&mut conn, &exe(tmp.path(), "C/start.bat"), "Avec .bat").is_ok());
+        assert!(add_manual(&mut conn, &exe(tmp.path(), "D/run.CMD"), "Avec .cmd").is_ok());
+        assert!(add_manual(&mut conn, &exe(tmp.path(), "E/script.ps1"), "PowerShell").is_err());
 
         // retirer : le fichier reste sur le disque, le jeu quitte la bibliothèque
         let inst = installs(&conn, id).unwrap()[0].id;

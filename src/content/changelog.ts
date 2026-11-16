@@ -10,6 +10,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.48",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "trophy", title: "Salle des trophées", text: "Succès Steam et RetroAchievements réunis : niveau de joueur, prochains objectifs, médailles avec leur rareté, vitrine et classement entre amis." },
+      { icon: "gamepad", title: "Joueur 2", text: "Une deuxième manette pilote aussi iBox, avec son témoin P2 dans la barre du haut." },
+      { icon: "user", title: "Messages en direct", text: "Les messages arrivent en quelques secondes ; on voit quand l’ami écrit, et « Vu » sous vos messages." },
+      { icon: "disc", title: "Vraies galettes", text: "Les disques GameCube et Wii affichent leur vrai scan (GameTDB, LaunchBox) ; plus de titre imprimé sur un disque illustré." },
+      { icon: "shelf", title: "Bibliothèque plus grande", text: "En mode Jaquettes, les barres se replient en défilant ; sur l’étagère, le logo de la console arrive en flottant." },
+      { icon: "sparkle", title: "Petits plus", text: "Logos GIF animés, fichiers .bat et .cmd pour les jeux PC, jingles moins forts, 5 copies de sauvegardes par jeu, choix d’émulateur sans fermeture surprise, traduction anglaise complétée." },
+    ],
+  },
+  {
     version: "0.1.47",
     date: "2026-11-16",
     highlights: [

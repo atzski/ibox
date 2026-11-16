@@ -142,6 +142,68 @@ pub async fn achievements_ra_progress(username: String) -> Result<Value, String>
         Ok(json!(games))
     }).await.map_err(|_| "Synchronisation interrompue.".to_string())?
 }
+fn steam_account() -> Result<(String, String), String> {
+    let key = keys::get(steam::KEY).ok().flatten().ok_or("Ajoutez votre clé Steam dans Paramètres › PC.")?;
+    let root = steam::root().ok_or("Installez Steam et connectez votre compte.")?;
+    let user = steam::account(&root, &steam::scan(&root)).ok_or("Compte Steam introuvable.")?;
+    Ok((key, user))
+}
+
+/// Succès Steam d'un jeu : titres et descriptions en français, icônes (obtenue / grisée),
+/// succès cachés, et rareté mondiale (part des joueurs qui l'ont).
+#[tauri::command]
+pub async fn steam_achievements(appid: u32) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (key, user) = steam_account()?;
+        let id = appid.to_string();
+        let data = fetch("https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/", &[("key", &key), ("steamid", &user), ("appid", &id), ("l", "french")])?;
+        let stats = data["playerstats"]["achievements"].as_array().cloned().unwrap_or_default();
+        let schema = fetch("https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/", &[("key", &key), ("appid", &id), ("l", "french")]).unwrap_or_default();
+        let details = schema["game"]["availableGameStats"]["achievements"].as_array().cloned().unwrap_or_default();
+        let global = fetch("https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/", &[("gameid", &id)]).unwrap_or_default();
+        let percents = global["achievementpercentages"]["achievements"].as_array().cloned().unwrap_or_default();
+        let https = |v: &Value| v.as_str().map(|u| u.replacen("http://", "https://", 1));
+        let items: Vec<Value> = stats.iter().map(|a| {
+            let name = a["apiname"].as_str().unwrap_or_default();
+            let detail = details.iter().find(|row| row["name"] == name).cloned().unwrap_or_default();
+            let percent = percents.iter().find(|p| p["name"] == name).and_then(|p| p["percent"].as_f64().or_else(|| p["percent"].as_str().and_then(|s| s.parse().ok())));
+            json!({
+                "id": name,
+                "title": a["name"].as_str().or(detail["displayName"].as_str()).unwrap_or(name),
+                "description": a["description"].as_str().or(detail["description"].as_str()).unwrap_or(""),
+                "hidden": detail["hidden"] == 1,
+                "earned": a["achieved"] == 1,
+                "unlockedAt": a["unlocktime"],
+                "icon": https(&detail["icon"]),
+                "iconGray": https(&detail["icongray"]),
+                "percent": percent,
+            })
+        }).collect();
+        if items.is_empty() { return Err("Ce jeu n'a pas de succès Steam.".into()); }
+        Ok(json!({ "title": data["playerstats"]["gameName"].as_str().or(schema["game"]["gameName"].as_str()), "items": items }))
+    }).await.map_err(|_| "Lecture des succès interrompue.".to_string())?
+}
+
+/// Progression Steam de plusieurs jeux (obtenus / total), pour le tableau des succès.
+/// Les jeux sans succès ou illisibles sont simplement absents de la réponse.
+#[tauri::command]
+pub async fn steam_achievements_summary(appids: Vec<u32>) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (key, user) = steam_account()?;
+        let mut out = Vec::new();
+        for appid in appids.into_iter().take(40) {
+            let id = appid.to_string();
+            let Ok(data) = fetch("https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/", &[("key", &key), ("steamid", &user), ("appid", &id)]) else { continue };
+            let Some(list) = data["playerstats"]["achievements"].as_array() else { continue };
+            if list.is_empty() { continue; }
+            let earned = list.iter().filter(|a| a["achieved"] == 1).count();
+            let last = list.iter().filter_map(|a| a["unlocktime"].as_u64()).max().unwrap_or(0);
+            out.push(json!({ "appid": appid, "earned": earned, "total": list.len(), "lastAt": last }));
+        }
+        Ok(json!(out))
+    }).await.map_err(|_| "Lecture des succès interrompue.".to_string())?
+}
+
 /// Points d'accès de l'API RetroAchievements que l'interface peut interroger (lecture seule).
 const RA_ENDPOINTS: &[&str] = &[
     "API_GetUserSummary",

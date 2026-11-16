@@ -55,3 +55,18 @@ describe("PadProcessor", () => {
     expect(p.update(pad([4]), "south", 32)).toEqual(["tabPrev"]);
   });
 });
+
+import { assignSlots } from "./gamepad";
+describe("joueurs", () => {
+  it("numérote les manettes et garde les numéros", () => {
+    const one = assignSlots([], [{ index: 0, id: "Xbox Controller" }]);
+    expect(one.map((p) => p.slot)).toEqual([1]);
+    const two = assignSlots(one, [{ index: 0, id: "Xbox Controller" }, { index: 1, id: "Pro Controller" }]);
+    expect(two.map((p) => [p.index, p.slot])).toEqual([[0, 1], [1, 2]]);
+    // le joueur 1 débranche : le joueur 2 reste joueur 2, une nouvelle manette prend la place 1
+    const left = assignSlots(two, [{ index: 1, id: "Pro Controller" }]);
+    expect(left.map((p) => p.slot)).toEqual([2]);
+    const back = assignSlots(left, [{ index: 1, id: "Pro Controller" }, { index: 2, id: "DualSense" }]);
+    expect(back.map((p) => [p.index, p.slot])).toEqual([[2, 1], [1, 2]]);
+  });
+});

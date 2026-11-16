@@ -143,10 +143,17 @@ export function ConsolesPanel() {
           emulators={emulators}
           value={platformMap[choosing] ?? null}
           alternatives={alternatives?.[choosing] ?? []}
+          onToggleAlternative={(id) => {
+            const settings = useSettings.getState();
+            const ids = settings.emulatorAlternatives?.[choosing] ?? [];
+            settings.set("emulatorAlternatives", {
+              ...settings.emulatorAlternatives,
+              [choosing]: ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
+            });
+          }}
           onClose={() => setChoosing(null)}
           onChoose={(id) => {
             const pid = choosing;
-            setChoosing(null);
             void run(() => launcherApi.setPlatform(pid, id));
           }}
         />

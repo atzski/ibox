@@ -765,13 +765,28 @@ function paintDisc(game: Game, a: ArtAssets): HTMLCanvasElement {
   ctx.fillStyle = alpha("#ffffff", 0.12);
   ctx.fillRect(0, 0, w, w);
 
-  ctx.fillStyle = alpha("#ffffff", 0.9);
-  ctx.fillRect(0, r + r * 0.38, w, r * 0.3);
-  const t = fitTitle(ctx, game.title, w * 0.62, 76, 40, 1, DISPLAY);
-  ctx.fillStyle = luminance(p[4]) < 0.25 ? p[4] : shade(p[0], -0.45);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(t.lines[0], r, r + r * 0.53);
+  // le visuel de la jaquette suffit : le titre n'est imprimé que sur un disque sans image
+  const designed = !!(a.front || a.full);
+  if (designed) {
+    // reflet irisé d'un vrai disque
+    const shine = ctx.createConicGradient(Math.PI / 5, r, r);
+    shine.addColorStop(0, alpha("#ffffff", 0));
+    shine.addColorStop(0.12, alpha("#ffffff", 0.22));
+    shine.addColorStop(0.25, alpha("#ffffff", 0));
+    shine.addColorStop(0.62, alpha("#ffffff", 0));
+    shine.addColorStop(0.74, alpha("#ffffff", 0.16));
+    shine.addColorStop(0.86, alpha("#ffffff", 0));
+    ctx.fillStyle = shine;
+    ctx.fillRect(0, 0, w, w);
+  } else {
+    ctx.fillStyle = alpha("#ffffff", 0.9);
+    ctx.fillRect(0, r + r * 0.38, w, r * 0.3);
+    const t = fitTitle(ctx, game.title, w * 0.62, 76, 40, 1, DISPLAY);
+    ctx.fillStyle = luminance(p[4]) < 0.25 ? p[4] : shade(p[0], -0.45);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(t.lines[0], r, r + r * 0.53);
+  }
 
   // anneau central argenté (zone transparente d'un vrai disque)
   const hub = ctx.createRadialGradient(r, r, r * 0.19, r, r, r * 0.42);

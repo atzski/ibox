@@ -39,7 +39,7 @@ export function PcCardMeta({ game }: { game: Game }) {
 /** Nom proposé pour un exécutable : le dossier du jeu plutôt que « Launcher.exe ». */
 function suggestTitle(path: string): string {
   const parts = path.split(/[\\/]/);
-  const file = (parts.pop() ?? "").replace(/\.exe$/i, "");
+  const file = (parts.pop() ?? "").replace(/\.(exe|bat|cmd)$/i, "");
   const folder = parts.pop() ?? "";
   const generic = /^(launcher|game|start|play|setup|bin|win64|x64)$/i;
   const pick = generic.test(file) || file.length < 3 ? folder : file;
@@ -88,7 +88,7 @@ export function AddPcGameModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Ajouter un jeu PC" subtitle="Choisissez l'exécutable du jeu (.exe). Il n'est ni copié ni modifié." onClose={onClose}>
+    <Modal title="Ajouter un jeu PC" subtitle="Choisissez le programme du jeu (.exe) ou son fichier de commandes (.bat, .cmd). Il n'est ni copié ni modifié." onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Button icon="folder" autoFocusScreen onClick={() => void pick()} disabled={busy}>

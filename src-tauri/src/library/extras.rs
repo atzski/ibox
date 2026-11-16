@@ -336,6 +336,21 @@ pub struct SavesReport {
     pub backups: Vec<String>,
 }
 
+/// Copies de sécurité gardées par jeu : les plus anciennes sont supprimées au-delà.
+const SAVE_BACKUPS_KEPT: usize = 5;
+
+/// Garde les `keep` copies les plus récentes d'un dossier de copies (noms horodatés).
+fn prune_backups(root: &Path, keep: usize) {
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(root)
+        .map(|d| d.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect())
+        .unwrap_or_default();
+    dirs.sort();
+    let extra = dirs.len().saturating_sub(keep);
+    for old in dirs.into_iter().take(extra) {
+        let _ = std::fs::remove_dir_all(old);
+    }
+}
+
 fn backup_root(app: &AppHandle, game_id: i64) -> Res<PathBuf> {
     Ok(app.path().app_data_dir().map_err(|e| e.to_string())?.join("save-backups").join(game_id.to_string()))
 }
@@ -386,6 +401,7 @@ pub fn saves_backup(app: AppHandle, state: State<LibraryState>, game_id: i64) ->
         copy_into(Path::new(&s.path), &dir).map_err(|e| format!("copie impossible : {e}"))?;
     }
     let _ = std::fs::write(dir.join("jeu.txt"), format!("{}\n", g.title));
+    prune_backups(&backup_root(&app, game_id)?, SAVE_BACKUPS_KEPT);
     Ok(items.len())
 }
 
@@ -413,6 +429,18 @@ pub fn saves_reveal(app: AppHandle, state: State<LibraryState>, game_id: i64, pa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn copies_de_sauvegardes_limitees() {
+        let root = tempfile::tempdir().unwrap();
+        for day in 1..=7 {
+            std::fs::create_dir_all(root.path().join(format!("2026110{day}-100000"))).unwrap();
+        }
+        prune_backups(root.path(), 5);
+        let mut left: Vec<String> = std::fs::read_dir(root.path()).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+        left.sort();
+        assert_eq!(left, ["20261103-100000", "20261104-100000", "20261105-100000", "20261106-100000", "20261107-100000"]);
+    }
 
     #[test]
     fn statistiques_parties_reussies() {

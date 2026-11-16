@@ -96,7 +96,7 @@ fn set_user(user: Value) -> Result<Value> {
 }
 fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
     let id = id.unwrap_or("");
-    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
+    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
         return Err(err("INVALID_INPUT", "Identifiant invalide."));
     }
     Ok(match action {
@@ -115,6 +115,7 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "commonGames" => (Method::GET, format!("/v1/friends/{id}/common-games")),
         "conversation" => (Method::GET, format!("/v1/messages/{id}")),
         "sendMessage" => (Method::POST, "/v1/messages".into()),
+        "typing" => (Method::POST, format!("/v1/messages/{id}/typing")),
         "activity" => (Method::GET, "/v1/activity".into()),
         "library" => (Method::PUT, "/v1/library".into()),
         _ => return Err(err("INVALID_ACTION", "Action iNetbox inconnue.")),
@@ -166,7 +167,7 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
         match action {
             "restore" => set_user(http(client, Method::GET, "/v1/me", Some(&token), None)?),
             "snapshot" => {
-                if let Some((_, value)) = SNAPSHOT.lock().map_err(|_| vault_error())?.as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(12)) {
+                if let Some((_, value)) = SNAPSHOT.lock().map_err(|_| vault_error())?.as_ref().filter(|(at, _)| at.elapsed() < Duration::from_secs(8)) {
                     return Ok(value.clone());
                 }
                 let user = set_user(http(client, Method::GET, "/v1/me", Some(&token), None)?)?;
@@ -209,8 +210,14 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
                 http(client, Method::GET, &format!("/v1/library/owners?key={}", encode(key)), Some(&token), None)
             }
             _ => {
-                let (method, path) = route(action, id.as_deref())?;
-                let value = http(client, method, &path, Some(&token), if body.is_null() { None } else { Some(&body) })?;
+                let (method, mut path) = route(action, id.as_deref())?;
+                let mut payload = if body.is_null() { None } else { Some(&body) };
+                // conversation : seulement les messages récents (nombre entier, jamais de texte libre)
+                if action == "conversation" {
+                    if let Some(after) = body.get("after").and_then(Value::as_u64) { path.push_str(&format!("?after={after}")); }
+                    payload = None;
+                }
+                let value = http(client, method, &path, Some(&token), payload)?;
                 if action == "deleteAccount" { clear_session()?; }
                 if action == "profile" {
                     if body.get("shareOnline").is_some() || body.get("shareGame").is_some() {
@@ -238,7 +245,8 @@ pub async fn inetbox_call(app: AppHandle, action: String, body: Option<Value>, i
 /// Native timer keeps presence alive even when the WebView is minimized.
 pub fn start(app: AppHandle) {
     std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(25));
+        // toutes les 10 s : messages et activité des amis arrivent vite (présence envoyée au plus toutes les 20 s)
+        std::thread::sleep(Duration::from_secs(10));
         if ACTIVE.load(Ordering::Relaxed) && now() >= RETRY_AT.load(Ordering::Relaxed) {
             let _ = perform(&app, "heartbeat", Value::Null, None);
             pulse(&app);
@@ -317,6 +325,8 @@ mod tests {
         assert!(route("https://evil.example", None).is_err());
         assert!(route("accept", Some("../me")).is_err());
         assert!(route("conversation", Some("../../v1/me")).is_err());
+        assert!(route("typing", Some("x")).is_err());
+        assert_eq!(route("typing", Some("123e4567-e89b-12d3-a456-426614174000")).unwrap().1, "/v1/messages/123e4567-e89b-12d3-a456-426614174000/typing");
         assert_eq!(encode("switch|zelda & co"), "switch%7Czelda%20%26%20co");
         assert_eq!(route("block", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/blocks/550e8400-e29b-41d4-a716-446655440000");
         assert_eq!(route("dismissInvite", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/game-invites/550e8400-e29b-41d4-a716-446655440000");

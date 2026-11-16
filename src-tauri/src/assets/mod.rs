@@ -90,7 +90,7 @@ pub fn save(
     if bytes.len() > MAX_IMAGE_BYTES {
         return Err("Image trop volumineuse (25 Mo maximum).".into());
     }
-    let ext = sniff(bytes).ok_or("Ce n'est pas une image PNG, JPEG ou WebP.")?;
+    let ext = sniff(bytes).ok_or("Ce n'est pas une image PNG, JPEG, WebP ou GIF.")?;
     let size = imagesize::blob_size(bytes).map_err(|_| "Image illisible.".to_string())?;
     let (mw, mh) = min_size(slot);
     if size.width < mw as usize || size.height < mh as usize || size.width > 12_000 || size.height > 12_000 {
@@ -101,7 +101,7 @@ pub fn save(
     let rel = format!("platforms/{platform_id}/{slot}.{ext}");
     let tmp = dir.join(format!("{slot}.tmp"));
     std::fs::write(&tmp, bytes).map_err(|e| e.to_string())?;
-    for other in ["png", "jpg", "webp"] {
+    for other in ["png", "jpg", "webp", "gif"] {
         if other != ext {
             let _ = std::fs::remove_file(dir.join(format!("{slot}.{other}")));
         }

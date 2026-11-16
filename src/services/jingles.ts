@@ -44,6 +44,13 @@ export function previewJingle(gameDbId: number) {
   playJingle(gameDbId, true);
 }
 
+/**
+ * Les jingles sont des musiques de jeux, mixées bien plus fort que les sons d'iBox :
+ * leur volume est atténué pour rester au niveau de l'interface (100 % du réglage ≈ 45 %).
+ */
+export const JINGLE_GAIN = 0.45;
+export const DEFAULT_JINGLE_VOLUME = 0.6;
+
 export function playJingle(gameDbId?: number, force = false) {
   stopJingle();
   const s = useSettings.getState();
@@ -54,7 +61,7 @@ export function playJingle(gameDbId?: number, force = false) {
       const bytes = await invoke<ArrayBuffer>("game_sound", { gameId: gameDbId });
       const url = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
       const el = new Audio(url);
-      el.volume = Math.min(1, Math.max(0, useSettings.getState().jingleVolume ?? 0.7));
+      el.volume = Math.min(1, Math.max(0, (useSettings.getState().jingleVolume ?? DEFAULT_JINGLE_VOLUME) * JINGLE_GAIN));
       current = el;
       currentUrl = url;
       restoreMusic = music.duck();

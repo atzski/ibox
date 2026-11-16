@@ -61,6 +61,7 @@ export function SavesModal({ game, onClose }: { game: Game; onClose: () => void 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink/8 pt-4">
         <p className="text-[0.85rem] font-semibold text-ink-soft">
           {data?.backups.length ? `${data.backups.length} copie${data.backups.length > 1 ? "s" : ""} de sécurité` : "Aucune copie de sécurité"}
+          <span className="block text-[0.75rem] text-ink-faint">Les 5 plus récentes sont gardées.</span>
         </p>
         <div className="flex gap-2">
           {!!data?.backups.length && (

@@ -257,7 +257,7 @@ function FileTab({ current, choose }: { current: HomeBackground | null; choose: 
   const [error, setError] = useState("");
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-[0.9rem] text-ink-soft">Une image de votre PC (PNG, JPEG ou WebP). iBox en garde une copie ; l’original n’est pas touché.</p>
+      <p className="text-[0.9rem] text-ink-soft">Une image de votre PC (PNG, JPEG, WebP ou GIF). iBox en garde une copie ; l’original n’est pas touché.</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" icon="folder" onClick={async () => {
           setError("");

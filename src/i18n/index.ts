@@ -29,7 +29,13 @@ for (const [fr, en] of Object.entries(EN)) {
     continue;
   }
   const parts = key.split(/\{\d+\}/);
-  const re = new RegExp(`^${parts.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("(.*?)")}$`, "s");
+  // Un marqueur collé à la fin d'un mot (« jour{1} ») n'est qu'une marque de pluriel : il ne
+  // capture que quelques lettres, sinon « Mises à jour automatiques » devenait « Mises à days ».
+  const escape = (p: string) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const source = parts
+    .map((p, i) => (i === 0 ? "" : /[A-Za-zÀ-ÿ]$/.test(parts[i - 1]) ? "([a-zàâçéèêëîïôûùü]{0,3})" : "(.*?)") + escape(p))
+    .join("");
+  const re = new RegExp(`^${source}$`, "s");
   const hint = parts.reduce((a, b) => (b.trim().length > a.length ? b.trim() : a), "");
   patterns.push({ re, out: en, hint });
 }

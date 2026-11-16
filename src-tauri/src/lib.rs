@@ -97,6 +97,8 @@ pub fn run() {
             achievements::achievements_ra_search,
             achievements::achievements_ra_key,
             achievements::ra_api,
+            achievements::steam_achievements,
+            achievements::steam_achievements_summary,
             achievements::achievements_ra_connected,
             achievements::achievements_ra_disconnect,
             toast::toast_update,

@@ -118,7 +118,7 @@ export const metadataApi = {
     const picked = await open({
       multiple: false,
       title: "Choisir une image",
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }],
+      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
     });
     return typeof picked === "string" ? picked : null;
   },
