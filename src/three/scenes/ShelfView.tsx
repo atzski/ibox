@@ -534,7 +534,14 @@ export function ShelfView({
   const index = shelf ? pickOf(shelf) : 0;
   const sel = shelf?.games[index];
   const playState = usePlayState(sel ?? games[0]);
-  const ref = shelf?.specs[0] ?? caseFor("gamecube");
+  const first = shelf?.specs[0] ?? caseFor("gamecube");
+  // Mixed shelves must fit every case independently of insertion order.
+  const ref = mixed && shelf ? shelf.specs.reduce((frame, spec) => ({
+    ...frame,
+    width: Math.max(frame.width, spec.width),
+    height: Math.max(frame.height, spec.height),
+    depth: Math.max(frame.depth, spec.depth),
+  }), first) : first;
 
   useEffect(() => {
     if (shelfIndex > shelves.length - 1) setShelfIndex(Math.max(0, shelves.length - 1));

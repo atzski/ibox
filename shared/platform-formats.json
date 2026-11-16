@@ -74,7 +74,8 @@
         ".z3dsx",
         ".zcci",
         ".zcxi",
-        ".bcci"
+        ".bcci",
+        ".cia"
       ],
       "folderHints": [
         "3ds",

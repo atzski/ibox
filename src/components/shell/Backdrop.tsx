@@ -17,7 +17,7 @@ import { useWallpaperUrl } from "@/services/wallpaper";
  * son fond (ou sa jaquette, très floutée) remplit l'écran en fondu, avec un
  * lent mouvement de caméra et une légère parallaxe à la souris.
  */
-export function Backdrop() {
+export function Backdrop({ home = false }: { home?: boolean }) {
   const platform = useShell((s) => s.ambientPlatform);
   const tint = useShell((s) => s.ambientTint);
   const game = useShell((s) => s.ambientGame);
@@ -43,8 +43,11 @@ export function Backdrop() {
     };
   }, [game]);
 
-  const bgStyle = useSettings((s) => s.backgroundStyle ?? "ambient");
-  const custom = useSettings((s) => s.customBackground);
+  const globalStyle = useSettings((s) => s.backgroundStyle ?? "ambient");
+  const globalImage = useSettings((s) => s.customBackground);
+  const homeImage = useSettings((s) => s.homeBackground);
+  const bgStyle = home && homeImage ? "image" : globalStyle;
+  const custom = home && homeImage ? homeImage : globalImage;
   const customGame = useShellGame(bgStyle === "image" && custom?.type === "game" ? custom.gameId : null);
   const customPlatformHero = usePlatformArt(bgStyle === "image" && custom?.type === "platform" ? custom.platformId : "", "platform_hero");
   const wallpaper = useWallpaperUrl(bgStyle === "image" && custom?.type === "file" ? custom.stamp : null);

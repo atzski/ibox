@@ -47,25 +47,43 @@ export async function shareableAvatar(choice: AvatarChoice | null): Promise<Avat
 let lastAvatar = "";
 let lastLibrary = "";
 let libraryTimer: number | undefined;
+let appearanceRevision = 0;
+
+const covers = new WeakMap<Game, Promise<string | undefined>>();
+function featuredCover(game: Game) {
+  const cached = covers.get(game);
+  if (cached) return cached;
+  const pending = getArtCanvas(game, "front").then((source) => {
+    const canvas = document.createElement("canvas");
+    for (const height of [224, 160, 112]) {
+      canvas.height = height;
+      canvas.width = Math.max(1, Math.round(height * source.width / source.height));
+      canvas.getContext("2d")!.drawImage(source, 0, 0, canvas.width, canvas.height);
+      const cover = canvas.toDataURL("image/jpeg", 0.75);
+      if (cover.length <= 16000) return cover;
+    }
+  }).catch(() => { covers.delete(game); return undefined; });
+  covers.set(game, pending);
+  return pending;
+}
 
 async function syncAvatar() {
   const user = useInetbox.getState().user;
   if (!user || !useInetbox.getState().socialSupported) return;
+  const revision = ++appearanceRevision;
   const settings = useSettings.getState();
-  const shared = await shareableAvatar(settings.profileAvatar).catch(() => null);
-  const latest = useSettings.getState();
-  if (useInetbox.getState().user?.id !== user.id || latest.profileAvatar !== settings.profileAvatar ||
-      latest.profileBio !== settings.profileBio || latest.profileAccent !== settings.profileAccent || latest.profileBannerImage !== settings.profileBannerImage ||
-      latest.profileFeaturedGames !== settings.profileFeaturedGames || latest.profileGame !== settings.profileGame) return;
+  const games = useLibrary.getState().realGames;
+  const featured = (settings.profileFeaturedGames ?? (settings.profileGame ? [settings.profileGame] : []))
+    .flatMap((id) => games.find((game) => game.id === id) ?? []).slice(0, 3);
+  if (!games.length && (settings.profileFeaturedGames?.length || settings.profileGame) && useLibrary.getState().status !== "ready") return;
+  const [shared, featuredGames] = await Promise.all([
+    shareableAvatar(settings.profileAvatar).catch(() => null),
+    Promise.all(featured.map(async (game) => ({ title: game.title.slice(0, 160), platformId: game.platformId, cover: await featuredCover(game) }))),
+  ]);
+  if (revision !== appearanceRevision || useInetbox.getState().user?.id !== user.id) return;
   const appearance = user.privacy.publicProfile !== undefined
     ? { avatar: shared, bio: (settings.profileBio ?? "").trim().slice(0, 120), accent: settings.profileAccent ?? "#88CBF5" }
     : { avatar: shared };
-  const games = useLibrary.getState().realGames;
-  const featuredGames = (settings.profileFeaturedGames ?? (settings.profileGame ? [settings.profileGame] : []))
-    .flatMap((id) => {
-      const game = games.find((item) => item.id === id);
-      return game ? [{ title: game.title.slice(0, 160), platformId: game.platformId }] : [];
-    }).slice(0, 3);
   const payload = user.featuredGames !== undefined
     ? { ...appearance, banner: settings.profileBannerImage ?? null, featuredGames }
     : appearance;
@@ -75,7 +93,7 @@ async function syncAvatar() {
   try {
     const next = await call<typeof user>("profile", payload);
     useInetbox.setState((s) => s.user?.id === user.id ? { user: { ...s.user, avatar: next.avatar } } : s);
-  } catch { lastAvatar = ""; }
+  } catch { if (lastAvatar === json) lastAvatar = ""; }
 }
 
 function syncLibrary() {
@@ -93,12 +111,12 @@ function syncLibrary() {
 
 function syncToasts() {
   const s = useSettings.getState();
-  void invoke("toast_enabled", { enabled: s.notificationsEnabled !== false && s.friendAlerts !== false }).catch(() => undefined);
+  void invoke("toast_enabled", { enabled: s.notificationsEnabled !== false && !s.doNotDisturb, friends: s.friendAlerts !== false }).catch(() => undefined);
 }
 
 /** Notification cliquée : iBox revient et ouvre ce qui la concerne. */
 export interface ToastPayload {
-  kind: "game" | "request" | "message" | "invite";
+  kind: "game" | "request" | "message" | "invite" | "update";
   friendId: string;
   name: string;
   avatar?: AvatarChoice | null;
@@ -111,6 +129,10 @@ export interface ToastPayload {
 export type FriendsTarget = { view: "requests" } | { view: "chat"; friendId: string } | { view: "profile"; friendId: string } | { view: "list" };
 
 function onToastClick(p: ToastPayload) {
+  if (p.kind === "update") {
+    void import("./shell").then(({ shellApi }) => shellApi.installUpdate(() => undefined)).catch(console.error);
+    return;
+  }
   let target: FriendsTarget = { view: "list" };
   if (p.kind === "request") {
     if (p.accept) void useInetbox.getState().act("accept", undefined, p.friendId);
@@ -124,7 +146,7 @@ export function attachSocial() {
   if (!isTauri()) return () => undefined;
   syncToasts();
   const offSettings = useSettings.subscribe((s, p) => {
-    if (s.notificationsEnabled !== p.notificationsEnabled || s.friendAlerts !== p.friendAlerts) syncToasts();
+    if (s.notificationsEnabled !== p.notificationsEnabled || s.friendAlerts !== p.friendAlerts || s.doNotDisturb !== p.doNotDisturb) syncToasts();
     if (s.profileAvatar !== p.profileAvatar || s.profileBio !== p.profileBio || s.profileAccent !== p.profileAccent || s.profileBannerImage !== p.profileBannerImage || s.profileFeaturedGames !== p.profileFeaturedGames || s.profileGame !== p.profileGame) void syncAvatar();
   });
   const offSocial = useInetbox.subscribe((s, p) => {
@@ -132,7 +154,10 @@ export function attachSocial() {
     if (s.status === "online" && p.status !== "online") void syncAvatar();
     if (s.user?.privacy.shareLibrary !== p.user?.privacy.shareLibrary || s.socialSupported !== p.socialSupported) syncLibrary();
   });
-  const offLibrary = useLibrary.subscribe((s, p) => { if (s.realGames !== p.realGames) { syncLibrary(); void syncAvatar(); } });
+  const offLibrary = useLibrary.subscribe((s, p) => {
+    if (s.realGames !== p.realGames) syncLibrary();
+    if (s.realGames !== p.realGames || (s.status === "ready" && p.status !== "ready")) void syncAvatar();
+  });
   let offClick: (() => void) | undefined;
   void import("@tauri-apps/api/event").then(({ listen }) => listen<ToastPayload>("toast-click", (e) => onToastClick(e.payload))).then((off) => { offClick = off; });
   return () => { offSettings(); offSocial(); offLibrary(); offClick?.(); };

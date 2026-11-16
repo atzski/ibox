@@ -5,7 +5,7 @@ import { PlayerCard } from "@/components/profile/PlayerCard";
 import { Button } from "@/components/ui/Button";
 import { supportsMultiplayer } from "@/services/extras";
 import { Icon } from "@/components/ui/Icon";
-import { call, useInetbox, type InetFriend } from "@/services/inetbox";
+import { call, useInetbox, type AchievementHighlight, type FeaturedGame, type InetFriend } from "@/services/inetbox";
 import { useLibrary } from "@/services/library";
 import { useNav } from "@/app/navigation";
 import { getPlatform } from "@/domain/platforms";
@@ -15,7 +15,7 @@ import { friendState } from "./Presence";
 import { gameKey } from "@/services/social";
 
 interface Activity { friendId?: string; displayName?: string; avatar?: AvatarChoice | null; gameTitle: string; platformId: string; startedAt: number }
-interface Profile { id: string; displayName: string; avatar: AvatarChoice | null; bio?: string; accent?: string | null; banner?: string | null; featuredGames?: { title: string; platformId: string }[]; since: number | null; activity: Activity[]; games: number | null }
+interface Profile { id: string; displayName: string; avatar: AvatarChoice | null; bio?: string; accent?: string | null; banner?: string | null; featuredGames?: FeaturedGame[]; achievementHighlight?: AchievementHighlight | null; since: number | null; activity: Activity[]; games: number | null }
 interface Message { id: string; mine: boolean; body: string; createdAt: number }
 
 /** « il y a 5 min », « hier »… */
@@ -113,6 +113,12 @@ export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetF
             active={friend.favorite}
           />
         </div>} />
+      {friend && p?.achievementHighlight && <section className="mt-3 rounded-2xl bg-cream-deep p-4 text-ink">
+        <div className="flex items-center gap-2 font-bold"><Icon name="star" />{p.achievementHighlight.source}</div>
+        <p data-no-i18n className="mt-1 break-words">{p.achievementHighlight.title}</p>
+        <progress className="my-2 w-full accent-mint-deep" max={p.achievementHighlight.total} value={p.achievementHighlight.earned} />
+        <p className="text-sm text-ink-soft">{p.achievementHighlight.earned} / {p.achievementHighlight.total} succès</p>
+      </section>}
       {friend && p?.featuredGames && <CommonGames friend={friend} />}
       {friend && (failed ? <Empty icon="user" text="Profil indisponible pour le moment." /> : !p ? <Empty icon="user" text="Chargement…" /> : p.since !== null && (
         <>
@@ -306,7 +312,7 @@ export function LibraryShareToggle() {
       className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs [--ring-radius:999px] disabled:opacity-45 ${on ? "bg-[#E3F5EC] text-ink" : "bg-white/80 text-ink-soft"}`}
     >
       <Icon name="shelf" size="1.1em" />
-      {on ? "Jeux visibles" : "Jeux cachés"}
+      {on ? "Bibliothèque visible" : "Bibliothèque cachée"}
     </button>
   );
 }

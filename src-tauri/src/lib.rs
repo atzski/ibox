@@ -17,6 +17,7 @@ pub mod shell;
 pub mod wallpaper;
 pub mod inetbox;
 pub mod toast;
+mod achievements;
 
 use library::commands as lib_cmd;
 use metadata::commands as meta_cmd;
@@ -91,6 +92,13 @@ pub fn run() {
             shell::shell_behavior_set,
             shell::shell_hide,
             shell::shell_minimize,
+            achievements::achievements_read,
+            achievements::achievements_ra_progress,
+            achievements::achievements_ra_search,
+            achievements::achievements_ra_key,
+            achievements::achievements_ra_connected,
+            achievements::achievements_ra_disconnect,
+            toast::toast_update,
             toast::toast_pull,
             toast::toast_done,
             toast::toast_click,

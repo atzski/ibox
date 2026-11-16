@@ -1,3 +1,4 @@
+import { syncRaProgress } from "@/services/achievementProgress";
 import { menuMusicApi, useMenuMusic } from "@/services/menuMusic";
 import { jinglesApi, useJingleSync } from "@/services/jingles";
 import { InetboxPanel } from "@/components/social/InetboxPanel";
@@ -227,6 +228,7 @@ function CategoryPage({ id }: { id: CategoryId }) {
           <Group title="Activité des amis" icon="user">
             <Row label="Notifications d'activité" note="Quand un ami se connecte ou lance un jeu (les invitations à jouer sont toujours annoncées)">
               <FriendAlertsToggle />
+              <DownloadPopupsToggle />
             </Row>
           </Group>
         </>
@@ -597,8 +599,11 @@ function WallpaperGroup() {
   );
   const shownHeroes = heroGames.filter((g) => matchesQuery(g.title, query));
   const heroPlatforms = PLATFORMS.filter((p) => rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
-  const bg = s.customBackground;
-  const style = s.backgroundStyle ?? "ambient";
+  const [homeOnly, setHomeOnly] = useState(false);
+  const bg = homeOnly ? s.homeBackground : s.customBackground;
+  const style = homeOnly ? "image" : (s.backgroundStyle ?? "ambient");
+  const chooseArt = (art: NonNullable<typeof s.homeBackground>) =>
+    homeOnly ? s.set("homeBackground", art) : s.set("customBackground", art);
 
   const chooseFile = async () => {
     setWallError(null);
@@ -619,7 +624,11 @@ function WallpaperGroup() {
 
   return (
     <Group title="Fond d'écran" icon="front">
-      <div data-nav-group="settings-bg-style" className="grid grid-cols-3 gap-3 border-none py-1">
+      <Row label="Personnaliser uniquement l’accueil">
+        <Toggle checked={homeOnly} label="Accueil uniquement" onChange={setHomeOnly} />
+      </Row>
+      {homeOnly && bg && <Button icon="x" onClick={() => s.set("homeBackground", null)}>Réinitialiser le fond de l’accueil</Button>}
+      {!homeOnly && <div data-nav-group="settings-bg-style" className="grid grid-cols-3 gap-3 border-none py-1">
         {(
           [
             { value: "ambient", label: "Jeu sélectionné", note: "Le fond suit vos jeux", tone: ["#BFE3FA", "#E9E1FB"] },
@@ -641,11 +650,11 @@ function WallpaperGroup() {
             }
           />
         ))}
-      </div>
+      </div>}
       {style === "image" && (
         <div className="border-none pt-2">
-          <p className="mt-3 mb-2 text-[0.78rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Votre image</p>
-          <div className="flex flex-wrap items-center gap-3">
+          {!homeOnly && <p className="mt-3 mb-2 text-[0.78rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Votre image</p>}
+          {!homeOnly && <div className="flex flex-wrap items-center gap-3">
             <Button icon="folder" onClick={() => void chooseFile()}>
               {bg?.type === "file" ? "Choisir une autre image…" : "Choisir une image sur le PC…"}
             </Button>
@@ -655,7 +664,7 @@ function WallpaperGroup() {
               </Button>
             )}
             <span className="text-[0.78rem] font-semibold text-ink-soft">PNG, JPEG ou WebP. iBox en garde une copie ; l'original n'est pas touché.</span>
-          </div>
+          </div>}
           {wallError && <p className="mt-2 text-[0.85rem] font-bold text-peach-deep">{wallError}</p>}
 
           {heroPlatforms.length > 0 && (
@@ -663,7 +672,7 @@ function WallpaperGroup() {
               <p className="mt-5 mb-2 text-[0.78rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Consoles</p>
               <div data-nav-group="themes-bg-platforms" className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
                 {heroPlatforms.map((p) => (
-                  <BgChoice key={p.id} active={bg?.type === "platform" && bg.platformId === p.id} onClick={() => s.set("customBackground", { type: "platform", platformId: p.id })} label={p.shortName}>
+                  <BgChoice key={p.id} active={bg?.type === "platform" && bg.platformId === p.id} onClick={() => chooseArt({ type: "platform", platformId: p.id })} label={p.shortName}>
                     <PlatformHeroThumb platformId={p.id} />
                   </BgChoice>
                 ))}
@@ -687,7 +696,7 @@ function WallpaperGroup() {
           </div>
           <div data-nav-group="themes-bg-games" className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
             {shownHeroes.slice(0, limit).map((g) => (
-              <BgChoice key={g.id} active={bg?.type === "game" && bg.gameId === g.id} onClick={() => s.set("customBackground", { type: "game", gameId: g.id })} label={g.title}>
+              <BgChoice key={g.id} active={bg?.type === "game" && bg.gameId === g.id} onClick={() => chooseArt({ type: "game", gameId: g.id })} label={g.title}>
                 <GameHeroThumb game={g} />
               </BgChoice>
             ))}
@@ -1033,6 +1042,9 @@ function SystemPage() {
         <Row label="Notifications" note="Nouveaux jeux, actualisation, images récupérées, erreurs">
           <Toggle checked={s.notificationsEnabled !== false} onChange={(v) => s.set("notificationsEnabled", v)} label="Notifications" />
         </Row>
+        <Row label="Clé RetroAchievements" note="Enregistrez votre clé Web API dans le coffre Windows.">
+          <RetroAchievementsKey />
+        </Row>
         <Row label="Historique" note={`${notifCount} notification${notifCount > 1 ? "s" : ""} gardée${notifCount > 1 ? "s" : ""}`}>
           <Button cue="back" icon="x" disabled={notifCount === 0} onClick={notifClear}>
             Effacer
@@ -1185,6 +1197,12 @@ function MenuPlaylist() {
       )}
     </>
   );
+}
+
+function DownloadPopupsToggle() {
+  const on = useSettings((st) => st.downloadPopups !== false);
+  const set = useSettings((st) => st.set);
+  return <Toggle checked={on} onChange={(v) => set("downloadPopups", v)} label="Notifications de téléchargement" />;
 }
 
 function FriendAlertsToggle() {
@@ -1378,4 +1396,52 @@ function RoundButton({ icon, label, onClick, disabled, rotate = 0 }: { icon: Ico
       <Icon name={icon} size="1.1em" style={{ transform: `rotate(${rotate}deg)` }} />
     </button>
   );
+}
+
+function RetroAchievementsKey() {
+  const [username, setUsername] = useState(() => useSettings.getState().raUsername ?? localStorage.getItem("ibox.raUsername") ?? "");
+  const [key, setKey] = useState("");
+  const [result, setResult] = useState("");
+  const [connected, setConnected] = useState<boolean>();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void import("@tauri-apps/api/core").then(({ invoke }) => invoke<boolean>("achievements_ra_connected"))
+      .then(setConnected, (error) => setResult(String(error)));
+  }, []);
+  return <div className="flex flex-wrap gap-2">
+    <input data-focusable aria-label="Pseudo RetroAchievements" placeholder="Pseudo RetroAchievements" maxLength={32} value={username}
+      onChange={(e) => setUsername(e.target.value)} className="ibox-focusable rounded-full bg-cream-deep px-3 py-2" />
+    <input data-focusable type="password" disabled={connected !== false || busy} placeholder={connected ? "Clé enregistrée" : "Clé Web API"} aria-label="Clé RetroAchievements" value={key} onChange={(e) => setKey(e.target.value)}
+      className="ibox-focusable rounded-full bg-cream-deep px-3 py-2" />
+    <Button onClick={() => void shellApi.openHelp(HELP.raKey)}>Obtenir la clé</Button>
+    <Button disabled={busy || connected === undefined || !username.trim() || (!connected && !key.trim())} onClick={async () => {
+      setBusy(true);
+      try {
+        if (key.trim()) {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("achievements_ra_key", { key });
+          setConnected(true);
+          setKey("");
+        }
+        await syncRaProgress(username.trim(), true);
+        useSettings.getState().set("raUsername", username.trim());
+        setKey("");
+        setResult("Progression synchronisée.");
+      } catch (error) { setResult(String(error)); }
+      finally { setBusy(false); }
+    }}>{connected ? "Synchroniser" : "Enregistrer et synchroniser"}</Button>
+    {connected && <Button disabled={busy} onClick={async () => {
+      setBusy(true);
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("achievements_ra_disconnect");
+        useSettings.getState().set("raUsername", undefined);
+        localStorage.removeItem("ibox.raUsername");
+        setConnected(false);
+        setResult("Clé retirée.");
+      } catch (error) { setResult(String(error)); }
+      finally { setBusy(false); }
+    }}>Déconnecter</Button>}
+    {result && <span role="status">{result}</span>}
+  </div>;
 }

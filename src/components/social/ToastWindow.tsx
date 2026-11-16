@@ -10,8 +10,9 @@ import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
 import type { ToastPayload } from "@/services/social";
 
-const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000 } as const;
+const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 12000 } as const;
 const LOOK: Record<ToastPayload["kind"], { label: string; icon: IconName; from: string; to: string; ink: string }> = {
+  update: { label: "Mise à jour disponible", icon: "download", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
   game: { label: "En jeu", icon: "play", from: "#DDF6EA", to: "#98DEBE", ink: "#2F7A57" },
   request: { label: "Demande d'ami", icon: "user", from: "#FFE1DA", to: "#F3AFA4", ink: "#B4513F" },
   message: { label: "Message", icon: "sparkle", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },

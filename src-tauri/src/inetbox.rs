@@ -85,6 +85,7 @@ fn public_user(user: &Value) -> Result<Value> {
             "shareLibrary": user["privacy"]["shareLibrary"].as_bool().unwrap_or(false) } });
     if user["privacy"]["publicProfile"].is_boolean() { safe["privacy"]["publicProfile"] = user["privacy"]["publicProfile"].clone(); }
     if user["featuredGames"].is_array() { safe["featuredGames"] = user["featuredGames"].clone(); }
+    safe["achievementHighlight"] = user["achievementHighlight"].clone();
     Ok(safe)
 }
 fn set_user(user: Value) -> Result<Value> {

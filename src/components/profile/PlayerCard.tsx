@@ -4,6 +4,7 @@ import { getPlatform } from "@/domain/platforms";
 import type { AvatarChoice } from "@/services/settings";
 import { useLibrary } from "@/services/library";
 import { CoverImage } from "@/components/game/CoverImage";
+import type { FeaturedGame } from "@/services/inetbox";
 
 /**
  * Carte de joueur : bannière, photo, nom, statut, bio et jeux favoris.
@@ -11,7 +12,7 @@ import { CoverImage } from "@/components/game/CoverImage";
  */
 export function PlayerCard({ name, avatar, bio, accent, banner, games, status, actions }: {
   name: string; avatar: AvatarChoice | null; bio?: string; accent?: string | null;
-  banner?: string | null; games?: { title: string; platformId: string }[];
+  banner?: string | null; games?: FeaturedGame[];
   status?: ReactNode; actions?: ReactNode;
 }) {
   const tint = accent ?? "#88CBF5";
@@ -60,7 +61,7 @@ export function PlayerCard({ name, avatar, bio, accent, banner, games, status, a
                 return (
                   <div key={index} className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-ink/5" title={game.title}>
                     <div className="relative aspect-[3/4] overflow-hidden">
-                      {owned ? <CoverImage game={owned} /> : (
+                      {game.cover ? <img src={game.cover} alt="" loading="lazy" className="h-full w-full object-cover" /> : owned ? <CoverImage game={owned} /> : (
                         <div className="flex h-full items-end p-2" style={{ background: `linear-gradient(150deg, ${platform?.theme.primary ?? tint}, ${platform?.theme.deep ?? "#344459"})` }}>
                           <span data-no-i18n className="line-clamp-3 font-display text-[0.85rem] leading-tight text-white drop-shadow">{game.title}</span>
                         </div>

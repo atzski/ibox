@@ -1,3 +1,4 @@
+import { useSettings } from "@/services/settings";
 import { motion } from "motion/react";
 import { useInetbox, type InetFriend } from "@/services/inetbox";
 import { Icon } from "@/components/ui/Icon";
@@ -92,7 +93,21 @@ export function GameShareToggle() {
       className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs ring-1 [--ring-radius:999px] disabled:cursor-not-allowed ${on ? "bg-mint-soft text-ink ring-mint-deep/40" : "bg-white text-ink-soft ring-ink/15"}`}
     >
       <Icon name="gamepad" size="1.1em" />
-      {on ? "Jeu visible" : "Jeu caché"}
+      {on ? "Partie visible" : "Partie cachée"}
+    </button>
+  );
+}
+
+export function DoNotDisturbToggle() {
+  const on = useSettings((s) => !!s.doNotDisturb);
+  const set = useSettings((s) => s.set);
+  return (
+    <button type="button" data-focusable role="switch" aria-checked={on}
+      title="Masque les pop-ups et garde les notifications dans le centre iBox."
+      onClick={() => { sound.play("toggle"); set("doNotDisturb", !on); }}
+      className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs ring-1 [--ring-radius:999px] ${on ? "bg-lavender-soft text-ink ring-ink/25" : "bg-white text-ink-soft ring-ink/15"}`}>
+      <Icon name="clock" size="1.1em" />
+      Ne pas déranger
     </button>
   );
 }

@@ -10,6 +10,52 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.46",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "sparkle", title: "RetroAchievements mieux trouvés", text: "Modifiez le titre recherché ; les correspondances sont plus justes et les jeux sans succès publiés sont signalés." },
+      { icon: "gamepad", title: "Nouvelle icône", text: "iBox a une nouvelle icône." },
+    ],
+  },
+  {
+    version: "0.1.45",
+    date: "2026-11-15",
+    highlights: [
+      { icon: "grid", title: "Collections personnalisées", text: "Masquez le nom sur la carte et choisissez l’ordre des jeux." },
+      { icon: "user", title: "Menu Amis corrigé", text: "Le bouton Amis ouvre à nouveau la liste." },
+    ],
+  },
+  {
+    version: "0.1.42",
+    date: "2026-11-14",
+    highlights: [
+      { icon: "sparkle", title: "Recherche rapide stable", text: "La fenêtre garde la même taille pendant la saisie." },
+    ],
+  },
+  {
+    version: "0.1.41",
+    date: "2026-11-14",
+    highlights: [
+      { icon: "user", title: "Réglages Amis plus clairs", text: "« Partie visible » et « Bibliothèque visible » ne se confondent plus." },
+      { icon: "clock", title: "Notifications de téléchargement", text: "Masquez-les dans Paramètres → Notifications." },
+      { icon: "disc", title: "Jeux 3DS .cia", text: "Les fichiers .cia sont reconnus." },
+    ],
+  },
+  {
+    version: "0.1.40",
+    date: "2026-11-14",
+    highlights: [
+      { icon: "grid", title: "Fonds de collection appliqués", text: "Le fond choisi s'affiche pleinement sur la carte, quel que soit son style, même pour les images très lourdes." },
+    ],
+  },
+  {
+    version: "0.1.38",
+    date: "2026-11-14",
+    highlights: [
+      { icon: "front", title: "Boîtes Game Boy au bon format", text: "Game Boy et Game Boy Color : boîtes presque carrées, jaquettes affichées sans être étirées." },
+    ],
+  },
+  {
     version: "0.1.37",
     date: "2026-11-14",
     highlights: [

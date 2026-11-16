@@ -125,7 +125,9 @@ pub fn shell_hide(app: AppHandle) {
 
 /// Pages d'aide ouvertes dans le navigateur par l'assistant de configuration.
 /// Liste fermée : aucune adresse venant d'ailleurs n'est ouverte.
-const HELP_PAGES: [&str; 4] = [
+const HELP_PAGES: [&str; 6] = [
+    "https://retroachievements.org/settings",
+    "https://iidb.iisu.network/",
     "https://buymeacoffee.com/atzski",
     "https://steamcommunity.com/dev/apikey",
     "https://www.steamgriddb.com/profile/preferences/api",

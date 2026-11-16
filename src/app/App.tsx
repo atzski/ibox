@@ -88,9 +88,10 @@ export function App() {
   // nouvelle version d'iBox : annoncée par une notification (installation dans Paramètres › Système)
   useEffect(
     () =>
-      checkUpdatesLater((version) =>
-        notify({ icon: "download", tone: "info", title: `iBox ${version} est disponible`, body: "Installez-la dans Paramètres › Système › Mises à jour." }),
-      ),
+      checkUpdatesLater((version) => {
+        notify({ icon: "download", tone: "info", action: "update", title: `iBox ${version} est disponible`, body: "Installez-la dans Paramètres › Système › Mises à jour." });
+        if (!useSettings.getState().doNotDisturb) void shellApi.updateToast(version).catch(() => undefined);
+      }),
     [],
   );
   // menu de l'icône de notification : Jeux ou Social
@@ -186,7 +187,7 @@ export function App() {
 
   return (
     <MotionConfig reducedMotion={reduced ? "always" : "never"}>
-      <Backdrop />
+      <Backdrop home={route.name === "home"} />
       <div data-nav-root className="relative flex h-full flex-col">
         <TopBar />
         {libraryError && route.name !== "settings" && (

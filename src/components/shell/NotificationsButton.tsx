@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { relativeDay } from "@/domain/text";
+import { shellApi } from "@/services/shell";
 import { useNotifications, useUnreadCount } from "@/services/notifications";
 import { input } from "@/input/InputController";
 import { sound } from "@/services/sound";
@@ -105,6 +106,14 @@ export function NotificationsButton() {
                   key={n.id}
                   data-focusable
                   tabIndex={0}
+                  role={n.action ? "button" : undefined}
+                  onClick={n.action === "update" ? () => {
+                    close();
+                    void shellApi.installUpdate(() => undefined).catch((error) => useNotifications.getState().push({
+                      icon: "download", title: "Installation indisponible", body: String(error), tone: "warn", action: "update",
+                    }));
+                  } : undefined}
+                  onKeyDown={n.action ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.currentTarget.click(); } } : undefined}
                   className={`ibox-focusable flex gap-3 rounded-lg px-3 py-2.5 outline-none ${n.read ? "" : "bg-[var(--ibox-sky)]/25"}`}
                 >
                   <span

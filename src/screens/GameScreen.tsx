@@ -1,3 +1,4 @@
+import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
@@ -176,6 +177,7 @@ function GameSheet({ game }: { game: Game }) {
 
   return (
     <div className="relative grid h-full grid-cols-[minmax(24rem,31rem)_minmax(0,1fr)] gap-8 px-[3rem] pb-4" style={themeVars(platform)}>
+      <Achievements key={game.id} game={game} />
       {/* ——— Informations ——— */}
       <motion.aside
         initial={{ opacity: 0, x: -24 }}

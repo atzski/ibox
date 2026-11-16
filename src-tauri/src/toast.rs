@@ -7,6 +7,7 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWi
 
 static QUEUE: Mutex<VecDeque<Value>> = Mutex::new(VecDeque::new());
 static ENABLED: AtomicBool = AtomicBool::new(true);
+static FRIENDS: AtomicBool = AtomicBool::new(true);
 const LABEL: &str = "toast";
 /// Taille de la fenêtre (en points) : une carte et son ombre.
 const WIDTH: f64 = 400.0;
@@ -45,7 +46,7 @@ fn place(w: &tauri::WebviewWindow) {
 
 /// Ajoute une notification (ignorée si l'utilisateur les a coupées).
 pub fn push(app: &AppHandle, payload: Value) {
-    if !ENABLED.load(Ordering::Relaxed) { return; }
+    if !ENABLED.load(Ordering::Relaxed) || (payload["kind"] != "update" && !FRIENDS.load(Ordering::Relaxed)) { return; }
     if let Ok(mut q) = QUEUE.lock() {
         if q.len() >= 6 { q.pop_front(); }
         q.push_back(payload);
@@ -59,6 +60,11 @@ pub fn push(app: &AppHandle, payload: Value) {
         let _ = w.set_always_on_top(true);
         let _ = app.emit_to(LABEL, "toast-push", ());
     });
+}
+
+#[tauri::command]
+pub fn toast_update(app: AppHandle, version: String) {
+    push(&app, serde_json::json!({"kind":"update","friendId":"","name":format!("iBox {version}"),"body":"Cliquez pour installer la mise à jour."}));
 }
 
 /// La fenêtre de notification récupère les notifications en attente.
@@ -83,6 +89,7 @@ pub fn toast_click(app: AppHandle, payload: Value) {
 
 /// Réglage « Notifications » d'iBox (repris par la fenêtre principale).
 #[tauri::command]
-pub fn toast_enabled(enabled: bool) {
+pub fn toast_enabled(enabled: bool, friends: Option<bool>) {
+    FRIENDS.store(friends.unwrap_or(true), Ordering::Relaxed);
     ENABLED.store(enabled, Ordering::Relaxed);
 }

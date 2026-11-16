@@ -11,6 +11,8 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 }
 
 export const HELP = {
+  raKey: "https://retroachievements.org/settings",
+  iidbKey: "https://iidb.iisu.network/",
   steamKey: "https://steamcommunity.com/dev/apikey",
   steamgriddbKey: "https://www.steamgriddb.com/profile/preferences/api",
   steamAccount: "https://store.steampowered.com/account/",
@@ -34,6 +36,7 @@ export const shellApi = {
   autostartSet: (enabled: boolean) => invoke<boolean>("autostart_set", { enabled }),
   /** Enregistre le rapport sur ce PC et le montre dans l'Explorateur ; renvoie son chemin. */
   saveDiagnostic: (text: string) => invoke<string>("diagnostic_save", { text }),
+  updateToast: (version: string) => invoke<void>("toast_update", { version }),
   checkUpdate: () => invoke<UpdateInfo>("update_check"),
   installUpdate: async (onProgress: (event: UpdateProgress) => void) => {
     if (!isTauri()) throw new Error("Installation disponible dans l’application Windows.");

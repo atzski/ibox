@@ -56,6 +56,8 @@ export function matchesSmartRule(rule: SmartRule, game: import("@/domain/types")
 }
 export interface CollectionStyle {
   rule?: SmartRule;
+  hideName?: boolean;
+  gameOrder?: number[];
   logoGameId?: number;
   heroGameId?: number;
   look?: "fan" | "hero" | "grid";

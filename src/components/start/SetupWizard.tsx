@@ -321,12 +321,14 @@ function KeyCard({
   );
 }
 
+import { artApi } from "@/services/platformArt";
+
 function PcStep() {
   return (
     <Step
       icon="gamepad"
       title="Vos jeux PC"
-      lead="Les jeux installés de Steam, Epic, GOG, EA, Ubisoft, Xbox et Riot sont trouvés tout seuls. Deux clés gratuites ajoutent plus — elles restent dans le coffre de Windows, jamais en clair."
+      lead="Les jeux installés de Steam, Epic, GOG, EA, Ubisoft, Xbox et Riot sont trouvés tout seuls. Des clés gratuites ajoutent plus — elles restent dans le coffre de Windows, jamais en clair."
     >
       <div className="flex flex-col gap-4">
         <KeyCard
@@ -343,6 +345,26 @@ function PcStep() {
           save={async (k) => {
             const n = await pcApi.setSteamKey(k);
             return `Clé vérifiée par Steam : ${n} jeu${n > 1 ? "x" : ""} possédé${n > 1 ? "s" : ""}.`;
+          }}
+        />
+        <KeyCard
+          title="Clé API iiDB"
+          what="Illustre vos consoles et vos jeux."
+          steps={["Connectez-vous à iiDB puis copiez votre clé API."]}
+          help={HELP.iidbKey}
+          placeholder="Clé API iiDB"
+          save={async (key) => { await artApi.connect(key); return "Clé enregistrée."; }}
+        />
+        <KeyCard
+          title="Clé API RetroAchievements"
+          what="Affiche vos succès rétro dans les fiches de jeux."
+          steps={["Ouvrez les paramètres RetroAchievements et copiez votre clé Web API."]}
+          help={HELP.raKey}
+          placeholder="Clé API RetroAchievements"
+          save={async (key) => {
+            const { invoke } = await import("@tauri-apps/api/core");
+            await invoke("achievements_ra_key", { key });
+            return "Clé enregistrée.";
           }}
         />
         <KeyCard

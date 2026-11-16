@@ -30,7 +30,11 @@ export function CollectionsRow() {
   const styles = useCollectionStyles((s) => s.styles);
   const gamesOf = (c: Collection) => {
     const rule = styles[c.id]?.rule;
-    return rule ? games.filter((g) => matchesSmartRule(rule, g)) : c.gameIds.map((id) => byDb.get(id)).filter((g): g is Game => !!g);
+    const items = rule ? games.filter((g) => matchesSmartRule(rule, g)) : c.gameIds.map((id) => byDb.get(id)).filter((g): g is Game => !!g);
+    const order = styles[c.id]?.gameOrder;
+    if (!order?.length) return items;
+    const positions = new Map(order.map((id, index) => [id, index]));
+    return [...items].sort((a, b) => (positions.get(a.dbId!) ?? Infinity) - (positions.get(b.dbId!) ?? Infinity));
   };
   useEffect(() => {
     const listener = (event: Event) => {
@@ -179,9 +183,10 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images }:
         className="group ibox-focusable ibox-lift relative flex h-[12.5rem] w-[19rem] flex-col justify-end overflow-hidden rounded-[1.6rem] text-left shadow-md [--ring-radius:1.6rem]"
         style={{ background: `linear-gradient(150deg, ${c.color}, color-mix(in oklab, ${c.color} 60%, #1b2030))` }}
       >
-        {look !== "grid" && (heroUrl ? (
-          <img src={heroUrl} alt="" draggable={false} className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "" : "opacity-60"}`} />
-        ) : hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
+        {heroUrl ? (
+          // fond choisi : toujours affiché, quel que soit le style de carte
+          <img src={heroUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : look !== "grid" && (hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
         <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
@@ -204,7 +209,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images }:
           <span className="min-w-0 flex-1">
             {logoUrl ? <img src={logoUrl} alt="" draggable={false} className={`mb-1 ${logoH} max-w-[12rem] object-contain object-left drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)]`} />
               : logo ? <GameLogo game={logo} className={`mb-1 ${logoH} max-w-[12rem] object-left`} /> : null}
-            <span data-no-i18n className="block truncate font-display text-[1.3rem] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">{c.name}</span>
+            {!style?.hideName && <span data-no-i18n className="block truncate font-display text-[1.3rem] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">{c.name}</span>}
           </span>
           <span className={`${cardDetails} shrink-0 rounded-full px-2.5 py-1 text-[0.78rem] font-bold shadow-sm ring-2 ring-white/70`} style={{ background: c.color, color: inkOn(c.color) }}>
             {items.length} jeu{items.length > 1 ? "x" : ""}
@@ -260,7 +265,9 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
       for (const kind of ["icon", "logo", "hero"] as const) {
         const image = images[kind];
         if (!image) continue;
-        await invoke("collection_art_set", { id, kind, url: image.url });
+        // image d'origine, sinon sa version allégée (fichiers très lourds)
+        try { await invoke("collection_art_set", { id, kind, url: image.url }); }
+        catch (err) { if (!image.thumb || image.thumb === image.url) throw err; await invoke("collection_art_set", { id, kind, url: image.thumb }); }
         next[`${kind}Stamp`] = Date.now();
       }
       setStyle(id, next);
@@ -273,6 +280,7 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
   return (
     <Modal title={collection ? "Modifier la collection" : "Nouvelle collection"} onClose={() => { if (!saving) onClose(); }} width="38rem">
       <form onSubmit={save} className="flex flex-col gap-4">
+        <div className="flex gap-2">
         <input
           data-focusable
           data-autofocus
@@ -281,8 +289,12 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
           onChange={(e) => setName(e.target.value)}
           placeholder="Nom (ex. À finir)"
           aria-label="Nom de la collection"
-          className="ibox-focusable h-12 rounded-full bg-cream-deep px-5 font-bold text-ink [--ring-radius:999px]"
+          className="ibox-focusable h-12 min-w-0 flex-1 rounded-full bg-cream-deep px-5 font-bold text-ink [--ring-radius:999px]"
         />
+        <button type="button" data-focusable aria-pressed={!style.hideName} aria-label={style.hideName ? "Afficher le nom" : "Masquer le nom"} title={style.hideName ? "Afficher le nom" : "Masquer le nom"} onClick={() => setLocalStyle({ ...style, hideName: !style.hideName })} className="ibox-focusable grid size-12 place-items-center rounded-full bg-cream-deep text-ink [--ring-radius:999px]">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{style.hideName && <path d="M3 3l18 18"/>}</svg>
+        </button>
+        </div>
         <div className="grid justify-items-center gap-2 rounded-2xl bg-cream-deep p-4">
           <span className="text-sm font-bold text-ink-soft">Aperçu de la collection</span>
           <div inert className="group/collection relative max-w-full">
@@ -441,8 +453,9 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
   const dark = useIsDark();
   const go = useNav((s) => s.go);
   const [editing, setEditing] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   useEffect(() => {
-    if (editing) return;
+    if (editing || ordering) return;
     const off = input.onBack(() => {
       onClose();
       return true;
@@ -452,7 +465,7 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
       off();
       cancelAnimationFrame(id);
     };
-  }, [onClose, editing]);
+  }, [onClose, editing, ordering]);
   return createPortal(
     <motion.div
       data-nav-root
@@ -477,6 +490,7 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
           {games.length} jeu{games.length > 1 ? "x" : ""}
         </span>
         <span className="flex-1" />
+        {games.length > 1 && <button data-focusable onClick={() => setOrdering(true)} className="ibox-focusable flex h-11 items-center gap-2 rounded-full bg-white/12 px-4 text-[0.92rem] font-bold [--ring-radius:999px] hover:bg-white/20">↕ Ordre des jeux</button>}
         {!smart && <button
           data-focusable
           onClick={() => { sound.play("open"); setEditing(true); }}
@@ -487,6 +501,7 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
         </button>}
       </div>
       {editing && <GamesEditor collection={collection} onClose={() => setEditing(false)} />}
+      {ordering && <OrderEditor collection={collection} games={games} onClose={() => setOrdering(false)} />}
       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl">
         {games.length === 0 ? (
           <div className="grid h-full place-items-center text-[1rem] font-bold text-white/60">{smart ? "Aucun jeu ne correspond au critère." : "Collection vide : ajoutez des jeux avec « Modifier les jeux »."}</div>
@@ -705,6 +720,28 @@ function IconSearch({ onPicked }: { onPicked: (image: Pic) => void }) {
       )}
     </div>
   );
+}
+
+function OrderEditor({ collection, games, onClose }: { collection: Collection; games: Game[]; onClose: () => void }) {
+  const [ordered, setOrdered] = useState(games);
+  const setStyle = useCollectionStyles((s) => s.setStyle);
+  const move = (index: number, delta: number) => setOrdered((old) => {
+    const next = [...old];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return old;
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  return <Modal title="Ordre des jeux" onClose={onClose} width="38rem">
+    <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+      {ordered.map((game, index) => <div key={game.id} className="flex items-center gap-2 rounded-xl bg-cream-deep p-2">
+        <span data-no-i18n className="min-w-0 flex-1 truncate font-bold">{game.title}</span>
+        <button type="button" data-focusable disabled={index === 0} aria-label={`Monter ${game.title}`} onClick={() => move(index, -1)} className="ibox-focusable rounded-full bg-white px-3 py-1 disabled:opacity-30">↑</button>
+        <button type="button" data-focusable disabled={index === ordered.length - 1} aria-label={`Descendre ${game.title}`} onClick={() => move(index, 1)} className="ibox-focusable rounded-full bg-white px-3 py-1 disabled:opacity-30">↓</button>
+      </div>)}
+    </div>
+    <div className="mt-4 flex justify-end"><Button variant="primary" icon="check" onClick={() => { setStyle(collection.id, { ...useCollectionStyles.getState().styles[collection.id], gameOrder: ordered.map((g) => g.dbId!).filter((id) => id !== undefined) }); onClose(); }}>Enregistrer</Button></div>
+  </Modal>;
 }
 
 /** Ajouter ou retirer des jeux, directement depuis la collection ouverte. */

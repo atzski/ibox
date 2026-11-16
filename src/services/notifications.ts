@@ -15,6 +15,7 @@ export interface Notice {
   body?: string;
   tone: "info" | "ok" | "warn";
   read: boolean;
+  action?: "update";
 }
 
 interface NotifState {
@@ -56,7 +57,10 @@ export const notify = (n: Omit<Notice, "id" | "at" | "read">) => {
   // réglage lu sans dépendance circulaire (Paramètres › Notifications)
   try {
     const raw = localStorage.getItem("ibox.settings");
-    if (raw && JSON.parse(raw)?.state?.notificationsEnabled === false) return;
+    const st = raw ? JSON.parse(raw)?.state : null;
+    if (st?.notificationsEnabled === false) return;
+    // fenêtres de téléchargement masquées (jaquettes, illustrations, jingles…)
+    if (st?.downloadPopups === false && /télécharg|récupér|jingle|illustration|jaquette|image/i.test(`${n.title} ${n.body ?? ""}`)) return;
   } catch {
     /* réglages illisibles : on notifie */
   }

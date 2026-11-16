@@ -215,8 +215,9 @@ const BOXES: Record<string, BoxSpec> = {
   gb: {
     model: "box",
     kind: "cartridge",
-    width: 1.12,
-    height: 1.3,
+    // boîte presque carrée, comme les vraies (jaquettes ~ 1:1)
+    width: 1.27,
+    height: 1.29,
     depth: 0.28,
     cardboard: "#ece8df",
     tray: "#f4f1ea",
@@ -225,8 +226,9 @@ const BOXES: Record<string, BoxSpec> = {
   gbc: {
     model: "box",
     kind: "cartridge",
-    width: 1.12,
-    height: 1.3,
+    // boîte presque carrée, comme les vraies (jaquettes ~ 1:1)
+    width: 1.27,
+    height: 1.29,
     depth: 0.28,
     cardboard: "#ece8df",
     tray: "#f4f1ea",

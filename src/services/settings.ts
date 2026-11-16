@@ -62,6 +62,10 @@ export interface SettingsState {
   lastSeenVersion?: string;
   /** Notifications d'activité des amis (connexion, jeu lancé). */
   friendAlerts?: boolean;
+  /** Notifications de téléchargement (jaquettes, illustrations, jingles). */
+  downloadPopups?: boolean;
+  doNotDisturb?: boolean;
+  raUsername?: string;
   /** Jingles des jeux (iiDB) acceptés et joués sur les fiches. */
   gameSounds?: boolean;
   /** Musique du menu personnalisée : pistes importées, dans l'ordre de lecture. */
@@ -119,6 +123,7 @@ export interface SettingsState {
   notificationsEnabled: boolean;
   /** Fond : jeu sélectionné, image choisie, ou halos seuls. */
   backgroundStyle: "ambient" | "image" | "calm";
+  homeBackground?: { type: "platform"; platformId: string } | { type: "game"; gameId: string } | null;
   customBackground: { type: "platform"; platformId: string } | { type: "game"; gameId: string } | { type: "file"; stamp: number } | null;
   librarySort: LibrarySort;
   /** Favoris des jeux de démonstration (ceux des vrais jeux sont en base). */

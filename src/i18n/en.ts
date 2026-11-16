@@ -1256,4 +1256,13 @@ export const EN: Record<string, string> = {
   "Visible par vos amis": "Visible to your friends",
   "Onglet Amis embelli": "Prettier Friends tab",
   "Fonds des jeux dans votre carte et chez vos amis en jeu, boutons réorganisés.": "Game backgrounds on your card and for friends in game, reorganized buttons.",
+  "Boîtes Game Boy au bon format": "Game Boy boxes at the right size",
+  "Game Boy et Game Boy Color : boîtes presque carrées, jaquettes affichées sans être étirées.": "Game Boy and Game Boy Color: nearly square boxes, covers shown without stretching.",
+  "Fonds de collection appliqués": "Collection backgrounds applied",
+  "Le fond choisi s'affiche pleinement sur la carte, quel que soit son style, même pour les images très lourdes.": "The chosen background now shows fully on the card, whatever its style, even for very large images.",
+  "Bibliothèque visible": "Library visible",
+  "Bibliothèque cachée": "Library hidden",
+  "Partie visible": "Game visible",
+  "Partie cachée": "Game hidden",
+  "Notifications de téléchargement": "Download notifications",
 };

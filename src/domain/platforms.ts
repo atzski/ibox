@@ -172,7 +172,7 @@ export const PLATFORMS: Platform[] = [
     media: "cartridge",
     extensions: extensionsOf("gb"),
     emulatorHints: ["mgba", "retroarch"],
-    layout: { coverAspect: 0.86, gridCardWidth: 11 },
+    layout: { coverAspect: 127 / 129, gridCardWidth: 12 },
   },
   {
     id: "gbc",
@@ -194,7 +194,7 @@ export const PLATFORMS: Platform[] = [
     media: "cartridge",
     extensions: extensionsOf("gbc"),
     emulatorHints: ["mgba", "retroarch"],
-    layout: { coverAspect: 0.86, gridCardWidth: 11 },
+    layout: { coverAspect: 127 / 129, gridCardWidth: 12 },
   },
   {
     id: "gba",

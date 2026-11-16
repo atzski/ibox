@@ -17,7 +17,7 @@ import { useLastPlayed } from "@/components/profile/LastPlayed";
 import { useLibrary } from "@/services/library";
 import { useNav } from "@/app/navigation";
 import { getPlatform } from "@/domain/platforms";
-import { PresencePicker, GameShareToggle, StatusDot, STATUS_COLOR, friendState } from "@/components/social/Presence";
+import { DoNotDisturbToggle, PresencePicker, GameShareToggle, StatusDot, STATUS_COLOR, friendState } from "@/components/social/Presence";
 import { sound } from "@/services/sound";
 import { ActivityView, ChatView, LibraryShareToggle, ProfileView } from "@/components/social/FriendViews";
 import type { FriendsTarget } from "@/services/social";
@@ -61,6 +61,7 @@ export function FriendsButton() {
         aria-label={`Amis${onlineCount ? `, ${onlineCount} en ligne` : ""}${incoming ? `, ${incoming} invitation${incoming > 1 ? "s" : ""}` : ""}`}
         onClick={() => {
           sound.play(open ? "close" : "open");
+          if (!open) setTarget(null);
           setOpen((v) => !v);
         }}
         className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full bg-white px-4 text-ink shadow-sm [--ring-radius:999px]"
@@ -252,6 +253,7 @@ function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfil
         <MyGame />
         <div className="mt-3 grid grid-cols-[auto_1fr_1fr] items-center gap-1.5 rounded-2xl bg-white/70 p-1.5 shadow-xs backdrop-blur-md [&>*]:min-w-0 [&>*]:justify-center">
           <PresencePicker />
+          <DoNotDisturbToggle />
           <GameShareToggle />
           <LibraryShareToggle />
         </div>

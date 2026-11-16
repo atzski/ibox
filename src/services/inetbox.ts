@@ -7,10 +7,13 @@ import { useSettings } from "./settings";
 import { getPlatform } from "@/domain/platforms";
 import type { AvatarChoice } from "./settings";
 
+export interface AchievementHighlight { source: "Steam" | "RetroAchievements"; title: string; earned: number; total: number }
+export interface FeaturedGame { title: string; platformId: string; cover?: string }
 export interface InetUser {
   id: string; username: string; displayName: string; friendCode: string;
   avatar?: AvatarChoice | null;
-  featuredGames?: { title: string; platformId: string }[];
+  featuredGames?: FeaturedGame[];
+  achievementHighlight?: AchievementHighlight | null;
   privacy: { shareOnline: boolean; shareGame: boolean; shareLibrary?: boolean; publicProfile?: boolean };
 }
 export interface InetFriend {

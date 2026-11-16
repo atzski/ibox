@@ -42,6 +42,8 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
           <button data-focusable className="ibox-focusable rounded-lg bg-white px-3 py-1.5" onClick={() => setQuery((value) => value.slice(0, -1))}>Effacer</button>
         </div>
       </div>}
+      {/* taille fixe : la fenêtre ne change pas de hauteur pendant la saisie */}
+      <div className="h-[48vh] overflow-y-auto pr-1">
       {sections.every(({ items }) => !items.length) && <p className="text-ink-soft">Aucun résultat.</p>}
       {sections.map(({ label, icon, items }) => items.length > 0 && (
         <section key={label} className="mb-4">
@@ -53,6 +55,7 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
           </button>)}
         </section>
       ))}
+      </div>
     </Modal>
   );
 }

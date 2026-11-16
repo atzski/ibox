@@ -1,3 +1,4 @@
+import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
@@ -73,9 +74,10 @@ export function PcGameSheet({ game }: { game: Game }) {
         initial={{ opacity: 0, y: reduced ? 0 : 40, rotateY: reduced ? 0 : -14, scale: reduced ? 1 : 0.94 }}
         animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 140, damping: 20 }}
-        className="flex items-start justify-center pt-6 [perspective:1400px]"
+        className="flex min-h-0 flex-col items-center gap-5 overflow-y-auto pt-6 pb-4 [perspective:1400px]"
       >
         <FloatingCover game={game} reduced={reduced} />
+        <Achievements key={game.id} game={game} inline />
       </motion.div>
 
       {/* Informations */}
