@@ -10,7 +10,7 @@ import type { AvatarChoice } from "./settings";
 export interface LocalCapture { name: string; kind: "screenshot" | "clip"; game?: string | null; platformId?: string | null; at: number; size: number }
 export interface SharedCapture {
   id: string; kind: "screenshot" | "clip"; game: string | null; platformId: string | null; caption: string;
-  size: number; createdAt: number; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean;
+  size: number; createdAt: number; hasThumb?: boolean; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean;
 }
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -31,9 +31,12 @@ export const community = {
   remove: (id: string) => call<void>("deleteShare", undefined, id),
 };
 
-/** Adresse locale (blob) d'une capture du PC ou d'un partage, libérée au démontage. */
-export function useCaptureUrl(source: { local: string } | { shared: string } | null): string | null {
-  const key = source ? ("local" in source ? `l:${source.local}` : `s:${source.shared}`) : "";
+/**
+ * Adresse locale (blob) d'une capture du PC ou d'un partage, libérée au démontage.
+ * `thumb` : miniature légère du partage (fil), gardée en cache disque comme l'image.
+ */
+export function useCaptureUrl(source: { local: string } | { shared: string; thumb?: boolean } | null): string | null {
+  const key = source ? ("local" in source ? `l:${source.local}` : `s:${source.shared}:${source.thumb ? 1 : 0}`) : "";
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!source || !isTauri()) return;
@@ -43,11 +46,12 @@ export function useCaptureUrl(source: { local: string } | { shared: string } | n
       try {
         const bytes = "local" in source
           ? await invoke<ArrayBuffer>("captures_read", { name: source.local })
-          : await invoke<ArrayBuffer>("community_media", { id: source.shared });
+          : await invoke<ArrayBuffer>("community_media", { id: source.shared, thumb: !!source.thumb });
         if (!alive) return;
         const name = "local" in source ? source.local : "";
-        const gif = name.endsWith(".gif") || new Uint8Array(bytes.slice(0, 3))[0] === 0x47;
-        made = URL.createObjectURL(new Blob([bytes], { type: gif ? "image/gif" : "image/png" }));
+        const head = new Uint8Array(bytes.slice(0, 3));
+        const type = name.endsWith(".gif") || head[0] === 0x47 ? "image/gif" : head[0] === 0xff ? "image/jpeg" : "image/png";
+        made = URL.createObjectURL(new Blob([bytes], { type }));
         setUrl(made);
       } catch {
         if (alive) setUrl(null);

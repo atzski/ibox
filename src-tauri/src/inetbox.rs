@@ -165,12 +165,17 @@ pub(crate) fn activity(app: &AppHandle) -> Option<Value> {
     }).ok().flatten()
 }
 /// Communauté : envoi d'une capture (octets bruts, jusqu'à 8 Mo) sans bloquer le reste d'iNetbox.
-pub(crate) fn upload_share(meta: &[(&str, String)], bytes: Vec<u8>) -> Result<Value> {
+/// La miniature (JPEG, facultative) est ajoutée à la fin du corps et annoncée par `thumb`.
+pub(crate) fn upload_share(meta: &[(&str, String)], mut bytes: Vec<u8>, thumb: Option<Vec<u8>>) -> Result<Value> {
     let token = keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour partager."))?;
     let client = Client::builder().timeout(Duration::from_secs(120)).connect_timeout(Duration::from_secs(30))
         .redirect(reqwest::redirect::Policy::none()).build().map_err(|_| err("NETWORK_ERROR", "Connexion indisponible."))?;
     let mut url = base_url(SERVICE)?.join("/v1/shares").map_err(|_| err("CONFIG_ERROR", "Route invalide."))?;
     url.query_pairs_mut().extend_pairs(meta.iter().map(|(k, v)| (*k, v.as_str())));
+    if let Some(t) = thumb {
+        url.query_pairs_mut().append_pair("thumb", &t.len().to_string());
+        bytes.extend_from_slice(&t);
+    }
     let response = client.post(url).bearer_auth(token).header("content-type", "application/octet-stream").body(bytes).send()
         .map_err(|_| err("NETWORK_ERROR", "iNetbox est injoignable."))?;
     let status = response.status();
@@ -184,18 +189,18 @@ pub(crate) fn upload_share(meta: &[(&str, String)], bytes: Vec<u8>) -> Result<Va
     })
 }
 
-/// Communauté : image ou clip d'un partage visible (PNG ou GIF, 8 Mo au plus).
-pub(crate) fn share_media(id: &str) -> Result<Vec<u8>> {
+/// Communauté : image ou clip d'un partage visible (PNG ou GIF, 8 Mo au plus), ou sa miniature JPEG.
+pub(crate) fn share_media(id: &str, thumb: bool) -> Result<Vec<u8>> {
     if id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') { return Err(err("INVALID_INPUT", "Identifiant invalide.")); }
     let token = keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox."))?;
     let client = Client::builder().timeout(Duration::from_secs(60)).redirect(reqwest::redirect::Policy::none()).build()
         .map_err(|_| err("NETWORK_ERROR", "Connexion indisponible."))?;
-    let url = base_url(SERVICE)?.join(&format!("/v1/shares/{id}/media")).map_err(|_| err("CONFIG_ERROR", "Route invalide."))?;
+    let url = base_url(SERVICE)?.join(&format!("/v1/shares/{id}/{}", if thumb { "thumb" } else { "media" })).map_err(|_| err("CONFIG_ERROR", "Route invalide."))?;
     let response = client.get(url).bearer_auth(token).send().map_err(|_| err("NETWORK_ERROR", "iNetbox est injoignable."))?;
     if !response.status().is_success() { return Err(err("NOT_FOUND", "Capture indisponible.")); }
     let mut bytes = Vec::new();
     response.take(8 * 1024 * 1024 + 1).read_to_end(&mut bytes).map_err(|_| err("NETWORK_ERROR", "Téléchargement interrompu."))?;
-    let image = bytes.starts_with(&[0x89, b'P', b'N', b'G']) || bytes.starts_with(b"GIF8");
+    let image = bytes.starts_with(&[0x89, b'P', b'N', b'G']) || bytes.starts_with(b"GIF8") || (thumb && bytes.starts_with(&[0xff, 0xd8, 0xff]));
     if bytes.len() > 8 * 1024 * 1024 || !image { return Err(err("INVALID_RESPONSE", "Capture invalide.")); }
     Ok(bytes)
 }

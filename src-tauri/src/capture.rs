@@ -394,19 +394,9 @@ pub fn captures_folder(app: AppHandle) -> Result<(), String> {
     std::process::Command::new("explorer").arg(d).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Réduit une capture d'écran PNG à 1600 points de large pour le partage.
-fn shareable_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
-    let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
-    let mut buf = vec![0; reader.output_buffer_size().ok_or("Image trop grande.")?];
-    let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
-    if info.color_type != png::ColorType::Rgb || info.bit_depth != png::BitDepth::Eight { return Ok(bytes.to_vec()); }
-    let (w, h) = (info.width, info.height);
-    const MAX: u32 = 1600;
-    if w <= MAX { return Ok(bytes.to_vec()); }
-    let (tw, th) = (MAX, ((h as u64 * MAX as u64) / w as u64).max(1) as u32);
+/// Réduction douce (moyenne des pixels couverts) d'une image RGB.
+fn shrink(buf: &[u8], w: u32, h: u32, tw: u32, th: u32) -> Vec<u8> {
     let mut out = vec![0u8; (tw * th * 3) as usize];
-    // moyenne des pixels couverts (réduction douce)
     for y in 0..th {
         let (y0, y1) = ((y * h / th) as usize, (((y + 1) * h / th).max(y * h / th + 1)) as usize);
         for x in 0..tw {
@@ -421,6 +411,40 @@ fn shareable_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
             for c in 0..3 { out[o + c] = (acc[c] / n.max(1)) as u8; }
         }
     }
+    out
+}
+
+/// Pixels RGB d'une capture : PNG RGB/RGBA 8 bits, ou première image d'un GIF.
+fn decode_rgb(bytes: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
+    if bytes.starts_with(b"GIF8") {
+        let mut opts = gif::DecodeOptions::new();
+        opts.set_color_output(gif::ColorOutput::RGBA);
+        let mut dec = opts.read_info(std::io::Cursor::new(bytes)).ok()?;
+        let (w, h) = (dec.width() as u32, dec.height() as u32);
+        let frame = dec.read_next_frame().ok()??;
+        if frame.width as u32 != w || frame.height as u32 != h { return None; }
+        return Some((w, h, frame.buffer.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect()));
+    }
+    let mut reader = png::Decoder::new(std::io::Cursor::new(bytes)).read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buf).ok()?;
+    if info.bit_depth != png::BitDepth::Eight { return None; }
+    buf.truncate(info.buffer_size());
+    let rgb = match info.color_type {
+        png::ColorType::Rgb => buf,
+        png::ColorType::Rgba => buf.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect(),
+        _ => return None,
+    };
+    Some((info.width, info.height, rgb))
+}
+
+/// Réduit une capture d'écran PNG à 1600 points de large pour le partage.
+fn shareable_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    const MAX: u32 = 1600;
+    let Some((w, h, buf)) = decode_rgb(bytes) else { return Ok(bytes.to_vec()) };
+    if w <= MAX { return Ok(bytes.to_vec()); }
+    let (tw, th) = (MAX, ((h as u64 * MAX as u64) / w as u64).max(1) as u32);
+    let out = shrink(&buf, w, h, tw, th);
     let mut png_out = Vec::new();
     {
         let mut enc = png::Encoder::new(&mut png_out, tw, th);
@@ -433,6 +457,42 @@ fn shareable_png(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(png_out)
 }
 
+/// Miniature JPEG (480 points de large) affichée dans le fil : quelques dizaines de Ko
+/// au lieu de l'image entière.
+pub fn thumbnail(bytes: &[u8]) -> Option<Vec<u8>> {
+    const MAX: u32 = 480;
+    let (w, h, buf) = decode_rgb(bytes)?;
+    let (tw, th) = if w > MAX { (MAX, ((h as u64 * MAX as u64) / w as u64).max(1) as u32) } else { (w, h) };
+    let small = if (tw, th) == (w, h) { buf } else { shrink(&buf, w, h, tw, th) };
+    let mut out = Vec::new();
+    jpeg_encoder::Encoder::new(&mut out, 72).encode(&small, tw as u16, th as u16, jpeg_encoder::ColorType::Rgb).ok()?;
+    (out.len() <= 256 * 1024).then_some(out)
+}
+
+/// Cache disque des images de la Communauté : un partage ne change jamais, il n'est
+/// téléchargé qu'une fois. Les plus anciens fichiers partent au-delà de 200 Mo.
+const SHARE_CACHE_BYTES: u64 = 200 * 1024 * 1024;
+
+fn share_cache_file(app: &AppHandle, id: &str, thumb: bool) -> Option<PathBuf> {
+    if id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') { return None; }
+    let dir = app.path().app_data_dir().ok()?.join("community-cache");
+    Some(dir.join(format!("{id}.{}", if thumb { "thumb" } else { "media" })))
+}
+
+fn prune_share_cache(dir: &Path) {
+    let Ok(items) = fs::read_dir(dir) else { return };
+    let mut files: Vec<(SystemTime, u64, PathBuf)> = items.flatten()
+        .filter_map(|e| { let m = e.metadata().ok()?; m.is_file().then(|| (m.modified().unwrap_or(UNIX_EPOCH), m.len(), e.path())) })
+        .collect();
+    let mut total: u64 = files.iter().map(|f| f.1).sum();
+    if total <= SHARE_CACHE_BYTES { return; }
+    files.sort_by_key(|f| f.0);
+    for (_, len, path) in files {
+        if total <= SHARE_CACHE_BYTES { break; }
+        if fs::remove_file(&path).is_ok() { total = total.saturating_sub(len); }
+    }
+}
+
 /// Partage une capture dans la Communauté iNetbox (amis, et tout le monde si le profil est public).
 #[tauri::command]
 pub async fn community_share(app: AppHandle, name: String, caption: Option<String>) -> Result<Value, crate::inetbox::Error> {
@@ -441,19 +501,34 @@ pub async fn community_share(app: AppHandle, name: String, caption: Option<Strin
     let bytes = read_bytes(&app, &name).map_err(|e| bad(&e))?;
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = if capture.kind == "screenshot" { shareable_png(&bytes).unwrap_or(bytes) } else { bytes };
+        let thumb = thumbnail(&bytes);
         let clip = |s: &str, n: usize| s.chars().take(n).collect::<String>();
         let mut meta = vec![("kind", capture.kind.clone())];
         if let Some(g) = &capture.game { meta.push(("game", clip(g, 160))); }
         if let Some(p) = &capture.platform_id { meta.push(("platform", clip(p, 40))); }
         if let Some(c) = caption.as_deref().map(str::trim).filter(|c| !c.is_empty()) { meta.push(("caption", clip(c, 200))); }
-        crate::inetbox::upload_share(&meta, bytes)
+        crate::inetbox::upload_share(&meta, bytes, thumb)
     }).await.map_err(|_| bad("Partage interrompu."))?
 }
 
+/// Image d'un partage (ou sa miniature), lue d'abord dans le cache disque.
 #[tauri::command]
-pub async fn community_media(id: String) -> Result<tauri::ipc::Response, crate::inetbox::Error> {
-    tauri::async_runtime::spawn_blocking(move || crate::inetbox::share_media(&id).map(tauri::ipc::Response::new))
-        .await.map_err(|_| crate::inetbox::Error::new("INTERNAL_ERROR", "Indisponible."))?
+pub async fn community_media(app: AppHandle, id: String, thumb: Option<bool>) -> Result<tauri::ipc::Response, crate::inetbox::Error> {
+    let thumb = thumb.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        let file = share_cache_file(&app, &id, thumb);
+        if let Some(bytes) = file.as_ref().and_then(|f| fs::read(f).ok()).filter(|b| b.len() > 16) {
+            return Ok(tauri::ipc::Response::new(bytes));
+        }
+        let bytes = crate::inetbox::share_media(&id, thumb)?;
+        if let Some(f) = file {
+            if let Some(dir) = f.parent() {
+                let _ = fs::create_dir_all(dir);
+                if fs::write(&f, &bytes).is_ok() { prune_share_cache(dir); }
+            }
+        }
+        Ok(tauri::ipc::Response::new(bytes))
+    }).await.map_err(|_| crate::inetbox::Error::new("INTERNAL_ERROR", "Indisponible."))?
 }
 
 #[cfg(test)]
@@ -468,6 +543,19 @@ mod tests {
         assert!(!valid_name("../x.png"));
         assert!(!valid_name("a.json"));
         assert!(!valid_name("a.b.png"));
+    }
+
+    #[test]
+    fn thumbnails_are_small_jpegs() {
+        let (w, h) = (1600u32, 900u32);
+        let rgb: Vec<u8> = (0..w * h).flat_map(|i| [(i % 251) as u8, (i % 13) as u8 * 9, 120]).collect();
+        let png = encode_png(w, h, &rgb).unwrap();
+        let t = thumbnail(&png).unwrap();
+        assert!(t.starts_with(&[0xff, 0xd8, 0xff]));
+        assert!(t.len() < png.len() / 4);
+        let frames = vec![quantize(&rgb[..(480 * 270 * 3) as usize]); 2];
+        let gif = encode_gif(480, 270, &frames, 12).unwrap();
+        assert!(thumbnail(&gif).unwrap().starts_with(&[0xff, 0xd8, 0xff]));
     }
 
     #[test]

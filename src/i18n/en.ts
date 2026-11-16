@@ -1649,4 +1649,6 @@ export const EN: Record<string, string> = {
   "Sur certains PC, le coffre Windows refusait les clés API (erreur 8). iBox réessaie autrement, puis les garde dans un coffre chiffré propre à votre session Windows.": "On some PCs, the Windows vault rejected API keys (error 8). iBox now retries another way, then keeps them in an encrypted vault tied to your Windows session.",
   "Supprimer un joueur": "Delete a player",
   "Paramètres › Profil › Joueurs de ce PC : supprimez un profil, ses réglages, fonds et captures. Son compte iNetbox, lui, n’est pas supprimé.": "Settings › Profile › Players on this PC: delete a profile with its settings, wallpapers and captures. Their iNetbox account is not deleted.",
+  "Communauté plus rapide": "Faster Community",
+  "Le fil affiche des miniatures légères ; l’image entière ne se charge qu’en l’ouvrant. Chaque partage n’est téléchargé qu’une fois, puis gardé sur ce PC.": "The feed shows lightweight thumbnails; the full image only loads when you open it. Each share is downloaded once, then kept on this PC.",
 };

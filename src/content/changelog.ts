@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.52",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "globe", title: "Communauté plus rapide", text: "Le fil affiche des miniatures légères ; l’image entière ne se charge qu’en l’ouvrant. Chaque partage n’est téléchargé qu’une fois, puis gardé sur ce PC." },
+    ],
+  },
+  {
     version: "0.1.51",
     date: "2026-11-16",
     highlights: [

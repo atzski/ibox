@@ -113,7 +113,8 @@ function Feed({ onMine }: { onMine: () => void }) {
 }
 
 function SharedCard({ item, index, onOpen }: { item: SharedCapture; index: number; onOpen: () => void }) {
-  const url = useCaptureUrl({ shared: item.id });
+  // miniature légère quand le partage en a une (sinon l'image entière, une seule fois grâce au cache)
+  const url = useCaptureUrl({ shared: item.id, thumb: !!item.hasThumb });
   const platform = item.platformId ? getPlatform(item.platformId) : undefined;
   return (
     <motion.button
@@ -228,7 +229,7 @@ function LocalCard({ item, index, onOpen }: { item: LocalCapture; index: number;
 }
 
 function Viewer({ source, title, subtitle, caption, onClose, children }: {
-  source: { local: string } | { shared: string }; title: string; subtitle: string; caption?: string; onClose: () => void; children?: React.ReactNode;
+  source: { local: string } | { shared: string; thumb?: boolean }; title: string; subtitle: string; caption?: string; onClose: () => void; children?: React.ReactNode;
 }) {
   const url = useCaptureUrl(source);
   return (
