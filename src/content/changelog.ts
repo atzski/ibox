@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.55",
+    date: "2026-11-16",
+    highlights: [
+      { icon: "globe", title: "Remote Play en préparation", text: "Nouvelle page Paramètres › Remote Play : un diagnostic réel vérifie si ce PC peut héberger ou recevoir un stream (Windows, carte graphique, encodeurs, son, réseau). Le jeu à distance arrive dans une prochaine version ; il reste désactivé d’ici là." },
+    ],
+  },
+  {
     version: "0.1.54",
     date: "2026-11-16",
     highlights: [

@@ -1761,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "0.1.54"
+version = "0.1.55"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",
@@ -1786,6 +1786,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "walkdir",
+ "windows 0.62.2",
  "windows-native-keyring-store",
  "windows-sys 0.61.2",
  "winreg",

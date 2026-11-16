@@ -19,6 +19,7 @@ pub mod inetbox;
 pub mod profile;
 pub mod capture;
 pub mod toast;
+pub mod remote_play;
 mod achievements;
 
 use library::commands as lib_cmd;
@@ -75,6 +76,7 @@ pub fn run() {
             app.manage(meta_cmd::MetadataState::open(app.handle())?);
             app.manage(launch_cmd::LauncherState::default());
             app.manage(shell::Behavior::default());
+            app.manage(remote_play::RemotePlay::open(app.handle()));
             if let Err(e) = shell::install(app.handle()) {
                 eprintln!("iBox : icône de notification indisponible : {e}");
             }
@@ -107,6 +109,9 @@ pub fn run() {
             capture::captures_folder,
             capture::community_share,
             capture::community_media,
+            remote_play::remote_play_config,
+            remote_play::remote_play_set_config,
+            remote_play::remote_play_diagnose,
             meta_cmd::avatar_steam_search,
             meta_cmd::avatar_steam_images,
             meta_cmd::avatar_steam_download,

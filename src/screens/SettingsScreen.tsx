@@ -46,9 +46,10 @@ import { ArtworkPicker } from "@/components/assets/ArtworkPicker";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { matchesQuery } from "@/domain/text";
 import { padLabels, useGamepad, type ConfirmSide, type PadFamily } from "@/input/gamepad";
+import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostReport, type NetworkReport, type RemotePlayConfig } from "@/services/remotePlay";
 import { BLOCK_INFO, DEFAULT_BLOCKS, normalizeBlocks } from "@/services/homeLayout";
 
-type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "images" | "sound" | "controls" | "system";
+type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "images" | "sound" | "controls" | "remoteplay" | "system";
 
 interface Category {
   id: CategoryId;
@@ -71,6 +72,7 @@ const CATEGORIES: Category[] = [
   { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], group: "Jeux" },
   { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], group: "Système" },
   { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], group: "Système" },
+  { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], group: "Système" },
   { id: "system", label: "Système", hint: "Plein écran, notifications, sauvegardes, à propos", icon: "gear", tone: ["#E2E5EC", "#F2F4F7"], group: "Système" },
 ];
 
@@ -286,6 +288,8 @@ function CategoryPage({ id }: { id: CategoryId }) {
       return <SoundPage />;
     case "controls":
       return <ControlsPage />;
+    case "remoteplay":
+      return <RemotePlayPage />;
     case "system":
       return <SystemPage />;
   }
@@ -969,6 +973,127 @@ function SoundPage() {
       </Row>
       <GameJingles />
     </Group>
+  );
+}
+
+// ——— Remote Play ———
+
+/** Mêmes serveurs que `remote_play::config::Config::default` (repli hors application native). */
+const DEFAULT_STUN = ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"];
+
+function RemotePlayPage() {
+  const [config, setConfig] = useState<RemotePlayConfig | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [host, setHost] = useState<HostReport | null>(null);
+  const [guest, setGuest] = useState<GuestReport | null>(null);
+  const [net, setNet] = useState<NetworkReport | null>(null);
+
+  useEffect(() => {
+    remotePlayApi.config().then(setConfig, () => setConfig(null));
+  }, []);
+
+  const toggle = (enabled: boolean) => {
+    if (!config) return;
+    remotePlayApi.setConfig({ ...config, enabled }).then(setConfig, (e) => setError(String(e)));
+  };
+
+  const diagnose = async () => {
+    setRunning(true);
+    setError(null);
+    // chaque partie est indépendante : un échec n'empêche pas les autres mesures
+    const [h, g, n] = await Promise.allSettled([remotePlayApi.diagnoseHost(), diagnoseGuest(), testNetwork(config?.stunServers ?? DEFAULT_STUN)]);
+    setHost(h.status === "fulfilled" ? h.value : null);
+    setGuest(g.status === "fulfilled" ? g.value : null);
+    setNet(n.status === "fulfilled" ? n.value : null);
+    if (h.status === "rejected") setError("Diagnostic de Windows indisponible : il nécessite l'application iBox.");
+    setRunning(false);
+  };
+
+  const yes = (ok: boolean, good: string, bad: string) => (
+    <span className={`shrink-0 rounded-full px-3 py-1 text-[0.8rem] font-extrabold ${ok ? "bg-mint text-ink" : "bg-cream-deep text-ink-soft"}`}>{ok ? good : bad}</span>
+  );
+  const encoders = (list: string[]) => (list.length ? list.join(" · ") : "Aucun");
+
+  return (
+    <>
+      <Group
+        title="Remote Play"
+        icon="play"
+        note="Jouez à distance avec vos amis, directement d'ordinateur à ordinateur : le jeu tourne chez l'hôte, l'image et les commandes ne passent jamais par les serveurs iNetbox. En construction : le streaming n'est pas encore disponible."
+      >
+        <Row label="Activer Remote Play" note="Désactivé par défaut. Désactivé, aucune capture ni aucun contrôle à distance ne peut démarrer.">
+          <Toggle checked={!!config?.enabled} onChange={toggle} label="Activer Remote Play" />
+        </Row>
+        <Row label="Connexions directes" note="En pair à pair, vos participants peuvent voir votre adresse IP. Aucun relais n'est utilisé sans votre accord.">
+          <span />
+        </Row>
+      </Group>
+
+      <Group title="Diagnostic de cet ordinateur" icon="search" note="Mesures réelles de Windows, de la carte graphique et du réseau. Le test réseau contacte uniquement les serveurs STUN.">
+        <Row label="Lancer le diagnostic">
+          <Button variant="primary" icon="search" onClick={() => void diagnose()} disabled={running}>
+            {running ? "Analyse…" : "Analyser"}
+          </Button>
+        </Row>
+        {error && <p className="py-3 text-[0.85rem] font-semibold text-[#B4232C]">{error}</p>}
+        {host && (
+          <>
+            <Row label="Windows" note={host.windowsLabel}>
+              {yes(host.graphicsCapture, "Compatible", "Trop ancien")}
+            </Row>
+            <Row label="Capture de l'écran et des fenêtres" note={host.borderlessCapture ? "Windows Graphics Capture, sans bordure de capture" : "Windows Graphics Capture (bordure jaune visible)"}>
+              {yes(host.graphicsCapture, "Disponible", "Indisponible")}
+            </Row>
+            <Row label="Carte graphique" note={host.gpus.map((g) => `${g.name} (${Math.round(g.dedicatedMb / 1024)} Go)`).join(" · ") || "Aucune carte détectée"}>
+              {yes(host.gpus.length > 0, "Détectée", "Absente")}
+            </Row>
+            <Row label="Encodage matériel H.264" note={encoders(host.hardwareEncoders.h264)}>
+              {yes(host.hardwareEncoders.h264.length > 0, "Oui", "Logiciel seulement")}
+            </Row>
+            <Row label="Encodage matériel HEVC" note={encoders(host.hardwareEncoders.hevc)}>
+              {yes(host.hardwareEncoders.hevc.length > 0, "Oui", "Non")}
+            </Row>
+            <Row label="Encodage matériel AV1" note={encoders(host.hardwareEncoders.av1)}>
+              {yes(host.hardwareEncoders.av1.length > 0, "Oui", "Non")}
+            </Row>
+            <Row label="Son" note={`${host.audioOutputs} sortie(s), ${host.audioInputs} entrée(s)${host.processAudio ? " · son du jeu seul possible" : ""}`}>
+              {yes(host.audioOutputs > 0, "Prêt", "Aucune sortie")}
+            </Row>
+            <Row label="Manettes des invités" note={host.virtualPadDriver ? "Pilote ViGEmBus présent" : "Aucun pilote de manette virtuelle : il sera proposé, jamais installé sans votre accord"}>
+              {yes(host.virtualPadDriver, "Prêt", "À installer")}
+            </Row>
+            {host.errors.map((e) => (
+              <p key={e} className="py-2 text-[0.82rem] font-semibold text-ink-soft">{e}</p>
+            ))}
+          </>
+        )}
+        {guest && (
+          <Row
+            label="Réception d'un stream"
+            note={
+              (Object.entries(guest.decode) as [string, { hardware: boolean }][])
+                .map(([codec, d]) => `${codec.toUpperCase()} ${d.hardware ? "matériel" : "logiciel"}`)
+                .join(" · ") || "Aucun codec vidéo WebRTC"
+            }
+          >
+            {yes(guest.webrtc && Object.keys(guest.decode).length > 0, "Prêt", "Indisponible")}
+          </Row>
+        )}
+        {net && (
+          <Row
+            label="Connexion directe (UDP, STUN)"
+            note={
+              net.stun
+                ? `Adresse publique obtenue en ${net.elapsedMs} ms : ${net.publicFamilies.join(" et ")}`
+                : "Aucune réponse STUN : l'UDP sortant semble bloqué (pare-feu, réseau d'entreprise ou d'école)."
+            }
+          >
+            {yes(net.stun, "Fonctionne", "Bloquée")}
+          </Row>
+        )}
+      </Group>
+    </>
   );
 }
 
