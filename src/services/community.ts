@@ -15,6 +15,8 @@ export interface SharedCapture {
 }
 export interface ShareComment {
   id: string; body: string; createdAt: number; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean; canDelete: boolean;
+  /** Réponse : commentaire d'origine (un seul niveau). */
+  parentId?: string | null;
 }
 
 /** Réactions de la Communauté : clés stables côté serveur, émoji et nom côté iBox. */
@@ -41,7 +43,7 @@ export const captures = {
   list: () => (isTauri() ? invoke<LocalCapture[]>("captures_list") : Promise.resolve([])),
   remove: (name: string) => invoke<void>("captures_delete", { name }),
   folder: () => invoke<void>("captures_folder"),
-  share: (name: string, caption?: string) => invoke<{ id: string }>("community_share", { name, caption: caption ?? null }),
+  share: (name: string, caption?: string, mentions: string[] = []) => invoke<{ id: string }>("community_share", { name, caption: caption ?? null, mentions }),
   settings: (clips: boolean, hotkey: boolean) => (isTauri() ? invoke<void>("capture_settings", { clips, hotkey }) : Promise.resolve()),
 };
 
@@ -51,7 +53,8 @@ export const community = {
   react: (id: string, emoji: ReactionKey | null) =>
     emoji ? call<ReactionSummary>("react", { emoji }, id) : call<ReactionSummary>("unreact", undefined, id),
   comments: (id: string) => call<{ items: ShareComment[] }>("comments", undefined, id).then((r) => r.items),
-  comment: (id: string, body: string) => call<{ id: string }>("comment", { body }, id),
+  comment: (id: string, body: string, opts: { parentId?: string; mentions?: string[] } = {}) =>
+    call<{ id: string }>("comment", { body, ...(opts.parentId ? { parentId: opts.parentId } : {}), ...(opts.mentions?.length ? { mentions: opts.mentions } : {}) }, id),
   removeComment: (id: string) => call<void>("deleteComment", undefined, id),
 };
 

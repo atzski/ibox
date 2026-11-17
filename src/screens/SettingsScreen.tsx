@@ -1065,6 +1065,18 @@ function RemotePlayPage() {
             <Toggle checked={!!config?.acceptRequests} onChange={setAccept} label="Accepter les demandes Remote Play de mes amis" />
           </Row>
         )}
+        {config?.enabled && (
+          <Row
+            label="Masquer l'écho Discord"
+            note="Activé par défaut. Le son de Discord (vos appels vocaux) n'est pas envoyé à vos invités : ils ne s'entendent plus en écho. Le jeu et le reste du son passent normalement. Discord doit être ouvert avant le début du partage."
+          >
+            <Toggle
+              checked={config.hideDiscordEcho !== false}
+              onChange={(hideDiscordEcho) => remotePlayApi.setConfig({ ...config, hideDiscordEcho }).then(setConfig, (e) => setError(String(e)))}
+              label="Masquer l'écho Discord"
+            />
+          </Row>
+        )}
         <Row label="Connexions directes" note="En pair à pair, vos participants voient votre adresse IP (avertissement avant la première session). Aucun relais n'est utilisé. Verrouiller Windows coupe le partage.">
           <span />
         </Row>

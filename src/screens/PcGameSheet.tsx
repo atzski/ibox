@@ -19,6 +19,7 @@ import { trimStyle, useImageInfo } from "@/art/imageTone";
 import { caseFor, mediaLabel } from "@/three/cases/caseSpecs";
 import { InspectController, type CaseView, type ShownSide } from "@/three/inspectController";
 import { InspectViewer } from "@/three/lazy";
+import { flightPending } from "@/three/handoff";
 import { useGamepad } from "@/input/gamepad";
 import { input } from "@/input/InputController";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
@@ -41,6 +42,8 @@ export function PcGameSheet({ game }: { game: Game }) {
   useEffect(() => { playJingle(game.dbId); return stopJingle; }, [game.dbId]);
   const platform = requirePlatform("pc");
   const reduced = useReducedMotion();
+  // boîtier en vol depuis l'étagère 3D : il se pose dans la visionneuse
+  const [arriving] = useState(() => flightPending(game.id));
   const favorite = useIsFavorite(game);
   const toggleFavorite = useLibrary((s) => s.toggleFavorite);
   const [, soft, accent] = useArtPalette(game);
@@ -96,7 +99,8 @@ export function PcGameSheet({ game }: { game: Game }) {
     <div className="relative grid h-full grid-cols-[minmax(19rem,27rem)_minmax(0,1fr)] gap-10 px-[3rem] pb-4" style={themeVars(platform)}>
       {/* Boîtier DVD PC en 3D, puis les succès */}
       <motion.div
-        initial={{ opacity: 0, scale: reduced ? 1 : 0.97 }}
+        // arrivée en vol depuis l'étagère : la visionneuse ne bouge pas, le boîtier s'y pose
+        initial={{ opacity: 0, scale: reduced || arriving ? 1 : 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 26 }}
         className="flex min-h-0 flex-col gap-4 pt-2 pb-3"

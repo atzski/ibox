@@ -11,6 +11,8 @@ export interface RemotePlayConfig {
   codec: "auto" | "h264" | "hevc" | "av1";
   audio: "system" | "gameOnly" | "none";
   keepHostAudio: boolean;
+  /** « Masquer l'écho Discord » : le son de Discord n'est pas envoyé aux invités. */
+  hideDiscordEcho: boolean;
   maxGuests: number;
   uploadLimitKbps: number | null;
   defaultProfile: "spectator" | "player" | "collaborator" | "fullControl";

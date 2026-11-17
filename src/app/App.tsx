@@ -20,7 +20,7 @@ import { rememberedFocus, routeKey, useNav, useRoute, type Route } from "./navig
 import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shellState";
 import { useSettings } from "@/services/settings";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
-import { music } from "@/services/music";
+import { music, MENU_TRACK } from "@/services/music";
 import { input } from "@/input/InputController";
 import { attachGamepads } from "@/input/gamepad";
 import { FlightLayer, preload3D } from "@/three/lazy";
@@ -144,6 +144,8 @@ export function App() {
     const detach = input.attachKeyboard();
     const detachPads = attachGamepads();
     preload3D();
+    // tableau des succès préchargé : l'écran Succès s'ouvre déjà rempli
+    const warm = window.setTimeout(() => void import("@/services/achievementsCache").then((m) => m.prefetchAchievements()), 8000);
     const offBack = input.onBack(() => useNav.getState().back());
     const onMouse = (e: MouseEvent) => {
       if (e.button === 3) {
@@ -155,6 +157,7 @@ export function App() {
     window.addEventListener("mouseup", onMouse);
     window.addEventListener("contextmenu", onContextMenu);
     return () => {
+      window.clearTimeout(warm);
       detach();
       detachPads();
       offBack();
@@ -165,10 +168,10 @@ export function App() {
 
   // Musique en boucle : piste de la console affichée si elle en a une, sinon musique de menu
   const custom = useMenuMusic((s) => s.url);
-  const ambientTrack = useShell((s) => s.ambientPlatform?.ambience) ?? custom;
+  const ambientTrack = useShell((s) => s.ambientPlatform?.ambience) ?? custom ?? MENU_TRACK;
   useEffect(() => music.attach(), []);
   useEffect(() => attachMenuMusic(), []);
-  useEffect(() => { if (ambientTrack) music.play(ambientTrack); else music.stop(); }, [ambientTrack]);
+  useEffect(() => music.play(ambientTrack), [ambientTrack]);
 
   // Thème : color-scheme pilote toutes les couleurs light-dark() des tokens
   const theme = useSettings((s) => s.theme);

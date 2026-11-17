@@ -64,17 +64,18 @@ export function HomeBackgroundPicker({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Tile({ active, label, onClick, children }: { active: boolean; label: string; onClick: () => void; children: ReactNode }) {
+function Tile({ active, label, title, onClick, children }: { active: boolean; label?: string; title?: string; onClick: () => void; children: ReactNode }) {
   return (
     <button
       data-focusable
       onClick={onClick}
       aria-pressed={active}
-      title={label}
+      title={title ?? label}
+      aria-label={title ?? label}
       className={`ibox-focusable group relative aspect-video overflow-hidden rounded-xl bg-cream-deep text-left shadow-xs [--ring-radius:12px] ${active ? "ring-4 ring-[var(--accent-deep)]" : "ring-1 ring-black/5"}`}
     >
       <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">{children}</div>
-      <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/55 to-transparent px-2.5 pt-5 pb-1.5 text-[0.8rem] font-bold text-white">{label}</span>
+      {label && <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/55 to-transparent px-2.5 pt-5 pb-1.5 text-[0.8rem] font-bold text-white">{label}</span>}
       {active && <span className="absolute top-2 right-2 grid size-6 place-items-center rounded-full bg-[var(--accent-deep)] text-white"><Icon name="check" size="0.85em" /></span>}
     </button>
   );
@@ -241,7 +242,7 @@ function OnlineTab({ choose }: { choose: (bg: HomeBackground) => void }) {
           {busy === "images" && <p className="text-ink-soft">Chargement des illustrations…</p>}
           <div className={GRID}>
             {pics?.map((p) => (
-              <Tile key={p.url} active={false} label={busy === p.url ? "Téléchargement…" : "Utiliser ce fond"} onClick={() => void pick(p)}>
+              <Tile key={p.url} active={false} label={busy === p.url ? "Téléchargement…" : undefined} title="Utiliser ce fond" onClick={() => void pick(p)}>
                 <img src={p.thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
               </Tile>
             ))}

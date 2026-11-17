@@ -82,21 +82,64 @@ export function PowerButton() {
   );
 }
 
-/** Bouton « réduire » : iBox passe dans la barre des tâches, sans s'éteindre. */
+/** Durée du fondu avant la réduction (ms). */
+const MINIMIZE_FADE_MS = 280;
+
+/**
+ * Bouton « réduire » : iBox passe dans la barre des tâches, sans s'éteindre. En plein écran,
+ * Windows n'anime pas la réduction (l'image disparaît d'un coup) : iBox s'assombrit d'abord en
+ * douceur, puis réapparaît en fondu au retour.
+ */
 export function MinimizeButton() {
+  const [phase, setPhase] = useState<"idle" | "out" | "in">("idle");
+  const reduced = useReducedMotion();
   if (!isTauri()) return null;
+
+  const minimize = () => {
+    sound.play("back");
+    if (reduced) {
+      void shellApi.minimize();
+      return;
+    }
+    setPhase("out");
+    window.setTimeout(() => {
+      void shellApi.minimize().finally(() => {
+        // retour : dès que la fenêtre revient, fondu d'arrivée
+        const back = () => {
+          if (document.visibilityState !== "visible") return;
+          document.removeEventListener("visibilitychange", back);
+          window.removeEventListener("focus", back);
+          setPhase("in");
+          window.setTimeout(() => setPhase("idle"), 420);
+        };
+        document.addEventListener("visibilitychange", back);
+        window.addEventListener("focus", back);
+      });
+    }, MINIMIZE_FADE_MS);
+  };
+
   return (
-    <button
-      data-focusable
-      aria-label="Réduire iBox"
-      title="Réduire iBox"
-      onClick={() => {
-        sound.play("back");
-        void shellApi.minimize();
-      }}
-      className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-ink-soft shadow-sm [--ring-radius:999px]"
-    >
-      <Icon name="minus" size="1.3em" />
-    </button>
+    <>
+      <button
+        data-focusable
+        aria-label="Réduire iBox"
+        title="Réduire iBox"
+        onClick={minimize}
+        className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-ink-soft shadow-sm [--ring-radius:999px]"
+      >
+        <Icon name="minus" size="1.3em" />
+      </button>
+      {phase !== "idle" &&
+        createPortal(
+          <motion.div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 z-[200] bg-[#0b0e18]"
+            initial={{ opacity: phase === "out" ? 0 : 1 }}
+            animate={{ opacity: phase === "out" ? 1 : 0 }}
+            transition={{ duration: (phase === "out" ? MINIMIZE_FADE_MS : 400) / 1000, ease: "easeInOut" }}
+          />,
+          document.body,
+        )}
+    </>
   );
 }

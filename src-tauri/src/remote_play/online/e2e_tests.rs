@@ -113,6 +113,7 @@ fn invitation_signature_stun_et_connexion() {
         guest_account: bob.id.clone(),
         frame_log: None,
         audio: false,
+        hide_discord_echo: false,
     })
     .expect("hôte");
     println!("hôte prêt en {} ms, NAT {:?}", t0.elapsed().as_millis(), host.nat());

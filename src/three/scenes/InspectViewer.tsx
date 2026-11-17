@@ -70,8 +70,14 @@ function Rig({ game, spec, controller, open, discOut, reduced, tint, dark = fals
     // Vol en cours : on publie la place exacte du boîtier à l'écran, et on
     // n'affiche le nôtre qu'une fois l'autre posé dessus.
     if (flying.current) {
+      // même cadrage qu'au repos (boîtier fermé), visionneuse étroite comprise :
+      // sinon le boîtier posé « saute » de taille quand la caméra recule (fiche PC)
       const fit0 = caseExtent(spec) / 1.91;
-      const dist = BASE_DISTANCE * fit0 * controller.zoom;
+      const halfTan0 = Math.tan((camera.fov * Math.PI) / 360);
+      const dist = Math.max(
+        BASE_DISTANCE * fit0 * controller.zoom,
+        ((spec.width * 1.14) / 2 / (halfTan0 * Math.max(0.3, camera.aspect))) * controller.zoom,
+      );
       camera.position.z = dist;
       const rect = rectOf(gl.domElement);
       const visibleH = 2 * dist * Math.tan((camera.fov * Math.PI) / 360);

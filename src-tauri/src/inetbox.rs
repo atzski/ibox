@@ -160,6 +160,7 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "unreact" => (Method::DELETE, format!("/v1/shares/{id}/reaction")),
         "comments" => (Method::GET, format!("/v1/shares/{id}/comments")),
         "comment" => (Method::POST, format!("/v1/shares/{id}/comments")),
+        "mentions" => (Method::GET, "/v1/mentions".into()),
         "deleteComment" => (Method::DELETE, format!("/v1/comments/{id}")),
         _ => return Err(err("INVALID_ACTION", "Action iNetbox inconnue.")),
     })
@@ -275,8 +276,14 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
                     Err(e) if e.code == "NOT_FOUND" => (json!([]), false),
                     Err(e) => return Err(e),
                 };
+                // mentions « @ami » de la Communauté : absentes d'un serveur plus ancien → liste vide
+                let mentions = match http(client, Method::GET, "/v1/mentions", Some(&token), None) {
+                    Ok(v) => v["items"].clone(),
+                    Err(e) if e.code == "NOT_FOUND" => json!([]),
+                    Err(_) => json!([]),
+                };
                 let snapshot = json!({ "user": user, "friends": friends["items"], "invitations": invitations["items"], "blocks": blocks["items"],
-                    "gameInvites": games, "gameInvitesSupported": supported, "unread": unread, "socialSupported": social });
+                    "gameInvites": games, "gameInvitesSupported": supported, "unread": unread, "socialSupported": social, "mentions": mentions });
                 *SNAPSHOT.lock().map_err(|_| vault_error())? = Some((Instant::now(), snapshot.clone()));
                 Ok(snapshot)
             }
@@ -349,7 +356,7 @@ fn encode(raw: &str) -> String {
 
 /// Ce qui a déjà été vu, pour n'annoncer que les nouveautés.
 #[derive(Default)]
-struct Seen { user: String, games: HashMap<String, String>, requests: HashSet<String>, unread: HashMap<String, u64>, invites: HashSet<String> }
+struct Seen { user: String, games: HashMap<String, String>, requests: HashSet<String>, unread: HashMap<String, u64>, invites: HashSet<String>, mentions: HashSet<String> }
 static SEEN: Mutex<Option<Seen>> = Mutex::new(None);
 
 /// Actualisation native (même iBox réduit) : l'interface reçoit l'état des amis,
@@ -399,6 +406,16 @@ fn news(snap: &Value) -> Vec<Value> {
             out.push(json!({ "kind": "invite", "friendId": i["fromId"], "name": i["fromName"], "gameTitle": i["gameTitle"], "platformId": i["platformId"] }));
         }
         next.invites.insert(s(&i, "id"));
+    }
+    for m in list("mentions") {
+        if !first && !guard.as_ref().is_some_and(|g| g.mentions.contains(&s(&m, "id"))) {
+            let what = if m["commentId"].is_null() { "vous a mentionné dans une capture" } else { "vous a mentionné dans un commentaire" };
+            let title: String = format!("{} {what}", s(&m, "byName")).chars().take(90).collect();
+            let body: String = s(&m, "body").chars().take(180).collect();
+            out.push(json!({ "kind": "notice", "friendId": "", "name": title, "body": body, "icon": "chat", "tone": "info",
+                "link": { "kind": "community", "shareId": m["shareId"] } }));
+        }
+        next.mentions.insert(s(&m, "id"));
     }
     *guard = Some(next);
     out

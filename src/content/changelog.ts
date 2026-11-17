@@ -10,6 +10,19 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.60",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Remote Play jusqu’à 6 joueurs", text: "Invitez jusqu’à 5 amis dans la même partie : chacun a sa connexion directe et sa manette, branchée d’office comme une manette de plus sur l’hôte. « Inviter un ami de plus » depuis la carte de partage." },
+      { icon: "key", title: "Collaborateur : la souris répond", text: "Sur la fenêtre d’un jeu, l’invité Collaborateur contrôle enfin souris et clavier, confinés à cette fenêtre (raccourcis système bloqués). Quand l’hôte arrête, l’invité revient aussitôt à iBox." },
+      { icon: "user", title: "Plus d’écho Discord", text: "En appel Discord pendant une session, votre ami n’entend plus sa propre voix renvoyée : le son de Discord est retiré de ce qui lui est envoyé (Paramètres › Remote Play, activé par défaut)." },
+      { icon: "power", title: "Plus rapide, plus de cartes graphiques", text: "Latence réduite (capture au plus près, encodeur en mode faible latence) et encodeurs AMD et Intel mieux pris en charge, y compris sur les PC à deux cartes graphiques." },
+      { icon: "sparkle", title: "Communauté plus vivante", text: "Mentionnez un ami avec @ dans une légende ou un commentaire (il reçoit une notification), répondez aux commentaires, et profitez d’animations plus soignées." },
+      { icon: "trophy", title: "Succès instantanés", text: "L’écran Succès s’ouvre déjà rempli avec vos dernières données, puis se met à jour en arrière-plan." },
+      { icon: "shelf", title: "Nouveau logo, nouvelle musique", text: "iBox adopte son nouveau logo et une musique de menu originale, composée pour iBox. Au premier lancement, l’accueil montre « Votre dernière aventure » ; le dossier des jeux se choisit dans les Paramètres." },
+    ],
+  },
+  {
     version: "0.1.59",
     date: "2026-11-17",
     highlights: [

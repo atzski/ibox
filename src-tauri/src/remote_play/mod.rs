@@ -169,6 +169,7 @@ pub async fn remote_play_host_start(state: State<'_, RemotePlay>, args: HostStar
         guest_account: if args.lan { "lan".into() } else { "boucle-locale".into() },
         frame_log: None,
         audio: args.lan && cfg.audio != config::AudioSource::None,
+        hide_discord_echo: cfg.hide_discord_echo,
     };
     let previous = state.host.lock().map_err(|_| "session indisponible")?.take();
     let host = tauri::async_runtime::spawn_blocking(move || {

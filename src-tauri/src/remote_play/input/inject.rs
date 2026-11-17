@@ -160,6 +160,16 @@ pub trait Screen: Send {
     fn desktop(&self) -> Rect;
     /// Rectangle actuel d'un écran ou d'une fenêtre ; `None` s'il a disparu.
     fn resolve(&self, area: &Area) -> Option<Rect>;
+    /// Fenêtre partagée : est-elle au premier plan (les touches de l'invité iraient bien chez elle) ?
+    /// Toujours vrai pour un écran entier.
+    fn area_focused(&self, _area: &Area) -> bool {
+        true
+    }
+    /// Fenêtre partagée : le curseur est-il sur elle (un clic de l'invité la toucherait, elle et
+    /// pas une autre fenêtre posée par-dessus) ? Toujours vrai pour un écran entier.
+    fn area_under_cursor(&self, _area: &Area) -> bool {
+        true
+    }
 }
 
 /// Ce qu'il est advenu d'un message autorisé.
@@ -168,6 +178,9 @@ pub enum Outcome {
     Injected,
     /// Ignoré : l'hôte utilise sa souris ou son clavier (priorité locale, 500 ms).
     LocalPriority,
+    /// Ignoré : la fenêtre partagée n'est pas au premier plan / pas sous le curseur. L'invité ne
+    /// peut jamais taper ni cliquer ailleurs que dans le jeu partagé.
+    OutsideArea,
     /// Rien à injecter (chat, ping, molette nulle) : traité ailleurs.
     NoInput,
 }
@@ -238,6 +251,10 @@ impl<S: Sink, D: Screen, P: Pads> Injector<S, D, P> {
         match *msg {
             Message::Key { scancode, down } => {
                 let input = key_input(scancode, down).ok_or(InjectError::BadScancode(scancode))?;
+                // un appui ne part que vers la fenêtre partagée ; un relâchement passe toujours
+                if down && !self.screen.area_focused(&self.area) {
+                    return Ok(Outcome::OutsideArea);
+                }
                 self.sink.send(&[input])?;
                 Ok(Outcome::Injected)
             }
@@ -246,13 +263,20 @@ impl<S: Sink, D: Screen, P: Pads> Injector<S, D, P> {
                 let (x, y) = to_desktop(x, y, area, self.screen.desktop());
                 self.mouse(OsInput::MoveAbs { x, y }, now)
             }
+            // déplacement relatif : il pourrait sortir de la fenêtre partagée, réservé à l'écran entier
+            Message::MouseRel { .. } if matches!(self.area, Area::Window(_)) => Ok(Outcome::OutsideArea),
             Message::MouseRel { dx, dy, .. } => self.mouse(OsInput::MoveRel { dx: dx as i32, dy: dy as i32 }, now),
             // un relâchement passe toujours : rien ne doit rester enfoncé
             Message::MouseButton { button, down: false } => {
                 self.sink.send(&[OsInput::Button { button, down: false }])?;
                 Ok(Outcome::Injected)
             }
-            Message::MouseButton { button, down: true } => self.mouse(OsInput::Button { button, down: true }, now),
+            Message::MouseButton { button, down: true } => {
+                if !self.screen.area_under_cursor(&self.area) {
+                    return Ok(Outcome::OutsideArea);
+                }
+                self.mouse(OsInput::Button { button, down: true }, now)
+            }
             Message::Wheel { dx, dy } => {
                 let mut inputs = Vec::with_capacity(2);
                 if dy != 0 {
@@ -263,6 +287,9 @@ impl<S: Sink, D: Screen, P: Pads> Injector<S, D, P> {
                 }
                 if inputs.is_empty() {
                     return Ok(Outcome::NoInput);
+                }
+                if !self.screen.area_under_cursor(&self.area) {
+                    return Ok(Outcome::OutsideArea);
                 }
                 if self.local_has_priority(now) {
                     return Ok(Outcome::LocalPriority);

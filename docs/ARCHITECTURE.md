@@ -49,7 +49,7 @@
 ```
 ibox/
 ├─ index.html · vite.config.ts · tsconfig.json · package.json
-├─ public/logo.svg                    logo provisoire (nid + 3 œufs)
+├─ public/logo.svg                    logo (boîte ouverte rouge corail)
 ├─ docs/ARCHITECTURE.md
 ├─ shared/platform-formats.json      formats reconnus (TS + Rust)
 ├─ src-tauri/                         cœur natif Rust (Tauri 2)

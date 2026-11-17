@@ -1,5 +1,8 @@
 import { useSettings } from "./settings";
 
+/** Musique de menu par défaut : composition originale d'iBox, générée par `scripts/music/menu_music.py` (libre de droits). */
+export const MENU_TRACK = "/sounds/menu.mp3";
+
 const FADE_IN_MS = 1400;
 const FADE_OUT_MS = 700;
 

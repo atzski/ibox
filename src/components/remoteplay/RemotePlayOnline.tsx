@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { padCapture } from "@/input/gamepad";
@@ -7,6 +8,7 @@ import { useNav } from "@/app/navigation";
 import { remotePlayApi, type GuestProfile, type HostStats, type RemotePlayConfig } from "@/services/remotePlay";
 import { attachInputs, attachPad, GuestSession, type GuestStats } from "@/services/remotePlayGuest";
 import {
+  MAX_PARTY_GUESTS,
   natLabel,
   needsConfirmation,
   onlineApi,
@@ -20,6 +22,7 @@ import {
   type Sources,
 } from "@/services/remotePlayOnline";
 import { Avatar } from "@/components/profile/Avatar";
+import { notify } from "@/services/notifications";
 import { useInetbox, type InetFriend } from "@/services/inetbox";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : String((e as { message?: string })?.message ?? e));
@@ -164,7 +167,9 @@ function InviteForm({
             <span>{`Je confirme : ${friendName} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}</span>
           </label>
         )}
-        {profile === "collaborator" && windowShare && <p className="text-[0.8rem] text-ink-soft">Sur une fenêtre de jeu, seules les manettes sont transmises.</p>}
+        {profile === "collaborator" && windowShare && (
+          <p className="text-[0.8rem] text-ink-soft">Sur une fenêtre de jeu, sa souris et son clavier restent confinés à cette fenêtre (ignorés quand elle n'est pas au premier plan).</p>
+        )}
       </div>
       <div className="space-y-2">
         <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Ce qui est partagé</p>
@@ -430,9 +435,12 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
     const timer = window.setInterval(() => void s.stats().then(setStats, () => undefined), 1000);
     // en mode Joueur, la manette de l'invité est envoyée d'office, dès qu'elle apparaît
     const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a) }) : null;
+    // la souris aussi, sur l'image seulement (l'hôte la refuse si le profil ne la donne pas)
+    const detachMouse = join.mode === "play" && video.current ? attachInputs(s, video.current, { pad: false, keyboard: false }) : null;
     return () => {
       window.clearInterval(timer);
       detachPad?.();
+      detachMouse?.();
       detach.current?.();
       detach.current = null;
       padCapture.active = false;
@@ -448,12 +456,30 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       return;
     }
     if (!session.current || !video.current) return;
-    // la manette est déjà envoyée d'office : seuls le clavier et la souris s'ajoutent ici
-    detach.current = attachInputs(session.current, video.current, { pad: false });
+    // manette et souris sont déjà envoyées d'office : seul le clavier (capturé) s'ajoute ici
+    detach.current = attachInputs(session.current, video.current, { pad: false, mouse: false });
     setControlling(true);
   };
 
   const ended = status?.role === "guest" && (status.stage === "ended" || status.stage === "failed");
+  // fin décidée par l'hôte (message « bye » ou canal fermé) : retour direct à iBox
+  const leaveRef = useRef(onLeave);
+  leaveRef.current = onLeave;
+  const [hostGone, setHostGone] = useState(false);
+  useEffect(() => {
+    const s = session.current;
+    if (s) s.onHostGone = () => setHostGone(true);
+  }, [join]);
+  const finished = (status?.role === "guest" && status.stage === "ended") || hostGone;
+  useEffect(() => {
+    if (!finished) return;
+    const name = join.hostName;
+    const t = window.setTimeout(() => {
+      leaveRef.current();
+      notify({ title: "Remote Play", body: `${name} a terminé la session.`, icon: "close", tone: "info" });
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [finished, join.hostName]);
 
   return createPortal(
     <div data-nav-root className="fixed inset-0 z-[80] flex flex-col bg-black text-white">
@@ -493,7 +519,7 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         {play && !ended && (
           <Button icon="gamepad" onClick={toggleControl}>
-            {controlling ? "Rendre le clavier et la souris" : "Envoyer clavier et souris"}
+            {controlling ? "Rendre le clavier" : "Envoyer mon clavier"}
           </Button>
         )}
         {play && !ended && (
@@ -535,7 +561,13 @@ function HostCard({ status }: { status: OnlineStatus }) {
   const [stats, setStats] = useState<HostStats | null>(null);
   const [open, setOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const done = status.stage === "ended" || status.stage === "failed";
+  const [adding, setAdding] = useState(false);
+  const players = status.players ?? [];
+  const liveStage = (s: OnlineStatus["stage"]) => s !== "ended" && s !== "failed";
+  const livePlayers = players.filter((p) => liveStage(p.stage));
+  // la partie continue tant qu'un invité (premier ou supplémentaire) est là
+  const done = !liveStage(status.stage) && livePlayers.length === 0;
+  const guests = (liveStage(status.stage) ? 1 : 0) + livePlayers.length;
   useEffect(() => {
     if (done || hidden) return;
     const timer = window.setInterval(() => void remotePlayApi.hostStats().then(setStats, () => undefined), 1000);
@@ -597,7 +629,33 @@ function HostCard({ status }: { status: OnlineStatus }) {
         </div>
       )}
       {status.rejected > 0 && <p className="text-[0.75rem] text-[#B4232C]">{`${status.rejected} message(s) de signalisation refusé(s).`}</p>}
+      {players.length > 0 && (
+        <ul className="space-y-1">
+          {players.map((p, i) => (
+            <motion.li
+              key={p.sessionId}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-2 rounded-xl bg-cream-deep px-2.5 py-1.5 text-[0.82rem]"
+            >
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-[0.7rem] font-extrabold">{`P${i + 3}`}</span>
+              <span data-no-i18n className="min-w-0 flex-1 truncate font-bold">
+                {p.peerName}
+              </span>
+              <span className={`text-[0.75rem] font-semibold ${p.stage === "failed" ? "text-[#B4232C]" : "text-ink-soft"}`}>{STAGE[p.stage]}</span>
+            </motion.li>
+          ))}
+        </ul>
+      )}
+      {!done && guests > 0 && (
+        <p className="text-[0.75rem] font-semibold text-ink-soft">{`${guests + 1} joueurs sur 6 au plus`}</p>
+      )}
       <div className="flex flex-wrap gap-2">
+        {!done && guests < MAX_PARTY_GUESTS && (
+          <Button icon="plus" onClick={() => setAdding(true)}>
+            Inviter un ami de plus
+          </Button>
+        )}
         {!done && (
           <Button icon="search" onClick={() => setOpen(!open)}>
             {open ? "Moins" : "Statistiques"}
@@ -613,9 +671,10 @@ function HostCard({ status }: { status: OnlineStatus }) {
           variant={done ? "soft" : "primary"}
           onClick={() => (done ? useRemotePlayOnline.setState({ status: null }) : void onlineApi.stop().catch(() => undefined))}
         >
-          {done ? "Fermer" : status.stage === "inviting" ? "Annuler l'invitation" : "Terminer"}
+          {done ? "Fermer" : status.stage === "inviting" && livePlayers.length === 0 ? "Annuler l'invitation" : "Terminer"}
         </Button>
       </div>
+      {adding && <RemotePlayGameDialog gameTitle={status.source ?? "Écran"} onClose={() => setAdding(false)} />}
     </div>
   );
 }

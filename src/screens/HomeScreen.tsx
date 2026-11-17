@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { CollectionsRow } from "@/components/extras/CollectionsRow";
 import { WhatsNew } from "@/components/extras/WhatsNew";
 import { useMemo, useState, useEffect, type ReactNode } from "react";
-import { nativeLibrary } from "@/services/nativeLibrary";
 import { useAttractMode } from "@/app/attract";
 import { useLibrary, countByPlatform, isFavorite, lastPlayed, recentlyAdded } from "@/services/library";
 import { useSettings } from "@/services/settings";
@@ -120,10 +119,10 @@ export function HomeScreen() {
       case "hero":
         return (
           <div className="grid grid-cols-[minmax(0,1fr)_19rem] gap-6 px-[3rem]">
-            {welcome ? (
-              <WelcomeCard />
-            ) : hero ? (
-              <HeroCard game={hero} label={last ? "Votre dernière aventure" : "Dernier ajout à la collection"} />
+            {/* premier lancement : la grande carte montre déjà « Votre dernière aventure » ;
+                le choix du dossier des jeux se fait dans les Paramètres */}
+            {hero ? (
+              <HeroCard game={hero} label={last || welcome || hero.isDemo ? "Votre dernière aventure" : "Dernier ajout à la collection"} />
             ) : (
               <div />
             )}
@@ -478,61 +477,6 @@ function HeroCard({ game, label }: { game: Game; label: string }) {
             onClick={() => void play(game.dbId!, game.title)}
           >
             Reprendre
-          </Button>
-        </div>
-      </div>
-    </motion.section>
-  );
-}
-
-/** Premier lancement : invitation à choisir le dossier des jeux. */
-function WelcomeCard() {
-  const addFolder = useLibrary((s) => s.addFolder);
-  const startScan = useLibrary((s) => s.startScan);
-  const go = useNav((s) => s.go);
-  const [error, setError] = useState<string | null>(null);
-
-  const choose = async () => {
-    setError(null);
-    try {
-      const path = await nativeLibrary.pickFolder();
-      if (!path) return;
-      const folder = await addFolder(path);
-      await startScan([folder.id]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className="relative flex h-[21rem] items-center gap-10 overflow-hidden rounded-xl bg-white px-10 shadow-md"
-    >
-      <div className="pointer-events-none absolute -top-24 -right-16 h-80 w-80 rounded-full bg-sky/30 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 right-40 h-64 w-64 rounded-full bg-lavender/30 blur-3xl" />
-      <motion.img
-        src="/logo.svg"
-        alt=""
-        className="relative w-[10rem] shrink-0 drop-shadow-md"
-        animate={{ y: [0, -8, 0], rotate: [0, -2, 0] }}
-        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <div className="relative min-w-0 flex-1">
-        <div className="text-[0.8rem] font-extrabold tracking-[0.16em] text-lavender-deep uppercase">Bienvenue</div>
-        <h1 className="mt-2 text-[2.6rem] leading-[1.05] font-semibold text-ink">Où se trouvent vos jeux ?</h1>
-        <p className="mt-3 max-w-[34rem] text-[1rem] font-semibold text-ink-soft">
-          Choisissez un dossier : iBox y retrouvera vos jeux, consoles comprises. Rien ne sera déplacé ni modifié.
-        </p>
-        {error && <p className="mt-2 text-[0.9rem] font-bold text-peach-deep">{error}</p>}
-        <div className="mt-6 flex items-center gap-3">
-          <Button variant="primary" size="lg" icon="folder" autoFocusScreen onClick={() => void choose()}>
-            Choisir un dossier
-          </Button>
-          <Button size="lg" icon="gear" onClick={() => go({ name: "settings" })}>
-            Gérer les dossiers
           </Button>
         </div>
       </div>

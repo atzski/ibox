@@ -27,6 +27,7 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     LASTINPUTINFO, MOD_NOREPEAT, MOUSEINPUT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
+    GetAncestor, GetCursorPos, GetForegroundWindow, WindowFromPoint, GA_ROOT,
     CallNextHookEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetMessageW,
     GetSystemMetrics, IsIconic, IsWindow, PostThreadMessageW, RegisterClassW, SetWindowsHookExW, TranslateMessage,
     UnhookWindowsHookEx, HHOOK, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLMHF_INJECTED, MSG, MSLLHOOKSTRUCT, SM_CXVIRTUALSCREEN,
@@ -184,6 +185,34 @@ impl Screen for WinScreen {
             }
         }
     }
+
+    fn area_focused(&self, area: &Area) -> bool {
+        match *area {
+            Area::Window(h) => unsafe { same_root(GetForegroundWindow(), h as HWND) },
+            _ => true,
+        }
+    }
+
+    fn area_under_cursor(&self, area: &Area) -> bool {
+        match *area {
+            Area::Window(h) => unsafe {
+                let _dpi = PhysicalPixels::enter();
+                let mut p = POINT { x: 0, y: 0 };
+                GetCursorPos(&mut p) != 0 && same_root(WindowFromPoint(p), h as HWND)
+            },
+            _ => true,
+        }
+    }
+}
+
+/// Deux fenêtres appartiennent-elles à la même fenêtre de premier niveau (le jeu et ses enfants) ?
+unsafe fn same_root(a: HWND, b: HWND) -> bool {
+    if a.is_null() || b.is_null() {
+        return false;
+    }
+    let ra = GetAncestor(a, GA_ROOT);
+    let rb = GetAncestor(b, GA_ROOT);
+    a == b || (!ra.is_null() && ra == rb)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -191,6 +220,23 @@ impl Screen for WinScreen {
 // ---------------------------------------------------------------------------------------------
 
 const HOTKEY_ID: i32 = 0x1B0C;
+/// Message de fil : le raccourci d'arrêt d'urgence a été pressé (relayé par la garde qui le détient).
+const WM_GUARD_STOP: u32 = 0x8000 + 0x1B0; // WM_APP + …
+/// Message de fil : la garde qui détenait le raccourci s'arrête, celle-ci doit le reprendre.
+const WM_GUARD_TAKEOVER: u32 = 0x8000 + 0x1B1;
+
+/// Gardes en cours (une par invité connecté) : une seule détient le raccourci global, qu'elle
+/// relaie aux autres ; en partant, elle le passe à une autre. Plusieurs invités en même temps
+/// (jusqu'à 6 joueurs) partagent ainsi un même arrêt d'urgence.
+struct GuardEntry {
+    thread: u32,
+    has_hotkey: bool,
+}
+static GUARDS: std::sync::Mutex<Vec<GuardEntry>> = std::sync::Mutex::new(Vec::new());
+
+fn guards() -> std::sync::MutexGuard<'static, Vec<GuardEntry>> {
+    GUARDS.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 struct GuardState {
     on_stop: Box<dyn Fn(StopReason) + Send>,
@@ -242,6 +288,11 @@ unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lpar
     match msg {
         WM_HOTKEY if wparam as i32 == HOTKEY_ID => {
             fire(StopReason::Hotkey);
+            // les autres sessions (autres invités) s'arrêtent aussi
+            let me = GetCurrentThreadId();
+            for g in guards().iter().filter(|g| g.thread != me) {
+                PostThreadMessageW(g.thread, WM_GUARD_STOP, 0, 0);
+            }
             0
         }
         WM_WTSSESSION_CHANGE => {
@@ -322,11 +373,17 @@ unsafe fn guard_thread(
         let _ = ready.send(Err(format!("fenêtre de garde impossible (code {})", GetLastError())));
         return;
     }
+    let mut has_hotkey = true;
     if RegisterHotKey(hwnd, HOTKEY_ID, hotkey.modifiers | MOD_NOREPEAT, hotkey.vk) == 0 {
         let code = GetLastError();
-        DestroyWindow(hwnd);
-        let _ = ready.send(Err(format!("le raccourci {hotkey} est déjà utilisé par une autre application (code {code})")));
-        return;
+        // déjà détenu par la garde d'un autre invité d'iBox : elle nous relaiera l'appui
+        if guards().iter().any(|g| g.has_hotkey) {
+            has_hotkey = false;
+        } else {
+            DestroyWindow(hwnd);
+            let _ = ready.send(Err(format!("le raccourci {hotkey} est déjà utilisé par une autre application (code {code})")));
+            return;
+        }
     }
     if WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION) == 0 {
         let code = GetLastError();
@@ -340,10 +397,25 @@ unsafe fn guard_thread(
     let keyboard: HHOOK = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard_hook), instance, 0);
     let hooked = !mouse.is_null() && !keyboard.is_null();
     local.set_hooked(hooked);
-    let _ = ready.send(Ok((GetCurrentThreadId(), hooked)));
+    let me = GetCurrentThreadId();
+    guards().push(GuardEntry { thread: me, has_hotkey });
+    let _ = ready.send(Ok((me, hooked)));
 
     let mut msg: MSG = zeroed();
     while GetMessageW(&mut msg, null_mut(), 0, 0) > 0 {
+        if msg.hwnd.is_null() && msg.message == WM_GUARD_STOP {
+            fire(StopReason::Hotkey);
+            continue;
+        }
+        if msg.hwnd.is_null() && msg.message == WM_GUARD_TAKEOVER {
+            let mut list = guards();
+            if !list.iter().any(|g| g.has_hotkey) && RegisterHotKey(hwnd, HOTKEY_ID, hotkey.modifiers | MOD_NOREPEAT, hotkey.vk) != 0 {
+                if let Some(g) = list.iter_mut().find(|g| g.thread == me) {
+                    g.has_hotkey = true;
+                }
+            }
+            continue;
+        }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
@@ -355,7 +427,18 @@ unsafe fn guard_thread(
     }
     local.set_hooked(false);
     WTSUnRegisterSessionNotification(hwnd);
-    UnregisterHotKey(hwnd, HOTKEY_ID);
+    {
+        let mut list = guards();
+        let held = list.iter().any(|g| g.thread == me && g.has_hotkey);
+        list.retain(|g| g.thread != me);
+        if held {
+            UnregisterHotKey(hwnd, HOTKEY_ID);
+            // une autre session continue : elle reprend l'arrêt d'urgence
+            if let Some(next) = list.first() {
+                PostThreadMessageW(next.thread, WM_GUARD_TAKEOVER, 0, 0);
+            }
+        }
+    }
     DestroyWindow(hwnd);
     GUARD.with(|g| g.borrow_mut().take());
 }
@@ -381,9 +464,9 @@ mod tests {
         let hotkey: Hotkey = "Ctrl+Alt+Shift+F23".parse().unwrap();
         let guard = Guard::start(hotkey, local.clone(), Box::new(|_| {})).unwrap();
         assert!(local.hooked() == guard.hooked());
-        // un second enregistrement du même raccourci doit échouer proprement
+        // une seconde garde (autre invité) partage le raccourci détenu par la première
         let second = Guard::start(hotkey, Arc::new(LocalActivity::new()), Box::new(|_| {}));
-        assert!(second.is_err());
+        drop(second.unwrap());
         drop(guard);
         assert!(!local.hooked());
         // libéré : réenregistrable

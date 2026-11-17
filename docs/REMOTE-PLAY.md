@@ -565,7 +565,45 @@ boîte aux lettres (15 min sans message : la session P2P continue, la fin n'est 
 au pair que par la coupure DTLS/ICE).
 
 **Limites connues** : pas de TURN (réseaux en NAT symétrique des deux côtés, CGNAT strict, UDP
-bloqué : échec expliqué) ; un seul invité ; son : WASAPI en boucle (sortie par défaut) → Opus 128 kbit/s (`audio.rs`, 0.1.59), « jeu seulement » pas encore ; une seule session
+bloqué : échec expliqué) ; jusqu'à 5 invités (0.1.60), une connexion et une capture par invité ; son : WASAPI en boucle (sortie par défaut) → Opus 128 kbit/s (`audio.rs`, 0.1.59), « jeu seulement » pas encore ; une seule session
 (hôte ou invité) à la fois ; `stuns:` non pris en charge ; demandes « je veux rejoindre » (`kind:
 request`) ignorées ; un 429 du serveur suspend iNetbox quelques secondes (comportement existant du
 transport iNetbox).
+
+## 13. Audit de sécurité du contrôle à distance (0.1.60)
+
+Relecture du chemin des entrées distantes : DataChannel → `permissions::Session::authorize` →
+`input::Engine` → `Injector` → `SendInput` / ViGEm, et de la garde (`win.rs`).
+
+**Solide (inchangé)** : un invité arrive sans aucun droit ; les droits effectifs sont l'intersection
+du profil et du plafond du mode ; numéros de séquence par canal (rejeu refusé) ; 16 touches tenues
+au plus ; tout est relâché à la perte de droit, à la déconnexion et à l'arrêt d'urgence ; priorité
+locale de 500 ms (crochets bas niveau) ; aucune élévation : `SendInput` vers une fenêtre
+administrateur, l'UAC ou l'écran de verrouillage échoue (UIPI) ; Contrôle complet impossible par
+Internet ; Collaborateur sur confirmation explicite ; garde obligatoire par Internet (raccourci
+d'arrêt, verrouillage / changement de session) ; signalisation signée, clés épinglées, empreinte DTLS
+comparée à l'offre, code de sécurité.
+
+**Corrigé dans cette version**
+1. *Game Share sans clavier ni souris* : le plafond retirait clavier et souris au partage d'une
+   fenêtre, ce qui privait le Collaborateur de souris sans le dire. Ils sont désormais permis mais
+   **confinés** : position ramenée dans la zone client de la fenêtre, appui de touche seulement si
+   elle est au premier plan, clic et molette seulement si le curseur est sur elle (pas sur une
+   fenêtre posée par-dessus), déplacement relatif refusé (`Outcome::OutsideArea`). Les relâchements
+   passent toujours.
+2. *Raccourcis système en Game Share* : touche Windows (Win+R → « Exécuter »), Menu, Alt+Tab,
+   Alt+Échap, Alt+F4, Ctrl+Échap, Ctrl+Alt+Suppr refusés (`Denied::SystemShortcut`, testé). En
+   partage d'écran entier, le Collaborateur confirmé garde ces touches (choix de l'hôte).
+3. *Plusieurs invités* : chaque invité a sa propre `Session` (droits, manette, séquences isolés). Le
+   raccourci d'arrêt d'urgence est désormais **partagé** : une garde le détient et relaie l'appui à
+   toutes les autres sessions ; si elle s'arrête la première, une autre le reprend (sans quoi la
+   deuxième session échouait à l'enregistrer). L'arrêt d'urgence et « Terminer » coupent tous les
+   invités.
+4. *Fin de session côté invité* : l'hôte fermait la session iNetbox avant d'envoyer son « au revoir »
+   signé (refusé). L'au revoir part maintenant d'abord ; l'invité détecte aussi la fermeture du canal
+   de contrôle et 6 s sans réponse à ses pings, puis revient à iBox.
+
+**Risques résiduels connus** : un Collaborateur en partage d'écran entier a, par conception, le
+clavier et la souris du bureau (mêmes droits que l'utilisateur de la session Windows, sans
+élévation) ; un jeu peut lui-même offrir des actions sensibles (ouvrir un navigateur, un dossier) ;
+les manettes virtuelles restent visibles de tous les programmes de l'hôte.

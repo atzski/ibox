@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
 import { Icon } from "@/components/ui/Icon";
@@ -7,6 +7,7 @@ import { community, QUICK_COMMENTS, REACTIONS, type ReactionKey, type ReactionSu
 import { sound } from "@/services/sound";
 import { useSettings } from "@/services/settings";
 import { tr } from "@/i18n";
+import { MentionField, mentionIds, RichText, useFriendNames, type Picked } from "./Mentions";
 
 /**
  * Réactions d'un partage. `compact` (carte du fil) : seulement les réactions reçues
@@ -67,23 +68,43 @@ export function ReactionBar({ summary, onReact, compact = false }: {
   );
 }
 
-/** Fil de commentaires d'un partage, avec petits mots tout prêts et émojis à insérer. */
+/** Fil de commentaires d'un partage : réponses (un niveau), mentions « @ami », petits mots tout
+ * prêts et émojis à insérer. */
 export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: number) => void }) {
   const [items, setItems] = useState<ShareComment[] | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const picked = useRef<Picked>(new Map());
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lang = useSettings((s) => s.language ?? "fr");
+  const names = useFriendNames();
 
-  const load = useCallback(() => {
-    community.comments(shareId).then((list) => { setItems(list); onCount(list.length); })
-      .catch((e) => { setItems([]); setError((e as { message?: string }).message ?? "Commentaires indisponibles."); });
+  const load = useCallback((focus?: string) => {
+    community.comments(shareId).then((list) => {
+      setItems(list);
+      onCount(list.length);
+      if (focus) setFresh(focus);
+    }).catch((e) => { setItems([]); setError((e as { message?: string }).message ?? "Commentaires indisponibles."); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId]);
-  useEffect(load, [load]);
-  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, [items?.length]);
+  useEffect(() => load(), [load]);
+  useEffect(() => {
+    // nouveau commentaire : on le montre ; réponse : elle reste visible sous son commentaire
+    if (!fresh) listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    else listRef.current?.querySelector(`[data-comment="${fresh}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [items?.length, fresh]);
+
+  // fil : commentaires d'origine dans l'ordre, chacun suivi de ses réponses
+  const thread = useMemo(() => {
+    const list = items ?? [];
+    const roots = list.filter((c) => !c.parentId || !list.some((x) => x.id === c.parentId));
+    return roots.map((r) => ({ root: r, replies: list.filter((c) => c.parentId === r.id) }));
+  }, [items]);
 
   const send = async (body: string) => {
     const clean = body.trim();
@@ -91,10 +112,13 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
     setBusy(true);
     setError(null);
     try {
-      await community.comment(shareId, clean);
+      const { id } = await community.comment(shareId, clean, { parentId: replyTo?.id, mentions: mentionIds(clean, picked.current) });
       sound.play("select");
       setText("");
-      load();
+      setReplyTo(null);
+      picked.current = new Map();
+      setSent((n) => n + 1);
+      load(id);
     } catch (e) {
       setError((e as { message?: string }).message ?? "Le commentaire n’a pas été envoyé.");
     } finally {
@@ -109,58 +133,122 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
     setText((t) => (t + (t && !t.endsWith(" ") ? " " : "") + emoji).slice(0, 300));
     inputRef.current?.focus();
   };
+  const reply = (c: ShareComment) => {
+    sound.play("tab");
+    setReplyTo({ id: c.parentId ?? c.id, name: c.authorName });
+    // on répond à quelqu'un : son nom est déjà là (sauf à soi-même)
+    if (!c.mine) {
+      picked.current.set(c.authorId, c.authorName);
+      setText((t) => (t.includes(`@${c.authorName}`) ? t : `@${c.authorName} ${t}`).slice(0, 300));
+    }
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const bubble = (c: ShareComment, isReply: boolean) => (
+    <motion.div
+      key={c.id}
+      data-comment={c.id}
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.15 } }}
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      className={`group flex items-start gap-2.5 ${isReply ? "ml-10" : ""}`}
+    >
+      <Avatar size={isReply ? 26 : 30} choice={c.avatar} name={c.authorName} />
+      <div className="min-w-0 flex-1">
+        <motion.div
+          animate={fresh === c.id ? { boxShadow: ["0 0 0 0 rgba(74,91,234,0.45)", "0 0 0 8px rgba(74,91,234,0)"] } : undefined}
+          transition={{ duration: 0.9 }}
+          className={`inline-block max-w-full rounded-[1.1rem] px-3.5 py-2 ${c.mine ? "bg-sky-soft" : "bg-white"} ${isReply ? "rounded-tl-md" : ""}`}
+        >
+          <div className="flex items-baseline gap-2 text-[0.72rem] font-bold text-ink-soft">
+            <span data-no-i18n className="text-ink">{c.authorName}</span>
+            <span>{relativeDay(new Date(c.createdAt).toISOString())}</span>
+          </div>
+          <p data-no-i18n className="text-[0.9rem] font-semibold break-words whitespace-pre-wrap text-ink">
+            <RichText text={c.body} names={names} />
+          </p>
+        </motion.div>
+        <div className="mt-0.5 flex items-center gap-1 pl-2">
+          <button type="button" data-focusable onClick={() => reply(c)}
+            className="ibox-focusable rounded-full px-2 py-0.5 text-[0.74rem] font-extrabold text-ink-soft hover:bg-white hover:text-[#4A5BEA] [--ring-radius:999px]">
+            Répondre
+          </button>
+          {c.canDelete && (
+            <button type="button" data-focusable onClick={() => void remove(c.id)} aria-label="Supprimer le commentaire"
+              className="ibox-focusable rounded-full px-2 py-0.5 text-[0.74rem] font-extrabold text-ink-soft opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white hover:text-peach-deep [--ring-radius:999px]">
+              Supprimer
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
 
   return (
     <section className="mt-4 rounded-[1.4rem] bg-cream-deep/70 p-4">
       <h3 className="flex items-center gap-2 font-display text-[1.05rem] font-semibold text-ink">
-        <Icon name="chat" size="1.1rem" /> Commentaires {items && items.length > 0 && <span className="text-ink-soft">({items.length})</span>}
+        <Icon name="chat" size="1.1rem" /> Commentaires
+        {items && items.length > 0 && (
+          <motion.span key={items.length} initial={{ scale: 1.5 }} animate={{ scale: 1 }} className="inline-block text-ink-soft">
+            ({items.length})
+          </motion.span>
+        )}
       </h3>
-      <div ref={listRef} className="mt-3 max-h-[14rem] space-y-2 overflow-y-auto pr-1">
-        {!items && <p className="text-[0.85rem] font-bold text-ink-soft">Chargement…</p>}
-        {items?.length === 0 && <p className="text-[0.88rem] font-semibold text-ink-soft">Personne n’a encore commenté. Soyez le premier !</p>}
+      <div ref={listRef} className="mt-3 max-h-[16rem] space-y-2.5 overflow-y-auto pr-1">
+        {!items && (
+          <div className="space-y-2">
+            {[0, 1].map((i) => <div key={i} className="ibox-shimmer h-12 w-2/3 rounded-[1.1rem]" />)}
+          </div>
+        )}
+        {items?.length === 0 && (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[0.88rem] font-semibold text-ink-soft">
+            Personne n’a encore commenté. Soyez le premier !
+          </motion.p>
+        )}
         <AnimatePresence initial={false}>
-          {items?.map((c) => (
-            <motion.div key={c.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
-              className={`group flex items-start gap-2.5 ${c.mine ? "flex-row-reverse" : ""}`}>
-              <Avatar size={30} choice={c.avatar} name={c.authorName} />
-              <div className={`max-w-[80%] rounded-[1.1rem] px-3.5 py-2 ${c.mine ? "rounded-tr-md bg-sky-soft" : "rounded-tl-md bg-white"}`}>
-                <div className="flex items-baseline gap-2 text-[0.72rem] font-bold text-ink-soft">
-                  <span data-no-i18n className="text-ink">{c.authorName}</span>
-                  <span>{relativeDay(new Date(c.createdAt).toISOString())}</span>
-                </div>
-                <p data-no-i18n className="text-[0.9rem] font-semibold break-words whitespace-pre-wrap text-ink">{c.body}</p>
-              </div>
-              {c.canDelete && (
-                <button type="button" data-focusable onClick={() => void remove(c.id)} aria-label="Supprimer le commentaire" title="Supprimer"
-                  className="ibox-focusable mt-1 grid size-7 shrink-0 place-items-center rounded-full text-ink-soft opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-white [--ring-radius:999px]">
-                  <Icon name="x" size="0.85rem" />
-                </button>
-              )}
-            </motion.div>
-          ))}
+          {thread.flatMap(({ root, replies }) => [bubble(root, false), ...replies.map((r) => bubble(r, true))])}
         </AnimatePresence>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {QUICK_COMMENTS.map((q) => (
-          <button key={q} type="button" data-focusable disabled={busy} onClick={() => void send(tr(q, lang))}
-            className="ibox-focusable rounded-full bg-white px-3 py-1 text-[0.8rem] font-bold text-ink shadow-sm hover:-translate-y-0.5 transition-transform disabled:opacity-50 [--ring-radius:999px]">
+        {QUICK_COMMENTS.map((q, i) => (
+          <motion.button key={q} type="button" data-focusable disabled={busy} onClick={() => void send(tr(q, lang))}
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 * i }}
+            whileHover={{ y: -2 }} whileTap={{ scale: 0.92 }}
+            className="ibox-focusable rounded-full bg-white px-3 py-1 text-[0.8rem] font-bold text-ink shadow-sm disabled:opacity-50 [--ring-radius:999px]">
             {q}
-          </button>
+          </motion.button>
         ))}
       </div>
+      <AnimatePresence>
+        {replyTo && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden">
+            <div className="mt-3 flex items-center gap-2 rounded-full bg-[#4A5BEA]/10 py-1 pr-1 pl-3 text-[0.8rem] font-bold text-[#3A48C9]">
+              <Icon name="chat" size="0.95rem" />
+              <span className="min-w-0 flex-1 truncate">Réponse à <span data-no-i18n>{replyTo.name}</span></span>
+              <button type="button" onClick={() => setReplyTo(null)} aria-label="Annuler la réponse" className="grid size-6 place-items-center rounded-full hover:bg-white">
+                <Icon name="x" size="0.8rem" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <form className="mt-3 flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void send(text); }}>
-        <div className="flex h-11 min-w-0 flex-1 items-center gap-1 rounded-full bg-white pr-1.5 pl-4 shadow-sm">
-          <input ref={inputRef} data-focusable value={text} onChange={(e) => setText(e.target.value)} maxLength={300}
-            placeholder="Écrire un commentaire sympa…" aria-label="Commentaire"
-            className="h-full min-w-0 flex-1 bg-transparent font-semibold text-ink outline-none" />
+        <div className="flex h-11 min-w-0 flex-1 items-center gap-1 rounded-full bg-white pr-1.5 pl-4 shadow-sm transition-shadow focus-within:shadow-[0_0_0_3px_rgba(74,91,234,0.25)]">
+          <MentionField ref={inputRef} value={text} onChange={setText} onPick={(f) => picked.current.set(f.id, f.displayName)} maxLength={300}
+            placeholder={replyTo ? "Votre réponse… (@ pour mentionner)" : "Écrire un commentaire sympa… (@ pour mentionner)"} label="Commentaire" />
           {["😄", "🔥", "❤️", "🎮"].map((e) => (
-            <button key={e} type="button" onClick={() => insert(e)} aria-label={`Insérer ${e}`} className="grid size-8 place-items-center rounded-full text-[1rem] hover:bg-cream-deep">{e}</button>
+            <motion.button key={e} type="button" whileTap={{ scale: 1.35, rotate: -10 }} onClick={() => insert(e)} aria-label={`Insérer ${e}`} className="grid size-8 place-items-center rounded-full text-[1rem] hover:bg-cream-deep">{e}</motion.button>
           ))}
         </div>
-        <button type="submit" data-focusable disabled={busy || !text.trim()} aria-label="Envoyer"
-          className="ibox-focusable grid size-11 shrink-0 place-items-center rounded-full bg-[#4A5BEA] text-white shadow-md transition-opacity disabled:opacity-40 [--ring-radius:999px]">
+        <motion.button key={sent} type="submit" data-focusable disabled={busy || !text.trim()} aria-label="Envoyer"
+          initial={sent ? { scale: 1.25, rotate: -25 } : false} animate={{ scale: 1, rotate: 0 }} whileTap={{ scale: 0.88 }}
+          transition={{ type: "spring", stiffness: 420, damping: 16 }}
+          className="ibox-focusable grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#4A5BEA] to-[#8A4FE0] text-white shadow-md transition-opacity disabled:opacity-40 [--ring-radius:999px]">
           <Icon name="chevronRight" size="1.2rem" />
-        </button>
+        </motion.button>
       </form>
       {error && <p className="mt-2 text-[0.82rem] font-bold text-peach-deep">{error}</p>}
     </section>

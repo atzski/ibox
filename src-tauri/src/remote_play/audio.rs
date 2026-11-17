@@ -2,6 +2,10 @@
 //! défaut) → 48 kHz stéréo → Opus 20 ms (`opus-rs`, Rust pur). Les paquets partent sur la piste
 //! audio de la session (`transport::peer`).
 //!
+//! « Masquer l'écho Discord » : la capture passe par le loopback **par processus** de Windows
+//! (`PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE`, build 20348+) en excluant l'arbre de
+//! processus de Discord : l'invité n'entend plus sa propre voix renvoyée par l'appel Discord.
+//!
 //! WASAPI en boucle ne livre rien tant que rien ne joue : les trous sont comblés par du silence
 //! pour que l'horodatage RTP suive l'horloge réelle (sinon le son prendrait du retard sur l'image).
 
@@ -129,16 +133,47 @@ impl Encoder {
 #[cfg(windows)]
 pub use win::stream;
 
+/// Noms des exécutables Discord (application, PTB, Canary), en minuscules.
+const DISCORD: [&str; 3] = ["discord.exe", "discordptb.exe", "discordcanary.exe"];
+
+/// Processus racine de Discord parmi `(pid, parent, nom)` : un processus Discord dont le parent
+/// n'est pas Discord (ses voix sortent d'un processus enfant, exclu avec tout l'arbre).
+pub fn discord_root(processes: &[(u32, Option<u32>, String)]) -> Option<u32> {
+    let is_discord = |name: &str| DISCORD.contains(&name.to_ascii_lowercase().as_str());
+    let pids: Vec<u32> = processes.iter().filter(|p| is_discord(&p.2)).map(|p| p.0).collect();
+    processes
+        .iter()
+        .filter(|p| is_discord(&p.2) && !p.1.is_some_and(|parent| pids.contains(&parent)))
+        .map(|p| p.0)
+        .min()
+}
+
+/// Processus racine de Discord en cours d'exécution, s'il y en a un.
+pub fn find_discord() -> Option<u32> {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    let list: Vec<(u32, Option<u32>, String)> =
+        sys.processes().values().map(|p| (p.pid().as_u32(), p.parent().map(|x| x.as_u32()), p.name().to_string_lossy().into_owned())).collect();
+    discord_root(&list)
+}
+
 #[cfg(windows)]
 mod win {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::{Duration, Instant};
+    use windows::core::{implement, Interface, Ref, HRESULT};
     use windows::Win32::Media::Audio::{
-        eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED,
-        AUDCLNT_STREAMFLAGS_LOOPBACK, WAVEFORMATEX,
+        eConsole, eRender, ActivateAudioInterfaceAsync, IActivateAudioInterfaceAsyncOperation, IActivateAudioInterfaceCompletionHandler,
+        IActivateAudioInterfaceCompletionHandler_Impl, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT,
+        AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_LOOPBACK, AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+        AUDIOCLIENT_ACTIVATION_PARAMS, AUDIOCLIENT_ACTIVATION_PARAMS_0, AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK, AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS,
+        PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE, VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, WAVEFORMATEX,
     };
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemAlloc, CoTaskMemFree, CoUninitialize, BLOB, CLSCTX_ALL, COINIT_MULTITHREADED};
+    use windows::Win32::System::Variant::VT_BLOB;
 
     /// Retard toléré avant de combler par du silence (rien ne joue sur le PC).
     const GAP: u64 = SAMPLE_RATE as u64 / 10;
@@ -159,14 +194,38 @@ mod win {
         }
     }
 
-    /// Capture le son du PC jusqu'à `stop` ; `send` reçoit chaque paquet Opus (et l'instant
-    /// correspondant au début du son) et renvoie `false` pour arrêter.
-    pub fn stream(stop: &AtomicBool, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> Result<(), String> {
-        let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
-        unsafe { capture(stop, send) }.map_err(|e| format!("capture du son : {e}"))
+    /// Signale la fin de l'activation asynchrone (appelé sur un fil de Windows).
+    #[implement(IActivateAudioInterfaceCompletionHandler)]
+    struct Activated(std::sync::mpsc::SyncSender<()>);
+
+    impl IActivateAudioInterfaceCompletionHandler_Impl for Activated_Impl {
+        fn ActivateCompleted(&self, _operation: Ref<IActivateAudioInterfaceAsyncOperation>) -> windows::core::Result<()> {
+            let _ = self.0.try_send(());
+            Ok(())
+        }
     }
 
-    unsafe fn capture(stop: &AtomicBool, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> windows::core::Result<()> {
+    /// Capture le son du PC jusqu'à `stop` ; `send` reçoit chaque paquet Opus (et l'instant
+    /// correspondant au début du son) et renvoie `false` pour arrêter. `exclude` : processus dont
+    /// l'arbre est retiré du son (Discord) ; si Windows refuse, capture complète.
+    pub fn stream(stop: &AtomicBool, exclude: Option<u32>, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> Result<(), String> {
+        let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
+        let opened = unsafe {
+            match exclude.map(|pid| open_excluding(pid)) {
+                Some(Ok(c)) => Ok(c),
+                Some(Err(e)) => {
+                    eprintln!("[remote-play] son sans Discord indisponible ({e}) : capture complète");
+                    open_default()
+                }
+                None => open_default(),
+            }
+        };
+        let (client, fmt) = opened.map_err(|e| format!("capture du son : {e}"))?;
+        unsafe { capture(&client, fmt, stop, send) }.map_err(|e| format!("capture du son : {e}"))
+    }
+
+    /// Sortie par défaut, au format du mélangeur de Windows.
+    unsafe fn open_default() -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
         let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
         let device = devices.GetDefaultAudioEndpoint(eRender, eConsole)?;
         let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
@@ -175,6 +234,63 @@ mod win {
         let init = client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 2_000_000, 0, format, None);
         CoTaskMemFree(Some(format as *const _));
         init?;
+        Ok((client, fmt))
+    }
+
+    /// Tout le son du PC sauf l'arbre de processus `pid` (loopback par processus).
+    unsafe fn open_excluding(pid: u32) -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
+        let params = AUDIOCLIENT_ACTIVATION_PARAMS {
+            ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
+            Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
+                ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS { TargetProcessId: pid, ProcessLoopbackMode: PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE },
+            },
+        };
+        // PROPVARIANT VT_BLOB : Windows libère lui-même le bloc (CoTaskMemFree) après l'activation.
+        // Sur la pile, il corrompait le tas (0xC0000374, vérifié le 17/11/2026) : tas COM obligatoire.
+        let data = CoTaskMemAlloc(size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>()) as *mut AUDIOCLIENT_ACTIVATION_PARAMS;
+        if data.is_null() {
+            return Err(windows::core::Error::from(HRESULT(0x8007000Eu32 as i32)));
+        }
+        data.write(params);
+        let mut variant = PROPVARIANT::default();
+        {
+            let inner = &mut *variant.Anonymous.Anonymous;
+            inner.vt = VT_BLOB;
+            inner.Anonymous.blob = BLOB { cbSize: size_of::<AUDIOCLIENT_ACTIVATION_PARAMS>() as u32, pBlobData: data.cast() };
+        }
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let handler: IActivateAudioInterfaceCompletionHandler = Activated(tx).into();
+        let operation = ActivateAudioInterfaceAsync(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, &IAudioClient::IID, Some(&variant), &handler)?;
+        if rx.recv_timeout(Duration::from_secs(5)).is_err() {
+            return Err(windows::core::Error::new(HRESULT(0x800705B4u32 as i32), "activation du son trop longue"));
+        }
+        let mut result = HRESULT(0);
+        let mut unknown = None;
+        operation.GetActivateResult(&mut result, &mut unknown)?;
+        result.ok()?;
+        let client: IAudioClient = unknown.ok_or_else(|| windows::core::Error::from(HRESULT(0x80004003u32 as i32)))?.cast()?;
+        // pas de format de mélangeur ici : 48 kHz stéréo flottant, converti par Windows
+        let fmt = WAVEFORMATEX {
+            wFormatTag: 3,
+            nChannels: 2,
+            nSamplesPerSec: SAMPLE_RATE,
+            nAvgBytesPerSec: SAMPLE_RATE * 8,
+            nBlockAlign: 8,
+            wBitsPerSample: 32,
+            cbSize: 0,
+        };
+        client.Initialize(
+            AUDCLNT_SHAREMODE_SHARED,
+            AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+            2_000_000,
+            0,
+            &fmt,
+            None,
+        )?;
+        Ok((client, fmt))
+    }
+
+    unsafe fn capture(client: &IAudioClient, fmt: WAVEFORMATEX, stop: &AtomicBool, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> windows::core::Result<()> {
         let channels = fmt.nChannels.max(1) as usize;
         let kind = match (fmt.wFormatTag, fmt.wBitsPerSample) {
             (3, 32) | (0xFFFE, 32) => Sample::F32, // IEEE float (le mélangeur partagé l'est presque toujours)
@@ -268,7 +384,9 @@ mod tests {
         let start = std::time::Instant::now();
         let mut packets = 0u64;
         let mut last = 0u64;
-        stream(&stop, &mut |p, _| {
+        let exclude = std::env::var("IBOX_EXCLURE_PID").ok().and_then(|v| v.parse().ok()).or_else(find_discord);
+        println!("exclusion : {exclude:?}");
+        stream(&stop, exclude, &mut |p, _| {
             assert!(p.at >= last);
             last = p.at;
             packets += 1;
@@ -277,6 +395,20 @@ mod tests {
         .unwrap();
         println!("{packets} paquets, position {last}");
         assert!(packets >= 50, "au moins 1 s de son (silence compris)");
+    }
+
+    #[test]
+    fn racine_de_discord() {
+        let list = vec![
+            (10, Some(1), "explorer.exe".to_string()),
+            (40, Some(10), "Discord.exe".to_string()),
+            (41, Some(40), "Discord.exe".to_string()),
+            (42, Some(40), "Discord.exe".to_string()),
+            (50, Some(10), "chrome.exe".to_string()),
+        ];
+        assert_eq!(discord_root(&list), Some(40));
+        assert_eq!(discord_root(&list[..1]), None);
+        assert_eq!(discord_root(&[(7, None, "DiscordPTB.exe".into())]), Some(7));
     }
 
     #[test]

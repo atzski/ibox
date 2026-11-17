@@ -294,8 +294,8 @@ mod tests {
     }
 
     #[test]
-    fn mode_ceiling_blocks_keyboard_in_game_share_but_pads_work() {
-        let (mut e, sent, pads) = engine(Mode::GameShare);
+    fn mode_ceiling_blocks_keyboard_in_local_multiplayer_but_pads_work() {
+        let (mut e, sent, pads) = engine(Mode::LocalMultiplayer);
         e.join(1, "ami").unwrap();
         e.set_profile(1, Profile::FullControl, true).unwrap();
         assert_eq!(e.handle(1, key(0x1E, true)), Err(Denied::Missing(Permission::Keyboard)));

@@ -29,7 +29,21 @@ export interface OnlineStatus {
   rejected: number;
   sessionId: string | null;
   expiresAt: number | null;
+  /** Hôte : les autres invités de la partie (jusqu'à 6 joueurs avec l'hôte). */
+  players?: PartyPlayer[];
 }
+
+export interface PartyPlayer {
+  sessionId: string;
+  peerName: string;
+  stage: OnlineStatus["stage"];
+  profile: GuestProfile | "fullControl" | null;
+  safetyCode: string | null;
+  error: string | null;
+}
+
+/** Invités au plus dans une partie Remote Play (6 joueurs avec l'hôte). */
+export const MAX_PARTY_GUESTS = 5;
 
 export interface IncomingInvite {
   id: string;

@@ -47,10 +47,12 @@ export function FlightLayer() {
 function estimate(): ScreenPose {
   const f = useFlight.getState();
   if (f.back && f.from) return f.from;
+  // fiche PC : la visionneuse est à gauche ; fiches consoles : à droite
+  const pc = f.game?.platformId === "pc";
   return {
-    cx: window.innerWidth * 0.66,
+    cx: pc ? 48 + Math.min(432, Math.max(304, window.innerWidth * 0.27)) / 2 : window.innerWidth * 0.66,
     cy: window.innerHeight * 0.5,
-    h: window.innerHeight * 0.55,
+    h: window.innerHeight * (pc ? 0.4 : 0.55),
     yaw: InspectController.REST_YAW,
     pitch: InspectController.REST_PITCH + 0.06,
   };

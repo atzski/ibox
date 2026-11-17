@@ -155,17 +155,12 @@ unsafe fn activate_string(activate: &IMFActivate, key: &GUID) -> Option<String> 
     s
 }
 
-/// MFT matériels qui encodent du NV12 en H.264, ceux du fabricant de notre GPU d'abord.
-unsafe fn hardware_candidates(adapter_vendor: u32) -> Vec<(IMFActivate, String, Option<u32>)> {
-    let input = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_NV12 };
-    let output = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_H264 };
-    let mut array: *mut Option<IMFActivate> = std::ptr::null_mut();
-    let mut count = 0u32;
-    let flags = MFT_ENUM_FLAG_HARDWARE | MFT_ENUM_FLAG_SORTANDFILTER;
-    if MFTEnumEx(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &mut array, &mut count).is_err() || array.is_null() {
-        return Vec::new();
-    }
+/// Lit un tableau d'`IMFActivate` rendu par `MFTEnumEx` / `MFTEnum2`, puis le libère.
+unsafe fn take_activates(array: *mut Option<IMFActivate>, count: u32) -> Vec<(IMFActivate, String, Option<u32>)> {
     let mut out = Vec::new();
+    if array.is_null() {
+        return out;
+    }
     for i in 0..count as usize {
         if let Some(activate) = std::ptr::read(array.add(i)) {
             let name = activate_string(&activate, &MFT_FRIENDLY_NAME_Attribute).unwrap_or_else(|| "MFT matériel".into());
@@ -174,7 +169,43 @@ unsafe fn hardware_candidates(adapter_vendor: u32) -> Vec<(IMFActivate, String, 
         }
     }
     CoTaskMemFree(Some(array as *const _));
-    out.sort_by_key(|(_, _, vendor)| *vendor != Some(adapter_vendor));
+    out
+}
+
+/// MFT matériels qui encodent du NV12 en H.264 : d'abord ceux rattachés à la carte graphique de
+/// notre device (`MFTEnum2` + LUID : indispensable sur les PC à deux GPU, Intel + NVIDIA ou AMD,
+/// où le MFT d'une autre carte ne peut pas lire nos textures), puis les autres, ceux du fabricant
+/// de notre GPU en tête. NVENC, AMF (AMD) et Quick Sync (Intel) passent tous par ce chemin.
+unsafe fn hardware_candidates(device: &Device) -> Vec<(IMFActivate, String, Option<u32>)> {
+    let input = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_NV12 };
+    let output = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_H264 };
+    let flags = MFT_ENUM_FLAG_HARDWARE | MFT_ENUM_FLAG_SORTANDFILTER;
+
+    let mut out = Vec::new();
+    // 1. MFT de notre adaptateur (Windows 10 1703 et plus)
+    let mut attrs = None;
+    if MFCreateAttributes(&mut attrs, 1).is_ok() {
+        if let Some(attrs) = attrs {
+            let luid = device.adapter_luid;
+            let bytes = std::slice::from_raw_parts(&luid as *const _ as *const u8, std::mem::size_of_val(&luid));
+            if attrs.SetBlob(&MFT_ENUM_ADAPTER_LUID, bytes).is_ok() {
+                let mut array: *mut Option<IMFActivate> = std::ptr::null_mut();
+                let mut count = 0u32;
+                if MFTEnum2(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &attrs, &mut array, &mut count).is_ok() {
+                    out = take_activates(array, count);
+                }
+            }
+        }
+    }
+    // 2. Tous les MFT matériels enregistrés (repli : ancien Windows, pilote sans LUID)
+    let mut array: *mut Option<IMFActivate> = std::ptr::null_mut();
+    let mut count = 0u32;
+    if MFTEnumEx(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &mut array, &mut count).is_ok() {
+        let mut rest = take_activates(array, count);
+        rest.retain(|(_, name, _)| !out.iter().any(|(_, n, _)| n == name));
+        rest.sort_by_key(|(_, _, vendor)| *vendor != Some(device.vendor_id));
+        out.extend(rest);
+    }
     out
 }
 
@@ -218,7 +249,7 @@ impl Encoder {
         };
         let mut attempts = Vec::new();
         if preference != Preference::SoftwareOnly {
-            for (activate, name, vendor) in unsafe { hardware_candidates(device.vendor_id) } {
+            for (activate, name, vendor) in unsafe { hardware_candidates(device) } {
                 let opened = unsafe { activate.ActivateObject::<IMFTransform>() }
                     .and_then(|t| Encoder::open(device, &manager, t, Some(activate.clone()), cfg, true, &name));
                 match opened {
@@ -267,7 +298,7 @@ impl Encoder {
             return out;
         };
         let cfg = cfg.sanitized();
-        for (activate, name, vendor) in unsafe { hardware_candidates(device.vendor_id) } {
+        for (activate, name, vendor) in unsafe { hardware_candidates(device) } {
             let result = unsafe { activate.ActivateObject::<IMFTransform>() }
                 .and_then(|t| Encoder::open(device, &manager, t, Some(activate.clone()), cfg, true, &name))
                 .map(drop)
@@ -304,6 +335,10 @@ impl Encoder {
             }
             // les encodeurs matériels lisent les textures NV12 sur la carte graphique
             let d3d = transform.ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, manager.as_raw() as usize);
+            // mode faible latence au niveau du MFT (AMF et Quick Sync le lisent ici, pas via ICodecAPI)
+            if let Some(a) = attributes.as_ref() {
+                let _ = a.SetUINT32(&MF_LOW_LATENCY, 1);
+            }
             if hardware {
                 d3d?;
             }
@@ -318,11 +353,27 @@ impl Encoder {
             let gop = if cfg.gop > 0 { cfg.gop } else { cfg.fps * 3600 };
             let gop_applied = set(&CODECAPI_AVEncMPVGOPSize, VARIANT::from(gop));
 
-            // le type de sortie se fixe avant celui d'entrée (règle des encodeurs MF)
-            let output = video_type(MFVideoFormat_H264, &cfg)?;
-            output.SetUINT32(&MF_MT_AVG_BITRATE, cfg.bitrate_kbps * 1000)?;
-            output.SetUINT32(&MF_MT_MPEG2_PROFILE, cfg.profile.mf_value())?;
-            transform.SetOutputType(0, &output, 0)?;
+            // le type de sortie se fixe avant celui d'entrée (règle des encodeurs MF). Certains
+            // encodeurs (AMF, Quick Sync anciens) refusent un profil : on descend vers un profil
+            // plus simple, que tout décodeur du profil négocié sait lire (High ⊃ Main ⊃ Baseline).
+            let mut cfg = cfg;
+            let mut out_err = None;
+            for &profile in super::Profile::fallbacks(cfg.profile) {
+                let output = video_type(MFVideoFormat_H264, &cfg)?;
+                output.SetUINT32(&MF_MT_AVG_BITRATE, cfg.bitrate_kbps * 1000)?;
+                output.SetUINT32(&MF_MT_MPEG2_PROFILE, profile.mf_value())?;
+                match transform.SetOutputType(0, &output, 0) {
+                    Ok(()) => {
+                        cfg.profile = profile;
+                        out_err = None;
+                        break;
+                    }
+                    Err(e) => out_err = Some(e),
+                }
+            }
+            if let Some(e) = out_err {
+                return Err(e);
+            }
             let input = video_type(MFVideoFormat_NV12, &cfg)?;
             if transform.SetInputType(0, &input, 0).is_err() {
                 // certains encodeurs n'acceptent que leurs propres types : on complète le leur
@@ -342,6 +393,16 @@ impl Encoder {
                 if !accepted {
                     return Err(Error::new(MF_E_INVALIDMEDIATYPE, "NV12 refusé en entrée"));
                 }
+            }
+
+            // Quick Sync et certains pilotes AMD remettent leurs réglages par défaut en fixant les
+            // types : on les réapplique (sans échec si refusés à ce stade)
+            if hardware {
+                set(&CODECAPI_AVEncCommonRateControlMode, VARIANT::from(eAVEncCommonRateControlMode_CBR.0 as u32));
+                set(&CODECAPI_AVEncCommonMeanBitRate, VARIANT::from(cfg.bitrate_kbps * 1000));
+                set(&CODECAPI_AVLowLatencyMode, VARIANT::from(true));
+                set(&CODECAPI_AVEncMPVDefaultBPictureCount, VARIANT::from(0u32));
+                set(&CODECAPI_AVEncMPVGOPSize, VARIANT::from(gop));
             }
 
             let _ = transform.ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0); // refusé par certains MFT avant le début du flux

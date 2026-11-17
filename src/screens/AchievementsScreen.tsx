@@ -15,6 +15,7 @@ import {
 } from "@/services/retro";
 import { steamApi, steamAppId, type SteamProgress } from "@/services/steamAchievements";
 import { RA_SYSTEM } from "@/services/achievementProgress";
+import { readCache, steamIdsOf, writeCache } from "@/services/achievementsCache";
 import { useMediaUrl } from "@/art/useMediaUrl";
 import { Button, Segmented } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -135,13 +136,27 @@ function Onboarding() {
   );
 }
 
-function useAsync<T>(load: () => Promise<T>, deps: unknown[], enabled = true) {
-  const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: enabled });
+/**
+ * Chargement asynchrone. Avec `cacheKey`, les dernières données connues s'affichent tout de suite
+ * (mémoire, puis disque d'une visite à l'autre) et sont rafraîchies en arrière-plan : l'écran
+ * n'est plus vide (« niveau 1 ») le temps que RetroAchievements et Steam répondent.
+ */
+function useAsync<T>(load: () => Promise<T>, deps: unknown[], enabled = true, cacheKey?: string) {
+  const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>(() => {
+    const cached = enabled && cacheKey ? readCache<T>(cacheKey) : undefined;
+    return { data: cached, loading: enabled && cached === undefined };
+  });
   useEffect(() => {
     if (!enabled) { setState({ loading: false }); return; }
     let alive = true;
-    setState((s) => ({ ...s, loading: true }));
-    load().then((data) => alive && setState({ data, loading: false })).catch((e) => alive && setState({ error: String(e), loading: false }));
+    const cached = cacheKey ? readCache<T>(cacheKey) : undefined;
+    setState((s) => ({ data: cached ?? s.data, loading: (cached ?? s.data) === undefined }));
+    load()
+      .then((data) => {
+        if (cacheKey) writeCache(cacheKey, data);
+        if (alive) setState({ data, loading: false });
+      })
+      .catch((e) => alive && setState((s) => ({ data: s.data, error: s.data === undefined ? String(e) : undefined, loading: false })));
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -170,15 +185,12 @@ function Section({ title, icon, action, children }: { title: string; icon: IconN
 function Hub({ user, steamGames, onGame }: { user?: string; steamGames: Game[]; onGame: (source: Source, id: number) => void }) {
   const [refresh, setRefresh] = useState(0);
   const force = refresh > 0;
-  const profile = useAsync(() => raApi.profile(user!, force), [user, refresh], !!user);
-  const progress = useAsync(() => raApi.progress(user!, force), [user, refresh], !!user);
-  const recent = useAsync(() => raApi.recent(user!, 60 * 24 * 30, force), [user, refresh], !!user);
-  const awards = useAsync(() => raApi.awards(user!, force), [user, refresh], !!user);
-  const appids = useMemo(
-    () => [...steamGames].sort((a, b) => (b.lastPlayedAt ?? "").localeCompare(a.lastPlayedAt ?? "")).map(steamAppId).filter((x): x is number => !!x).slice(0, 40),
-    [steamGames],
-  );
-  const steam = useAsync(() => steamApi.summary(appids, force), [appids.join(","), refresh], appids.length > 0);
+  const profile = useAsync(() => raApi.profile(user!, force), [user, refresh], !!user, `ra-profile:${user}`);
+  const progress = useAsync(() => raApi.progress(user!, force), [user, refresh], !!user, `ra-progress:${user}`);
+  const recent = useAsync(() => raApi.recent(user!, 60 * 24 * 30, force), [user, refresh], !!user, `ra-recent:${user}`);
+  const awards = useAsync(() => raApi.awards(user!, force), [user, refresh], !!user, `ra-awards:${user}`);
+  const appids = useMemo(() => steamIdsOf(steamGames), [steamGames]);
+  const steam = useAsync(() => steamApi.summary(appids, force), [appids.join(","), refresh], appids.length > 0, "steam-summary");
   const live = useRaLive((s) => s.unlocked);
 
   const entries = useMemo(() => {
@@ -532,6 +544,7 @@ function GamePage({ user, source, id, onBack }: { user?: string; source: Source;
     () => (source === "steam" ? steamApi.game(id, steamLib?.title ?? "", force > 0) : raApi.game(id, user ?? "", force > 0)),
     [source, id, user, force],
     source === "steam" || !!user,
+    `game:${source}:${id}:${user ?? ""}`,
   );
   const [filter, setFilter] = useState<GameFilter>("all");
   const [sort, setSort] = useState<GameSort>("order");

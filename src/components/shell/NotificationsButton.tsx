@@ -169,6 +169,7 @@ const LINK_LABEL: Record<NonNullable<ReturnType<typeof linkOf>>["kind"], string>
   update: "Installer",
   achievements: "Voir les succès",
   friends: "Ouvrir Amis",
+  community: "Voir la publication",
 };
 
 /** Pastille « Mettre à jour » dans la barre du haut, tant qu'une version attend. */

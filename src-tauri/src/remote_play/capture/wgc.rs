@@ -117,6 +117,10 @@ impl Capture {
         }))?;
 
         let _ = session.SetIsCursorCaptureEnabled(options.cursor);
+        // Windows 11 24H2+ : sans plancher, WGC ne livre pas plus vite que ~60 Hz ; à 1 ms, chaque
+        // image du jeu arrive dès qu'elle est composée (on garde toujours la plus récente : moins
+        // d'attente avant l'encodage). Refusé sans conséquence sur les Windows plus anciens.
+        let _ = session.SetMinUpdateInterval(windows::Foundation::TimeSpan { Duration: 10_000 });
         let borderless = options.borderless && super::borderless_supported(windows_build) && session.SetIsBorderRequired(false).is_ok();
         session.StartCapture()?;
 

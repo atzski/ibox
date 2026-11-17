@@ -1,30 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Boîte ouverte rouge corail">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#E4F4FD"/>
-      <stop offset="1" stop-color="#EFE9FB"/>
-    </linearGradient>
-    <linearGradient id="disc" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#C6EBDA"/>
-      <stop offset="1" stop-color="#8CCDF1"/>
-    </linearGradient>
-    <linearGradient id="art" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#F7CDB6"/>
-      <stop offset="1" stop-color="#C9B7EF"/>
-    </linearGradient>
+    <clipPath id="body">
+      <path d="M57 181 L455 181 L437 331 Q436 347 421 356 L273 436 Q256 445 239 436 L91 356 Q76 347 75 331 Z"/>
+    </clipPath>
+    <clipPath id="opening">
+      <path d="M246 106 Q256 101 266 106 L408 180 Q416 184 408 188 L266 263 Q256 268 246 263 L104 188 Q96 184 104 180 Z"/>
+    </clipPath>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bg)"/>
-  <!-- disque qui sort du boîtier -->
-  <circle cx="338" cy="240" r="122" fill="url(#disc)"/>
-  <circle cx="338" cy="240" r="46" fill="#FFFFFF" opacity=".75"/>
-  <circle cx="338" cy="240" r="17" fill="#EAF2FC"/>
-  <path d="M262 150 A122 122 0 0 1 404 160" fill="none" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="10" stroke-linecap="round"/>
-  <!-- boîtier -->
-  <rect x="128" y="124" width="214" height="292" rx="30" fill="#6A54B4" opacity=".14" transform="translate(8 12)"/>
-  <rect x="118" y="110" width="214" height="292" rx="30" fill="#FFFFFF"/>
-  <path d="M148 110 h8 v292 h-8 a30 30 0 0 1 -30 -30 v-232 a30 30 0 0 1 30 -30 z" fill="#B9A6E8"/>
-  <rect x="180" y="140" width="124" height="158" rx="18" fill="url(#art)"/>
-  <circle cx="270" cy="178" r="16" fill="#FFFFFF" opacity=".8"/>
-  <rect x="180" y="320" width="96" height="18" rx="9" fill="#DDF1FC"/>
-  <rect x="180" y="352" width="64" height="18" rx="9" fill="#EEE9FB"/>
+  <!-- Tapered body, with two solid faces. -->
+  <g clip-path="url(#body)">
+    <path fill="#F2695D" d="M45 170 H256 V450 H45 Z"/>
+    <path fill="#D94A48" d="M256 170 H467 V450 H256 Z"/>
+    <path d="M256 276 V440" fill="none" stroke="#48262C" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <path d="M57 181 L455 181 L437 331 Q436 347 421 356 L273 436 Q256 445 239 436 L91 356 Q76 347 75 331 Z" fill="none" stroke="#48262C" stroke-width="12" stroke-linejoin="round"/>
+  <!-- Continuous rounded rim. -->
+  <path d="M239 77 Q256 68 273 77 L445 167 Q462 176 455 190 Q452 196 444 200 L273 290 Q256 299 239 290 L68 200 Q51 191 57 177 Q60 171 68 167 Z" fill="#FF8876" stroke="#48262C" stroke-width="12" stroke-linejoin="round"/>
+  <!-- Recess, with a visible floor and two interior walls. -->
+  <g clip-path="url(#opening)">
+    <path fill="#C64643" d="M90 97 H256 V280 H90 Z"/>
+    <path fill="#A33538" d="M256 97 H425 V280 H256 Z"/>
+    <path d="M91 270 L256 190 L421 270 L256 350 Z" fill="#E65A51"/>
+    <path d="M256 106 V190" stroke="#873134" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <path d="M246 106 Q256 101 266 106 L408 180 Q416 184 408 188 L266 263 Q256 268 246 263 L104 188 Q96 184 104 180 Z" fill="none" stroke="#48262C" stroke-width="9" stroke-linejoin="round"/>
 </svg>

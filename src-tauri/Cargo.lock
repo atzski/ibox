@@ -1923,7 +1923,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "0.1.59"
+version = "0.1.60"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",
@@ -1955,6 +1955,7 @@ dependencies = [
  "vigem-client",
  "walkdir",
  "windows 0.62.2",
+ "windows-core 0.62.2",
  "windows-native-keyring-store",
  "windows-sys 0.61.2",
  "winreg",

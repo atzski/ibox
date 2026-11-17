@@ -51,6 +51,7 @@ fn phase1c_loopback_host_to_str0m_guest() {
         guest_account: "essai".into(),
         frame_log: Some(log.clone()),
         audio: false,
+        hide_discord_echo: false,
     };
     let t0 = Instant::now();
     let host = Host::start(opts).expect("hôte");
@@ -215,6 +216,7 @@ fn phase1c_browser_bridge() {
         guest_account: "navigateur".into(),
         frame_log: None,
         audio: false,
+        hide_discord_echo: false,
     };
     let host = Arc::new(Host::start(opts).expect("hôte"));
     let listener = TcpListener::bind("127.0.0.1:47800").expect("port 47800");

@@ -63,6 +63,8 @@ pub struct HostOptions {
     pub frame_log: Option<FrameLog>,
     /// Envoyer le son du PC (sortie par défaut) à l'invité, s'il en a la permission.
     pub audio: bool,
+    /// « Masquer l'écho Discord » : le son de Discord (voix de l'appel) n'est pas renvoyé.
+    pub hide_discord_echo: bool,
 }
 
 /// (temps RTP 90 kHz, envoi à l'encodeur, remise à str0m).
@@ -415,13 +417,14 @@ struct Audio {
 
 /// Son du PC → paquets Opus vers la boucle. Un échec (aucune sortie audio…) n'arrête pas la
 /// session : l'image continue sans le son.
-fn start_audio(tx: Sender<Msg>) -> Result<Audio, String> {
+fn start_audio(tx: Sender<Msg>, hide_discord_echo: bool) -> Result<Audio, String> {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = stop.clone();
     let join = std::thread::Builder::new()
         .name("remote-play-audio".into())
         .spawn(move || {
-            let result = crate::remote_play::audio::stream(&flag, &mut |packet, origin| tx.send(Msg::Audio { packet, origin }).is_ok());
+            let exclude = if hide_discord_echo { crate::remote_play::audio::find_discord() } else { None };
+            let result = crate::remote_play::audio::stream(&flag, exclude, &mut |packet, origin| tx.send(Msg::Audio { packet, origin }).is_ok());
             if let Err(e) = result {
                 eprintln!("[remote-play] {e}");
             }
@@ -478,7 +481,7 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
                 Err(e) => peer.fail_with(e),
             }
             if audio_allowed {
-                audio = start_audio(tx.clone()).ok();
+                audio = start_audio(tx.clone(), opts.hide_discord_echo).ok();
             }
         }
         if let Some(v) = &video {

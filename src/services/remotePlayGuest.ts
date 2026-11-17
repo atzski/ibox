@@ -306,9 +306,19 @@ export class GuestSession {
         ch.onmessage = (m) => m.data instanceof ArrayBuffer && this.onHost(decodeHost(m.data));
         ch.onopen = () => this.startPings();
         if (ch.readyState === "open") this.startPings();
+        // l'hôte a arrêté (canal fermé de son côté) : l'invité retrouve iBox aussitôt
+        ch.onclose = () => {
+          if (!this.closed) this.onHostGone?.();
+        };
       }
     };
+    this.pc.addEventListener("connectionstatechange", () => {
+      if (!this.closed && this.pc.connectionState === "closed") this.onHostGone?.();
+    });
   }
+
+  /** Appelé une fois quand l'hôte met fin à la session (canal de contrôle fermé de son côté). */
+  onHostGone?: () => void;
 
   /**
    * Accepte l'offre de l'hôte et renvoie la réponse (candidats trouvés dans `gatherMs`).
@@ -356,6 +366,7 @@ export class GuestSession {
         this.pingMs = performance.now() - sent;
         this.pings.delete(msg.id);
       }
+      this.lastPong = performance.now();
     } else if (msg?.type === "rumble") {
       this.onRumble?.(msg.pad, msg.large, msg.small);
     }
@@ -369,8 +380,14 @@ export class GuestSession {
       this.pings.set(this.pingId, now);
       if (this.pings.size > 20) this.pings.delete(this.pings.keys().next().value!);
       this.send("control", encode.ping(this.pingId, now * 1000));
+      // l'hôte répondait et se tait depuis 6 s (PC éteint, iBox fermé, session coupée) : fin
+      if (this.lastPong && now - this.lastPong > 6000 && !this.closed) {
+        this.lastPong = 0;
+        this.onHostGone?.();
+      }
     }, 1000);
   }
+  private lastPong = 0;
 
   private watchFrames() {
     const v = this.video as FrameCallbackVideo;
@@ -539,8 +556,10 @@ export function attachPad(session: GuestSession, opts: { onPad?: (name: string |
 export function attachInputs(
   session: GuestSession,
   video: HTMLVideoElement,
-  opts: { pad?: boolean; onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {},
+  opts: { pad?: boolean; mouse?: boolean; keyboard?: boolean; onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {},
 ): () => void {
+  const withMouse = opts.mouse !== false;
+  const withKeys = opts.keyboard !== false;
   const held = new Set<number>();
   const next = () => session.nextSeq();
   const area = () => contentRect(video.videoWidth, video.videoHeight, video.getBoundingClientRect());
@@ -580,30 +599,49 @@ export function attachInputs(
   };
   const onKeyDown = key(true);
   const onKeyUp = key(false);
+  const pressed = new Set<number>();
   const releaseAll = () => {
-    for (const code of held) session.send("control", encode.key(code, false));
-    held.clear();
-    session.send("input", encode.keyState(next(), []));
+    if (withKeys) {
+      for (const code of held) session.send("control", encode.key(code, false));
+      held.clear();
+      session.send("input", encode.keyState(next(), []));
+    }
+    for (const b of pressed) session.send("control", encode.mouseButton(b, false));
+    pressed.clear();
   };
-  const keyState = window.setInterval(() => session.send("input", encode.keyState(next(), [...held])), 250);
+  const keyState = withKeys ? window.setInterval(() => session.send("input", encode.keyState(next(), [...held])), 250) : 0;
+  const trackDown = (e: PointerEvent) => {
+    const b = BUTTONS[e.button];
+    if (b !== undefined) pressed.add(b);
+    onDown(e);
+  };
+  const trackUp = (e: PointerEvent) => {
+    const b = BUTTONS[e.button];
+    if (b !== undefined) pressed.delete(b);
+    onUp(e);
+  };
 
   const detachPad = opts.pad === false ? null : attachPad(session, opts);
 
-  video.addEventListener("pointermove", move);
-  video.addEventListener("pointerdown", onDown);
-  video.addEventListener("pointerup", onUp);
-  video.addEventListener("wheel", onWheel, { passive: false });
-  video.addEventListener("contextmenu", onContext);
-  window.addEventListener("keydown", onKeyDown, true);
-  window.addEventListener("keyup", onKeyUp, true);
+  if (withMouse) {
+    video.addEventListener("pointermove", move);
+    video.addEventListener("pointerdown", trackDown);
+    video.addEventListener("pointerup", trackUp);
+    video.addEventListener("wheel", onWheel, { passive: false });
+    video.addEventListener("contextmenu", onContext);
+  }
+  if (withKeys) {
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+  }
   window.addEventListener("blur", releaseAll);
   return () => {
     releaseAll();
-    window.clearInterval(keyState);
+    if (keyState) window.clearInterval(keyState);
     detachPad?.();
     video.removeEventListener("pointermove", move);
-    video.removeEventListener("pointerdown", onDown);
-    video.removeEventListener("pointerup", onUp);
+    video.removeEventListener("pointerdown", trackDown);
+    video.removeEventListener("pointerup", trackUp);
     video.removeEventListener("wheel", onWheel);
     video.removeEventListener("contextmenu", onContext);
     window.removeEventListener("keydown", onKeyDown, true);

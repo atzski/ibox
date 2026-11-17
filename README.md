@@ -18,6 +18,8 @@ iBox brings your PC games and console collection together in one place. Browse a
 - **Personal collections:** choose artwork and colours, and arrange your games your way.
 - **Controller support:** navigate with a controller, keyboard or mouse.
 - **iNetbox:** optionally add friends, share your status and send game invitations.
+- **Remote Play (experimental):** play together over the internet, up to 6 players, each with their own controller.
+- **Community:** share screenshots and clips, react, reply and mention friends with @.
 - **Your activity:** revisit recently played games and track playtime.
 
 > **New to iBox?** Follow the [step-by-step setup and API keys guide](docs/GUIDE.md).
@@ -29,6 +31,16 @@ iBox brings your PC games and console collection together in one place. Browse a
 3. Open your library and choose a game.
 
 Existing users can check for updates under **Settings → System → Updates**. iBox also checks for new versions on its own and offers a one-click install.
+
+## Remote Play (experimental)
+
+Play with your iNetbox friends from anywhere, directly from PC to PC. The host shares their screen or a game window; friends see it, hear it and play with their own controller, as if they were in the same room.
+
+- **Up to 6 players:** the host plus 5 guests, each with their own direct connection and controller. Guest controllers appear on the host as extra Xbox controllers (through the ViGEmBus driver, installed in one click).
+- **Picture and sound:** Windows Graphics Capture, hardware H.264 encoding (NVIDIA NVENC, AMD AMF, Intel Quick Sync, including PCs with two graphics cards; software as a last resort) and 48 kHz Opus audio, sent peer to peer over WebRTC (UDP) with no relay server.
+- **The host decides:** every guest starts with no rights. *Spectator* (watch and listen), *Player* (+ controller), *Collaborator* (+ keyboard and mouse, after confirmation). On a game window, keyboard and mouse stay confined to that window and system shortcuts (Windows key, Alt+Tab, Alt+F4…) are refused.
+- **Security:** iNetbox only introduces the two PCs (offers signed with a per-device key, DTLS fingerprints checked, a safety code to compare out loud); it never sees the picture or the inputs. A banner stays visible during any share, an emergency shortcut cuts everything, and sharing stops as soon as Windows locks.
+- **Turning it on:** off by default; use the *Remote Play* button on a game page, or **Settings → Remote Play**. Technical details: [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
 
 ## Games and privacy
 

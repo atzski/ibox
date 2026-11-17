@@ -49,6 +49,8 @@ pub struct Config {
     pub codec: Codec,
     pub audio: AudioSource,
     pub keep_host_audio: bool,
+    /// « Masquer l'écho Discord » : retire le son de Discord de ce qui est envoyé à l'invité.
+    pub hide_discord_echo: bool,
     pub max_guests: u32,
     /// Limite de débit montant total de l'hôte, en kbit/s.
     pub upload_limit_kbps: Option<u32>,
@@ -81,7 +83,8 @@ impl Default for Config {
             codec: Codec::Auto,
             audio: AudioSource::System,
             keep_host_audio: true,
-            max_guests: 3,
+            hide_discord_echo: true,
+            max_guests: 5,
             upload_limit_kbps: None,
             default_profile: Profile::Spectator,
             confirm_connections: true,
@@ -193,7 +196,7 @@ mod tests {
         let c = Config::load(&path);
         assert!(c.enabled);
         assert_eq!(c.fps, 144);
-        assert_eq!(c.max_guests, 3);
+        assert_eq!(c.max_guests, 5);
         c.save(&path).unwrap();
         assert_eq!(Config::load(&path), c);
     }

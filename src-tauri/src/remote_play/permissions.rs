@@ -97,13 +97,15 @@ pub enum Mode {
 
 impl Mode {
     /// Droits maximum qu'un mode autorise, quoi que l'hôte accorde.
-    /// Game Share / Local Multiplayer : pas de clavier ni de souris tant que l'isolation des
-    /// entrées dans la fenêtre partagée n'est pas garantie (Phase 3) — manettes uniquement.
+    /// Game Share : clavier et souris confinés à la fenêtre partagée (`Injector` : position
+    /// ramenée dans la fenêtre, touches seulement si elle est au premier plan, clics seulement
+    /// sur elle, pas de déplacement relatif). Local Multiplayer : manettes uniquement.
     pub fn ceiling(self) -> Grants {
         use Permission::*;
         match self {
             Mode::DesktopShare => Grants::of(&Permission::ALL),
-            Mode::GameShare | Mode::LocalMultiplayer => Grants::of(&[View, Audio, Gamepad, Voice, TextChat, Invite]),
+            Mode::GameShare => Grants::of(&[View, Audio, Gamepad, Keyboard, Mouse, Voice, TextChat, Invite]),
+            Mode::LocalMultiplayer => Grants::of(&[View, Audio, Gamepad, Voice, TextChat, Invite]),
             Mode::WatchParty => Grants::of(&[View, Audio, Voice, TextChat]),
             Mode::PersonalAccess => Grants::of(&[View, Audio, Gamepad, Keyboard, Mouse, Clipboard, SwitchScreen]),
         }
@@ -124,6 +126,27 @@ pub enum Denied {
     PadTaken,
     /// Message réservé au sens hôte → invité (vibration).
     WrongDirection,
+    /// Raccourci système refusé pendant le partage d'une fenêtre (touche Windows, Alt+Tab…).
+    SystemShortcut,
+}
+
+/// Touche Windows / Menu, ou Tab, F4, Échap avec Alt ou Ctrl tenu : de quoi quitter la fenêtre
+/// partagée ou ouvrir un autre programme.
+fn is_system_shortcut(scancode: u16, held: &BTreeSet<u16>) -> bool {
+    const LWIN: u16 = 0xE05B;
+    const RWIN: u16 = 0xE05C;
+    const APPS: u16 = 0xE05D;
+    const ALT: [u16; 2] = [0x38, 0xE038];
+    const CTRL: [u16; 2] = [0x1D, 0xE01D];
+    const TAB: u16 = 0x0F;
+    const F4: u16 = 0x3E;
+    const ESC: u16 = 0x01;
+    let alt = ALT.iter().any(|k| held.contains(k));
+    let ctrl = CTRL.iter().any(|k| held.contains(k));
+    matches!(scancode, LWIN | RWIN | APPS)
+        || (alt && matches!(scancode, TAB | F4 | ESC))
+        || (ctrl && scancode == ESC)
+        || (alt && ctrl && scancode == 0x53) // Ctrl+Alt+Suppr (pavé)
 }
 
 #[derive(Debug, Default)]
@@ -302,6 +325,11 @@ impl Session {
             Message::Wheel { .. } => need(Permission::Mouse)?,
             Message::Key { scancode, down } => {
                 need(Permission::Keyboard)?;
+                // partage d'une fenêtre : aucun raccourci système qui ferait sortir du jeu
+                // (Windows+R → « Exécuter », Alt+Tab, Alt+F4, Ctrl+Échap…)
+                if *down && self.mode == Mode::GameShare && is_system_shortcut(*scancode, &p.keys) {
+                    return Err(Denied::SystemShortcut);
+                }
                 if *down {
                     if !p.keys.contains(scancode) && p.keys.len() >= MAX_HELD_KEYS {
                         return Err(Denied::TooManyKeys);
@@ -384,7 +412,7 @@ mod tests {
 
     #[test]
     fn mode_ceiling_wins_over_grants() {
-        let mut s = Session::new(Mode::GameShare, []);
+        let mut s = Session::new(Mode::LocalMultiplayer, []);
         s.join(1, "ami").unwrap();
         s.set_profile(1, Profile::FullControl, true).unwrap();
         assert!(!s.effective(1).has(Permission::Keyboard));
@@ -477,5 +505,26 @@ mod tests {
         s.join(2, "ami").unwrap();
         s.block(2);
         assert_eq!(s.join(3, "ami"), Err(Denied::Blocked));
+    }
+    #[test]
+    fn game_share_confines_keyboard_and_mouse() {
+        let mut s = Session::new(Mode::GameShare, []);
+        s.join(1, "ami").unwrap();
+        s.set_profile(1, Profile::Collaborator, false).unwrap();
+        // souris et clavier permis dans la fenêtre du jeu
+        assert!(s.authorize(1, Message::MouseAbs { seq: 1, x: 10, y: 10 }).is_ok());
+        assert!(s.authorize(1, key(0x1E, true)).is_ok());
+        // touche Windows, Alt+Tab, Alt+F4 : refusés
+        assert_eq!(s.authorize(1, key(0xE05B, true)), Err(Denied::SystemShortcut));
+        assert!(s.authorize(1, key(0x38, true)).is_ok());
+        assert_eq!(s.authorize(1, key(0x0F, true)), Err(Denied::SystemShortcut));
+        assert_eq!(s.authorize(1, key(0x3E, true)), Err(Denied::SystemShortcut));
+        // un relâchement passe toujours
+        assert!(s.authorize(1, key(0xE05B, false)).is_ok());
+        // écran entier (Collaborateur confirmé) : la touche Windows reste possible
+        let mut d = Session::new(Mode::DesktopShare, []);
+        d.join(1, "ami").unwrap();
+        d.set_profile(1, Profile::Collaborator, false).unwrap();
+        assert!(d.authorize(1, key(0xE05B, true)).is_ok());
     }
 }

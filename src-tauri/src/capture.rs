@@ -495,7 +495,7 @@ fn prune_share_cache(dir: &Path) {
 
 /// Partage une capture dans la Communauté iNetbox (amis, et tout le monde si le profil est public).
 #[tauri::command]
-pub async fn community_share(app: AppHandle, name: String, caption: Option<String>) -> Result<Value, crate::inetbox::Error> {
+pub async fn community_share(app: AppHandle, name: String, caption: Option<String>, mentions: Option<Vec<String>>) -> Result<Value, crate::inetbox::Error> {
     let bad = |m: &str| crate::inetbox::Error::new("INVALID_INPUT", m);
     let capture = describe(&dir(&app).map_err(|e| bad(&e))?.join(&name)).filter(|_| valid_name(&name)).ok_or_else(|| bad("Capture introuvable."))?;
     let bytes = read_bytes(&app, &name).map_err(|e| bad(&e))?;
@@ -507,6 +507,11 @@ pub async fn community_share(app: AppHandle, name: String, caption: Option<Strin
         if let Some(g) = &capture.game { meta.push(("game", clip(g, 160))); }
         if let Some(p) = &capture.platform_id { meta.push(("platform", clip(p, 40))); }
         if let Some(c) = caption.as_deref().map(str::trim).filter(|c| !c.is_empty()) { meta.push(("caption", clip(c, 200))); }
+        // amis mentionnés dans la légende : identifiants seulement (36 caractères hexadécimaux et tirets)
+        let ids: Vec<String> = mentions.unwrap_or_default().into_iter()
+            .filter(|id| id.len() == 36 && id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-'))
+            .take(10).collect();
+        if !ids.is_empty() { meta.push(("mentions", ids.join(","))); }
         crate::inetbox::upload_share(&meta, bytes, thumb)
     }).await.map_err(|_| bad("Partage interrompu."))?
 }

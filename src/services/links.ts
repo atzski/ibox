@@ -11,7 +11,16 @@ export type AppLink =
   | { kind: "duplicates" }
   | { kind: "update" }
   | { kind: "achievements"; gameId?: string }
-  | { kind: "friends"; view?: "list" | "requests"; friendId?: string };
+  | { kind: "friends"; view?: "list" | "requests"; friendId?: string }
+  | { kind: "community"; shareId?: string };
+
+/** Partage à ouvrir à l'arrivée sur la Communauté (mention reçue). */
+export let pendingShare: string | null = null;
+export const takePendingShare = () => {
+  const id = pendingShare;
+  pendingShare = null;
+  return id;
+};
 
 /** Ouvre la destination d'une notification. */
 export function openLink(link: AppLink) {
@@ -38,6 +47,11 @@ export function openLink(link: AppLink) {
     case "achievements":
       if (current.name !== "achievements") nav.go({ name: "achievements", gameId: link.gameId });
       else window.dispatchEvent(new CustomEvent("ibox:achievements-game", { detail: link.gameId }));
+      return;
+    case "community":
+      pendingShare = link.shareId ?? null;
+      if (current.name !== "community") nav.go({ name: "community" });
+      else if (link.shareId) window.dispatchEvent(new CustomEvent("ibox:community-share", { detail: link.shareId }));
       return;
     case "friends":
       window.dispatchEvent(new CustomEvent("ibox:open-friends", {

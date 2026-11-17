@@ -35,6 +35,27 @@ impl Profile {
             Profile::High => 100,
         }
     }
+
+    /// Profils à essayer dans l'ordre : le profil demandé, puis les plus simples (un décodeur
+    /// High lit du Main et du Baseline ; l'inverse est faux).
+    pub fn fallbacks(self) -> &'static [Profile] {
+        match self {
+            Profile::High => &[Profile::High, Profile::Main, Profile::Baseline],
+            Profile::Main => &[Profile::Main, Profile::Baseline],
+            Profile::Baseline => &[Profile::Baseline],
+        }
+    }
+}
+
+#[cfg(test)]
+mod profile_tests {
+    use super::Profile;
+
+    #[test]
+    fn profile_fallbacks_only_go_down() {
+        assert_eq!(Profile::High.fallbacks(), &[Profile::High, Profile::Main, Profile::Baseline]);
+        assert_eq!(Profile::Baseline.fallbacks(), &[Profile::Baseline]);
+    }
 }
 
 /// Qui encode.

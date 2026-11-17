@@ -65,6 +65,36 @@ pub struct Status {
     pub rejected: u32,
     pub session_id: Option<String>,
     pub expires_at: Option<u64>,
+    /// Hôte : les autres invités de la partie (2ᵉ à 5ᵉ), chacun avec sa propre connexion.
+    pub players: Vec<PlayerView>,
+}
+
+/// Invité supplémentaire d'une partie à plusieurs, tel qu'affiché à l'hôte.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerView {
+    pub session_id: String,
+    pub peer_name: String,
+    pub stage: String,
+    pub profile: Option<Profile>,
+    pub safety_code: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Jusqu'à 6 joueurs : l'hôte et 5 invités, chacun relié directement à l'hôte.
+pub const MAX_ONLINE_GUESTS: u32 = 5;
+
+/// Session d'hôte d'un invité supplémentaire (le premier invité garde `status` / `cancel`).
+struct ExtraHost {
+    status: Status,
+    cancel: Arc<AtomicBool>,
+    host: Option<Arc<Host>>,
+}
+
+impl ExtraHost {
+    fn live(&self) -> bool {
+        !matches!(self.status.stage.as_str(), "ended" | "failed")
+    }
 }
 
 /// Invitation reçue, telle que montrée à l'interface (sans le jeton, qui reste natif).
@@ -100,6 +130,8 @@ pub struct OnlineState {
     /// Arrêt demandé au fil de signalisation en cours (hôte ou invité).
     cancel: Option<Arc<AtomicBool>>,
     guest: Option<GuestCtx>,
+    /// Hôte : invités supplémentaires (partie jusqu'à 6 joueurs).
+    extra: Vec<ExtraHost>,
 }
 
 /// Ce qu'il faut pour parler à iNetbox au nom de cet appareil.
@@ -141,8 +173,23 @@ fn context(app: &AppHandle) -> Result<Ctx, String> {
     Ok(Ctx { api, me, key, device, pins })
 }
 
-fn set_status(app: &AppHandle, status: Status) {
+fn players_of(s: &OnlineState) -> Vec<PlayerView> {
+    s.extra
+        .iter()
+        .map(|e| PlayerView {
+            session_id: e.status.session_id.clone().unwrap_or_default(),
+            peer_name: e.status.peer_name.clone(),
+            stage: e.status.stage.clone(),
+            profile: e.status.profile,
+            safety_code: e.status.safety_code.clone(),
+            error: e.status.error.clone(),
+        })
+        .collect()
+}
+
+fn set_status(app: &AppHandle, mut status: Status) {
     if let Ok(mut s) = rp(app).online.lock() {
+        status.players = if status.role == "host" { players_of(&s) } else { Vec::new() };
         s.status = Some(status.clone());
     }
     let _ = app.emit(STATUS_EVENT, &status);
@@ -153,6 +200,62 @@ fn update_status(app: &AppHandle, f: impl FnOnce(&mut Status)) {
     if let Some(mut s) = current {
         f(&mut s);
         set_status(app, s);
+    }
+}
+
+/// Met à jour l'état affiché d'une session d'hôte : le premier invité (`extra = None`) ou un
+/// invité supplémentaire (identifié par sa session iNetbox).
+fn update_slot(app: &AppHandle, extra: Option<&str>, f: impl FnOnce(&mut Status)) {
+    let Some(id) = extra else { return update_status(app, f) };
+    let found = rp(app).online.lock().ok().and_then(|mut s| {
+        let e = s.extra.iter_mut().find(|e| e.status.session_id.as_deref() == Some(id))?;
+        f(&mut e.status);
+        Some(())
+    });
+    if found.is_some() {
+        // l'hôte voit la liste à jour dans son état principal
+        let main = rp(app).online.lock().ok().and_then(|s| s.status.clone());
+        if let Some(main) = main {
+            set_status(app, main);
+        }
+    }
+}
+
+/// Une session d'hôte (premier invité ou supplémentaire) est-elle encore en cours ?
+fn any_hosting(app: &AppHandle) -> bool {
+    let state = rp(app);
+    let main = state.host.lock().map(|h| h.is_some()).unwrap_or(false);
+    main || state.online.lock().map(|s| s.extra.iter().any(|e| e.host.is_some())).unwrap_or(false)
+}
+
+/// Arrête tous les invités supplémentaires (fin de partie, arrêt d'urgence, désactivation).
+fn stop_extras(app: &AppHandle, reason: Option<&str>) {
+    let taken: Vec<(Option<String>, Option<Arc<Host>>)> = rp(app)
+        .online
+        .lock()
+        .map(|mut s| {
+            s.extra
+                .iter_mut()
+                .map(|e| {
+                    e.cancel.store(true, Ordering::Relaxed);
+                    if e.live() {
+                        e.status.stage = if reason.is_some() { "failed".into() } else { "ended".into() };
+                        e.status.error = reason.map(str::to_owned);
+                    }
+                    (e.status.session_id.clone(), e.host.take())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let api = api_of(app).ok();
+    for (session, host) in taken {
+        if let (Some(id), Some((api, _))) = (session, api.as_ref()) {
+            let _ = api.delete_invite(&id);
+            let _ = api.end(&id);
+        }
+        if let Some(h) = host {
+            h.stop();
+        }
     }
 }
 
@@ -245,9 +348,22 @@ fn hide_indicator(app: &AppHandle) {
 /// Arrête la session d'hôte en cours (relâchements compris), si c'est bien celle-ci.
 fn stop_host(app: &AppHandle, host: &Arc<Host>) {
     let state = rp(app);
-    let mine = state.host.lock().ok().and_then(|mut h| if h.as_ref().is_some_and(|x| Arc::ptr_eq(x, host)) { h.take() } else { None });
+    let mut mine = state.host.lock().ok().and_then(|mut h| if h.as_ref().is_some_and(|x| Arc::ptr_eq(x, host)) { h.take() } else { None });
+    if mine.is_none() {
+        // invité supplémentaire
+        mine = state.online.lock().ok().and_then(|mut s| {
+            s.extra.iter_mut().find(|e| e.host.as_ref().is_some_and(|x| Arc::ptr_eq(x, host))).and_then(|e| e.host.take())
+        });
+    }
     if let Some(h) = mine {
         h.stop();
+    }
+}
+
+/// Retire l'indicateur seulement quand plus aucun invité n'est servi.
+fn hide_indicator_if_idle(app: &AppHandle) {
+    if !any_hosting(app) {
+        hide_indicator(app);
     }
 }
 
@@ -260,8 +376,10 @@ struct HostPlan {
     source: String,
 }
 
-fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, cancel: Arc<AtomicBool>) {
-    let fail = |app: &AppHandle, msg: String| update_status(app, |s| {
+fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, cancel: Arc<AtomicBool>, extra: bool) {
+    let slot_id = invite.id.clone();
+    let slot = extra.then_some(slot_id.as_str());
+    let fail = |app: &AppHandle, msg: String| update_slot(app, slot, |s| {
         s.stage = "failed".into();
         s.error = Some(msg);
     });
@@ -272,7 +390,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
     loop {
         if cancel.load(Ordering::Relaxed) {
             let _ = ctx.api.delete_invite(&session);
-            update_status(&app, |s| s.stage = "ended".into());
+            update_slot(&app, slot, |s| s.stage = "ended".into());
             return;
         }
         match ctx.api.poll(&session, api::MAX_WAIT_SECS) {
@@ -284,7 +402,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
             Ok(_) => {}
             Err(e) if matches!(e.code.as_str(), "NOT_FOUND" | "SESSION_ENDED") => {
                 if cancel.load(Ordering::Relaxed) {
-                    update_status(&app, |s| s.stage = "ended".into());
+                    update_slot(&app, slot, |s| s.stage = "ended".into());
                     return;
                 }
                 return fail(&app, format!("{} a refusé l'invitation, ou elle a expiré.", plan.friend_name));
@@ -297,7 +415,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
             }
         }
     }
-    update_status(&app, |s| s.stage = "connecting".into());
+    update_slot(&app, slot, |s| s.stage = "connecting".into());
 
     // 2. hôte : sockets, STUN, offre ; garde d'arrêt d'urgence et de verrouillage
     let host = match Host::start(plan.opts.clone()) {
@@ -307,16 +425,24 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
             return fail(&app, e);
         }
     };
-    let previous = rp(&app).host.lock().ok().and_then(|mut h| h.replace(host.clone()));
-    if let Some(p) = previous {
-        p.stop();
+    if extra {
+        if let Ok(mut s) = rp(&app).online.lock() {
+            if let Some(e) = s.extra.iter_mut().find(|e| e.status.session_id.as_deref() == Some(slot_id.as_str())) {
+                e.host = Some(host.clone());
+            }
+        }
+    } else {
+        let previous = rp(&app).host.lock().ok().and_then(|mut h| h.replace(host.clone()));
+        if let Some(p) = previous {
+            p.stop();
+        }
     }
     show_indicator(&app);
     let mut side = HostSide::new(&session, &ctx.me, &plan.friend, &invite.token, invite.expires_at + 60_000);
     let sent = side.offer(&ctx.key, host.offer(), now_ms()).map_err(|e| e.to_string()).and_then(|s| ctx.api.send(&session, &plan.friend, &ctx.device, &s).map_err(|e| e.message));
     if let Err(e) = sent {
         stop_host(&app, &host);
-        hide_indicator(&app);
+        hide_indicator_if_idle(&app);
         let _ = ctx.api.end(&session);
         return fail(&app, e);
     }
@@ -340,7 +466,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
             break;
         }
         if stats.connected {
-            update_status(&app, |s| if s.stage == "connecting" { s.stage = "live".into() });
+            update_slot(&app, slot, |s| if s.stage == "connecting" { s.stage = "live".into() });
         }
         // attente courte : l'arrêt local (verrouillage, raccourci) est vu en quelques secondes
         match ctx.api.poll(&session, 5) {
@@ -355,7 +481,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
                         Ok(Event::Description(answer)) => match host.accept_answer(&answer) {
                             Ok(_) => {
                                 let peer = side.peer.clone();
-                                update_status(&app, |s| {
+                                update_slot(&app, slot, |s| {
                                     s.safety_code = peer.as_ref().map(|p| p.safety_code.clone());
                                     s.trust = peer.as_ref().map(|p| p.trust);
                                 });
@@ -365,7 +491,7 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
                         Ok(Event::Candidates(list)) => list.into_iter().take(64).for_each(|c| host.add_remote_candidate(c)),
                         Ok(Event::Bye) => outcome = Some(Ok(format!("{} a quitté la session.", plan.friend_name))),
                         Err(SignalError::KeyChanged) => outcome = Some(Err(signal_message(&SignalError::KeyChanged, &plan.friend_name))),
-                        Err(_) => update_status(&app, |s| s.rejected += 1),
+                        Err(_) => update_slot(&app, slot, |s| s.rejected += 1),
                     }
                     if outcome.is_some() {
                         break;
@@ -397,9 +523,9 @@ fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, ca
     }
     let _ = ctx.api.end(&session);
     stop_host(&app, &host);
-    hide_indicator(&app);
+    hide_indicator_if_idle(&app);
     match outcome.unwrap_or(Ok(String::new())) {
-        Ok(msg) => update_status(&app, |s| {
+        Ok(msg) => update_slot(&app, slot, |s| {
             s.stage = "ended".into();
             s.error = (!msg.is_empty()).then_some(msg);
         }),
@@ -437,6 +563,19 @@ fn busy(state: &RemotePlay) -> bool {
     state.online.lock().map(|s| s.cancel.is_some() && s.status.as_ref().is_some_and(|st| !matches!(st.stage.as_str(), "ended" | "failed"))).unwrap_or(false)
 }
 
+/// Rôle de la session en cours (`host` / `guest`), si elle n'est pas terminée.
+fn busy_role(state: &RemotePlay) -> Option<String> {
+    if !busy(state) {
+        return None;
+    }
+    state.online.lock().ok().and_then(|s| s.status.as_ref().map(|st| st.role.clone()))
+}
+
+/// Nombre d'invités servis ou attendus (premier compris) quand on est hôte.
+fn guests_in_party(state: &RemotePlay) -> u32 {
+    state.online.lock().map(|s| 1 + s.extra.iter().filter(|e| e.live()).count() as u32).unwrap_or(1)
+}
+
 /// Invite un ami à regarder ou à jouer sur ce PC.
 #[tauri::command]
 pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Status, String> {
@@ -448,10 +587,28 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
     if !api::is_uuid(&args.friend_id) {
         return Err("Ami invalide.".into());
     }
-    if busy(&state) {
-        return Err("Une session Remote Play est déjà en cours.".into());
-    }
     let cfg = state.config.lock().map_err(|_| "réglages indisponibles")?.clone();
+    // déjà hôte : l'ami rejoint la partie en cours (jusqu'à 6 joueurs avec l'hôte)
+    let extras_live = state.online.lock().map(|s| s.extra.iter().any(ExtraHost::live)).unwrap_or(false);
+    let role = busy_role(&state).or_else(|| extras_live.then(|| "host".to_string()));
+    let extra = match role.as_deref() {
+        None => false,
+        Some("host") => {
+            let limit = MAX_ONLINE_GUESTS;
+            if guests_in_party(&state) >= limit {
+                return Err(format!("La partie est complète : {limit} invités au plus, soit 6 joueurs avec vous."));
+            }
+            let already = state.online.lock().map(|s| {
+                s.status.as_ref().is_some_and(|st| st.peer_id == args.friend_id)
+                    || s.extra.iter().any(|e| e.live() && e.status.peer_id == args.friend_id)
+            });
+            if already.unwrap_or(false) {
+                return Err("Cet ami est déjà dans la partie.".into());
+            }
+            true
+        }
+        Some(_) => return Err("Une session Remote Play est déjà en cours.".into()),
+    };
     if !cfg.ip_warning_seen {
         return Err("Lisez d'abord l'avertissement sur l'adresse IP.".into());
     }
@@ -467,7 +624,7 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
             _ => None,
         }
         .unwrap_or_else(|| "Écran".into());
-        // une fenêtre = Game Share : manettes seulement, jamais le clavier ni la souris du PC
+        // une fenêtre = Game Share : clavier et souris confinés à cette fenêtre
         let mode = if matches!(args.source, Choice::Window { .. }) { Mode::GameShare } else { Mode::DesktopShare };
         let max_kbps = match (cfg.bitrate_kbps, cfg.upload_limit_kbps) {
             (Some(b), Some(u)) => b.min(u),
@@ -490,6 +647,7 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
             guest_account: args.friend_id.clone(),
             frame_log: None,
             audio: cfg.audio != crate::remote_play::config::AudioSource::None,
+            hide_discord_echo: cfg.hide_discord_echo,
         };
         let invite = ctx.api.create_invite(&args.friend_id, invite_mode(args.profile)).map_err(|e| e.message)?;
         let cancel = Arc::new(AtomicBool::new(false));
@@ -505,19 +663,33 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
             expires_at: Some(invite.expires_at),
             ..Default::default()
         };
-        {
+        if extra {
             let state = rp(&app2);
             let mut s = state.online.lock().map_err(|_| "état indisponible")?;
-            s.cancel = Some(cancel.clone());
-            s.guest = None;
+            // les invités partis laissent la place
+            s.extra.retain(|e| e.live());
+            s.extra.push(ExtraHost { status: status.clone(), cancel: cancel.clone(), host: None });
+            let main = s.status.clone();
+            drop(s);
+            if let Some(main) = main {
+                set_status(&app2, main);
+            }
+        } else {
+            {
+                let state = rp(&app2);
+                let mut s = state.online.lock().map_err(|_| "état indisponible")?;
+                s.cancel = Some(cancel.clone());
+                s.guest = None;
+                s.extra.clear();
+            }
+            set_status(&app2, status.clone());
         }
-        set_status(&app2, status.clone());
         let plan = HostPlan { friend: args.friend_id, friend_name: status.peer_name.clone(), mode: status.mode.clone(), profile: args.profile, opts, source };
         let _ = (&plan.mode, plan.profile, &plan.source);
         let thread_app = app2.clone();
         std::thread::Builder::new()
             .name("remote-play-signal".into())
-            .spawn(move || host_thread(thread_app, ctx, invite, plan, cancel))
+            .spawn(move || host_thread(thread_app, ctx, invite, plan, cancel, extra))
             .map_err(|e| e.to_string())?;
         Ok(status)
     })
@@ -536,22 +708,31 @@ pub async fn remote_play_online_stop(app: AppHandle) -> Result<(), String> {
     if let Some(c) = cancel {
         c.store(true, Ordering::Relaxed);
     }
-    let hosting = rp(&app).online.lock().ok().and_then(|s| s.status.clone()).filter(|s| s.role == "host").and_then(|s| s.session_id);
+    // invitation encore en attente : la supprimer réveille le long-poll du fil de l'hôte. Session
+    // ouverte : on la laisse au fil, qui envoie d'abord l'« au revoir » signé à l'invité (sinon
+    // refusé par une session déjà fermée) puis la ferme, en 5 s au plus.
+    let inviting = rp(&app)
+        .online
+        .lock()
+        .ok()
+        .and_then(|s| s.status.clone())
+        .filter(|s| s.role == "host" && s.stage == "inviting")
+        .and_then(|s| s.session_id);
     let app2 = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        // le fil de l'hôte attend peut-être dans un long-poll : supprimer l'invitation ou la session le réveille
-        if let Some(session) = hosting {
+        if let Some(session) = inviting {
             if let Ok((api, _)) = api_of(&app2) {
                 let _ = api.delete_invite(&session);
                 let _ = api.end(&session);
             }
         }
-        // côté hôte : l'arrêt est immédiat (le fil de signalisation fait le reste)
+        // côté hôte : l'arrêt est immédiat (le fil de signalisation fait le reste), tous les invités
         let host = rp(&app2).host.lock().ok().and_then(|mut h| h.take());
         if let Some(h) = host {
             h.stop();
-            hide_indicator(&app2);
         }
+        stop_extras(&app2, None);
+        hide_indicator_if_idle(&app2);
         if let Some(mut g) = guest {
             if let Ok(ctx) = context(&app2) {
                 if let Ok(bye) = g.side.bye(&ctx.key, now_ms()) {
@@ -579,6 +760,7 @@ pub async fn remote_play_emergency_stop(app: AppHandle) -> Result<(), String> {
         if let Some(h) = host {
             h.stop();
         }
+        stop_extras(&app2, Some("Arrêt d'urgence : partage coupé."));
         hide_indicator(&app2);
         update_status(&app2, |s| {
             s.stage = "failed".into();
@@ -928,6 +1110,7 @@ pub fn on_enabled_changed(app: &AppHandle, enabled: bool, accept: bool) {
         if let Some(h) = host {
             h.stop();
         }
+        stop_extras(&app, None);
         hide_indicator(&app);
         if let Ok((api, _)) = api_of(&app) {
             let _ = api.set_accept_requests(false);
