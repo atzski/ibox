@@ -376,7 +376,7 @@ export function ChatView({ friend }: { friend: InetFriend }) {
 }
 
 /** Trois points qui sautillent (« en train d'écrire »). */
-function TypingDots() {
+export function TypingDots() {
   return (
     <span className="flex items-center gap-1" aria-label="En train d'écrire">
       {[0, 1, 2].map((i) => (

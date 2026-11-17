@@ -131,7 +131,7 @@ fn set_user(user: Value) -> Result<Value> {
 }
 fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
     let id = id.unwrap_or("");
-    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare" | "react" | "unreact" | "comments" | "comment" | "deleteComment") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
+    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare" | "react" | "unreact" | "comments" | "comment" | "deleteComment" | "renameGroup" | "addGroupMembers" | "leaveGroup" | "groupConversation" | "sendGroupMessage" | "groupTyping") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
         return Err(err("INVALID_INPUT", "Identifiant invalide."));
     }
     Ok(match action {
@@ -152,6 +152,15 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "conversation" => (Method::GET, format!("/v1/messages/{id}")),
         "sendMessage" => (Method::POST, "/v1/messages".into()),
         "typing" => (Method::POST, format!("/v1/messages/{id}/typing")),
+        // groupes de discussion (messages privés à plusieurs)
+        "groups" => (Method::GET, "/v1/groups".into()),
+        "createGroup" => (Method::POST, "/v1/groups".into()),
+        "renameGroup" => (Method::PATCH, format!("/v1/groups/{id}")),
+        "addGroupMembers" => (Method::POST, format!("/v1/groups/{id}/members")),
+        "leaveGroup" => (Method::DELETE, format!("/v1/groups/{id}/members/me")),
+        "groupConversation" => (Method::GET, format!("/v1/groups/{id}/messages")),
+        "sendGroupMessage" => (Method::POST, format!("/v1/groups/{id}/messages")),
+        "groupTyping" => (Method::POST, format!("/v1/groups/{id}/typing")),
         "activity" => (Method::GET, "/v1/activity".into()),
         "library" => (Method::PUT, "/v1/library".into()),
         "shares" => (Method::GET, "/v1/shares".into()),
@@ -309,7 +318,7 @@ fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Re
                 let (method, mut path) = route(action, id.as_deref())?;
                 let mut payload = if body.is_null() { None } else { Some(&body) };
                 // conversation : seulement les messages récents (nombre entier, jamais de texte libre)
-                if action == "conversation" {
+                if action == "conversation" || action == "groupConversation" {
                     if let Some(after) = body.get("after").and_then(Value::as_u64) { path.push_str(&format!("?after={after}")); }
                     payload = None;
                 }
@@ -435,6 +444,8 @@ mod tests {
         assert!(route("accept", Some("../me")).is_err());
         assert!(route("conversation", Some("../../v1/me")).is_err());
         assert!(route("typing", Some("x")).is_err());
+        assert!(route("groupConversation", Some("../../v1/me")).is_err());
+        assert_eq!(route("leaveGroup", Some("123e4567-e89b-12d3-a456-426614174000")).unwrap().1, "/v1/groups/123e4567-e89b-12d3-a456-426614174000/members/me");
         assert_eq!(route("typing", Some("123e4567-e89b-12d3-a456-426614174000")).unwrap().1, "/v1/messages/123e4567-e89b-12d3-a456-426614174000/typing");
         assert_eq!(encode("switch|zelda & co"), "switch%7Czelda%20%26%20co");
         assert_eq!(route("block", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/blocks/550e8400-e29b-41d4-a716-446655440000");

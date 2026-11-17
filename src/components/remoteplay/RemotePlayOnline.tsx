@@ -92,6 +92,35 @@ const PROFILES: { id: GuestProfile; label: string; note: string }[] = [
   { id: "collaborator", label: "Collaborateur", note: "Clavier et souris sur l'écran partagé (pas sur une fenêtre de jeu)." },
 ];
 
+/** Case à cocher iBox : toute la carte se coche (souris, clavier, manette). */
+function CheckCard({ checked, onChange, tone = "neutral", children }: { checked: boolean; onChange: (v: boolean) => void; tone?: "neutral" | "warn"; children: React.ReactNode }) {
+  const base = tone === "warn" ? "bg-peach-soft/60" : "bg-cream-deep";
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      data-focusable
+      onClick={() => onChange(!checked)}
+      className={`ibox-focusable flex w-full items-start gap-3 rounded-2xl p-3 text-left text-[0.85rem] font-semibold text-ink transition-[background,box-shadow] duration-200 [--ring-radius:1rem] ${base} ${
+        checked ? (tone === "warn" ? "ring-2 ring-peach-deep/60" : "ring-2 ring-accent/70") : "hover:brightness-[1.04]"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`mt-0.5 grid size-[1.35rem] shrink-0 place-items-center rounded-[0.45rem] transition-all duration-200 ${
+          checked ? (tone === "warn" ? "scale-100 bg-peach-deep text-white" : "scale-100 bg-accent text-on-accent") : "bg-white/80 ring-2 ring-ink/20"
+        }`}
+      >
+        <svg viewBox="0 0 16 16" className={`size-3.5 transition-[opacity,transform] duration-200 ${checked ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 8.5l3 3 6-7" />
+        </svg>
+      </span>
+      <span className="min-w-0 leading-snug">{children}</span>
+    </button>
+  );
+}
+
 /** « Léa », « Léa et Tom », « Léa, Tom et Sam ». */
 function namesList(names: string[]): string {
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
@@ -215,14 +244,13 @@ function InviteForm({
           </p>
         )}
         {needsConfirmation(profile) && (
-          <label className="flex items-start gap-2 rounded-xl bg-peach-soft/60 p-3 text-[0.85rem] font-semibold text-ink">
-            <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+          <CheckCard tone="warn" checked={confirmed} onChange={setConfirmed}>
             <span>
               {many
                 ? `Je confirme : ${who} pourront utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`
                 : `Je confirme : ${who} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}
             </span>
-          </label>
+          </CheckCard>
         )}
         {profile === "collaborator" && windowShare && (
           <p className="text-[0.8rem] text-ink-soft">Sur une fenêtre de jeu, sa souris et son clavier restent confinés à cette fenêtre (ignorés quand elle n'est pas au premier plan).</p>
@@ -246,14 +274,13 @@ function InviteForm({
         </select>
         {sources?.gameTitle && gameRunning && <p className="text-[0.8rem] text-ink-soft">{`Jeu lancé depuis iBox sélectionné : ${sources.gameTitle}`}</p>}
         {offerLaunch && (
-          <label className="flex items-start gap-2 rounded-xl bg-cream-deep p-3 text-[0.85rem] font-semibold text-ink">
-            <input type="checkbox" className="mt-1" checked={launchAfter} onChange={(e) => setLaunchAfter(e.target.checked)} />
+          <CheckCard checked={launchAfter} onChange={setLaunchAfter}>
             <span>
               {many
                 ? `Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : vos amis voient le jeu dès qu'il démarre)`
                 : `Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : votre ami voit le jeu dès qu'il démarre)`}
             </span>
-          </label>
+          </CheckCard>
         )}
       </div>
       <p className="text-[0.8rem] text-ink-soft">

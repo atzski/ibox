@@ -20,9 +20,11 @@ import { getPlatform } from "@/domain/platforms";
 import { DoNotDisturbToggle, PresencePicker, GameShareToggle, StatusDot, STATUS_COLOR, friendState } from "@/components/social/Presence";
 import { sound } from "@/services/sound";
 import { ActivityView, ChatView, LibraryShareToggle, ProfileView } from "@/components/social/FriendViews";
+import { GroupAvatar, GroupChatView, GroupRow, NewGroupView } from "@/components/social/GroupViews";
+import { useGroups } from "@/services/groups";
 import type { FriendsTarget } from "@/services/social";
 
-type View = "list" | "add" | "requests" | "activity" | "chat" | "profile";
+type View = "list" | "add" | "requests" | "activity" | "chat" | "profile" | "newGroup" | "group";
 
 /** Pastille « Amis » de la barre du haut et son panneau latéral. */
 export function FriendsButton() {
@@ -93,6 +95,9 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
   const [friendId, setFriendId] = useState<string | null>(target && "friendId" in target ? target.friendId : null);
   const [profileFrom, setProfileFrom] = useState<"list" | "add" | "requests">("list");
   const friend = useInetbox((s) => s.friends.find((f) => f.id === friendId));
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const group = useGroups((s) => s.groups.find((g) => g.id === groupId));
+  const selfId = useInetbox((s) => s.user?.id);
   const invitation = useInetbox((s) => s.invitations.find((i) => i.id === friendId));
   const reduced = useReducedMotion();
   const panel = useRef<HTMLDivElement>(null);
@@ -104,10 +109,19 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
     void useInetbox.getState().refresh();
   }, []);
 
+  // groupes : relus à l'ouverture puis toutes les 15 s tant que le panneau est ouvert
+  useEffect(() => {
+    if (!social.user) return;
+    void useGroups.getState().load();
+    const t = window.setInterval(() => void useGroups.getState().load(), 15000);
+    return () => window.clearInterval(t);
+  }, [social.user?.id]);
+
   // Retour : d'abord revenir à la liste, puis fermer
   useEffect(() => {
     const off = input.onBack(() => {
       if (view === "chat" && friend) setView("profile");
+      else if (view === "group" || view === "newGroup") setView("list");
       else if (view !== "list") setView(view === "profile" ? profileFrom : "list");
       else onClose();
       return true;
@@ -125,7 +139,8 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
   }, [view, friendId, social.user?.id]);
 
   const go = (v: View, id?: string) => {
-    if (id !== undefined) setFriendId(id);
+    if (v === "group") setGroupId(id ?? null);
+    else if (id !== undefined) setFriendId(id);
     if (v === "profile" && view !== "chat") setProfileFrom(view === "add" || view === "requests" ? view : "list");
     sound.play(v === "list" ? "back" : "open");
     // chaque vue repart sans le message de l'action précédente
@@ -164,14 +179,19 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
               <FriendsGlyph size={24} />
             </span>
           )}
-          {(view === "chat" || view === "profile") && friend ? (
+          {view === "group" && group ? (
+            <h2 data-no-i18n className="flex min-w-0 flex-1 items-center gap-2 truncate font-display text-[1.3rem] font-semibold text-ink">
+              <GroupAvatar members={group.members} selfId={selfId} size={32} />
+              <span className="truncate">{group.name}</span>
+            </h2>
+          ) : (view === "chat" || view === "profile") && friend ? (
             <h2 data-no-i18n className="flex min-w-0 flex-1 items-center gap-2 truncate font-display text-[1.3rem] font-semibold text-ink">
               {view === "chat" && <Avatar size={30} choice={friend.avatar ?? null} name={friend.displayName} />}
               <span className="truncate">{friend.displayName}</span>
             </h2>
           ) : (
             <h2 className="flex-1 font-display text-[1.45rem] font-semibold text-ink">
-              {view === "add" ? "Ajouter un ami" : view === "requests" ? "Invitations" : view === "activity" ? "Activité" : view === "profile" ? "Profil" : "Amis"}
+              {view === "newGroup" ? "Nouveau groupe" : view === "add" ? "Ajouter un ami" : view === "requests" ? "Invitations" : view === "activity" ? "Activité" : view === "profile" ? "Profil" : "Amis"}
             </h2>
           )}
           {social.user && view === "list" && <RoundIcon icon="gear" label="Mon compte iNetbox" onClick={onAccount} />}
@@ -190,10 +210,13 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
               transition={{ duration: 0.18 }}
               className="flex min-h-0 flex-1 flex-col"
             >
-              {(view === "list" || (view === "chat" && !friend)) && (
+              {(view === "list" || (view === "chat" && !friend) || (view === "group" && !group)) && (
                 <ListView connected={connected} incoming={incoming.length} onAdd={() => go("add")} onRequests={() => go("requests")}
-                  onActivity={() => go("activity")} onProfile={(id) => go("profile", id)} onChat={(id) => go("chat", id)} />
+                  onActivity={() => go("activity")} onProfile={(id) => go("profile", id)} onChat={(id) => go("chat", id)}
+                  onNewGroup={() => go("newGroup")} onGroup={(id) => go("group", id)} />
               )}
+              {view === "newGroup" && <NewGroupView onCreated={(id) => go("group", id)} />}
+              {view === "group" && group && <GroupChatView key={group.id} group={group} onLeft={() => go("list")} />}
               {view === "add" && <AddView onProfile={(id) => go("profile", id)} />}
               {view === "requests" && <RequestsView onProfile={(id) => go("profile", id)} />}
               {view === "activity" && <ActivityView />}
@@ -218,9 +241,12 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
 
 // ——— Vues ———
 
-function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfile, onChat }: {
+function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfile, onChat, onNewGroup, onGroup }: {
   connected: boolean; incoming: number; onAdd: () => void; onRequests: () => void; onActivity: () => void; onProfile: (id: string) => void; onChat: (id: string) => void;
+  onNewGroup: () => void; onGroup: (id: string) => void;
 }) {
+  const groups = useGroups((s) => s.groups);
+  const groupsSupported = useGroups((s) => s.supported);
   const social = useInetbox();
   const avatar = useSettings((s) => s.profileAvatar);
   const me = social.user!;
@@ -268,10 +294,11 @@ function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfil
       </div>
 
       {/* raccourcis, façon menu de console : grands boutons ronds */}
-      <div data-nav-group="friends-actions" className={`mx-4 mt-3 grid gap-1 rounded-[1.4rem] bg-cream-deep/60 px-2 py-2.5 ${social.socialSupported ? "grid-cols-3" : "grid-cols-2"}`}>
+      <div data-nav-group="friends-actions" className={`mx-4 mt-3 grid gap-1 rounded-[1.4rem] bg-cream-deep/60 px-2 py-2.5 ${["grid-cols-2", "grid-cols-3", "grid-cols-4"][(social.socialSupported ? 1 : 0) + (groupsSupported ? 1 : 0)]}`}>
         <BigAction icon="plus" label="Ajouter" tint="#3FA578" onClick={onAdd} autoFocus />
         <BigAction icon="sparkle" label="Invitations" tint="#E5735F" badge={incoming} onClick={onRequests} />
         {social.socialSupported && <BigAction icon="clock" label="Activité" tint="#8A72D8" onClick={onActivity} />}
+        {groupsSupported && <BigAction icon="chat" label="Groupe" tint="#4A9BD8" onClick={onNewGroup} />}
       </div>
 
       {social.gameInvites.length > 0 && <GameInvites invites={social.gameInvites} />}
@@ -293,6 +320,8 @@ function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfil
           </div>
         ) : (
           <>
+            {groups.length > 0 && <Group label="Groupes" count={groups.length} />}
+            {groups.map((g) => <GroupRow key={g.id} group={g} onOpen={() => onGroup(g.id)} />)}
             {favorites.length > 0 && <Group label="Favoris" count={favorites.length} />}
             {favorites.map(row)}
             {online.length > 0 && <Group label="En ligne" count={online.length} />}

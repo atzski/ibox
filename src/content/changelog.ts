@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.64",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "user", title: "Groupes de discussion", text: "Dans le panneau des amis, « Groupe » crée une discussion avec plusieurs amis (10 membres au plus) : nom du groupe, « … écrit », non lus, ajout d’amis et départ du groupe." },
+      { icon: "gamepad", title: "Cases à cocher plus nettes", text: "Dans Remote Play, les confirmations sont de vraies cases iBox : grandes, lisibles et utilisables à la manette." },
+    ],
+  },
+  {
     version: "0.1.63",
     date: "2026-11-17",
     highlights: [
