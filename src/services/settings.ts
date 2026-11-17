@@ -65,6 +65,8 @@ export interface SettingsState {
   keepInTray: boolean;
   /** Masquer iBox pendant une partie (il revient à la fin). */
   hideOnLaunch: boolean;
+  /** Démarrage avec Windows déjà activé une première fois (l'utilisateur garde ensuite son choix). */
+  autostartOffered?: boolean;
   /** Langue de l'interface. */
   language?: "fr" | "en";
   /** Dernière version dont l'écran « Quoi de neuf » a été vu. */

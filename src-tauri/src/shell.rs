@@ -32,6 +32,19 @@ pub fn show_main(app: &AppHandle) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+        let _ = app.emit("shell://visibility", true);
+    }
+}
+
+/// Masque la fenêtre principale (iBox continue dans la zone de notification).
+pub fn hide_main(app: &AppHandle) -> bool {
+    match app.get_webview_window("main") {
+        Some(w) if w.hide().is_ok() => {
+            // l'interface se met au repos (musique coupée) tant qu'elle est invisible
+            let _ = app.emit("shell://visibility", false);
+            true
+        }
+        _ => false,
     }
 }
 
@@ -77,9 +90,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if handle.state::<Behavior>().keep_in_tray.load(Ordering::Relaxed) {
                     api.prevent_close();
-                    if let Some(w) = handle.get_webview_window("main") {
-                        let _ = w.hide();
-                    }
+                    hide_main(&handle);
                 }
             }
         });
@@ -93,10 +104,8 @@ pub fn game_started(app: &AppHandle) {
     if !b.hide_on_launch.load(Ordering::Relaxed) {
         return;
     }
-    if let Some(w) = app.get_webview_window("main") {
-        if w.hide().is_ok() {
-            b.hidden_for_game.store(true, Ordering::Relaxed);
-        }
+    if hide_main(app) {
+        b.hidden_for_game.store(true, Ordering::Relaxed);
     }
 }
 
@@ -119,9 +128,7 @@ pub fn shell_behavior_set(app: AppHandle, keep_in_tray: bool, hide_on_launch: bo
 /// Masque iBox (il reste dans la zone de notification).
 #[tauri::command]
 pub fn shell_hide(app: AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.hide();
-    }
+    hide_main(&app);
 }
 
 /// Pages d'aide ouvertes dans le navigateur par l'assistant de configuration.
@@ -150,6 +157,37 @@ pub fn open_help_page(url: String) -> Result<(), String> {
 
 /// Argument passé par le démarrage automatique : iBox reste dans la zone de notification.
 pub const HIDDEN_ARG: &str = "--hidden";
+
+/// iBox a été lancé par Windows à l'ouverture de session.
+pub fn started_hidden() -> bool {
+    std::env::args().any(|a| a == HIDDEN_ARG)
+}
+
+/// Premier affichage : la fenêtre est créée invisible (aucun éclair plein écran
+/// au démarrage avec Windows), puis montrée seulement si l'utilisateur a ouvert iBox.
+/// Une version publiée réécrit aussi l'entrée de démarrage : chemin de
+/// l'exécutable à jour (dossier déplacé, mise à jour) et argument `--hidden` présent.
+pub fn startup(app: &AppHandle) {
+    if !started_hidden() {
+        show_main(app);
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let l = app.autolaunch();
+        if l.is_enabled().unwrap_or(false) {
+            if let Err(e) = l.enable() {
+                eprintln!("iBox : entrée de démarrage avec Windows non rafraîchie : {e}");
+            }
+        }
+    }
+}
+
+/// La fenêtre principale est-elle visible ? (l'interface se met au repos sinon)
+#[tauri::command]
+pub fn shell_visible(app: AppHandle) -> bool {
+    app.get_webview_window("main").and_then(|w| w.is_visible().ok()).unwrap_or(true)
+}
 
 #[tauri::command]
 pub fn autostart_get(app: AppHandle) -> Result<bool, String> {

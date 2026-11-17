@@ -82,6 +82,14 @@ export const shellApi = {
   },
   setBehavior: (keepInTray: boolean, hideOnLaunch: boolean) => invoke<void>("shell_behavior_set", { keepInTray, hideOnLaunch }),
   hide: () => invoke<void>("shell_hide"),
+  /** Fenêtre principale visible (false : iBox attend dans la zone de notification). */
+  visible: () => invoke<boolean>("shell_visible"),
+  /** Fenêtre affichée ou masquée par iBox (zone de notification, partie, démarrage). */
+  onVisibility: async (fn: (visible: boolean) => void): Promise<() => void> => {
+    if (!isTauri()) return () => undefined;
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<boolean>("shell://visibility", (e) => fn(e.payload));
+  },
   /** Réduit la fenêtre dans la barre des tâches. */
   minimize: () => invoke<void>("shell_minimize"),
   openHelp: (url: (typeof HELP)[keyof typeof HELP]) => invoke<void>("open_help_page", { url }),

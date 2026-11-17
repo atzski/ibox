@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.66",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "power", title: "iBox s’allume avec Windows", text: "À l’ouverture de session, iBox démarre en arrière-plan, sans fenêtre ni musique, et attend dans la zone de notification : il est prêt dès que vous l’ouvrez. Activé par défaut, à couper dans Paramètres › Système › Démarrage (ou dans l’assistant de configuration)." },
+      { icon: "sparkle", title: "Un démarrage plus propre", text: "Plus d’éclair de fenêtre en plein écran au démarrage avec Windows, et l’entrée de démarrage se répare toute seule après une mise à jour ou un déplacement d’iBox." },
+      { icon: "gamepad", title: "Remote Play en plein écran", text: "Quand vous rejoignez un ami, son écran occupe tout votre écran. Bougez la souris pour voir l’hôte et la qualité de la connexion ; Échap, Select + Start maintenus ou le bouton central ouvrent un menu pour reprendre, envoyer votre clavier, voir les statistiques ou quitter proprement la session." },
+    ],
+  },
+  {
     version: "0.1.65",
     date: "2026-11-17",
     highlights: [

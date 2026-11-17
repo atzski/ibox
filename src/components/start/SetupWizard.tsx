@@ -406,6 +406,25 @@ function Switch({ checked, onChange, label, note }: { checked: boolean; onChange
   );
 }
 
+function AutostartSwitch() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    void shellApi.autostartGet().then((v) => setOn(!!v), () => undefined);
+  }, []);
+  return (
+    <Switch
+      checked={on}
+      onChange={(v) => {
+        setOn(v);
+        useSettings.getState().set("autostartOffered", true);
+        void shellApi.autostartSet(v).then((r) => setOn(!!r), () => setOn(!v));
+      }}
+      label="Lancer avec Windows"
+      note="iBox s'allume en arrière-plan à l'ouverture de session, sans fenêtre : il est prêt dès que vous l'ouvrez."
+    />
+  );
+}
+
 function BackgroundStep() {
   const s = useSettings();
   return (
@@ -413,6 +432,7 @@ function BackgroundStep() {
       <div className="flex flex-col gap-3">
         <Switch checked={s.hideOnLaunch} onChange={(v) => s.set("hideOnLaunch", v)} label="S'effacer pendant le jeu" note="La fenêtre se masque au lancement d'un jeu et revient quand vous le quittez." />
         <Switch checked={s.keepInTray} onChange={(v) => s.set("keepInTray", v)} label="Rester en arrière-plan" note="Fermer la fenêtre garde iBox près de l'horloge. Clic droit sur l'icône : Jeux, Social, Quitter." />
+        <AutostartSwitch />
         <Switch checked={s.askProfileOnStart} onChange={(v) => s.set("askProfileOnStart", v)} label="Demander « Qui joue ? » au démarrage" note="Choix du profil à chaque ouverture d'iBox." />
       </div>
     </Step>

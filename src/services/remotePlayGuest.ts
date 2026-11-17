@@ -512,7 +512,10 @@ function firstPad(): Gamepad | undefined {
  * dès qu'elle apparaît (branchée en cours de session comprise). `onPad` reçoit son nom, ou `null`
  * tant qu'aucune n'est visible ; `onPadCapture` dit si iBox doit cesser de naviguer avec.
  */
-export function attachPad(session: GuestSession, opts: { onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {}): () => void {
+export function attachPad(
+  session: GuestSession,
+  opts: { onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void; paused?: () => boolean } = {},
+): () => void {
   let frame = 0;
   let lastPad = "";
   let lastSent = 0;
@@ -524,8 +527,23 @@ export function attachPad(session: GuestSession, opts: { onPad?: (name: string |
     opts.onPad?.(next);
     opts.onPadCapture?.(!!pad);
   };
+  let wasPaused = false;
   const pollPad = () => {
     const pad = firstPad();
+    // menu de l'invité ouvert : la manette sert à iBox, l'hôte la voit relâchée
+    const paused = !!opts.paused?.();
+    if (paused !== wasPaused) {
+      wasPaused = paused;
+      if (paused && name) session.send("input", encode.gamepad(0, session.nextSeq(), padWire([], [])));
+      opts.onPadCapture?.(!paused && !!name);
+      lastPad = "";
+    }
+    if (paused) {
+      announce(pad);
+      if (pad) opts.onPadCapture?.(false);
+      frame = requestAnimationFrame(pollPad);
+      return;
+    }
     announce(pad);
     if (pad) {
       const wire = padWire([...pad.buttons], pad.axes);

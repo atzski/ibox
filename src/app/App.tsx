@@ -105,6 +105,21 @@ export function App() {
   const keepInTray = useSettings((s) => s.keepInTray);
   const hideOnLaunch = useSettings((s) => s.hideOnLaunch);
   useEffect(() => void shellApi.setBehavior(keepInTray, hideOnLaunch), [keepInTray, hideOnLaunch]);
+  // Démarrage avec Windows : iBox attend en silence tant que sa fenêtre est cachée,
+  // et il est activé par défaut une seule fois (le choix reste ensuite dans Paramètres)
+  useEffect(() => {
+    let off: () => void = () => undefined;
+    let alive = true;
+    void shellApi.visible().then((v) => music.setBackground(v === false), () => undefined);
+    void shellApi.onVisibility((v) => music.setBackground(!v)).then((f) => (alive ? (off = f) : f()));
+    if (!import.meta.env.DEV && !useSettings.getState().autostartOffered) {
+      void shellApi.autostartSet(true).then(() => useSettings.getState().set("autostartOffered", true), () => undefined);
+    }
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
   // nouvelle version d'iBox : annoncée par une notification (installation dans Paramètres › Système)
   useEffect(() => startUpdateWatch(), []);
   // succès RetroAchievements débloqués pendant une partie : annoncés en direct

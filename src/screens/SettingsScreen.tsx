@@ -1297,7 +1297,7 @@ function SystemPage() {
         <Row label="Demander « Qui joue ? »" note="Choix du profil à chaque ouverture d'iBox">
           <Toggle checked={s.askProfileOnStart} onChange={(v) => s.set("askProfileOnStart", v)} label="Demander qui joue au démarrage" />
         </Row>
-        <Row label="Lancer avec Windows" note="iBox démarre discrètement dans la zone de notification">
+        <Row label="Lancer avec Windows" note="iBox s'allume en arrière-plan à l'ouverture de session, sans fenêtre ni musique, et attend dans la zone de notification">
           <AutostartToggle />
         </Row>
         <Row label="Assistant de configuration" note="Dossiers, émulateurs, clés Steam et SteamGridDB, comportement dans Windows">
@@ -1511,6 +1511,7 @@ function AutostartToggle() {
         onChange={async (v) => {
           setError(null);
           try {
+            useSettings.getState().set("autostartOffered", true);
             setOn((await shellApi.autostartSet(v)) ?? false);
           } catch (e) {
             setError(e instanceof Error ? e.message : String(e));

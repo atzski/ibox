@@ -24,6 +24,14 @@ class MusicPlayer {
   private started = false;
   /** Musique suspendue (un jeu est en cours). */
   private suspended = false;
+  /** Fenêtre d'iBox masquée (démarrage avec Windows, zone de notification). */
+  private background = false;
+
+  setBackground(value: boolean): void {
+    if (this.background === value) return;
+    this.background = value;
+    this.sync();
+  }
 
   /** Baisse la musique le temps d'un jingle ; renvoie la fonction qui la remet. */
   duck(): () => void {
@@ -82,7 +90,7 @@ class MusicPlayer {
 
   private shouldPlay(): boolean {
     const s = useSettings.getState();
-    return !!this.wanted && s.musicEnabled && s.musicVolume > 0 && !document.hidden && !this.suspended;
+    return !!this.wanted && s.musicEnabled && s.musicVolume > 0 && !document.hidden && !this.suspended && !this.background;
   }
 
   private targetVolume(): number {

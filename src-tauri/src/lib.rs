@@ -83,11 +83,7 @@ pub fn run() {
                 eprintln!("iBox : icône de notification indisponible : {e}");
             }
             // démarrage avec Windows : iBox attend discrètement dans la zone de notification
-            if std::env::args().any(|a| a == shell::HIDDEN_ARG) {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
-                }
-            }
+            shell::startup(app.handle());
             profile::load(app.handle());
             inetbox::start(app.handle().clone());
             capture::start(app.handle().clone());
@@ -173,6 +169,7 @@ pub fn run() {
             shell::open_help_page,
             shell::autostart_get,
             shell::autostart_set,
+            shell::shell_visible,
             shell::diagnostic_save,
             shell::update_check,
             shell::update_install,

@@ -24,6 +24,13 @@ import {
 import { Avatar } from "@/components/profile/Avatar";
 import { notify } from "@/services/notifications";
 import { useInetbox, type InetFriend } from "@/services/inetbox";
+import { Icon } from "@/components/ui/Icon";
+import { PadGlyph } from "@/components/shell/PadGlyph";
+import { input } from "@/input/InputController";
+import { useGamepad } from "@/input/gamepad";
+import { useSettings } from "@/services/settings";
+import { setFullscreen } from "@/services/native";
+import { sound } from "@/services/sound";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : String((e as { message?: string })?.message ?? e));
 const fmt = (v: number | null | undefined, digits = 1, unit = "") => (v === null || v === undefined || Number.isNaN(v) ? "—" : `${v.toFixed(digits)}${unit}`);
@@ -531,7 +538,7 @@ function IncomingDialog({ invite, onJoin }: { invite: IncomingInvite; onJoin: (j
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 rounded-xl bg-white/10 px-3 py-1 text-[0.78rem]">
+    <div className="flex items-baseline justify-between gap-3 rounded-xl bg-[#fff]/10 px-3 py-1 text-[0.78rem]">
       <span className="font-semibold opacity-80">{label}</span>
       <span className="font-extrabold tabular-nums">{value}</span>
     </div>
@@ -544,9 +551,30 @@ function rumble(_pad: number, large: number, small: number) {
   void actuator?.playEffect("dual-rumble", { duration: 250, strongMagnitude: large / 255, weakMagnitude: small / 255 }).catch(() => undefined);
 }
 
-/** Vue de l'invité : image de l'hôte, code de sécurité, commandes, statistiques. */
+/** Qualité de la connexion en un mot et une couleur (pastille du menu). */
+function quality(stats: GuestStats | null): { label: string; color: string } {
+  if (!stats || stats.state !== "connected") return { label: "Connexion…", color: "#F7C631" };
+  const rtt = stats.rttMs ?? 0;
+  const loss = stats.lossPct ?? 0;
+  if (rtt > 120 || loss > 3) return { label: "Connexion instable", color: "#F0504A" };
+  if (rtt > 60 || loss > 1) return { label: "Connexion correcte", color: "#F7C631" };
+  return { label: "Excellente connexion", color: "#4FD88A" };
+}
+
+/**
+ * Vue de l'invité : l'image de l'hôte occupe tout l'écran (iBox passe en plein écran).
+ * Une barre discrète apparaît quand la souris bouge ; Échap, Select + Start maintenus
+ * ou la touche Guide ouvrent le menu de session (reprendre, clavier, statistiques, quitter).
+ */
 function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef(false);
+  menuRef.current = menu;
+  const [chrome, setChrome] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+  const { family } = useGamepad();
+  const side = useSettings((st) => st.gamepadConfirm);
   const session = useRef<GuestSession | null>(null);
   const detach = useRef<(() => void) | null>(null);
   const [stats, setStats] = useState<GuestStats | null>(null);
@@ -575,7 +603,7 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       .catch((e) => setError(errText(e)));
     const timer = window.setInterval(() => void s.stats().then(setStats, () => undefined), 1000);
     // en mode Joueur, la manette de l'invité est envoyée d'office, dès qu'elle apparaît
-    const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a) }) : null;
+    const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a), paused: () => menuRef.current }) : null;
     // la souris aussi, sur l'image seulement (l'hôte la refuse si le profil ne la donne pas)
     const detachMouse = join.mode === "play" && video.current ? attachInputs(s, video.current, { pad: false, keyboard: false }) : null;
     return () => {
@@ -622,68 +650,293 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
     return () => window.clearTimeout(t);
   }, [finished, join.hostName]);
 
+  // plein écran pendant toute la session, puis retour au choix de Paramètres
+  useEffect(() => {
+    void setFullscreen(true);
+    return () => void setFullscreen(useSettings.getState().fullscreen);
+  }, []);
+
+  const openMenu = () => {
+    if (menuRef.current) return;
+    // le clavier revient à iBox le temps du menu
+    if (detach.current) {
+      detach.current();
+      detach.current = null;
+      setControlling(false);
+    }
+    menuRef.current = true;
+    setMenu(true);
+    sound.play("open");
+  };
+  const closeMenu = () => {
+    menuRef.current = false;
+    setMenu(false);
+    sound.play("back");
+  };
+  const quit = () => {
+    if (leaving) return;
+    setLeaving(true);
+    sound.play("back");
+    window.setTimeout(() => onLeave(), 450);
+  };
+
+  // raccourcis du menu : Échap (maintenu 1 s si le clavier est envoyé), Select + Start, Guide
+  useEffect(() => {
+    let escAt = 0;
+    let comboAt = 0;
+    let guideWas = true;
+    let frame = 0;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (menuRef.current) return; // Échap ferme le menu (navigation d'iBox)
+      if (!detach.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openMenu();
+        return;
+      }
+      if (!e.repeat) escAt = performance.now();
+      else if (escAt && performance.now() - escAt > 900) {
+        escAt = 0;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openMenu();
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Escape") escAt = 0;
+    };
+    const poll = () => {
+      const pad = navigator.getGamepads?.().find((p): p is Gamepad => !!p && p.connected);
+      if (pad && !menuRef.current) {
+        const combo = !!pad.buttons[8]?.pressed && !!pad.buttons[9]?.pressed;
+        const guide = !!pad.buttons[16]?.pressed;
+        if (combo) {
+          comboAt ||= performance.now();
+          if (performance.now() - comboAt > 700) {
+            comboAt = 0;
+            openMenu();
+          }
+        } else comboAt = 0;
+        if (guide && !guideWas) openMenu();
+        guideWas = guide;
+      } else {
+        comboAt = 0;
+        guideWas = true;
+      }
+      frame = requestAnimationFrame(poll);
+    };
+    frame = requestAnimationFrame(poll);
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Retour (B / Échap) ferme le menu ; la navigation d'iBox y fonctionne à la manette
+  useEffect(() => {
+    if (!menu) return;
+    const off = input.onBack(() => {
+      closeMenu();
+      return true;
+    });
+    const id = requestAnimationFrame(() => input.focusInitial());
+    return () => {
+      off();
+      cancelAnimationFrame(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu]);
+
+  // barre du haut : visible au début, puis seulement quand la souris bouge
+  useEffect(() => {
+    let t = window.setTimeout(() => setChrome(false), 4500);
+    const wake = () => {
+      setChrome(true);
+      window.clearTimeout(t);
+      t = window.setTimeout(() => setChrome(false), 2200);
+    };
+    window.addEventListener("pointermove", wake, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointermove", wake);
+    };
+  }, []);
+
+  const q = quality(stats);
+  const glyphs = (
+    <span className="inline-flex items-center gap-1">
+      <PadGlyph k="select" family={family} side={side} size={20} />
+      <span className="text-[0.75rem] font-bold opacity-70">+</span>
+      <PadGlyph k="start" family={family} side={side} size={20} />
+    </span>
+  );
+
   return createPortal(
-    <div data-nav-root className="fixed inset-0 z-[80] flex flex-col bg-black text-white">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2">
-        <ExperimentalBadge />
-        <span className="font-bold" data-no-i18n>
-          {join.hostName}
-        </span>
-        <span className="text-[0.85rem] opacity-80">{join.mode === "play" ? "Joueur" : "Spectateur"}</span>
-        <span className="ml-auto text-[0.8rem] opacity-90">
-          Code de sécurité : <b className="font-mono tracking-wider">{join.safetyCode}</b>
-        </span>
-        <span className="text-[0.75rem] opacity-70">{trustLabel(join.trust)}</span>
-      </div>
+    <div data-nav-root className="fixed inset-0 z-[80] overflow-hidden bg-black text-[#F4F4F6]">
       <video
         ref={video}
-        className="min-h-0 w-full flex-1 bg-black object-contain"
+        className={`absolute inset-0 h-full w-full bg-black object-contain transition-[filter,transform] duration-300 ${menu || leaving ? "scale-[0.985] blur-[6px] brightness-[0.45]" : ""}`}
         autoPlay
         playsInline
         muted
         tabIndex={-1}
-        onDoubleClick={() => void video.current?.requestFullscreen().catch(() => undefined)}
       />
-      {(error || ended) && <p className="px-4 py-2 text-[0.9rem] font-semibold text-[#FFB4B4]">{error ?? status?.error ?? "Session terminée."}</p>}
-      {showStats && stats && (
-        <div className="grid grid-cols-2 gap-1 px-4 py-2 md:grid-cols-4">
-          <Stat label="Connexion" value={stats.state} />
-          <Stat label="Images/s" value={fmt(stats.fps, 0)} />
-          <Stat label="Débit" value={fmt(stats.bitrateKbps === null ? null : stats.bitrateKbps / 1000, 1, " Mbit/s")} />
-          <Stat label="Aller-retour" value={fmt(stats.rttMs, 1, " ms")} />
-          <Stat label="Ping des commandes" value={fmt(stats.pingMs, 1, " ms")} />
-          <Stat label="Pertes" value={fmt(stats.lossPct, 2, " %")} />
-          <Stat label="Tampon de gigue" value={fmt(stats.jitterBufferMs, 1, " ms")} />
-          <Stat label="Image" value={stats.resolution ?? "—"} />
+
+      {/* barre discrète en haut : hôte, qualité, raccourci du menu */}
+      <motion.div
+        initial={false}
+        animate={{ opacity: chrome && !menu && !leaving ? 1 : 0, y: chrome && !menu && !leaving ? 0 : -18 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2"
+      >
+        <div className={`flex items-center gap-3 rounded-full bg-black/55 py-1.5 pr-1.5 pl-4 shadow-2xl ring-1 ring-[#fff]/10 backdrop-blur-xl ${chrome && !menu ? "pointer-events-auto" : ""}`}>
+          <span className="size-2 rounded-full" style={{ background: q.color, boxShadow: `0 0 10px ${q.color}` }} />
+          <span className="text-[0.88rem] font-bold">
+            Session de <span data-no-i18n>{join.hostName}</span>
+          </span>
+          <span className="text-[0.78rem] font-semibold opacity-65">{play ? "Joueur" : "Spectateur"}</span>
+          <span className="hidden items-center gap-1.5 text-[0.75rem] font-semibold opacity-65 md:inline-flex">
+            {controlling ? "Maintenir Échap" : "Échap"} ou {glyphs} : menu
+          </span>
+          <button
+            type="button"
+            onClick={openMenu}
+            className="flex items-center gap-1.5 rounded-full bg-[#fff]/12 px-3 py-1.5 text-[0.8rem] font-bold transition hover:bg-[#fff]/22"
+          >
+            <Icon name="grid" size="1em" /> Menu
+          </button>
+        </div>
+      </motion.div>
+
+      {(error || ended) && !menu && !leaving && (
+        <div role="alert" className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-2xl bg-black/70 px-4 py-3 shadow-2xl ring-1 ring-[#F0504A]/40 backdrop-blur-xl">
+          <span className="max-w-[36rem] text-[0.9rem] font-semibold text-[#FFB4B4]">{error ?? status?.error ?? "Session terminée."}</span>
+          <Button variant="primary" icon="back" onClick={quit}>
+            Retour à iBox
+          </Button>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-        {play && !ended && (
-          <Button icon="gamepad" onClick={toggleControl}>
-            {controlling ? "Rendre le clavier" : "Envoyer mon clavier"}
-          </Button>
-        )}
-        {play && !ended && (
-          <span className={`rounded-full px-3 py-1.5 text-[0.8rem] font-bold ${pad ? "bg-[#33B86B]/25 text-[#9BE8B9]" : "bg-white/10 opacity-85"}`}>
-            {pad ? (
-              <>
-                Manette connectée : <span data-no-i18n>{pad.replace(/\s*\(.*\)\s*$/, "")}</span>
-              </>
-            ) : (
-              "Manette : branchez-la et appuyez sur un bouton"
+
+      {/* menu de session */}
+      {menu && !leaving && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 z-20 grid place-items-center bg-black/35"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeMenu();
+          }}
+        >
+          <motion.div
+            role="dialog"
+            aria-label="Menu de la session"
+            initial={{ opacity: 0, scale: 0.94, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            className="w-[min(30rem,calc(100vw-2rem))] rounded-[1.75rem] bg-[#16161c]/85 p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-[#fff]/10 backdrop-blur-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--accent-deep)] text-on-accent">
+                <Icon name="gamepad" size="1.5em" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.75rem] font-bold tracking-wider uppercase opacity-55">Remote Play</p>
+                <p className="truncate text-[1.25rem] font-extrabold">
+                  Session de <span data-no-i18n>{join.hostName}</span>
+                </p>
+                <p className="mt-0.5 flex items-center gap-2 text-[0.82rem] font-semibold opacity-75">
+                  <span className="size-2 rounded-full" style={{ background: q.color }} />
+                  {q.label} · {play ? "Joueur" : "Spectateur"}
+                </p>
+              </div>
+              <ExperimentalBadge />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#fff]/6 px-4 py-2.5 text-[0.82rem]">
+              <span className="font-semibold opacity-70">Code de sécurité</span>
+              <span className="flex items-center gap-2">
+                <b className="font-mono text-[0.95rem] tracking-[0.2em]">{join.safetyCode}</b>
+                <span className="text-[0.72rem] opacity-60">{trustLabel(join.trust)}</span>
+              </span>
+            </div>
+            {play && (
+              <p className="mt-2 px-1 text-[0.78rem] font-semibold opacity-60">
+                {pad ? (
+                  <>
+                    Manette : <span data-no-i18n>{pad.replace(/\s*\(.*\)\s*$/, "")}</span>
+                  </>
+                ) : (
+                  "Manette : branchez-la et appuyez sur un bouton"
+                )}
+              </p>
             )}
-          </span>
-        )}
-        <Button icon="front" onClick={() => void video.current?.requestFullscreen().catch(() => undefined)}>
-          Plein écran
-        </Button>
-        <Button icon="search" onClick={() => setShowStats(!showStats)}>
-          {showStats ? "Masquer les statistiques" : "Statistiques"}
-        </Button>
-        <Button variant="primary" icon="close" onClick={onLeave} autoFocus>
-          Quitter
-        </Button>
-      </div>
+
+            {showStats && stats && (
+              <div className="mt-3 grid grid-cols-2 gap-1">
+                <Stat label="Images/s" value={fmt(stats.fps, 0)} />
+                <Stat label="Débit" value={fmt(stats.bitrateKbps === null ? null : stats.bitrateKbps / 1000, 1, " Mbit/s")} />
+                <Stat label="Aller-retour" value={fmt(stats.rttMs, 1, " ms")} />
+                <Stat label="Ping des commandes" value={fmt(stats.pingMs, 1, " ms")} />
+                <Stat label="Pertes" value={fmt(stats.lossPct, 2, " %")} />
+                <Stat label="Image" value={stats.resolution ?? "—"} />
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-col gap-2">
+              <Button variant="primary" icon="play" onClick={closeMenu} className="w-full">
+                Reprendre
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                {play && !ended && (
+                  <Button
+                    icon="key"
+                    className="w-full"
+                    onClick={() => {
+                      closeMenu();
+                      toggleControl();
+                    }}
+                  >
+                    {controlling ? "Rendre le clavier" : "Envoyer mon clavier"}
+                  </Button>
+                )}
+                <Button icon="search" className={`w-full ${play && !ended ? "" : "col-span-2"}`} onClick={() => setShowStats(!showStats)}>
+                  {showStats ? "Masquer les statistiques" : "Statistiques"}
+                </Button>
+              </div>
+              <button
+                type="button"
+                data-focusable
+                onClick={quit}
+                className="ibox-focusable mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-[#F0504A]/15 px-5 py-3 font-bold text-[#FF9A95] ring-1 ring-[#F0504A]/30 transition hover:bg-[#F0504A]/28 [--ring-radius:999px]"
+              >
+                <Icon name="power" size="1.1em" /> Quitter la session
+              </button>
+            </div>
+            <p className="mt-4 flex items-center justify-center gap-1.5 text-[0.72rem] font-semibold opacity-50">
+              Échap ou {glyphs} pour revenir au jeu
+            </p>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* sortie propre : l'hôte est prévenu, puis retour à iBox */}
+      {leaving && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-30 grid place-items-center bg-black/70">
+          <div className="flex flex-col items-center gap-3">
+            <motion.span
+              className="size-9 rounded-full border-[3px] border-[#fff]/20 border-t-[#fff]"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+            />
+            <p className="text-[0.95rem] font-bold">Fin de la session…</p>
+          </div>
+        </motion.div>
+      )}
     </div>,
     document.body,
   );
