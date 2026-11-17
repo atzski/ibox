@@ -99,10 +99,47 @@ pub struct GameStatus {
     pub ask_feedback: Option<i64>,
     /// `noGameId` : pourquoi l'identifiant du jeu est introuvable.
     pub reason: Option<String>,
+    /// Identifiant du jeu fourni par EmuReady (fichier qui ne le contient pas, XCI).
+    pub game_id_from_source: bool,
 }
 
 fn context(lib: &LibraryState, game_id: i64) -> Res<(GameQuery, Option<Install>)> {
-    lib.with(|c| storage::game_context(c, game_id)?.ok_or(LibraryError::NotFound))
+    context_with_source(lib, game_id).map(|(g, i, _)| (g, i))
+}
+
+/// Comme `context`, en indiquant si l'identifiant de titre vient d'EmuReady.
+fn context_with_source(lib: &LibraryState, game_id: i64) -> Res<(GameQuery, Option<Install>, bool)> {
+    let mut from_source = false;
+    let (mut game, install) = lib.with(|c| storage::game_context(c, game_id)?.ok_or(LibraryError::NotFound))?;
+    // Switch en XCI : l'identifiant de titre n'est pas lisible dans le fichier ; on reprend celui
+    // qu'EmuReady a donné pour ce titre exact lors d'une recherche (cache local, aucun réseau ici)
+    if game.platform == "switch" && !game.serial.as_deref().is_some_and(super::adapters::eden::valid_title_id) {
+        if let Some(id) = DbCache(lib).get(&title_id_key(&game.title)).and_then(|(body, _)| serde_json::from_str::<Option<String>>(&body).ok().flatten()) {
+            if super::adapters::eden::valid_title_id(&id) {
+                game.serial = Some(id);
+                from_source = true;
+            }
+        }
+    }
+    Ok((game, install, from_source))
+}
+
+fn title_id_key(title: &str) -> String {
+    format!("emuready:switch-title:{}", super::providers::emuready::normalize_title(title))
+}
+
+/// Cherche l'identifiant de titre Switch chez EmuReady (titre identique et univoque) et le garde en cache.
+fn learn_switch_title_id(lib: &LibraryState, er: &EmuReady, game: &GameQuery) {
+    if game.platform != "switch" || game.serial.as_deref().is_some_and(super::adapters::eden::valid_title_id) {
+        return;
+    }
+    let key = title_id_key(&game.title);
+    if DbCache(lib).get(&key).is_some_and(|(_, fresh)| fresh) {
+        return;
+    }
+    if let Ok(id) = er.switch_title_id(&game.title) {
+        DbCache(lib).put(&key, &serde_json::to_string(&id).unwrap_or_else(|_| "null".into()), super::providers::emuready::TTL_TITLE_ID);
+    }
 }
 
 #[tauri::command]
@@ -113,8 +150,8 @@ pub async fn smartconfig_status(app: AppHandle, game_id: i64) -> Res<GameStatus>
 
 fn status(app: &AppHandle, game_id: i64) -> Res<GameStatus> {
     let lib = app.state::<LibraryState>();
-    let (game, install) = context(&lib, game_id)?;
-    let mut st = GameStatus { state: "unsupported", adapter: None, emulator_version: None, active: None, emulator_changed: false, ask_feedback: None, reason: None };
+    let (game, install, from_source) = context_with_source(&lib, game_id)?;
+    let mut st = GameStatus { state: "unsupported", adapter: None, emulator_version: None, active: None, emulator_changed: false, ask_feedback: None, reason: None, game_id_from_source: from_source };
     let Some(install) = install else {
         st.state = "noEmulator";
         return Ok(st);
@@ -178,6 +215,12 @@ pub async fn smartconfig_recommend(app: AppHandle, game_id: i64, mode: Mode, sou
         run(&Verified);
         if sources.contains(&SourceId::EmuReady) {
             run(state.emuready()?);
+        }
+        // Switch en XCI : apprendre l'identifiant de titre pour pouvoir appliquer ensuite
+        if sources.contains(&SourceId::EmuReady) {
+            if let Ok(er) = state.emuready() {
+                learn_switch_title_id(&lib, er, &game);
+            }
         }
         // vos retours après session : profils déjà essayés exclus ou rétrogradés
         let local = lib.with(|c| Ok(storage::local_feedback(c, game_id, adapter.id())?))?;

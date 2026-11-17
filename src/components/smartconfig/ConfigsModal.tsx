@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Button, Segmented } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { input } from "@/input/InputController";
+import { useReducedMotion } from "@/app/shellState";
 import { useLauncher } from "@/services/launcher";
 import { sound } from "@/services/sound";
 import {
@@ -94,15 +95,74 @@ export function ConfigsModal({ game, onClose, open: openFirst, playAfter }: { ga
                 Rechercher à nouveau
               </Button>
             </div>
-            {mode === "manual" ? (
-              <Empty icon="tune" title="Mode manuel" body="SmartConfig ne suggère rien : les réglages actuels de l'émulateur restent tels quels." />
-            ) : (
-              <ConfigsList game={game} onOpen={(r) => { sound.play("open"); setSelected(r); }} />
-            )}
+            <ModeStage mode={mode} phase={mode === "manual" ? "manual" : sc?.searching || (!sc?.result && !sc?.searchError) ? "loading" : "ready"}>
+              {mode === "manual" ? (
+                <Empty icon="tune" title="Mode manuel" body="SmartConfig ne suggère rien : les réglages actuels de l'émulateur restent tels quels." />
+              ) : (
+                <ConfigsList game={game} onOpen={(r) => { sound.play("open"); setSelected(r); }} />
+              )}
+            </ModeStage>
           </motion.div>
         )}
       </AnimatePresence>
     </Modal>
+  );
+}
+
+const MODE_ORDER: ScMode[] = ["performance", "balanced", "quality", "manual"];
+
+/**
+ * Passage d'un mode à l'autre sans à-coup : le contenu glisse dans le sens de
+ * l'onglet choisi, le chargement laisse place aux résultats par un fondu, et la
+ * hauteur de la fenêtre suit en douceur au lieu de sauter.
+ */
+function ModeStage({ mode, phase, children }: { mode: ScMode; phase: "loading" | "ready" | "manual"; children: ReactNode }) {
+  const reduced = useReducedMotion();
+  const prev = useRef(mode);
+  const dir = useRef(0);
+  if (prev.current !== mode) {
+    dir.current = Math.sign(MODE_ORDER.indexOf(mode) - MODE_ORDER.indexOf(prev.current));
+    prev.current = mode;
+  }
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const shift = reduced ? 0 : 28;
+  return (
+    <motion.div
+      initial={false}
+      animate={{ height }}
+      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 32 }}
+      className="overflow-clip [overflow-clip-margin:10px]"
+    >
+      <div ref={inner}>
+        <AnimatePresence mode="wait" initial={false} custom={dir.current}>
+          <motion.div
+            key={`${mode}:${phase === "ready" ? "ready" : phase}`}
+            custom={dir.current}
+            variants={{
+              // nouvel onglet : entre du côté où l'on va ; même onglet (chargement → résultats) : simple fondu
+              enter: (d: number) => ({ opacity: 0, x: d * shift, filter: reduced ? "none" : "blur(2px)" }),
+              center: { opacity: 1, x: 0, filter: "blur(0px)" },
+              exit: (d: number) => ({ opacity: 0, x: -d * shift * 0.6, filter: reduced ? "none" : "blur(2px)" }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={reduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            onAnimationComplete={() => { dir.current = 0; }}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }
 

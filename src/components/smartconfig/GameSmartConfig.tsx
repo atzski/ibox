@@ -136,7 +136,8 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
     }
   };
 
-  const ready = st?.state === "ready";
+  // sans identifiant de jeu : recherche et consultation possibles, application expliquée
+  const ready = st?.state === "ready" || st?.state === "noGameId";
   const canOptimize = ready && !busy && !sc?.searching && prefs.mode !== "manual" && (badge === "idle" || badge === "available" || badge === "newRecommendation" || badge === "error");
   const subtitle = badge === "applied" && active
     ? active.mode
@@ -228,6 +229,15 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
         )}
       </AnimatePresence>
       {error && <p role="alert" className="mt-2 text-[0.8rem] font-bold text-[var(--tone-red-ink)]">{error}</p>}
+      {st?.state === "noGameId" && (
+        <p role="note" className="mt-2 flex items-start gap-2 text-[0.78rem] font-semibold text-ink-soft">
+          <Icon name="sparkle" size="1em" className="mt-0.5 shrink-0" />
+          {st.reason ? `${st.reason.charAt(0).toUpperCase()}${st.reason.slice(1)}. ` : ""}Les configurations restent consultables ; une recherche peut retrouver l'identifiant du jeu.
+        </p>
+      )}
+      {st?.gameIdFromSource && (
+        <p role="note" className="mt-2 text-[0.78rem] font-semibold text-ink-soft">Identifiant du jeu fourni par EmuReady : votre fichier ne le contient pas en clair.</p>
+      )}
 
       {ready && (
         <div className="mt-3 flex flex-wrap gap-2 [&>button]:!h-9 [&>button]:!px-3.5 [&>button]:!text-[0.85rem]">

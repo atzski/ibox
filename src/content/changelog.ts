@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.78",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "shelf", title: "Un accueil qui vit", text: "Votre collection s’expose sur une étagère en 3D : vos jeux, debout sur leurs planches, défilent tranquillement, et de temps en temps l’une d’elles fait un tour sur elle-même ou un petit saut. Votre dernière aventure passe à droite, en carte compacte avec « Reprendre » en un geste." },
+      { icon: "sparkle", title: "SmartConfig voit les réglages des PC", text: "SmartConfig lit désormais les configurations publiées par les joueurs PC sur EmuReady, et plus seulement celles des appareils mobiles : les recommandations « matériel similaire » apparaissent pour beaucoup plus de jeux. Pour un jeu Switch en XCI, l’identifiant du jeu est retrouvé auprès d’EmuReady. Les onglets Performance, Équilibré et Qualité passent de l’un à l’autre en douceur." },
+      { icon: "gamepad", title: "Lichii pour la Switch 2, Fritchii pour Ocarina of Time", text: "Lichii, l'émulateur Switch 2 le plus actif, s'installe en un clic depuis la fiche de la Switch 2 et se met à jour comme les autres. Sur la fiche d'Ocarina of Time, iBox propose Fritchii, une version de Lichii faite pour ce jeu : installée et choisie pour ce jeu seulement, puis tenue à jour, sans changer l'émulateur de la console." },
+      { icon: "grid", title: "De vraies alternatives", text: "Sur la fiche d’une console, les autres émulateurs ne sont plus cachés : chacun a sa carte complète, avec ce qui le distingue, l’installation en un clic et ses liens officiels." },
+    ],
+  },
+  {
     version: "0.1.77",
     date: "2026-11-17",
     highlights: [

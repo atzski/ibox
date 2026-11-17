@@ -1,4 +1,6 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { useReducedMotion } from "@/app/shellState";
 import { Icon, type IconName } from "./Icon";
 import { sound, type SoundCue } from "@/services/sound";
 
@@ -74,6 +76,9 @@ export function Segmented<T extends string>({
   /** Son joué au changement (`null` : l'appelant joue le sien). */
   cue?: SoundCue | null;
 }) {
+  // pastille commune qui glisse d'une option à l'autre (au lieu de sauter)
+  const pill = useId();
+  const reduced = useReducedMotion();
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 rounded-full bg-white/80 p-1 shadow-xs ring-1 ring-[color-mix(in_srgb,var(--accent)_25%,transparent)]">
       {options.map((o) => {
@@ -90,12 +95,22 @@ export function Segmented<T extends string>({
                 onChange(o.value);
               }
             }}
-            className={`ibox-focusable inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[0.88rem] font-bold [--ring-radius:999px] ${
-              active ? "ibox-btn ibox-btn-primary" : "text-ink-soft hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-ink"
+            className={`ibox-btn ibox-focusable relative inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[0.88rem] font-bold transition-colors duration-200 [--ring-radius:999px] ${
+              active ? "text-[var(--tone-on)]" : "text-ink-soft hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-ink"
             }`}
           >
-            {o.icon && <Icon name={o.icon} size="1.1em" />}
-            {o.label}
+            {active && (
+              <motion.span
+                aria-hidden
+                layoutId={pill}
+                className="ibox-btn-primary absolute inset-0 rounded-full"
+                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34, mass: 0.8 }}
+              />
+            )}
+            <span className="relative inline-flex items-center gap-1.5">
+              {o.icon && <Icon name={o.icon} size="1.1em" />}
+              {o.label}
+            </span>
           </button>
         );
       })}

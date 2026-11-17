@@ -5,10 +5,12 @@
 //! - requêtes GET `…/trpc/<procédure>?input=<{"json":{…}} encodé>` ; réponse
 //!   `{"result":{"data":{"json":…}}}`, erreur `{"error":{"json":{…}}}` ;
 //! - quota annoncé : `x-ratelimit-limit: 100` par fenêtre de 180 s ;
-//!   iBox s'impose 30 requêtes / 180 s et respecte `Retry-After` ;
+//!   iBox s'impose 45 requêtes / 180 s et respecte `Retry-After` ;
 //! - `listings.byGame` (rapports « appareil », surtout Android) ne contient
 //!   pas les réglages : ils sont dans `customFieldValues` de `listings.byId` ;
-//! - `pcListings.get` (rapports PC) : performance et matériel, aucun réglage ;
+//! - `pcListings.get` (rapports PC) : performance et matériel ; leurs réglages
+//!   sont dans `customFieldValues` de `pcListings.byId` (vérifié le 2026-11-17) ;
+//! - `games.findSwitchTitleId` : identifiant de titre Switch d'après le nom ;
 //! - `listings.getEmulatorConfig` ne couvre qu'Azahar/Eden/GameNative (Android),
 //!   donc pas utilisé pour Windows.
 //!
@@ -27,8 +29,12 @@ use std::time::{Duration, Instant};
 pub const BASE: &str = "https://www.emuready.com/api/mobile/trpc/";
 const SITE: &str = "https://www.emuready.com";
 const MAX_BODY: usize = 2 * 1024 * 1024;
-/// Rapports détaillés lus par jeu (une requête chacun).
-const DETAILS_PER_GAME: usize = 6;
+/// Rapports « appareil » détaillés lus par jeu (une requête chacun).
+const DEVICE_DETAILS: usize = 4;
+/// Rapports PC détaillés lus par jeu (une requête chacun), Windows d'abord.
+const PC_DETAILS: usize = 6;
+/// Identifiant de titre Switch trouvé par nom : stable, gardé longtemps.
+pub const TTL_TITLE_ID: i64 = 30 * 86_400;
 const TTL_GAME: i64 = 7 * 86_400;
 const TTL_PROFILES: i64 = 86_400;
 const TTL_PARTIAL: i64 = 600;
@@ -99,7 +105,7 @@ pub struct EmuReady {
 
 impl EmuReady {
     pub fn new(transport: Box<dyn Transport>) -> Self {
-        Self { transport, gate: Mutex::new(Gate { sent: VecDeque::new(), cooldown_until: None }), serial: Mutex::new(()), budget: 30, window: Duration::from_secs(180), backoff: Duration::from_millis(500) }
+        Self { transport, gate: Mutex::new(Gate { sent: VecDeque::new(), cooldown_until: None }), serial: Mutex::new(()), budget: 45, window: Duration::from_secs(180), backoff: Duration::from_millis(500) }
     }
 
     #[cfg(test)]
@@ -177,27 +183,63 @@ impl EmuReady {
         mine.sort_by_key(|l| (perf(l).map(|p| p.rank).unwrap_or(99), -(int(l, "upVotes") - int(l, "downVotes"))));
         let mut out = Vec::new();
         let mut partial = false;
-        for l in mine.iter().take(DETAILS_PER_GAME) {
-            let id = l.get("id").and_then(J::as_str).unwrap_or_default();
-            match self.call("listings.byId", json!({ "id": id })) {
-                Ok(detail) => out.push(normalize_listing(&detail, emulator, false)),
-                Err(ProviderError::RateLimited { .. }) | Err(ProviderError::Offline(_)) => {
+        for l in mine.iter().take(DEVICE_DETAILS) {
+            match self.detail("listings.byId", l, emulator, false) {
+                Some(p) => out.push(p),
+                None => {
                     partial = true;
                     out.push(normalize_listing(l, emulator, false));
                 }
-                Err(e) => return Err(e),
             }
         }
-        match self.call("pcListings.get", json!({ "gameId": game_id, "limit": 20 })) {
+        match self.call("pcListings.get", json!({ "gameId": game_id, "limit": 50 })) {
             Ok(pc) => {
-                for l in pc.get("listings").and_then(J::as_array).into_iter().flatten().filter(|l| emulator_is(l, emu_name) && approved(l)) {
-                    out.push(normalize_listing(l, emulator, true));
+                let mut pcs: Vec<&J> = pc.get("listings").and_then(J::as_array).into_iter().flatten().filter(|l| emulator_is(l, emu_name) && approved(l)).collect();
+                // Windows d'abord (la plateforme d'iBox), puis la meilleure performance et les votes
+                pcs.sort_by_key(|l| (s(l, "/os") != Some("WINDOWS"), perf(l).map(|p| p.rank).unwrap_or(99), -(int(l, "upVotes") - int(l, "downVotes"))));
+                for (i, l) in pcs.iter().enumerate() {
+                    // les réglages des rapports PC ne sont que dans le détail (`pcListings.byId`)
+                    let detailed = if i < PC_DETAILS { self.detail("pcListings.byId", l, emulator, true) } else { None };
+                    if i < PC_DETAILS && detailed.is_none() {
+                        partial = true;
+                    }
+                    out.push(detailed.unwrap_or_else(|| normalize_listing(l, emulator, true)));
                 }
             }
             Err(ProviderError::RateLimited { .. }) | Err(ProviderError::Offline(_)) => partial = true,
             Err(e) => return Err(e),
         }
         Ok((out, partial))
+    }
+
+    /// Détail d'un rapport (réglages compris) ; `None` si le quota ou le réseau l'empêchent.
+    fn detail(&self, procedure: &str, listing: &J, emulator: &str, pc: bool) -> Option<Profile> {
+        let id = listing.get("id").and_then(J::as_str)?;
+        self.call(procedure, json!({ "id": id })).ok().map(|d| normalize_listing(&d, emulator, pc))
+    }
+
+    /// Identifiant de titre Switch d'après le nom du jeu (`games.findSwitchTitleId`).
+    /// Retenu seulement si **un seul** résultat porte exactement le même titre normalisé.
+    pub fn switch_title_id(&self, title: &str) -> Result<Option<String>, ProviderError> {
+        let name: String = strip_tags(title).trim().chars().take(120).collect();
+        if name.chars().count() < 2 {
+            return Ok(None);
+        }
+        let data = self.call("games.findSwitchTitleId", json!({ "gameName": name, "maxResults": 10 }))?;
+        let wanted = normalize_title(title);
+        let ids: Vec<String> = data
+            .get("results")
+            .and_then(J::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|r| [s(r, "/normalizedTitle"), s(r, "/name")].into_iter().flatten().any(|t| normalize_title(t) == wanted))
+            .filter_map(|r| s(r, "/titleId").map(str::to_ascii_uppercase))
+            .filter(|id| crate::smartconfig::adapters::eden::valid_title_id(id))
+            .collect();
+        let mut unique = ids;
+        unique.sort();
+        unique.dedup();
+        Ok((unique.len() == 1).then(|| unique.remove(0)))
     }
 }
 
@@ -828,7 +870,18 @@ mod tests {
                 "500" => Ok(Response { status: 503, retry_after: None, body: Vec::new() }),
                 _ if url.contains("games.searchGames") => ok(SEARCH),
                 _ if url.contains("listings.byGame") => ok(BY_GAME),
+                // détail d'un rapport PC : ici, le premier rapport de la liste PC
+                _ if url.contains("pcListings.byId") => {
+                    let pc: J = serde_json::from_str(PC).unwrap();
+                    Ok(Response { status: 200, retry_after: None, body: json!({ "result": { "data": { "json": pc["result"]["data"]["json"]["listings"][0] } } }).to_string().into_bytes() })
+                }
                 _ if url.contains("listings.byId") => ok(BY_ID),
+                // forme réelle de `games.findSwitchTitleId` (2026-11-17), un homonyme ajouté
+                _ if url.contains("games.findSwitchTitleId") => ok(r#"{"result":{"data":{"json":{"success":true,"results":[
+                    {"titleId":"0100F2C0115B6000","name":"The Legend of Zelda™: Tears of the Kingdom","normalizedTitle":"The Legend of Zelda: Tears of the Kingdom","score":100},
+                    {"titleId":"01009AB00BDFE000","name":"The Stillness of the Wind","normalizedTitle":"The Stillness of the Wind","score":47},
+                    {"titleId":"0100AAAA00000000","name":"Mario Kart 8 Deluxe","normalizedTitle":"Mario Kart 8 Deluxe","score":100},
+                    {"titleId":"0100BBBB00000000","name":"Mario Kart 8 Deluxe","normalizedTitle":"Mario Kart 8 Deluxe","score":100}]}}}}"#),
                 _ if url.contains("pcListings.get") => ok(PC),
                 _ => Ok(Response { status: 404, retry_after: None, body: Vec::new() }),
             }
@@ -1071,16 +1124,41 @@ mod tests {
         assert_eq!(emulator_name("azahar"), Some("Azahar"));
     }
 
+    /// Rapport PC réel d'Eden (Ryzen 7 5700X + RTX 5060, Windows) : réglages lus dans `pcListings.byId`.
+    #[test]
+    fn rapport_pc_eden_reel() {
+        let detail = unwrap_envelope(include_str!("../fixtures/emuready_eden_pc_by_id.json").as_bytes()).unwrap();
+        let p = normalize_listing(&detail, "eden", true);
+        assert_eq!(p.kind, ProfileKind::Configuration);
+        assert_eq!(p.hardware.os.as_deref(), Some("windows"));
+        assert!(p.hardware.gpu.as_deref().is_some_and(|g| g.contains("RTX 5060")));
+        assert_eq!(p.emulator_version.as_deref(), Some("v0.2.1"));
+        assert!(p.settings.contains(&Setting { key: "eden.vsync".into(), value: Value::Choice("fifo".into()) }));
+        assert!(p.settings.contains(&Setting { key: "eden.resolution".into(), value: Value::Choice("1".into()) }));
+        assert_eq!(p.source_url.as_deref().map(|u| u.contains("/pc-listings/")), Some(true));
+    }
+
+    #[test]
+    fn identifiant_de_titre_switch_seulement_si_univoque() {
+        let (er, _) = client("ok", 30);
+        assert_eq!(er.switch_title_id("The Legend of Zelda - Tears of the Kingdom (Europe)").unwrap().as_deref(), Some("0100F2C0115B6000"));
+        // deux identifiants pour le même titre : on s'abstient
+        assert_eq!(er.switch_title_id("Mario Kart 8 Deluxe").unwrap(), None);
+        // aucun titre identique (le score seul ne suffit pas)
+        assert_eq!(er.switch_title_id("Tears").unwrap(), None);
+    }
+
     #[test]
     fn recherche_complete_puis_cache() {
         let (er, calls) = client("ok", 30);
         let cache = MemCache::default();
         let f = er.fetch(&sunshine(), "dolphin", &cache).unwrap();
         assert!(f.matched && !f.stale);
-        // 1 recherche + 1 byGame + 6 détails + 1 rapports PC
+        // 1 recherche + 1 byGame + 4 détails « appareil » + 1 liste PC + 2 détails PC (2 rapports Dolphin)
         assert_eq!(calls.load(Ordering::SeqCst), 9);
-        assert_eq!(f.profiles.iter().filter(|p| p.kind == ProfileKind::Configuration).count(), 6);
-        assert!(f.profiles.iter().any(|p| p.hardware.os.as_deref() == Some("windows")));
+        assert_eq!(f.profiles.iter().filter(|p| p.kind == ProfileKind::Configuration).count(), 4);
+        // les rapports PC détaillés sont bien lus (Windows d'abord)
+        assert_eq!(f.profiles.iter().filter(|p| p.hardware.os.as_deref() == Some("windows")).count(), 2);
         // second appel : aucun réseau
         er.fetch(&sunshine(), "dolphin", &cache).unwrap();
         assert_eq!(calls.load(Ordering::SeqCst), 9);
@@ -1148,5 +1226,13 @@ mod tests {
         for p in configs {
             eprintln!("  {} · {} · {} réglages, {} écartés", p.hardware.label.as_deref().unwrap_or("?"), p.performance.as_ref().map(|x| x.label.as_str()).unwrap_or("?"), p.settings.len(), p.ignored.len());
         }
+        // classement avec le matériel réel de cette machine
+        let hw = crate::smartconfig::hardware::detect();
+        let ctx = crate::smartconfig::recommend::Context { game: &totk, game_match: crate::smartconfig::recommend::GameMatch::Title, hw: &hw, emulator_version: Some("0.2.1"), preferred: Mode::Balanced, today: "2026-11-17", local: &[] };
+        let out = crate::smartconfig::recommend::recommend(&crate::smartconfig::adapters::eden::Eden, &f.profiles, &ctx);
+        for (i, r) in out.recommendations.iter().enumerate() {
+            eprintln!("  #{i} {:?} score {} mode {:?} · {} · {} acceptés / {} refusés", r.kind, r.score, r.mode, r.profile.hardware.label.as_deref().unwrap_or("?"), r.validated.accepted.len(), r.validated.rejected.len());
+        }
+        eprintln!("  conseillée : {:?}", out.suggested);
     }
 }

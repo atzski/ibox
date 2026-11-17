@@ -13,13 +13,11 @@ import { PLATFORMS, requirePlatform } from "@/domain/platforms";
 import type { Game } from "@/domain/types";
 import { useCommands } from "@/input/commands";
 import { relativeDay } from "@/domain/text";
-import { onSurface, themeVars } from "@/theme/platformTheme";
-import { useArtPalette } from "@/art/usePalette";
-import { formatPlayTime, useLauncher } from "@/services/launcher";
+import { themeVars } from "@/theme/platformTheme";
+import { useLauncher } from "@/services/launcher";
 import { usePlayState } from "@/components/library/PlayControls";
 import { CoverImage } from "@/components/game/CoverImage";
 import { useMediaUrl } from "@/art/useMediaUrl";
-import { trimStyle, useImageInfo } from "@/art/imageTone";
 import { GameCard } from "@/components/game/GameCard";
 import { PlatformCard } from "@/components/platform/PlatformCard";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
@@ -121,15 +119,11 @@ export function HomeScreen() {
     switch (id) {
       case "hero":
         return (
-          <div className="grid grid-cols-[minmax(0,1fr)_19rem] gap-6 px-[3rem]">
-            {/* premier lancement : la grande carte montre déjà « Votre dernière aventure » ;
-                le choix du dossier des jeux se fait dans les Paramètres */}
-            {hero ? (
-              <HeroCard game={hero} label={last || welcome || hero.isDemo ? "Votre dernière aventure" : "Dernier ajout à la collection"} />
-            ) : (
-              <div />
-            )}
-            <CollectionTile games={games} onOpen={() => go({ name: "library", platformId: "all" })} />
+          <div className={`grid gap-6 px-[3rem] ${hero ? "grid-cols-[minmax(0,1fr)_19rem]" : "grid-cols-1"}`}>
+            {/* à gauche, en grand : la collection sur son étagère 3D ; à droite, en petit, la dernière
+                aventure (ou le dernier ajout). Premier lancement : le dossier se choisit dans les Paramètres */}
+            <CollectionShowcase games={games} onOpen={() => go({ name: "library", platformId: "all" })} />
+            {hero && <LastAdventureTile game={hero} label={last || welcome || hero.isDemo ? "Votre dernière aventure" : "Dernier ajout à la collection"} />}
           </div>
         );
       case "consoles":
@@ -341,145 +335,85 @@ function EditButton({ icon, label, onClick, disabled, rotate = 0 }: { icon: Icon
   );
 }
 
-function HeroCard({ game, label }: { game: Game; label: string }) {
+/** « Votre dernière aventure », en petite carte : jaquette, titre, reprise en un geste. */
+function LastAdventureTile({ game, label }: { game: Game; label: string }) {
   const play = useLauncher((s) => s.play);
   const { reason: playReason } = usePlayState(game);
   const go = useNav((s) => s.go);
   const platform = requirePlatform(game.platformId);
-  const [, soft, accent] = useArtPalette(game);
   const reduced = useReducedMotion();
-  // grande illustration du jeu (bannière) et son logo, quand ils existent
   const hero = useMediaUrl(game, "hero");
-  const logo = useMediaUrl(game, "logo");
-  const logoInfo = useImageInfo(logo);
-  // logo clair sur une illustration : voile « nuit » aux couleurs de la console
-  const night = !!hero && logoInfo.tone === "light";
-  const deep = `color-mix(in oklab, ${platform.theme.deep} 80%, #0f1420)`;
+  const deep = `color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`;
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className={`ibox-sweep relative isolate flex h-[21rem] items-center gap-10 overflow-hidden rounded-xl px-10 shadow-md ${night ? "text-white" : "bg-white"}`}
-      style={{ ...themeVars(platform), background: night ? deep : undefined }}
+      className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-white shadow-md"
+      style={{ ...themeVars(platform), background: deep }}
     >
-      {hero ? (
-        <>
-          {/* illustration recadrée sans déformation, très lent mouvement d'entrée */}
-          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-            <motion.img
-              key={hero}
-              src={hero}
-              alt=""
-              draggable={false}
-              initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-              className="ibox-kenburns h-full w-full object-cover object-[center_30%]"
-            />
-          </div>
-          <div
-            className="pointer-events-none absolute inset-0 -z-10"
-            style={{
-              background: night
-                ? `linear-gradient(90deg, color-mix(in oklab, ${deep} 94%, transparent) 0%, color-mix(in oklab, ${deep} 76%, transparent) 40%, color-mix(in oklab, ${deep} 10%, transparent) 78%)`
-                : `linear-gradient(90deg, color-mix(in oklab, var(--ibox-white) 97%, transparent) 0%, color-mix(in oklab, var(--ibox-white) 84%, transparent) 40%, color-mix(in oklab, var(--ibox-white) 8%, transparent) 78%)`,
-            }}
+      {/* fond : illustration du jeu si elle existe, sinon sa jaquette floutée */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        {hero ? (
+          <motion.img
+            key={hero}
+            src={hero}
+            alt=""
+            draggable={false}
+            initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
+            animate={{ opacity: 0.55, scale: 1 }}
+            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+            className="ibox-kenburns h-full w-full object-cover object-[center_30%]"
           />
-        </>
-      ) : (
-        <>
-          {/* ambiance : jaquette floutée en fond, fondue vers la gauche */}
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-[65%] [mask-image:linear-gradient(to_left,black_20%,transparent)]">
-            <div className="absolute inset-0 scale-125 opacity-45 blur-3xl">
-              <CoverImage game={game} className="h-full w-full" rounded="" sheen={false} />
-            </div>
+        ) : (
+          <div className="absolute inset-0 scale-125 opacity-50 blur-2xl">
+            <CoverImage game={game} className="h-full w-full" rounded="" sheen={false} />
           </div>
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ background: `linear-gradient(100deg, var(--ibox-white) 30%, ${onSurface(soft, 0.55, 0.22)} 100%)`, opacity: 0.55 }}
-          />
-        </>
-      )}
-
-      <div className="relative shrink-0 [perspective:900px]">
-        <motion.div
-          animate={{ y: [0, -7, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="w-[11.5rem] [transform:rotateY(16deg)_rotateZ(-1.5deg)] [transform-style:preserve-3d]"
-        >
-          <CoverImage game={game} className="shadow-lg" rounded="rounded-[0.9rem]" />
-        </motion.div>
-        <div className="mx-auto mt-3 h-3 w-[70%] rounded-full bg-ink/15 blur-md" />
+        )}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${deep} 35%, transparent) 0%, color-mix(in oklab, ${deep} 92%, transparent) 72%)` }} />
       </div>
 
-      <div className="relative min-w-0 flex-1">
-        <div className={`text-[0.8rem] font-extrabold tracking-[0.16em] uppercase ${night ? "text-white/80" : "text-accent-text"}`}>
-          {label}
-        </div>
-        {logo && (hero ? true : logoInfo.tone !== "light") ? (
-          <h1 className="mt-3 mb-1">
-            <motion.img
-              key={logo}
-              src={logo}
-              alt={game.title}
-              draggable={false}
-              style={trimStyle(logoInfo)}
-              initial={{ opacity: 0, y: reduced ? 0 : 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 200, damping: 24, delay: 0.1 }}
-              className={`block max-h-[6.2rem] max-w-[min(32rem,100%)] object-contain object-left ${night ? "drop-shadow-[0_4px_14px_rgba(0,0,0,0.35)]" : "drop-shadow-[0_4px_14px_rgba(255,255,255,0.6)]"}`}
-            />
-          </h1>
-        ) : (
-          <h1 className={`mt-2 truncate text-[3rem] leading-[1.05] font-semibold ${night ? "text-white" : "text-ink"}`}>{game.title}</h1>
-        )}
-        <div className={`mt-3 flex flex-wrap items-center gap-2 text-[0.88rem] font-bold ${night ? "text-white/90" : "text-ink-soft"}`}>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${night ? "bg-white/15 backdrop-blur-sm" : "bg-[var(--accent-soft)] text-accent-text"}`}>
-            <PlatformGlyph glyph={platform.glyph} size={18} strokeWidth={3} />
-            {platform.shortName}
-          </span>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${night ? "bg-white/15 backdrop-blur-sm" : "bg-white/80"}`}>
-            <Icon name="clock" size="1.05em" />
-            {game.lastPlayedAt ? `Joué ${relativeDay(game.lastPlayedAt)}` : `Ajouté ${relativeDay(game.addedAt)}`}
-          </span>
-          {(game.playSeconds ?? 0) >= 60 && (
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 ${night ? "bg-white/15 backdrop-blur-sm" : "bg-white/80"}`}>
-              <Icon name="play" size="1em" />
-              {formatPlayTime(game.playSeconds!)} de jeu
+      <div className="text-[0.75rem] font-extrabold tracking-[0.16em] text-white/80 uppercase">{label}</div>
+
+      <div className="mt-3 flex min-h-0 flex-1 items-end gap-4">
+        <motion.div
+          animate={reduced ? undefined : { y: [0, -5, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          className="w-[5.6rem] shrink-0 [transform:rotateZ(-2deg)]"
+        >
+          <CoverImage game={game} className="shadow-lg" rounded="rounded-[0.7rem]" />
+        </motion.div>
+        <div className="min-w-0 pb-1">
+          <h2 className="line-clamp-3 font-display text-[1.25rem] leading-tight font-semibold">{game.title}</h2>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[0.75rem] font-bold text-white/90">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 backdrop-blur-sm">
+              <PlatformGlyph glyph={platform.glyph} size={14} strokeWidth={3} />
+              {platform.shortName}
             </span>
-          )}
-          {game.genre && <span className={`rounded-full px-3 py-1 ${night ? "bg-white/15 backdrop-blur-sm" : "bg-white/80"}`}>{game.genre}</span>}
-          {game.isDemo && (
-            <span className="rounded-full px-3 py-1" style={{ background: onSurface(accent, 0.7, 0.3) }}>
-              Démo
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 backdrop-blur-sm">
+              <Icon name="clock" size="1em" />
+              {game.lastPlayedAt ? `Joué ${relativeDay(game.lastPlayedAt)}` : `Ajouté ${relativeDay(game.addedAt)}`}
             </span>
-          )}
+          </div>
         </div>
-        <div className="mt-7 flex items-center gap-3">
-          <Button
-            variant="primary"
-            size="lg"
-            icon="open"
-            autoFocusScreen
-            data-focus-id="hero-open"
-            onClick={() => go({ name: "game", gameId: game.id })}
-          >
-            Voir le jeu
-          </Button>
-          <Button
-            size="lg"
-            icon="play"
-            disabled={!!playReason}
-            badge={game.isDemo ? "Démo" : undefined}
-            title={playReason ?? `Lancer ${game.title}`}
-            className={playReason ? "" : "ibox-beckon"}
-            onClick={() => void play(game.dbId!, game.title)}
-          >
-            Reprendre
-          </Button>
-        </div>
+      </div>
+
+      <div className="mt-5 flex items-center gap-2">
+        <Button
+          variant="primary"
+          icon="play"
+          autoFocusScreen
+          data-focus-id="hero-open"
+          disabled={!!playReason}
+          badge={game.isDemo ? "Démo" : undefined}
+          title={playReason ?? `Lancer ${game.title}`}
+          className={`flex-1 ${playReason ? "" : "ibox-beckon"}`}
+          onClick={() => void play(game.dbId!, game.title)}
+        >
+          Reprendre
+        </Button>
+        <Button icon="open" aria-label="Voir le jeu" title="Voir le jeu" onClick={() => go({ name: "game", gameId: game.id })} />
       </div>
     </motion.section>
   );
@@ -506,30 +440,72 @@ function useCountUp(target: number, reduced: boolean): number {
   return value;
 }
 
-/** Trois jaquettes de la collection, renouvelées doucement toutes les quelques secondes. */
-function useRotatingFan(games: Game[], reduced: boolean): Game[] {
-  const pool = useMemo(() => {
+/** Jaquettes par rangée au plus (chaque rangée est dupliquée pour boucler sans couture). */
+const MARQUEE_PER_ROW = 18;
+
+/**
+ * Toute la bibliothèque répartie sur deux étagères qui défilent lentement en
+ * sens alternés. Ordre stable (pas de mélange à chaque rendu), jeux réels
+ * d'abord ; une petite collection est répétée pour remplir la rangée.
+ */
+function useMarqueeRows(games: Game[]): Game[][] {
+  return useMemo(() => {
     const real = games.filter((g) => !g.isDemo);
-    return real.length >= 3 ? real : games;
+    const pool = (real.length >= 3 ? real : games).slice().sort((a, b) => a.sortTitle.localeCompare(b.sortTitle));
+    if (pool.length === 0) return [];
+    const rows: Game[][] = [[], []];
+    pool.forEach((g, i) => rows[i % 2].push(g));
+    return rows.map((row, r) => {
+      const base = row.length > 0 ? row : pool;
+      const filled: Game[] = [];
+      // au moins 8 jaquettes par rangée pour couvrir la largeur
+      for (let i = 0; filled.length < Math.max(8, Math.min(base.length, MARQUEE_PER_ROW)); i++) filled.push(base[(i + r * 2) % base.length]);
+      return filled;
+    });
   }, [games]);
-  const [turn, setTurn] = useState(0);
-  useEffect(() => {
-    if (reduced || pool.length <= 3) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") setTurn((t) => t + 1);
-    }, 5200);
-    return () => window.clearInterval(id);
-  }, [pool.length, reduced]);
-  if (pool.length <= 3) return pool.slice(0, 3);
-  // chaque tour avance de 7 jeux : toute la collection finit par défiler
-  const third = Math.ceil(pool.length / 3);
-  return [0, 1, 2].map((i) => pool[(turn * 7 + i * third) % pool.length]);
 }
 
-function CollectionTile({ games, onOpen }: { games: Game[]; onOpen: () => void }) {
+type ShelfFx = { row: number; index: number; kind: "spin" | "hop" | "wobble"; token: number };
+
+/**
+ * Vie de l'étagère : toutes les 2 à 5 secondes, une jaquette prise au hasard
+ * tourne sur elle-même, saute ou se balance. Rien quand les animations sont
+ * réduites ou que la fenêtre est cachée.
+ */
+function useShelfFx(rows: Game[][], reduced: boolean): ShelfFx | null {
+  const [fx, setFx] = useState<ShelfFx | null>(null);
+  useEffect(() => {
+    if (reduced || rows.length === 0) return;
+    let timer = 0;
+    let clear = 0;
+    let token = 0;
+    const kinds: ShelfFx["kind"][] = ["spin", "spin", "hop", "wobble"];
+    const next = () => {
+      timer = window.setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          const row = Math.floor(Math.random() * rows.length);
+          const index = Math.floor(Math.random() * rows[row].length);
+          setFx({ row, index, kind: kinds[Math.floor(Math.random() * kinds.length)], token: ++token });
+          // effet retiré à la fin : la même jaquette pourra le rejouer plus tard
+          clear = window.setTimeout(() => setFx(null), 1300);
+        }
+        next();
+      }, 2000 + Math.random() * 3000);
+    };
+    next();
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(clear);
+    };
+  }, [rows, reduced]);
+  return fx;
+}
+
+function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => void }) {
   const reduced = useReducedMotion();
-  const fan = useRotatingFan(games, reduced);
+  const rows = useMarqueeRows(games);
   const shown = useCountUp(games.length, reduced);
+  const fx = useShelfFx(rows, reduced);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -543,48 +519,59 @@ function CollectionTile({ games, onOpen }: { games: Game[]; onOpen: () => void }
           sound.play("select");
           onOpen();
         }}
-        className="ibox-focusable ibox-lift ibox-bubble ibox-collection-tile group relative flex h-[21rem] w-full flex-col justify-between overflow-hidden rounded-xl p-7 text-left shadow-md [--ring-radius:var(--radius-xl)]"
+        className="ibox-focusable ibox-lift ibox-bubble ibox-collection-tile group relative isolate flex h-[21rem] w-full overflow-hidden rounded-xl text-left shadow-md [--ring-radius:var(--radius-xl)]"
         style={{ background: "linear-gradient(150deg, var(--ibox-sky-soft) 0%, var(--ibox-lavender-soft) 60%, var(--ibox-peach-soft) 100%)" }}
       >
         <span aria-hidden className="ibox-collection-orbits" />
-        <div className="relative">
-          <div className="text-[0.8rem] font-extrabold tracking-[0.16em] text-lavender-deep uppercase">Ma collection</div>
-          <div className="mt-2 font-display text-[3.4rem] leading-none font-semibold text-ink tabular-nums">{shown}</div>
-          <div className="mt-1 text-[0.95rem] font-bold text-ink-soft">jeux, toutes consoles</div>
-        </div>
 
-        <div className="relative mx-auto h-[8.5rem] w-[11rem]">
-          {fan.map((g, i) => (
-            <div
-              key={i}
-              className="absolute bottom-0 left-1/2 w-[5.4rem] transition-transform duration-500 ease-[var(--ease-bounce)]"
-              style={{
-                transform: `translateX(calc(-50% + ${(i - 1) * 3.2}rem)) rotate(${(i - 1) * 9}deg)`,
-                zIndex: i === 1 ? 2 : 1,
-              }}
-            >
-              <div className="relative transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:-translate-y-2 group-focus:-translate-y-2">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.div
-                    key={g.id}
-                    initial={{ opacity: 0, y: 26, rotate: -6, scale: 0.92 }}
-                    animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -18, rotate: 5, scale: 0.94 }}
-                    transition={{ type: "spring", stiffness: 210, damping: 22, delay: i * 0.12 }}
+        {/* la bibliothèque rangée sur une étagère 3D vue de biais : les jaquettes, debout sur
+            leurs planches, glissent lentement ; reflets et ombres donnent le relief */}
+        <div aria-hidden className="ibox-shelf3d pointer-events-none absolute inset-y-0 right-0 left-[24%]">
+          <div className="ibox-shelf3d-scene">
+            {rows.map((row, r) => (
+              <div key={r} className="ibox-shelf3d-row">
+                <div className="ibox-shelf3d-viewport">
+                  <div
+                    className={`flex w-max shrink-0 items-end ${reduced ? "" : "ibox-marquee"}`}
+                    data-reverse={r % 2 === 1 || undefined}
+                    style={{ ["--marquee-duration" as string]: `${80 + r * 18}s` }}
                   >
-                    <CoverImage game={g} className="shadow-md" rounded="rounded-[0.6rem]" />
-                  </motion.div>
-                </AnimatePresence>
+                    {/* deux copies identiques : la boucle tombe pile au milieu, sans à-coup */}
+                    {[0, 1].map((copy) =>
+                      row.map((g, i) => (
+                        <div
+                          key={`${copy}-${i}`}
+                          className={`ibox-shelf3d-item ${fx && fx.row === r && fx.index === i ? `ibox-shelf3d-${fx.kind}` : ""}`}
+                        >
+                          <div className="ibox-shelf3d-box">
+                            <CoverImage game={g} rounded="rounded-[0.35rem]" sheen={false} />
+                          </div>
+                        </div>
+                      )),
+                    )}
+                  </div>
+                </div>
+                <div className="ibox-shelf3d-plank" />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div className="relative flex items-center justify-between font-display text-[1.05rem] font-semibold text-ink">
-          Parcourir tout
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-sm transition-transform group-hover:translate-x-1 group-focus:translate-x-1">
-            <Icon name="chevronRight" />
-          </span>
+        {/* lisibilité du texte : voile clair à gauche */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--ibox-white)_88%,transparent)_0%,color-mix(in_srgb,var(--ibox-white)_62%,transparent)_30%,transparent_52%)]" />
+
+        <div className="relative flex h-full w-[15rem] shrink-0 flex-col justify-between p-7">
+          <div>
+            <div className="text-[0.8rem] font-extrabold tracking-[0.16em] text-lavender-deep uppercase">Ma collection</div>
+            <div className="mt-2 font-display text-[3.4rem] leading-none font-semibold text-ink tabular-nums">{shown}</div>
+            <div className="mt-1 text-[0.95rem] font-bold text-ink-soft">jeux, toutes consoles</div>
+          </div>
+          <div className="flex items-center gap-3 font-display text-[1.05rem] font-semibold text-ink">
+            Parcourir tout
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-sm transition-transform group-hover:translate-x-1 group-focus:translate-x-1">
+              <Icon name="chevronRight" />
+            </span>
+          </div>
         </div>
       </button>
     </motion.div>

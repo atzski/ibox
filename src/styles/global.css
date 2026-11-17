@@ -629,3 +629,147 @@ body::before {
     animation: none;
   }
 }
+
+/* Accueil : la collection défile en continu (deux copies, boucle à -50 %) */
+.ibox-marquee {
+  animation: ibox-marquee var(--marquee-duration, 70s) linear infinite;
+  will-change: transform;
+}
+.ibox-marquee[data-reverse] {
+  animation-direction: reverse;
+}
+/* au survol ou au focus, le défilement se met en pause (jaquettes faciles à regarder) */
+.ibox-collection-tile:is(:hover, :focus-visible) .ibox-marquee {
+  animation-play-state: paused;
+}
+@keyframes ibox-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+html[data-motion="reduced"] .ibox-marquee {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion="full"]) .ibox-marquee {
+    animation: none;
+  }
+}
+
+/* Accueil : étagère 3D de la collection (perspective, planches en relief, jaquettes debout) */
+.ibox-shelf3d {
+  perspective: 1100px;
+  perspective-origin: 30% 40%;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 14%, black 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 14%, black 90%, transparent);
+}
+.ibox-shelf3d-scene {
+  position: absolute;
+  inset: 1.4rem -2rem 1.2rem 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  transform: rotateY(-30deg) rotateX(9deg) translateZ(-60px);
+  transform-style: preserve-3d;
+  transition: transform 900ms var(--ease-out-soft);
+}
+html[data-motion="full"] .ibox-collection-tile:is(:hover, :focus-visible) .ibox-shelf3d-scene {
+  transform: rotateY(-20deg) rotateX(6deg) translateZ(-20px);
+}
+.ibox-shelf3d-row {
+  position: relative;
+  transform-style: preserve-3d;
+}
+.ibox-shelf3d-viewport {
+  overflow: hidden;
+  padding: 0.6rem 0 0;
+}
+.ibox-shelf3d-item {
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+  width: 4.4rem;
+}
+/* boîtier : légère épaisseur sur la tranche droite et ombre portée sur la planche */
+.ibox-shelf3d-box {
+  position: relative;
+  border-radius: 0.35rem;
+  box-shadow:
+    3px 0 0 color-mix(in srgb, var(--ibox-ink) 30%, transparent),
+    0 10px 14px -8px rgba(0, 0, 0, 0.45);
+  transform: translateZ(8px);
+  transition: transform 500ms var(--ease-bounce);
+}
+html[data-motion="full"] .ibox-collection-tile:is(:hover, :focus-visible) .ibox-shelf3d-box {
+  transform: translateZ(8px) translateY(-4px);
+}
+/* reflet vernis qui glisse sur les boîtiers */
+.ibox-shelf3d-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.28) 0%, transparent 34%, transparent 70%, rgba(255, 255, 255, 0.1) 100%);
+  pointer-events: none;
+}
+/* planche : dessus clair vu en perspective + chant en relief */
+.ibox-shelf3d-plank {
+  position: relative;
+  height: 1.5rem;
+  margin-top: -0.35rem;
+  border-radius: 0.3rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ibox-white) 92%, var(--accent) 8%) 0%, color-mix(in srgb, var(--ibox-white) 70%, var(--accent) 30%) 100%);
+  transform: rotateX(58deg);
+  transform-origin: top center;
+  box-shadow: 0 18px 26px -10px rgba(0, 0, 0, 0.45);
+}
+.ibox-shelf3d-plank::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 0.75rem;
+  border-radius: 0 0 0.3rem 0.3rem;
+  background: color-mix(in srgb, var(--accent) 45%, var(--ibox-ink) 25%);
+  transform: rotateX(-58deg);
+  transform-origin: top center;
+}
+
+
+/* Étagère vivante : une jaquette au hasard tourne, saute ou se balance */
+.ibox-shelf3d-item {
+  transform-style: preserve-3d;
+}
+.ibox-shelf3d-spin {
+  animation: ibox-shelf-spin 1.1s var(--ease-out-soft) both;
+}
+.ibox-shelf3d-hop {
+  animation: ibox-shelf-hop 0.9s var(--ease-bounce) both;
+}
+.ibox-shelf3d-wobble {
+  animation: ibox-shelf-wobble 1s ease-in-out both;
+  transform-origin: 50% 100%;
+}
+@keyframes ibox-shelf-spin {
+  0% { transform: translateY(0) rotateY(0deg); }
+  35% { transform: translateY(-10px) rotateY(200deg); }
+  100% { transform: translateY(0) rotateY(360deg); }
+}
+@keyframes ibox-shelf-hop {
+  0%, 100% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-16px) scale(1.04); }
+  55% { transform: translateY(0) scale(0.98, 1.02); }
+  75% { transform: translateY(-5px); }
+}
+@keyframes ibox-shelf-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg); }
+  50% { transform: rotate(5deg); }
+  75% { transform: rotate(-2deg); }
+}
+html[data-motion="reduced"] :is(.ibox-shelf3d-spin, .ibox-shelf3d-hop, .ibox-shelf3d-wobble) {
+  animation: none !important;
+}

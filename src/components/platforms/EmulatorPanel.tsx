@@ -23,7 +23,6 @@ export function EmulatorPanel({ info, requirements, onRequirementsChange }: { in
   const overview = useEmulators((s) => s.overview);
   const { platformMap, emulators } = useLauncher();
   const go = useNav((s) => s.go);
-  const [showAlt, setShowAlt] = useState(false);
   const current = platformMap[info.id] !== undefined ? emulators.find((e) => e.id === platformMap[info.id]) : undefined;
   const rec = packageOf(overview, info.recommended);
   const alternatives = info.alternatives.map((id) => packageOf(overview, id)).filter(Boolean) as EmulatorPackage[];
@@ -55,28 +54,26 @@ export function EmulatorPanel({ info, requirements, onRequirementsChange }: { in
       {requirements.length > 0 && <Requirements info={info} items={requirements} onChange={onRequirementsChange} />}
 
       {alternatives.length > 0 && (
-        <div>
-          <button
-            data-focusable
-            onClick={() => setShowAlt((v) => !v)}
-            aria-expanded={showAlt}
-            className="ibox-focusable inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.9rem] font-bold text-ink-soft [--ring-radius:999px] hover:text-ink"
-          >
-            <Icon name="chevronRight" size="0.9em" className={`transition-transform ${showAlt ? "rotate-90" : ""}`} />
-            Alternatives pour les connaisseurs ({alternatives.length})
-          </button>
-          <AnimatePresence initial={false}>
-            {showAlt && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="mt-2 flex flex-col gap-3">
-                  {alternatives.map((p) => (
-                    <PackageCard key={p.id} pkg={p} info={info} current={current} compact />
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <section aria-label="Autres émulateurs" className="flex flex-col gap-3">
+          <div className="flex items-center gap-3 pt-1">
+            <span aria-hidden className="tone-purple grid size-9 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--tone)_16%,var(--ibox-white))] text-[var(--tone-ink)]">
+              <Icon name="grid" size="1em" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="font-display text-[1.15rem] font-semibold text-ink">
+                {alternatives.length > 1 ? `Ou choisissez parmi ${alternatives.length} autres émulateurs` : "Ou choisissez un autre émulateur"}
+              </h3>
+              <p className="text-[0.86rem] font-semibold text-ink-soft">
+                {alternatives.every((p) => p.automatic) ? "Installation en un clic, comme le recommandé. " : ""}Vous pouvez en garder plusieurs et changer quand vous voulez.
+              </p>
+            </div>
+          </div>
+          <div className={`grid gap-3 ${alternatives.length > 1 ? "xl:grid-cols-2" : ""}`}>
+            {alternatives.map((p) => (
+              <PackageCard key={p.id} pkg={p} info={info} current={current} alternative />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
@@ -107,7 +104,7 @@ function Monogram({ name, tone }: { name: string; tone: string }) {
   );
 }
 
-function PackageCard({ pkg, info, recommended, current, compact }: { pkg: EmulatorPackage; info: ConsoleInfo; recommended?: boolean; current?: Emulator; compact?: boolean }) {
+function PackageCard({ pkg, info, recommended, current, alternative }: { pkg: EmulatorPackage; info: ConsoleInfo; recommended?: boolean; current?: Emulator; alternative?: boolean }) {
   const overview = useEmulators((s) => s.overview);
   const progress = useEmulators((s) => s.progress[pkg.id]);
   const parentProgress = useEmulators((s) => (pkg.requires ? s.progress[pkg.requires] : undefined));
@@ -153,13 +150,15 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
   const done = progress?.stage === "done";
 
   return (
-    <div className={`relative overflow-hidden rounded-xl bg-white/75 ring-1 ring-ink/6 ${compact ? "p-4" : "p-5"} shadow-xs`}>
+    <div className={`relative overflow-hidden rounded-xl bg-white/75 p-5 ring-1 shadow-xs ${usedHere ? "ring-2 ring-[var(--tone-green)]/60" : "ring-ink/6"}`}>
       <div className="flex items-start gap-4">
         <Monogram name={pkg.name} tone={tone} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span data-no-i18n className="font-display text-[1.3rem] font-semibold text-ink">{pkg.name}</span>
             {recommended && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[0.72rem] font-bold text-accent-text">Recommandé</span>}
+            {alternative && <span className="tone-purple rounded-full bg-[color-mix(in_srgb,var(--tone)_14%,var(--ibox-white))] px-2 py-0.5 text-[0.72rem] font-bold text-[var(--tone-ink)]">Autre choix</span>}
+            {usedHere && <span className="tone-green rounded-full bg-[color-mix(in_srgb,var(--tone)_16%,var(--ibox-white))] px-2 py-0.5 text-[0.72rem] font-bold text-[var(--tone-ink)]">Utilisé pour cette console</span>}
             <span className={`rounded-full px-2 py-0.5 text-[0.72rem] font-bold ${pkg.maturity === "experimental" ? "bg-peach-soft text-peach-deep" : "bg-cream-deep text-ink-soft"}`}>
               {MATURITY_LABEL[pkg.maturity]}
             </span>
@@ -167,7 +166,7 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
           {text && (
             <>
               <p className="mt-1 text-[0.92rem] font-semibold text-ink-soft">{text.about}</p>
-              {!compact && <p className="mt-1 text-[0.92rem] font-semibold text-ink">{text.why}</p>}
+              <p className="mt-1 text-[0.92rem] font-semibold text-ink">{text.why}</p>
             </>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] font-bold text-ink-faint">
@@ -216,7 +215,7 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
                 </>
               ) : !installed ? (
                 <>
-                  {external && !compact ? (
+                  {external ? (
                     <Button
                       variant="primary"
                       icon="check"
@@ -228,8 +227,8 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
                     </Button>
                   ) : null}
                   <Button
-                    variant={external && !compact ? "soft" : "primary"}
-                    size={compact ? "md" : "lg"}
+                    variant={external ? "soft" : "primary"}
+                    size={alternative ? "md" : "lg"}
                     icon="download"
                    
                     disabled={!!busy}
@@ -237,7 +236,7 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
                   >
                     {pkg.requires && !parentInstalled ? `Installer RetroArch et ${pkg.name}` : `Installer ${pkg.name}`}
                   </Button>
-                  {!external && !compact && (
+                  {!external && (
                     <Button
                       variant="ghost"
                       icon="search"
@@ -362,13 +361,11 @@ function PackageCard({ pkg, info, recommended, current, compact }: { pkg: Emulat
         )}
       </div>
 
-      {!compact && (
-        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink/6 pt-3">
-          <LinkButton url={pkg.homepage}>Site officiel</LinkButton>
-          <LinkButton url={pkg.docs}>Documentation</LinkButton>
-          {pkg.compatibility && <LinkButton url={pkg.compatibility}>Jeux compatibles</LinkButton>}
-        </div>
-      )}
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-ink/6 pt-3">
+        <LinkButton url={pkg.homepage}>Site officiel</LinkButton>
+        <LinkButton url={pkg.docs}>Documentation</LinkButton>
+        {pkg.compatibility && <LinkButton url={pkg.compatibility}>Jeux compatibles</LinkButton>}
+      </div>
     </div>
   );
 }

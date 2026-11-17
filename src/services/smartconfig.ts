@@ -111,6 +111,10 @@ export interface GameStatus {
   active: Entry | null;
   emulatorChanged: boolean;
   askFeedback: number | null;
+  /** `noGameId` : pourquoi l'identifiant du jeu est introuvable. */
+  reason?: string | null;
+  /** Identifiant de titre fourni par EmuReady (fichier XCI qui ne le contient pas). */
+  gameIdFromSource?: boolean;
 }
 
 export interface GpuInfo {
@@ -350,6 +354,8 @@ export const useSmartConfig = create<ScState>((_set, get) => ({
     try {
       const result = await smartConfigApi.recommend(gameId, m, enabledSources(prefs));
       patch(gameId, { searching: false, result, resultMode: m });
+      // la recherche a pu apprendre l'identifiant d'un jeu Switch (XCI) : état à jour
+      void get().refresh(gameId);
       return result;
     } catch (e) {
       patch(gameId, { searching: false, searchError: errorText(e) });
@@ -445,7 +451,8 @@ export function badgeOf(sc: GameSc | undefined): ScBadge | null {
   const st = sc?.status;
   if (!st) return sc?.statusError ? "error" : null;
   if (st.state === "noEmulator") return null;
-  if (st.state === "unsupported" || st.state === "noGameId") return "unsupported";
+  // sans identifiant de jeu, les configurations restent consultables (l'application dira pourquoi elle est impossible)
+  if (st.state === "unsupported") return "unsupported";
   if (sc.searching) return "searching";
   const suggested = suggestedOf(sc.result);
   if (st.active) {
