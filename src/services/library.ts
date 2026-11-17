@@ -342,6 +342,12 @@ export const PC_SYNC_SOURCES = ["steam", "epic", "gog", "riot", "rsi", "ea", "ba
 
 // Retour dans iBox (après une installation dans une boutique…) : les boutiques sont relues
 if (typeof window !== "undefined") {
+  // désinstalleur externe terminé : la fiche est relue (et les boutiques resynchronisées)
+  void import("./uninstall").then(({ uninstallApi }) => uninstallApi.onDone(() => {
+    const s = useLibrary.getState();
+    void s.reload().then(() => { if (s.native) void s.syncPc(); });
+  }));
+
   window.addEventListener("focus", () => {
     const s = useLibrary.getState();
     if (s.native && s.status === "ready" && Date.now() - (s.pcSync.at ?? 0) > 20_000) void s.syncPc();

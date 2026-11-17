@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.71",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "download", title: "Désinstaller un jeu", text: "Un bouton « Désinstaller » sur chaque fiche supprime le jeu proprement : Steam s’en charge lui-même, sinon le désinstalleur officiel du jeu s’ouvre (fichiers, raccourcis et inscription Windows retirés). Un jeu ajouté à la main ou une ROM part à la Corbeille, jamais effacé pour de bon, et la fiche se met à jour toute seule." },
+      { icon: "front", title: "Une fiche de jeu mieux rangée", text: "Jouer et Remote Play côte à côte, le favori en étoile juste à côté ; Illustrations, Modifier et Regrouper une version passent dessous en plus discret, la désinstallation à part en rouge." },
+      { icon: "user", title: "Avatars et fonds de n’importe quel jeu", text: "Pour la photo de profil et la bannière, la recherche couvre tout le catalogue de jeux, pas seulement votre collection : tapez un nom, choisissez le jeu, puis l’image." },
+    ],
+  },
+  {
     version: "0.1.70",
     date: "2026-11-17",
     highlights: [

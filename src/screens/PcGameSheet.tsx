@@ -25,6 +25,7 @@ import { input } from "@/input/InputController";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { InstallButton, PlayControls } from "@/components/library/PlayControls";
 import { MediaModal } from "@/components/library/MediaModal";
+import { UninstallModal } from "@/components/library/UninstallModal";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -52,7 +53,9 @@ export function PcGameSheet({ game }: { game: Game }) {
   const [editingMedia, setEditingMedia] = useState(false);
   const [merging, setMerging] = useState(false);
   const [correcting, setCorrecting] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
   const installs = pcInstallsOf(game);
+  const canUninstall = installs.some((i) => i.installed || i.source === "manual");
   const installed = isInstalled(game);
 
   // Le fond du jeu (bannière SteamGridDB ou jaquette floutée) s'affiche net derrière la fiche
@@ -183,30 +186,54 @@ export function PcGameSheet({ game }: { game: Game }) {
           </Notice>
         )}
 
+        {/* Actions : jouer d'abord (grand), le reste rangé dessous en petit, la désinstallation à part */}
         <motion.div
           {...enter(0.3)}
-          className="mt-auto flex flex-wrap items-center gap-3 self-start rounded-[1.6rem] bg-white/45 p-2.5 pr-3 shadow-[0_10px_30px_rgba(30,40,70,0.10)] ring-1 ring-white/70 backdrop-blur-md"
+          className="mt-auto flex flex-col gap-3 self-start rounded-[1.6rem] bg-white/45 p-3 shadow-[0_10px_30px_rgba(30,40,70,0.10)] ring-1 ring-white/70 backdrop-blur-md"
         >
-          <PlayControls
-            game={game}
-            beforeLaunch={() => {
-              // le boîtier se referme pendant le lancement, comme pour les consoles
-              setDiscOut(false);
-              setOpen(false);
-              controller.setView("front");
-            }}
-          />
-          <Button icon="star" cue="toggle" onClick={() => void toggleFavorite(game)} className={favorite ? "!text-[#E8A23A]" : ""}>
-            {favorite ? "Favori" : "Ajouter aux favoris"}
-          </Button>
-          <Button icon="front" disabled={game.dbId === undefined} title={game.dbId === undefined ? "Indisponible pour un jeu de démonstration" : undefined} onClick={() => setEditingMedia(true)}>
-            Illustrations
-          </Button>
-          <Button icon="gear" disabled={game.dbId === undefined} onClick={() => setCorrecting(true)}>
-            Modifier
-          </Button>
+          <div className="flex flex-wrap items-start gap-3">
+            <PlayControls
+              game={game}
+              row
+              beforeLaunch={() => {
+                // le boîtier se referme pendant le lancement, comme pour les consoles
+                setDiscOut(false);
+                setOpen(false);
+                controller.setView("front");
+              }}
+            />
+            <Button
+              size="lg"
+              cue="toggle"
+              aria-pressed={favorite}
+              aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+              onClick={() => void toggleFavorite(game)}
+              className={`!w-14 !px-0 ${favorite ? "!text-[#E8A23A]" : ""}`}
+            >
+              <Icon name="star" filled={favorite} size="1.4em" />
+            </Button>
+          </div>
           {game.dbId !== undefined && (
-            <Button icon="plus" onClick={() => setMerging(true)}>Regrouper une version</Button>
+            <div className="flex flex-wrap items-center gap-1 border-t border-white/60 pt-2.5">
+              <Button variant="ghost" icon="front" className="!h-10 !px-4" onClick={() => setEditingMedia(true)}>
+                Illustrations
+              </Button>
+              <Button variant="ghost" icon="gear" className="!h-10 !px-4" onClick={() => setCorrecting(true)}>
+                Modifier
+              </Button>
+              <Button variant="ghost" icon="copy" className="!h-10 !px-4" onClick={() => setMerging(true)}>
+                Regrouper une version
+              </Button>
+              {canUninstall && (
+                <>
+                  <span className="mx-1 h-6 w-px bg-ink/10" aria-hidden />
+                  <Button variant="ghost" icon="trash" className="!h-10 !px-4 !text-[#D0584F] hover:!bg-[#E2665E]/12" onClick={() => setUninstalling(true)}>
+                    Désinstaller
+                  </Button>
+                </>
+              )}
+            </div>
           )}
         </motion.div>
       </section>
@@ -214,6 +241,7 @@ export function PcGameSheet({ game }: { game: Game }) {
       {editingMedia && game.dbId !== undefined && <MediaModal game={game} onClose={() => setEditingMedia(false)} />}
       {merging && <MergeVersions game={game} onClose={() => setMerging(false)} />}
       {correcting && <CorrectionModal game={game} onClose={() => setCorrecting(false)} />}
+      {uninstalling && <UninstallModal game={game} onClose={() => setUninstalling(false)} />}
     </div>
   );
 }

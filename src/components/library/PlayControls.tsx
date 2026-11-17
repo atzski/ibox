@@ -13,12 +13,12 @@ import { isTauri } from "@/services/native";
 import { consoleInfo } from "@/domain/platformCatalog";
 
 /** « Remote Play » : inviter un ami iNetbox sur ce jeu, sans passer par les paramètres. */
-export function RemotePlayButton({ game, onLaunch }: { game: Game; onLaunch?: () => void }) {
+export function RemotePlayButton({ game, onLaunch, size = "md" }: { game: Game; onLaunch?: () => void; size?: "md" | "lg" }) {
   const [open, setOpen] = useState(false);
   if (!isTauri() || game.dbId === undefined) return null;
   return (
     <>
-      <Button variant="soft" icon="globe" className="self-start" onClick={() => setOpen(true)}>
+      <Button variant="soft" size={size} icon="globe" className="self-start" onClick={() => setOpen(true)}>
         Remote Play
       </Button>
       {open && <RemotePlayGameDialog gameTitle={game.title} onLaunch={onLaunch} onClose={() => setOpen(false)} />}
@@ -84,7 +84,7 @@ export function InstallButton({
  * Bouton « Jouer » et choix de l'émulateur de ce jeu.
  * `beforeLaunch` permet à la fiche de refermer le boîtier 3D pendant l'animation.
  */
-export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?: () => void }) {
+export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLaunch?: () => void; /** Jouer et Remote Play côte à côte (fiche PC). */ row?: boolean }) {
   const play = useLauncher((s) => s.play);
   const load = useLauncher((s) => s.load);
   const emulators = useLauncher((s) => s.emulators);
@@ -105,7 +105,7 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
     const { install, action, reason: pcReason } = launchState(game);
     const why = (action === "install" && reason === "Un jeu est déjà en cours" ? null : reason) ?? pcReason;
     return (
-      <div className="flex flex-col gap-2">
+      <div className={row ? "flex flex-wrap items-start gap-3" : "flex flex-col gap-2"}>
         {why ? (
           <Button variant="primary" size="lg" icon={action === "install" ? "download" : "play"} disabled title={why}>
             {why}
@@ -117,7 +117,7 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
             {thisOne && busy ? "En cours…" : install?.source === "rsi" ? "Ouvrir RSI Launcher" : "Jouer"}
           </Button>
         )}
-        {action !== "install" && <RemotePlayButton game={game} onLaunch={why ? undefined : launch} />}
+        {action !== "install" && <RemotePlayButton game={game} size={row ? "lg" : "md"} onLaunch={why ? undefined : launch} />}
       </div>
     );
   }

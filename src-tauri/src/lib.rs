@@ -16,6 +16,7 @@ pub mod pc;
 pub mod scanner;
 pub mod shell;
 pub mod wallpaper;
+pub mod uninstall;
 pub mod inetbox;
 pub mod profile;
 pub mod capture;
@@ -196,6 +197,8 @@ pub fn run() {
             pc::commands::pc_merge_games,
             pc::commands::pc_split_install,
             pc::commands::pc_remove_install,
+            uninstall::commands::uninstall_plan,
+            uninstall::commands::uninstall_run,
             pc::commands::pc_sync,
             pc::commands::pc_set_hidden,
             assets::commands::assets_status,

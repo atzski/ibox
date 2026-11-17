@@ -5,6 +5,7 @@ import { useLibrary } from "@/services/library";
 import { useMediaUrl } from "@/art/useMediaUrl";
 import { Modal } from "@/components/ui/Modal";
 import { CoverImage } from "@/components/game/CoverImage";
+import { useGameSearch, type CatalogHit } from "./useGameSearch";
 
 /** Image → bannière de profil (JPEG 640×224, ≤ 96 Ko, comme l'import d'un fichier). */
 export async function toBanner(src: string): Promise<string> {
@@ -29,23 +30,29 @@ interface Pic { url: string; thumb: string }
 export function BannerFromGame({ onPick, onClose }: { onPick: (data: string) => void; onClose: () => void }) {
   const games = useLibrary((s) => s.realGames);
   const [q, setQ] = useState("");
-  const [game, setGame] = useState<Game | null>(null);
+  // un jeu de la collection, ou n'importe quel jeu du catalogue SteamGridDB
+  const [game, setGame] = useState<{ title: string; game?: Game; sgdbId?: number } | null>(null);
   const needle = q.trim().toLowerCase();
   const list = games.filter((g) => !needle || g.title.toLowerCase().includes(needle)).slice(0, 60);
+  const catalog = useGameSearch(q);
   return (
     <Modal title={game ? `Fonds de ${game.title}` : "Bannière : choisir un jeu"} onClose={onClose} width="44rem">
-      {game ? <GameBackgrounds game={game} onBack={() => setGame(null)} onPick={onPick} /> : (
+      {game ? <GameBackgrounds title={game.title} game={game.game} sgdbId={game.sgdbId} onBack={() => setGame(null)} onPick={onPick} /> : (
         <div className="flex flex-col gap-3">
-          <input data-focusable data-autofocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher un jeu" aria-label="Chercher un jeu"
+          <input data-focusable data-autofocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher n'importe quel jeu" aria-label="Chercher n'importe quel jeu"
             className="ibox-focusable h-11 rounded-full bg-cream-deep px-5 font-bold text-ink [--ring-radius:999px]" />
-          <div className="grid max-h-[55vh] grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-3 overflow-y-auto p-1">
-            {list.map((g) => (
-              <button key={g.id} type="button" data-focusable onClick={() => setGame(g)} title={g.title}
-                className="ibox-focusable flex flex-col gap-1 rounded-xl bg-cream-deep/60 p-1 text-left [--ring-radius:0.75rem]">
-                <span className="aspect-[3/4] overflow-hidden rounded-lg"><CoverImage game={g} /></span>
-                <span data-no-i18n className="truncate text-[0.72rem] font-bold text-ink">{g.title}</span>
-              </button>
-            ))}
+          <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-1">
+            <CatalogHits query={q} {...catalog} onPick={(hit) => setGame({ title: hit.name, sgdbId: hit.id })} />
+            {list.length > 0 && <h3 className="text-[0.75rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Ma collection</h3>}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-3">
+              {list.map((g) => (
+                <button key={g.id} type="button" data-focusable onClick={() => setGame({ title: g.title, game: g })} title={g.title}
+                  className="ibox-focusable flex flex-col gap-1 rounded-xl bg-cream-deep/60 p-1 text-left [--ring-radius:0.75rem]">
+                  <span className="aspect-[3/4] overflow-hidden rounded-lg"><CoverImage game={g} /></span>
+                  <span data-no-i18n className="truncate text-[0.72rem] font-bold text-ink">{g.title}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -53,7 +60,30 @@ export function BannerFromGame({ onPick, onClose }: { onPick: (data: string) => 
   );
 }
 
-function GameBackgrounds({ game, onBack, onPick }: { game: Game; onBack: () => void; onPick: (data: string) => void }) {
+/** Résultats « Tous les jeux » (catalogue SteamGridDB) d'une recherche. */
+export function CatalogHits({ query, hits, searching, error, onPick }: {
+  query: string; hits: CatalogHit[]; searching: boolean; error: string | null; onPick: (hit: CatalogHit) => void;
+}) {
+  if (query.trim().length < 2) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-[0.75rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Tous les jeux</h3>
+      <div data-nav-group="catalog-hits" className="flex flex-wrap gap-2">
+        {hits.map((hit) => (
+          <button key={hit.id} type="button" data-focusable onClick={() => onPick(hit)}
+            className="ibox-focusable ibox-lift rounded-full bg-white px-4 py-2 text-[0.88rem] font-bold text-ink shadow-xs [--ring-radius:999px]">
+            <span data-no-i18n>{hit.name}</span>
+          </button>
+        ))}
+      </div>
+      {searching && !hits.length && <p className="text-[0.85rem] text-ink-soft">Recherche…</p>}
+      {!searching && !hits.length && !error && <p className="text-[0.85rem] text-ink-soft">Aucun jeu trouvé dans le catalogue.</p>}
+      {error && <p className="text-[0.85rem] font-bold text-peach-deep">{error}</p>}
+    </section>
+  );
+}
+
+function GameBackgrounds({ title, game, sgdbId, onBack, onPick }: { title: string; game?: Game; sgdbId?: number; onBack: () => void; onPick: (data: string) => void }) {
   const local = useMediaUrl(game, "hero");
   const [pics, setPics] = useState<Pic[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,12 +91,12 @@ function GameBackgrounds({ game, onBack, onPick }: { game: Game; onBack: () => v
   useEffect(() => {
     let live = true;
     (async () => {
-      const hits = await invoke<{ id: number }[]>("avatar_steam_search", { query: game.title });
-      const r = hits[0] ? await invoke<Pic[]>("collection_sgdb_images", { id: hits[0].id, kind: "hero" }) : [];
+      const id = sgdbId ?? (await invoke<{ id: number }[]>("avatar_steam_search", { query: title }))[0]?.id;
+      const r = id !== undefined ? await invoke<Pic[]>("collection_sgdb_images", { id, kind: "hero" }) : [];
       if (live) setPics(r);
     })().catch((e) => { if (live) { setPics([]); setError(String(e)); } });
     return () => { live = false; };
-  }, [game.title]);
+  }, [title, sgdbId]);
   const pick = async (load: () => Promise<string>) => {
     setBusy(true);
     setError(null);

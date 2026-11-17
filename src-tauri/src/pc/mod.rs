@@ -245,7 +245,7 @@ pub struct PcLaunch {
 /// l'application que Windows lui associe : gestionnaire de liens de Windows
 /// (`rundll32 url.dll,FileProtocolHandler`), sans ligne de commande shell.
 /// (L'Explorateur ne comprend pas ces liens et ouvrait le dossier Documents.)
-fn url_handler(uri: &str) -> (String, Vec<String>) {
+pub(crate) fn url_handler(uri: &str) -> (String, Vec<String>) {
     let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
     let exe = Path::new(&root).join("System32").join("rundll32.exe").to_string_lossy().to_string();
     (exe, vec!["url.dll,FileProtocolHandler".into(), uri.to_string()])

@@ -5,6 +5,8 @@ import { requirePlatform } from "@/domain/platforms";
 import { useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/Button";
+import { useGameSearch } from "./useGameSearch";
+import { CatalogHits } from "./BannerFromGame";
 
 type Hit = { id: number; name: string };
 type Artwork = { url: string; thumb: string };
@@ -15,12 +17,14 @@ export function SteamAvatarPicker({ games, onChoose, riotPortraits }: { games: G
   const [images, setImages] = useState<Artwork[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [selected, setSelected] = useState<Game | null>(null);
+  // jeu de la collection ou n'importe quel jeu du catalogue : seul son titre compte ici
+  const [selected, setSelected] = useState<{ title: string } | null>(null);
   const [filter, setFilter] = useState("");
   const [limit, setLimit] = useState(48);
   const library = useMemo(() => games.filter((game) => matchesQuery(
     `${game.title} ${requirePlatform(game.platformId).name}`, filter,
   )).sort((a, b) => a.sortTitle.localeCompare(b.sortTitle)), [games, filter]);
+  const catalog = useGameSearch(filter);
 
   async function loadImages(hit: Hit) {
     setImages([]);
@@ -36,12 +40,19 @@ export function SteamAvatarPicker({ games, onChoose, riotPortraits }: { games: G
   }
   return (
     <section className="mb-4 space-y-3 rounded-xl bg-cream-deep p-4">
-      <h3 className="font-bold">{selected ? selected.title : "Jeux de ta bibliothèque"}</h3>
+      <h3 className="font-bold">{selected ? selected.title : "Choisir un jeu"}</h3>
       {!selected ? (
         <>
-          <input data-focusable aria-label="Filtrer les jeux de la bibliothèque" placeholder="Filtrer par jeu ou console"
+          <input data-focusable aria-label="Chercher n'importe quel jeu" placeholder="Chercher n'importe quel jeu"
             value={filter} onChange={(e) => { setFilter(e.target.value); setLimit(48); }}
             className="ibox-focusable w-full rounded-lg bg-white px-3 py-2" />
+          <CatalogHits query={filter} {...catalog} onPick={(hit) => {
+            setSelected({ title: hit.name });
+            setQuery(hit.name);
+            setHits([hit]);
+            void run(() => loadImages(hit));
+          }} />
+          {filter.trim().length >= 2 && library.length > 0 && <h4 className="text-[0.75rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Ma collection</h4>}
           <div data-nav-group="avatar-library" className="grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3">
             {library.slice(0, limit).map((game) => (
               <button key={game.id} data-focusable onClick={() => {
@@ -61,12 +72,12 @@ export function SteamAvatarPicker({ games, onChoose, riotPortraits }: { games: G
               </button>
             ))}
           </div>
-          {!library.length && <p>Aucun jeu trouvé.</p>}
+          {!library.length && filter.trim().length < 2 && <p>Aucun jeu trouvé.</p>}
           {library.length > limit && <Button onClick={() => setLimit(limit + 48)}>Afficher plus de jeux</Button>}
         </>
       ) : (
         <>
-          <Button disabled={busy} onClick={() => { setSelected(null); setHits([]); setImages([]); setStatus(""); }}>Retour à la collection</Button>
+          <Button disabled={busy} onClick={() => { setSelected(null); setHits([]); setImages([]); setStatus(""); }}>Autre jeu</Button>
           {riotPortraits && /^league of legends(?:\s*[®™])?$/i.test(selected.title.trim()) && (
             <div data-nav-group="league-avatars" className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3">
               <h4 className="col-span-full text-sm font-bold">Portraits des champions</h4>

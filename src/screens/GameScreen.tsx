@@ -24,6 +24,7 @@ import { useGameSiblings } from "./gameSiblings";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { Button, Segmented } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { UninstallModal } from "@/components/library/UninstallModal";
 import { MediaModal } from "@/components/library/MediaModal";
 import { CollectionsModal } from "@/components/extras/CollectionsModal";
 import { SavesModal } from "@/components/extras/SavesModal";
@@ -69,6 +70,7 @@ function GameSheet({ game }: { game: Game }) {
   const [editingMedia, setEditingMedia] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uninstalling, setUninstalling] = useState(false);
   const [versioning, setVersioning] = useState(false);
   const [versionId, setVersionId] = useState<string>();
   const version = familyOf(game).find((v) => v.id === versionId) ?? preferredVersion(game);
@@ -271,6 +273,16 @@ function GameSheet({ game }: { game: Game }) {
                 <Button icon="gear" cue="select" onClick={() => setCorrecting(true)}>
                   Corriger
                 </Button>
+                {!version.missing && version.dbId !== undefined && (
+                  <Button icon="trash" cue="select" className="!text-[#D0584F]" onClick={() => setUninstalling(true)}>
+                    Désinstaller
+                  </Button>
+                )}
+                {!version.missing && version.dbId !== undefined && (
+                  <Button icon="trash" cue="select" className="!text-[#D0584F]" onClick={() => setUninstalling(true)}>
+                    Désinstaller
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -297,6 +309,7 @@ function GameSheet({ game }: { game: Game }) {
         {collecting && <CollectionsModal game={game} onClose={() => setCollecting(false)} />}
         {saving && <SavesModal game={game} onClose={() => setSaving(false)} />}
         {versioning && <VersionsModal game={game} onClose={() => setVersioning(false)} />}
+        {uninstalling && <UninstallModal game={version} onClose={() => setUninstalling(false)} />}
       </motion.aside>
 
       {/* ——— Boîtier 3D ——— */}

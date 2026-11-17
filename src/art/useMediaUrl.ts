@@ -7,13 +7,13 @@ import { isTauri } from "@/services/native";
  * Adresse locale (blob:) d'une image du cache d'un jeu, ou null si elle
  * n'existe pas. Libérée automatiquement quand le jeu ou l'image change.
  */
-export function useMediaUrl(game: Game, kind: MediaKind): string | null {
-  const ref = (game.media ?? []).find((m) => m.kind === kind && m.slot === 0);
-  const stamp = ref ? `${game.dbId}|${kind}|${ref.addedAt}` : null;
+export function useMediaUrl(game: Game | undefined, kind: MediaKind): string | null {
+  const ref = (game?.media ?? []).find((m) => m.kind === kind && m.slot === 0);
+  const stamp = ref ? `${game?.dbId}|${kind}|${ref.addedAt}` : null;
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!stamp || game.dbId === undefined || !isTauri()) {
+    if (!stamp || game?.dbId === undefined || !isTauri()) {
       setUrl(null);
       return;
     }
