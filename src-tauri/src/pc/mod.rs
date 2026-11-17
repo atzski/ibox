@@ -800,6 +800,22 @@ pub mod commands {
         .map_err(|e| e.to_string())?
     }
 
+    /// Empreinte de l'état des jeux Steam (`appid` entièrement installés, triés) : lecture des
+    /// seuls manifestes, assez légère pour être faite toutes les quelques secondes. iBox relance
+    /// la synchronisation complète quand elle change (installation finie dans Steam…).
+    #[tauri::command]
+    pub async fn pc_steam_installed() -> Res<Vec<String>> {
+        tauri::async_runtime::spawn_blocking(|| {
+            let Some(root) = steam::root() else { return Vec::new() };
+            let mut ids: Vec<String> = steam::scan(&root).into_iter().filter(|a| a.installed).map(|a| a.appid).collect();
+            ids.sort();
+            ids.dedup();
+            ids
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+
     /// Ouvre la fenêtre d'installation de la boutique. Renvoie le nom de la boutique.
     #[tauri::command]
     pub fn pc_install(state: State<LibraryState>, install_id: i64) -> Res<String> {

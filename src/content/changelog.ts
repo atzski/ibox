@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.68",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Remote Play bien plus réactif", text: "L’image de l’hôte s’affiche dès qu’elle est décodée, sans tampon de lissage, comme dans le cloud gaming. Elle part dès sa capture au lieu d’attendre jusqu’à une image entière, n’est plus retardée pour se caler sur le son, et chaque image reste assez petite pour traverser le réseau d’un coup." },
+      { icon: "sparkle", title: "Commandes plus directes", text: "La manette de l’invité est lue 250 fois par seconde au lieu de 60, la souris part à chaque mouvement sans attendre l’image suivante, et le son est découpé en tranches de 10 ms. Sur l’hôte, capture, encodage et réseau passent en priorité devant le reste du PC." },
+      { icon: "download", title: "Jeux Steam prêts tout de suite", text: "Dès que Steam a fini d’installer un jeu, sa fiche dans iBox passe d’« Installer » à « Jouer », même si iBox est resté ouvert devant pendant le téléchargement. Une désinstallation est vue de la même façon." },
+    ],
+  },
+  {
     version: "0.1.67",
     date: "2026-11-17",
     highlights: [

@@ -55,6 +55,8 @@ export const pcApi = {
   sync: (enabled: string[]) => call<PcSyncSummary[]>("pc_sync", { enabled }),
   /** Ouvre la fenêtre d'installation de la boutique ; renvoie son nom. */
   install: (installId: number) => call<string>("pc_install", { installId }),
+  /** `appid` des jeux Steam entièrement installés (lecture légère des manifestes). */
+  steamInstalled: () => call<string[]>("pc_steam_installed"),
   /** Clé API Web Steam : vérifiée par Steam, rangée dans le coffre Windows. Renvoie le nombre de jeux possédés. */
   setSteamKey: (key: string) => call<number>("pc_steam_key_set", { key }),
   deleteSteamKey: () => call<void>("pc_steam_key_delete"),

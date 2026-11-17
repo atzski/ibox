@@ -283,6 +283,12 @@ export class GuestSession {
       if (!this.media.getTracks().includes(e.track)) this.media.addTrack(e.track);
       if (this.video.srcObject !== this.media) this.video.srcObject = this.media;
       if (e.track.kind === "audio") {
+        // tampon audio minimal aussi (le son a son propre flux : il ne retarde plus l'image)
+        try {
+          receiver.jitterBufferTarget = 0;
+        } catch {
+          /* tampon par défaut */
+        }
         this.unmute();
         return;
       }
@@ -501,6 +507,10 @@ export class GuestSession {
 
 // ——— Entrées de l'invité ———
 
+/** `pointerrawupdate` : chaque mouvement de souris dès qu'il arrive, sans attendre l'image suivante
+ * comme `pointermove` (Chromium les regroupe par image affichée). Repli sur `pointermove`. */
+const MOVE_EVENT = typeof window !== "undefined" && "onpointerrawupdate" in window ? "pointerrawupdate" : "pointermove";
+
 /** Première manette branchée et vue par Windows (le navigateur n'en montre aucune avant le premier
  * appui sur un de ses boutons). */
 function firstPad(): Gamepad | undefined {
@@ -516,7 +526,9 @@ export function attachPad(
   session: GuestSession,
   opts: { onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void; paused?: () => boolean } = {},
 ): () => void {
-  let frame = 0;
+  // lue toutes les 4 ms (fréquence d'échantillonnage de Chromium) et non à chaque image affichée :
+  // jusqu'à 12 ms de moins entre l'appui et l'envoi
+  let timer = 0;
   let lastPad = "";
   let lastSent = 0;
   let name: string | null | undefined;
@@ -541,7 +553,6 @@ export function attachPad(
     if (paused) {
       announce(pad);
       if (pad) opts.onPadCapture?.(false);
-      frame = requestAnimationFrame(pollPad);
       return;
     }
     announce(pad);
@@ -556,11 +567,10 @@ export function attachPad(
         lastSent = now;
       }
     }
-    frame = requestAnimationFrame(pollPad);
   };
-  frame = requestAnimationFrame(pollPad);
+  timer = window.setInterval(pollPad, 4);
   return () => {
-    cancelAnimationFrame(frame);
+    window.clearInterval(timer);
     if (name) session.send("input", encode.gamepad(0, session.nextSeq(), padWire([], [])));
     opts.onPadCapture?.(false);
   };
@@ -642,7 +652,7 @@ export function attachInputs(
   const detachPad = opts.pad === false ? null : attachPad(session, opts);
 
   if (withMouse) {
-    video.addEventListener("pointermove", move);
+    video.addEventListener(MOVE_EVENT, move as EventListener);
     video.addEventListener("pointerdown", trackDown);
     video.addEventListener("pointerup", trackUp);
     video.addEventListener("wheel", onWheel, { passive: false });
@@ -657,7 +667,7 @@ export function attachInputs(
     releaseAll();
     if (keyState) window.clearInterval(keyState);
     detachPad?.();
-    video.removeEventListener("pointermove", move);
+    video.removeEventListener(MOVE_EVENT, move as EventListener);
     video.removeEventListener("pointerdown", trackDown);
     video.removeEventListener("pointerup", trackUp);
     video.removeEventListener("wheel", onWheel);

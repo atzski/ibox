@@ -1,5 +1,5 @@
 //! Son de l'hôte : capture WASAPI en boucle (« ce que le PC joue », périphérique de sortie par
-//! défaut) → 48 kHz stéréo → Opus 20 ms (`opus-rs`, Rust pur). Les paquets partent sur la piste
+//! défaut) → 48 kHz stéréo → Opus 10 ms (`opus-rs`, Rust pur). Les paquets partent sur la piste
 //! audio de la session (`transport::peer`).
 //!
 //! « Masquer l'écho Discord » : la capture passe par le loopback **par processus** de Windows
@@ -12,8 +12,8 @@
 use opus_rs::{Application, OpusEncoder};
 
 pub const SAMPLE_RATE: u32 = 48_000;
-/// 20 ms à 48 kHz (échantillons par voie).
-pub const FRAME: usize = 960;
+/// 10 ms à 48 kHz (échantillons par voie) : deux fois moins d'attente qu'en 20 ms.
+pub const FRAME: usize = 480;
 pub const BITRATE_BPS: i32 = 128_000;
 
 /// Paquet Opus prêt à envoyer ; `at` = position (échantillons à 48 kHz) depuis le début du son.
@@ -82,7 +82,7 @@ impl Resampler {
     }
 }
 
-/// Découpe le flux 48 kHz stéréo en trames de 20 ms et les encode en Opus.
+/// Découpe le flux 48 kHz stéréo en trames de 10 ms et les encode en Opus.
 pub struct Encoder {
     opus: OpusEncoder,
     pending: Vec<f32>,

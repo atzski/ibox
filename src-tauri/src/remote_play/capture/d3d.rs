@@ -46,6 +46,9 @@ impl Device {
             let _ = context.cast::<ID3D11Multithread>()?.SetMultithreadProtected(true);
 
             let dxgi: IDXGIDevice = device.cast()?;
+            // conversion et encodage passent devant le rendu du jeu sur la carte graphique
+            // (Sunshine fait de même) ; sans effet si Windows refuse
+            let _ = dxgi.SetGPUThreadPriority(7);
             let desc = dxgi.GetAdapter()?.GetDesc()?;
             let end = desc.Description.iter().position(|&c| c == 0).unwrap_or(desc.Description.len());
             let winrt: IDirect3DDevice = CreateDirect3D11DeviceFromDXGIDevice(&dxgi)?.cast()?;

@@ -238,6 +238,7 @@ pub fn run() {
             assets::commands::game_link_candidates,
             assets::commands::game_link_choose,
             pc::commands::pc_install,
+            pc::commands::pc_steam_installed,
             pc::commands::pc_steam_key_set,
             pc::commands::pc_steam_key_delete,
             lib_cmd::folders_list,

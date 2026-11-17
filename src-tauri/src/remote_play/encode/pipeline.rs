@@ -1,9 +1,9 @@
 //! Chaîne complète capture WGC → NV12 → H.264, enregistrée dans un flux Annex B local (Phase 1b,
 //! mesures). En Phase 1c, la même boucle alimentera le transport au lieu d'un fichier.
 //!
-//! Cadence : une image nouvelle est encodée dès son arrivée (latence minimale), au plus `fps`
-//! fois par seconde ; sans image nouvelle à l'échéance, la dernière est réencodée pour garder
-//! un flux régulier (WGC ne livre rien quand l'écran ne change pas).
+//! Cadence : une image nouvelle est encodée dès son arrivée (latence minimale, sans grille), au
+//! plus ≈ `fps` fois par seconde ; sans image nouvelle, la dernière est réencodée à intervalle
+//! plus lâche (WGC ne livre rien quand l'écran ne change pas).
 
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -50,6 +50,53 @@ impl Default for Settings {
             profile: Profile::High,
             keyframe_every: None,
         }
+    }
+}
+
+/// Cadence d'encodage faible latence (comme Sunshine/Parsec) : seau à jetons de `fps` jetons par
+/// seconde, réserve de 1,5. Une image nouvelle part **dès son arrivée** s'il reste un jeton —
+/// jamais calée sur une grille, qui la faisait attendre jusqu'à une image entière — et le débit
+/// moyen reste exactement `fps` (le budget CBR par image est tenu). Écran immobile : la dernière
+/// image est réencodée au bout de 2,5 intervalles (qualité qui s'affine, pertes réparées).
+#[derive(Debug, Clone)]
+pub struct Cadence {
+    interval: Duration,
+    tokens: f64,
+    at: Option<Instant>,
+    last: Option<Instant>,
+}
+
+const CADENCE_RESERVE: f64 = 1.5;
+const REPEAT_AFTER: f64 = 2.5;
+
+impl Cadence {
+    pub fn new(interval: Duration) -> Self {
+        Cadence { interval, tokens: 1.0, at: None, last: None }
+    }
+
+    fn tokens_at(&self, now: Instant) -> f64 {
+        match self.at {
+            None => self.tokens,
+            Some(a) => (self.tokens + now.saturating_duration_since(a).as_secs_f64() / self.interval.as_secs_f64()).min(CADENCE_RESERVE),
+        }
+    }
+
+    /// Instant à partir duquel l'image courante (nouvelle ou répétée) peut partir.
+    pub fn ready_at(&self, fresh: bool, now: Instant) -> Instant {
+        let missing = 1.0 - self.tokens_at(now);
+        // tolérance : sans elle, l'arrondi ferait boucler sur des attentes de quelques ns
+        let token_at = if missing <= 1e-3 { now } else { now + self.interval.mul_f64(missing) };
+        match (fresh, self.last) {
+            (true, _) | (false, None) => token_at,
+            (false, Some(l)) => (l + self.interval.mul_f64(REPEAT_AFTER)).max(token_at),
+        }
+    }
+
+    /// Une image vient d'être envoyée à l'encodeur.
+    pub fn take(&mut self, now: Instant) {
+        self.tokens = self.tokens_at(now) - 1.0;
+        self.at = Some(now);
+        self.last = Some(now);
     }
 }
 
@@ -174,7 +221,7 @@ pub fn stream(
     let interval = Duration::from_secs_f64(1.0 / cfg.fps as f64);
     let mut current: Option<ID3D11Texture2D> = None;
     let mut fresh = false;
-    let mut due: Option<Instant> = None;
+    let mut cadence = Cadence::new(interval);
     let mut submitted = 0u32;
     let mut last_frame: Option<Instant> = None;
 
@@ -187,11 +234,7 @@ pub fn stream(
             encoder.request_keyframe();
         }
         let now = Instant::now();
-        let timeout = match (current.is_some(), due) {
-            (false, _) => Duration::from_millis(500),
-            (true, Some(d)) => d.saturating_duration_since(now),
-            (true, None) => Duration::ZERO,
-        };
+        let timeout = if current.is_some() { cadence.ready_at(fresh, now).saturating_duration_since(now) } else { Duration::from_millis(500) };
         match capture.next(timeout)? {
             Next::Frame(frame) => {
                 m.captured += 1;
@@ -215,7 +258,7 @@ pub fn stream(
         }
         let now = Instant::now();
         let Some(texture) = &current else { continue };
-        if due.is_some_and(|d| now < d) {
+        if now < cadence.ready_at(fresh, now) {
             continue; // trop tôt : on garde l'image, la plus récente partira à l'échéance
         }
         let pts = (now - start).as_nanos() as i64 / 100;
@@ -226,11 +269,7 @@ pub fn stream(
             m.repeated += 1;
         }
         fresh = false;
-        // échéance suivante : sur la grille, sauf retard de plus d'une image (on repart de maintenant)
-        due = Some(match due {
-            Some(d) if now < d + interval => d + interval,
-            _ => now + interval,
-        });
+        cadence.take(now);
         // attendre le paquet de cette image : il part aussitôt
         if let Some(p) = encoder.receive(Duration::from_millis(200))? {
             deliver(&mut m, p, &mut go_on);
@@ -247,4 +286,61 @@ pub fn stream(
     m.resizes = capture.resizes();
     let attempts = encoder.info().attempts.clone();
     Ok((m, attempts))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cadence;
+    use std::time::{Duration, Instant};
+
+    const I: Duration = Duration::from_micros(16_667);
+
+    #[test]
+    fn image_nouvelle_part_aussitot_quel_que_soit_le_dephasage() {
+        // jeu à 60 i/s décalé de 70 % d'intervalle par rapport au début : aucune attente
+        let t0 = Instant::now();
+        let mut c = Cadence::new(I);
+        c.take(t0);
+        for k in 1..200u32 {
+            let at = t0 + I.mul_f64(k as f64 + 0.7);
+            assert_eq!(c.ready_at(true, at), at, "image {k}");
+            c.take(at);
+        }
+    }
+
+    #[test]
+    fn source_plus_rapide_plafonnee_a_fps() {
+        // WGC à 240 i/s : au plus ≈ 60 images par seconde partent
+        let t0 = Instant::now();
+        let mut c = Cadence::new(I);
+        let mut sent = 0;
+        for k in 0..240u32 {
+            let at = t0 + Duration::from_micros(4_167) * k;
+            if c.ready_at(true, at) <= at {
+                c.take(at);
+                sent += 1;
+            }
+        }
+        assert!((60..=62).contains(&sent), "{sent} images en 1 s");
+    }
+
+    #[test]
+    fn image_repetee_seulement_apres_deux_intervalles_et_demi() {
+        let t0 = Instant::now();
+        let mut c = Cadence::new(I);
+        c.take(t0);
+        assert_eq!(c.ready_at(false, t0 + I), t0 + I.mul_f64(2.5));
+        // une image nouvelle, elle, n'attend que son jeton
+        assert_eq!(c.ready_at(true, t0 + I), t0 + I);
+    }
+
+    #[test]
+    fn image_en_avance_attend_son_jeton() {
+        let t0 = Instant::now();
+        let mut c = Cadence::new(I);
+        c.take(t0);
+        c.take(t0); // réserve consommée
+        let r = c.ready_at(true, t0 + I / 2);
+        assert!(r > t0 + I / 2 && r <= t0 + I * 2, "{:?}", r - t0);
+    }
 }

@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use str0m::bwe::{Bitrate, BweKind};
 use str0m::channel::{ChannelConfig, ChannelId, Reliability};
@@ -14,6 +14,7 @@ use str0m::change::{SdpAnswer, SdpPendingOffer};
 use str0m::format::Codec;
 use str0m::media::{Direction, Frequency, MediaKind, MediaTime, Mid, Pt};
 use str0m::net::{Protocol, Receive};
+use str0m::rtp::{AbsCaptureTime, Extension};
 use str0m::{Candidate, Event, IceConnectionState, Input, Output, Rtc, RtcConfig};
 
 use super::rate::RateController;
@@ -29,6 +30,17 @@ use crate::remote_play::protocol::{self, Message};
 pub const GUEST: ParticipantId = 1;
 /// Débit plancher demandé à l'estimateur (kbit/s).
 pub const MIN_KBPS: u32 = 500;
+/// Débit que l'estimateur de bande passante cherche à atteindre (kbit/s) : 3 × le plafond vidéo,
+/// pour que le lissage d'envoi soit bien plus rapide que l'encodeur.
+pub fn probe_ceiling_kbps(max_kbps: u32) -> u64 {
+    (max_kbps as u64 * 3).clamp(MIN_KBPS as u64, 300_000)
+}
+
+/// Identifiants des extensions RTP ajoutées (libres dans la table standard de str0m).
+pub const PLAYOUT_DELAY_EXT: u8 = 6;
+pub const CAPTURE_TIME_EXT: u8 = 7;
+/// Flux (msid) du son, distinct de celui de l'image (« ibox ») : pas de synchronisation A/V.
+pub const AUDIO_STREAM: &str = "ibox-sound";
 
 /// Ce qui exécute les messages autorisés : `input::Engine` (permissions puis injection).
 pub trait InputHandler: Send {
@@ -147,8 +159,17 @@ impl<H: InputHandler> HostPeer<H> {
             .enable_opus(true, false)
             .enable_bwe(Some(Bitrate::kbps(rate.current_kbps() as u64)))
             .set_stats_interval(Some(Duration::from_secs(1)))
+            // playout-delay 0/0 : Chromium affiche chaque image dès qu'elle est décodée, sans
+            // tampon de lissage (méthode Stadia / GeForce Now) ; abs-capture-time : l'invité
+            // mesure la latence capture → affichage
+            .set_extension(PLAYOUT_DELAY_EXT, Extension::PlayoutDelay)
+            .set_extension(CAPTURE_TIME_EXT, Extension::AbsoluteCaptureTime)
             .build(now);
-        rtc.bwe().set_bitrate(Bitrate::kbps(MIN_KBPS as u64), Bitrate::kbps(opts.max_kbps as u64));
+        // Le pacer de str0m étale chaque image à 1,1 × l'estimation : sondée seulement jusqu'au
+        // plafond de l'encodeur, l'estimation y reste collée et une image met presque un
+        // intervalle entier à partir. Sonder jusqu'à 3 × le plafond (libwebrtc lisse à 2,5 ×)
+        // laisse sortir les images d'un bloc ; le débit vidéo, lui, reste borné par `rate`.
+        rtc.bwe().set_bitrate(Bitrate::kbps(MIN_KBPS as u64), Bitrate::kbps(probe_ceiling_kbps(opts.max_kbps)));
         for addr in candidates {
             let c = Candidate::host(*addr, "udp").map_err(|e| format!("candidat {}: {e}", network_kind(addr)))?;
             rtc.add_local_candidate(c);
@@ -161,8 +182,10 @@ impl<H: InputHandler> HostPeer<H> {
         }
         let mut api = rtc.sdp_api();
         let video = api.add_media(MediaKind::Video, Direction::SendOnly, Some("ibox".into()), Some("screen".into()), None);
-        // même flux (« ibox ») que l'image : l'invité lit le son dans le même élément <video>
-        let audio = api.add_media(MediaKind::Audio, Direction::SendOnly, Some("ibox".into()), Some("sound".into()), None);
+        // flux distinct de l'image : dans un même flux, Chromium synchronise l'image sur le son et
+        // la retarde d'autant que le tampon audio (dizaines de ms). L'invité les lit quand même
+        // dans le même élément <video>.
+        let audio = api.add_media(MediaKind::Audio, Direction::SendOnly, Some(AUDIO_STREAM.into()), Some("sound".into()), None);
         api.add_channel_with_config(ChannelConfig {
             label: INPUT_LABEL.into(),
             ordered: false,
@@ -299,7 +322,10 @@ impl<H: InputHandler> HostPeer<H> {
     pub fn write_frame(&mut self, now: Instant, wallclock: Instant, pts_100ns: i64, data: &[u8], encode_time: Option<Duration>) -> Result<(), String> {
         let (pt, _) = self.pt.ok_or("aucun codec négocié")?;
         let writer = self.rtc.writer(self.video).ok_or("piste vidéo absente")?;
+        let captured = SystemTime::now().checked_sub(now.saturating_duration_since(wallclock)).unwrap_or_else(SystemTime::now);
         writer
+            .playout_delay(MediaTime::from_hundredths(0), MediaTime::from_hundredths(0))
+            .abs_capture_time(AbsCaptureTime { capture_time: captured, clock_offset: None })
             .write(pt, wallclock, MediaTime::from_90khz(pts_to_90khz(pts_100ns)), data.to_vec())
             .map_err(|e| format!("envoi vidéo : {e}"))?;
         self.frames.push(now, 1);
@@ -313,7 +339,7 @@ impl<H: InputHandler> HostPeer<H> {
         Ok(())
     }
 
-    /// Paquet Opus (20 ms) ; ignoré si l'invité n'a pas accepté l'audio.
+    /// Paquet Opus (10 ms) ; ignoré si l'invité n'a pas accepté l'audio.
     pub fn write_audio(&mut self, wallclock: Instant, at_48khz: u64, data: &[u8]) -> Result<(), String> {
         let Some(pt) = self.audio_pt else { return Ok(()) };
         let Some(writer) = self.rtc.writer(self.audio) else { return Ok(()) };

@@ -354,6 +354,7 @@ fn spawn_reader(socket: UdpSocket, local: SocketAddr, tx: Sender<Msg>, stop: Arc
     std::thread::Builder::new()
         .name("remote-play-udp".into())
         .spawn(move || {
+            crate::remote_play::latency_critical_thread();
             let mut buf = vec![0u8; 2048];
             while !stop.load(Ordering::Relaxed) {
                 match socket.recv_from(&mut buf) {
@@ -394,6 +395,7 @@ fn start_video(opts: &HostOptions, profile: H264Profile, kbps: u32, tx: Sender<M
     let join = std::thread::Builder::new()
         .name("remote-play-video".into())
         .spawn(move || {
+            crate::remote_play::latency_critical_thread();
             let otx = tx.clone();
             let ptx = tx.clone();
             let result = pipeline::stream(
@@ -423,7 +425,8 @@ fn start_audio(tx: Sender<Msg>, hide_discord_echo: bool) -> Result<Audio, String
     let join = std::thread::Builder::new()
         .name("remote-play-audio".into())
         .spawn(move || {
-            let exclude = if hide_discord_echo { crate::remote_play::audio::find_discord() } else { None };
+            crate::remote_play::latency_critical_thread();
+            let exclude =if hide_discord_echo { crate::remote_play::audio::find_discord() } else { None };
             let result = crate::remote_play::audio::stream(&flag, exclude, &mut |packet, origin| tx.send(Msg::Audio { packet, origin }).is_ok());
             if let Err(e) = result {
                 eprintln!("[remote-play] {e}");
@@ -461,6 +464,7 @@ impl Drop for TimerResolution {
 
 fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Sender<Msg>, sockets: &[Bound], opts: HostOptions, shared: Arc<Mutex<TransportStats>>) {
     let _timer = TimerResolution::begin();
+    crate::remote_play::latency_critical_thread();
     let started = Instant::now();
     let mut video: Option<Video> = None;
     let mut audio: Option<Audio> = None;

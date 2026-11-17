@@ -607,3 +607,22 @@ comparée à l'offre, code de sécurité.
 clavier et la souris du bureau (mêmes droits que l'utilisateur de la session Windows, sans
 élévation) ; un jeu peut lui-même offrir des actions sensibles (ouvrir un navigateur, un dossier) ;
 les manettes virtuelles restent visibles de tous les programmes de l'hôte.
+
+## 14. Faible latence (0.1.68)
+
+Inspiré de Sunshine/Moonlight, Parsec et GeForce Now. Chaque point a été mesuré ou vérifié le 17/11/2026
+(RTX 5080, 1080p, 60 i/s, ≈ 20 Mbit/s, build release).
+
+| Levier | Où | Effet |
+|---|---|---|
+| Cadence en seau à jetons (`pipeline::Cadence`) au lieu d'une grille | hôte | une image nouvelle part dès son arrivée (jusqu'à 16,7 ms d'attente supprimés) ; débit moyen = `fps` exactement (un premier essai « 90 % d'intervalle » montait à 64 i/s et dépassait la consigne CBR) |
+| Sondage BWE jusqu'à 3 × le plafond (`probe_ceiling_kbps`) | hôte | le pacer de str0m lisse à 1,1 × l'estimation ; collée au plafond, chaque image mettait presque un intervalle à sortir. Réseau (str0m → invité) p95 **7,4–8,9 → 1,7 ms** ; total p95 ≈ 10 → 4–5 ms |
+| Extension RTP `playout-delay` 0/0 sur chaque image | hôte → Chromium | rendu dès décodage (moteur faible latence de Chromium). Tampon de gigue de l'invité **8,4–10,8 → 0,39 ms** (Chromium réel, `phase1c_browser_bridge`) |
+| Son dans un flux distinct (`ibox-sound`) | hôte | Chromium ne retarde plus l'image pour la synchroniser sur le tampon audio (dizaines de ms, non mesuré seul) |
+| Opus 10 ms, `jitterBufferTarget = 0` sur le son | hôte, invité | son plus direct |
+| `abs-capture-time` | hôte | l'invité peut calculer capture → affichage (`captureTime` de rVFC ; non exposé par le Chromium de test) |
+| VBV d'une image, `QualityVsSpeed` 20, 1 référence | encodeur matériel | best effort : NVENC MFT accepte, mais l'IDR initiale reste à ≈ 186 Ko (VBV apparemment non appliquée à l'IDR) |
+| MMCSS « Games » + priorité haute (capture, réseau, son), `SetGPUThreadPriority(7)` | hôte | pas de mesure isolée (dépend de la charge du jeu) |
+| Manette lue toutes les 4 ms, souris par `pointerrawupdate` | invité | jusqu'à ≈ 12 ms (manette) et une image (souris) de moins avant l'envoi |
+
+Reste à mesurer : la latence perçue entre deux PC par Internet (chronomètre filmé), et sous un lien contraint (`clumsy`).

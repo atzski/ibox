@@ -346,6 +346,22 @@ if (typeof window !== "undefined") {
     const s = useLibrary.getState();
     if (s.native && s.status === "ready" && Date.now() - (s.pcSync.at ?? 0) > 20_000) void s.syncPc();
   });
+
+  // Steam installe souvent pendant qu'iBox reste au premier plan (aucun retour de focus) : ses
+  // manifestes sont relus toutes les 4 s, et la synchronisation relancée dès qu'un jeu change
+  // d'état — « Installer » devient « Jouer » sans rien faire.
+  let steamState: string | null = null;
+  window.setInterval(() => {
+    const s = useLibrary.getState();
+    // synchronisation déjà en cours : on réessaie au tour suivant (sinon le changement serait perdu)
+    if (!s.native || s.status !== "ready" || s.pcSync.running || useSettings.getState().pcConnectors.steam === false) return;
+    void pcApi.steamInstalled().then((ids) => {
+      const next = ids.join(",");
+      const changed = steamState !== null && next !== steamState;
+      steamState = next;
+      if (changed) void useLibrary.getState().syncPc();
+    }, () => undefined);
+  }, 4_000);
 }
 
 // Le réglage « Afficher les jeux de démonstration » s'applique immédiatement

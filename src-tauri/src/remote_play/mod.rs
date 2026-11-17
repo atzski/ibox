@@ -27,6 +27,20 @@ pub mod transport;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+/// Fil critique pour la latence (capture/encodage, réseau, son) : inscrit auprès du planificateur
+/// multimédia de Windows (MMCSS, tâche « Games ») et en priorité haute, pour ne jamais attendre
+/// derrière le jeu ou le reste d'iBox. Sans effet si Windows refuse.
+pub fn latency_critical_thread() {
+    #[cfg(windows)]
+    unsafe {
+        use windows_sys::Win32::System::Threading::{AvSetMmThreadCharacteristicsW, GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_HIGHEST};
+        let task: Vec<u16> = "Games\0".encode_utf16().collect();
+        let mut index = 0u32;
+        let _ = AvSetMmThreadCharacteristicsW(task.as_ptr(), &mut index);
+        let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+    }
+}
+
 use tauri::{AppHandle, Manager, State};
 
 use config::Config;

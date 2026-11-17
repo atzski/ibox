@@ -209,6 +209,15 @@ unsafe fn hardware_candidates(device: &Device) -> Vec<(IMFActivate, String, Opti
     out
 }
 
+/// Préréglage des encodeurs matériels (0 = le plus rapide, 100 = la meilleure qualité).
+const QUALITY_VS_SPEED: u32 = 20;
+
+/// Tampon VBV (bits) d'une seule image : chaque image tient dans ce que le débit écoule en un
+/// intervalle, donc aucune ne retarde les suivantes sur le réseau (méthode Sunshine/Moonlight).
+pub fn vbv_bits(kbps: u32, fps: u32) -> u32 {
+    (kbps.saturating_mul(1000) / fps.max(1)).max(8_000)
+}
+
 pub struct Encoder {
     transform: IMFTransform,
     codec: Option<ICodecAPI>,
@@ -352,6 +361,13 @@ impl Encoder {
             // gop = 0 : pas d'IDR périodique (une heure d'images), seulement à la demande
             let gop = if cfg.gop > 0 { cfg.gop } else { cfg.fps * 3600 };
             let gop_applied = set(&CODECAPI_AVEncMPVGOPSize, VARIANT::from(gop));
+            // faible latence à la Sunshine/Moonlight : tampon VBV d'une seule image (aucune image
+            // ne dépasse ce que le lien écoule en un intervalle), préréglage rapide, 1 référence
+            if hardware {
+                set(&CODECAPI_AVEncCommonBufferSize, VARIANT::from(vbv_bits(cfg.bitrate_kbps, cfg.fps)));
+                set(&CODECAPI_AVEncCommonQualityVsSpeed, VARIANT::from(QUALITY_VS_SPEED));
+                set(&CODECAPI_AVEncVideoMaxNumRefFrame, VARIANT::from(1u32));
+            }
 
             // le type de sortie se fixe avant celui d'entrée (règle des encodeurs MF). Certains
             // encodeurs (AMF, Quick Sync anciens) refusent un profil : on descend vers un profil
@@ -403,6 +419,8 @@ impl Encoder {
                 set(&CODECAPI_AVLowLatencyMode, VARIANT::from(true));
                 set(&CODECAPI_AVEncMPVDefaultBPictureCount, VARIANT::from(0u32));
                 set(&CODECAPI_AVEncMPVGOPSize, VARIANT::from(gop));
+                set(&CODECAPI_AVEncCommonBufferSize, VARIANT::from(vbv_bits(cfg.bitrate_kbps, cfg.fps)));
+                set(&CODECAPI_AVEncCommonQualityVsSpeed, VARIANT::from(QUALITY_VS_SPEED));
             }
 
             let _ = transform.ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0); // refusé par certains MFT avant le début du flux
@@ -503,6 +521,11 @@ impl Encoder {
             .as_ref()
             .is_some_and(|c| unsafe { c.SetValue(&CODECAPI_AVEncCommonMeanBitRate, &VARIANT::from(kbps * 1000)) }.is_ok());
         if ok {
+            if self.info.hardware {
+                if let Some(c) = self.codec.as_ref() {
+                    let _ = unsafe { c.SetValue(&CODECAPI_AVEncCommonBufferSize, &VARIANT::from(vbv_bits(kbps, self.cfg.fps))) };
+                }
+            }
             self.cfg.bitrate_kbps = kbps;
         }
         ok
