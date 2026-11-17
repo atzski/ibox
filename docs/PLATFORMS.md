@@ -43,6 +43,7 @@ fichiers attendus et exécutables sont déterminés côté Rust.
 | Cemu | GitHub `cemu-project/Cemu` | `cemu-*-windows-x64.zip` | selon la release |
 | melonDS | GitHub `melonDS-emu/melonDS` | `melonDS-*-windows-x86_64.zip` | SHA-256 GitHub |
 | Azahar | GitHub `azahar-emu/azahar` | `azahar-windows-msvc-*.zip` | SHA-256 GitHub |
+| Eden | Forge officielle `git.eden-emu.dev/eden-emu/eden` (API Forgejo `releases/latest`, stables seulement) ; le miroir GitHub des versions a été bloqué par une demande DMCA (février 2026) | `stable.eden-emu.dev/…/Eden-Windows-*-amd64-msvc-standard.zip` | non publiée (HTTPS seul) |
 | mGBA | GitHub `mgba-emu/mgba` | `mGBA-*-win64.7z` | selon la release |
 | SameBoy | GitHub `LIJI32/SameBoy` | `sameboy_winsdl_*.zip` | SHA-256 GitHub |
 | Mesen | GitHub `SourMesen/Mesen2` | `Mesen_*_Windows.zip` | SHA-256 GitHub |

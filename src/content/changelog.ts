@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.77",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Eden pour la Switch", text: "Eden rejoint iBox Platforms pour la Nintendo Switch : installation en un clic depuis son site officiel, et SmartConfig sait appliquer les nombreuses configurations que la communauté EmuReady a testées avec lui. Lichii reste proposé en alternative." },
+    ],
+  },
+  {
     version: "0.1.76",
     date: "2026-11-17",
     highlights: [

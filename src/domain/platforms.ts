@@ -257,7 +257,7 @@ export const PLATFORMS: Platform[] = [
     caseKind: "switch",
     media: "card",
     extensions: extensionsOf("switch"),
-    emulatorHints: ["lichii"],
+    emulatorHints: ["eden", "lichii"],
     layout: { coverAspect: 105 / 170, gridCardWidth: 10.5 },
   },
   {

@@ -119,7 +119,7 @@ pub fn pick_github_asset(release: &serde_json::Value, asset: &catalog::AssetMatc
         version,
         url: url.to_string(),
         file_name: found["name"].as_str().unwrap_or_default().to_string(),
-        size: found["size"].as_u64(),
+        size: found["size"].as_u64().filter(|s| *s > 0),
         sha256,
     })
 }
@@ -183,6 +183,10 @@ pub fn resolve(http: &reqwest::blocking::Client, pkg: &Package) -> Result<Resolv
         Source::GitHub { repo, asset, prerelease: true } => {
             let json = get_json(http, &format!("https://api.github.com/repos/{repo}/releases?per_page=10"))?;
             pick_newest_release(&json, &asset)
+        }
+        Source::Forgejo { base, repo, asset } => {
+            let json = get_json(http, &format!("{base}/api/v1/repos/{repo}/releases/latest"))?;
+            pick_github_asset(&json, &asset, false)
         }
         Source::Dolphin => pick_dolphin(&get_json(http, "https://dolphin-emu.org/update/latest/beta/")?),
         Source::RetroArch => pick_retroarch(&get_text(http, "https://buildbot.libretro.com/stable/")?),
@@ -338,6 +342,23 @@ mod tests {
         pre["prerelease"] = json!(true);
         assert!(pick_github_asset(&pre, &asset, false).is_err());
         assert!(pick_github_asset(&pre, &asset, true).is_ok());
+    }
+
+    /// Réponse réelle de git.eden-emu.dev (`releases/latest`, v0.2.1, abrégée) : même forme
+    /// que GitHub, fichiers hébergés ailleurs (« size » 0 = taille inconnue).
+    #[test]
+    fn eden_depuis_sa_forge_officielle() {
+        let Source::Forgejo { base, repo, asset } = catalog::package("eden").unwrap().source else { panic!() };
+        assert_eq!(format!("{base}/api/v1/repos/{repo}/releases/latest"), "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest");
+        let rel = json!({"tag_name": "v0.2.1", "name": "Eden v0.2.1", "prerelease": false, "draft": false, "assets": [
+            {"name": "Eden-Windows-v0.2.1-amd64-clang-pgo.zip", "size": 0, "browser_download_url": "https://stable.eden-emu.dev/v0.2.1/Eden-Windows-v0.2.1-amd64-clang-pgo.zip"},
+            {"name": "Eden-Windows-v0.2.1-amd64-msvc-standard.zip", "size": 0, "browser_download_url": "https://stable.eden-emu.dev/v0.2.1/Eden-Windows-v0.2.1-amd64-msvc-standard.zip"},
+            {"name": "Eden-Windows-v0.2.1-arm64-clang-standard.zip", "size": 0, "browser_download_url": "https://stable.eden-emu.dev/v0.2.1/Eden-Windows-v0.2.1-arm64-clang-standard.zip"}]});
+        let r = pick_github_asset(&rel, &asset, false).unwrap();
+        assert_eq!(r.version, "0.2.1");
+        assert_eq!(r.url, "https://stable.eden-emu.dev/v0.2.1/Eden-Windows-v0.2.1-amd64-msvc-standard.zip");
+        assert_eq!(r.size, None);
+        assert!(catalog::host_allowed(&reqwest::Url::parse(&r.url).unwrap()));
     }
 
     #[test]

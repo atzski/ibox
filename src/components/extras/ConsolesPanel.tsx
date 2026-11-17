@@ -21,6 +21,7 @@ const SAVE_HINT: Record<string, string> = {
   duckstation: "Documents › DuckStation › memcards",
   pcsx2: "Documents › PCSX2 › memcards",
   azahar: "Dossier de données d'Azahar",
+  eden: "AppData › eden › nand (ou dossier user d'Eden)",
   lichii: "Dossier de données de l'émulateur",
 };
 

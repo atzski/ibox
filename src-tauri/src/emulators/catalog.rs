@@ -38,6 +38,9 @@ pub enum Source {
     /// Dernière release d'un dépôt GitHub officiel : stable seulement, sauf
     /// `prerelease` (projet qui ne publie que des préversions, comme Fritchii).
     GitHub { repo: &'static str, asset: AssetMatch, prerelease: bool },
+    /// Dernière release stable d'une forge Forgejo/Gitea officielle (API compatible
+    /// avec celle de GitHub : `/api/v1/repos/{repo}/releases/latest`).
+    Forgejo { base: &'static str, repo: &'static str, asset: AssetMatch },
     /// API de mise à jour officielle (dolphin-emu.org/update/latest/beta/).
     Dolphin,
     /// Dernière version stable sur buildbot.libretro.com.
@@ -235,6 +238,31 @@ pub const PACKAGES: &[Package] = &[
         license: "GPL-2.0",
         maturity: Maturity::Good,
         max_download: 300 * MB,
+        markers: &[],
+        requires: None,
+        automatic: true,
+        games: &[],
+    },
+    Package {
+        id: "eden",
+        name: "Eden",
+        profile_id: "eden",
+        // forge officielle du projet (le miroir GitHub des versions a été bloqué par une demande
+        // DMCA en février 2026) ; build MSVC standard : ni « pgo », ni ARM64, ni « rog-ally »
+        source: Source::Forgejo {
+            base: "https://git.eden-emu.dev",
+            repo: "eden-emu/eden",
+            asset: AssetMatch { starts: "Eden-Windows-", ends: "-amd64-msvc-standard.zip", excludes: &["pgo", "arm64", "rog-ally", "mingw"] },
+        },
+        archive: Archive::Zip,
+        exe: &["eden.exe"],
+        platforms: &["switch"],
+        homepage: "https://eden-emu.dev",
+        docs: "https://git.eden-emu.dev/eden-emu/eden/releases",
+        compatibility: None,
+        license: "GPL-3.0",
+        maturity: Maturity::Good,
+        max_download: 200 * MB,
         markers: &[],
         requires: None,
         automatic: true,
@@ -680,6 +708,8 @@ pub const ALLOWED_HOSTS: &[&str] = &[
     "dolphin-emu.org",
     "dl.dolphin-emu.org",
     "buildbot.libretro.com",
+    "git.eden-emu.dev",
+    "stable.eden-emu.dev",
 ];
 
 pub fn host_allowed(url: &reqwest::Url) -> bool {
@@ -707,9 +737,14 @@ mod tests {
     #[test]
     fn noms_de_fichiers_des_releases_reelles() {
         let pick = |id: &str| match package(id).unwrap().source {
-            Source::GitHub { asset, .. } => asset,
+            Source::GitHub { asset, .. } | Source::Forgejo { asset, .. } => asset,
             _ => unreachable!(),
         };
+        // Eden v0.2.1 (git.eden-emu.dev) : un seul fichier Windows x64 standard
+        assert!(pick("eden").matches("Eden-Windows-v0.2.1-amd64-msvc-standard.zip"));
+        for other in ["Eden-Windows-v0.2.1-amd64-clang-pgo.zip", "Eden-Windows-v0.2.1-amd64-gcc-standard.zip", "Eden-Windows-v0.2.1-arm64-clang-standard.zip", "Eden-Windows-v0.2.1-rog-ally-gcc-standard.zip", "Eden-Windows-v0.2.0-rc2-mingw-amd64-gcc-standard.zip"] {
+            assert!(!pick("eden").matches(other), "{other}");
+        }
         assert!(pick("ppsspp").matches("PPSSPP-v1.20.4-Windows-x64.zip"));
         assert!(!pick("ppsspp").matches("PPSSPP-v1.20.4-Windows-ARM64.zip"));
         assert!(pick("pcsx2").matches("pcsx2-v2.9.181-windows-x64-Qt.7z"));

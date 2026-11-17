@@ -106,6 +106,17 @@ pub const PROFILES: &[Profile] = &[
         needs_core: false,
     },
     Profile {
+        id: "eden",
+        name: "Eden",
+        // « eden-cli » est l'outil en ligne de commande livré à côté : jamais l'émulateur
+        exe_prefixes: &["eden."],
+        platforms: &["switch"],
+        // src/core/launch_params.cpp : -g fichier à lancer, -f plein écran (2026-11-17)
+        args: &["{fullscreen}", "-g", "{rom}"],
+        fullscreen: &["-f"],
+        needs_core: false,
+    },
+    Profile {
         id: "lichii",
         name: "Lichii",
         exe_prefixes: &["lichii"],
@@ -375,6 +386,7 @@ mod tests {
         assert_eq!(detect_profile("rpcs3.exe").id, "rpcs3");
         assert_eq!(detect_profile("flycast.exe").id, "flycast");
         assert_eq!(detect_profile("Stella.exe").id, "stella");
+        assert_eq!(detect_profile("eden.exe").id, "eden");
         assert_eq!(detect_profile("eden-cli.exe").id, "custom");
         assert_eq!(detect_profile("notepad.exe").id, "custom");
     }

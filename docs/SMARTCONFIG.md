@@ -10,7 +10,7 @@ SmartConfig recommande puis applique, jeu par jeu, des réglages d'émulateur ad
 |---|---|---|
 | 1 — Fondations | **faite** | modèle, détection matérielle, multifournisseur, stockage SQLite (migration 015), validation, sauvegardes/journal/reprise |
 | 2 — Recommandations externes | **faite** | client EmuReady (testé en réel), correspondance des jeux, normalisation, moteur, cache, quotas, hors ligne |
-| 3 — Application réelle | **faite** | adaptateurs **Dolphin**, **PCSX2** (CRC de l'ELF calculé depuis l'image), **DuckStation**, **PPSSPP**, **RPCS3**, **Azahar** (identifiant lu dans l'en-tête NCCH), **RetroArch** (surcharges par jeu, cœurs vérifiés) : aperçu, application par jeu, vérification, restauration. Émulateurs sans adaptateur et pourquoi : §6.8 |
+| 3 — Application réelle | **faite** | adaptateurs **Dolphin**, **PCSX2** (CRC de l'ELF calculé depuis l'image), **DuckStation**, **PPSSPP**, **RPCS3**, **Azahar** (identifiant lu dans l'en-tête NCCH), **RetroArch** (surcharges par jeu, cœurs vérifiés), **Eden** (Switch, identifiant de titre des NSP/NSZ) : aperçu, application par jeu, vérification, restauration. Émulateurs sans adaptateur et pourquoi : §6.9 |
 | 4 — Interface | à faire | commandes Tauri prêtes, aucun écran |
 | 5 — Communauté | **retirée (0.1.76)** | décision du 2026-11-17 : les réglages partagés par les joueurs viennent **uniquement d'EmuReady** ; iNetbox ne stocke aucun profil (§13) |
 | 6 — Extension | **faite (préparation)** | détection Linux/SteamOS/Steam Deck (analyseurs testés), point d'extension `locate_unix`, Android documenté (§16) ; profils « Vérifié par iBox » (fichier embarqué, vide, §17) ; retours locaux exploités par le moteur (§5) ; fondations d'AutoTune sans collecte (§18) |
@@ -135,7 +135,7 @@ Normalisation (libellé EmuReady exact → valeur typée ; toute chaîne inatten
 - **RPCS3** : `renderer`, `resolution_scale` (25–800 %), `anisotropic_filter` (« Automatic » → 0, sinon le multiplicateur, que RPCS3 stocke tel quel), `frame_limit` (Off/30/60/Auto), `spu_threads` (0–6), `spu_block_size` ; `vsync` : seul « faux » est transposé (« vrai » ne dit pas adaptatif ou complet) ; `anti_aliasing` (FXAA/SMAA, sans équivalent) écarté.
 - **Azahar** (rapports surtout Android) : `graphics_api` (`OpenGLES` écarté), `internal_resolution` (`auto` → 0, `native` → 1, 2–10), `texture_filter`, `linear_filtering`, `accurate_multiplication`, `disk_shader_cache`, SPIR-V, compilation asynchrone, shaders matériels, `enable_vsync` ; `cpu_jit` et `delay_start_with_lle_modules` (réglages globaux, pas par jeu), `delay_game_render_thread` (unité non précisée), `stereoscopic_3d_mode` (dépend de l'écran) écartés.
 - **RetroArch** : `video_driver`, `vsync`, `hard_gpu_sync`, `gpu_sync_frames` (0–3), `frame_delay` (0–15), `rewind` ; `run_ahead` (dépend du cœur ; le champ `core` du rapport est un texte libre, jamais comparé) et `video_scale` (fenêtre) écartés. EmuReady ne rattache RetroArch qu'à N64, DS, PSP, PS1 et Windows : seuls les jeux PS1 peuvent en recevoir.
-- Champs relevés mais **sans adaptateur** : Cemu, melonDS, Flycast (voir §6.8). mGBA n'existe pas chez EmuReady.
+- Champs relevés mais **sans adaptateur** : Cemu, melonDS, Flycast (voir §6.9). mGBA n'existe pas chez EmuReady.
 - **PPSSPP** : `rendering_resolution` (0 = auto, 1–10), `software_rendering`, `msaa`, `vsync`, `texture_filtering`, `lower_resolution_effects`, `fast_memory` ; `texture_scaling` : « Off » → niveau 1, sinon seule la méthode (le niveau n'est pas précisé) ; `backend` (réglage global, pas par jeu), `frame_skipping` (sens dépendant d'un autre réglage), `anisotropic_filtering` (ambigu), `multithreaded` (retiré de PPSSPP) → écartés.
 
 **Attribution** : la mention apparaîtra dans Paramètres › SmartConfig › Sources de données (`smartconfig_providers` : nom, site, docs, conditions, ce qui est reçu et envoyé). Aucun logo ni « Powered by ». Aucun partenariat n'est annoncé.
@@ -335,7 +335,20 @@ Vérifié dans le code source de RetroArch v1.22.2 : `configuration.c` (`config_
 
 Aucun mode (réglages de latence, pas de qualité d'image). Options des cœurs (`.opt`) jamais touchées : leurs clés changent d'une version de cœur à l'autre.
 
-### 6.8 Émulateurs du catalogue sans adaptateur
+### 6.8 Eden (Nintendo Switch)
+
+Vérifié dans le code source d'Eden (git.eden-emu.dev, 2026-11-17) : `src/common/fs/path_util.cpp`, `fs_paths.h`, `src/frontend_common/config.cpp` (`Initialize`, `ReadSettingGeneric`, `WriteSettingGeneric`), `src/yuzu/configuration/configure_per_game.cpp`, `src/common/settings.h`, `settings.cpp` (`TranslateCategory`), `settings_enums.h`, `settings_setting.h`, `src/core/launch_params.cpp`.
+
+- Dossier : `<programme>\user` s'il existe (portable), sinon `%APPDATA%\eden` ; réglages dans `config\` (absent → « lancez Eden une fois »). L'archive officielle n'a pas de dossier `user` : configuration dans AppData.
+- Fichier par jeu : `config\custom\<ID>.ini`, `ID` = identifiant de titre sur 16 chiffres hexadécimaux majuscules (`{:016X}`), préfixe `01`. iBox le lit dans les NSP/NSZ (`games.serial`) ; un XCI ne le donne pas en clair → pas d'application, jamais deviné.
+- Format : `nom\use_global=false`, `nom\default=false`, `nom=valeur` (une valeur `default=true` est ignorée par Eden, donc aussi par la relecture d'iBox). Booléens `true`/`false`, énumérations en entier. Sections `Renderer`, `Cpu`, `Core`, `System`.
+- Liste blanche : API (`backend`, 0 OpenGL / 1 Vulkan, risque élevé), résolution (`resolution_setup`, ×0,25 à ×8), `use_vsync`, `anti_aliasing`, `scaling_filter`, `max_anisotropy`, cache et compilation asynchrone des shaders, vidage réactif, `vram_usage_mode`, `nvdec_emulation`, `astc_recompression`, `dyna_state`, `cpu_accuracy` (sans « Debugging »), `cpu_backend` (NCE refusé hors processeur ARM), `use_speed_limit`, `sync_core_speed`, `use_docked_mode`.
+- EmuReady (champs vérifiés par `customFieldDefinitions.getByEmulator`) : correspondances directes pour les champs ci-dessus ; écartés avec raison : `accuracy_level` (Normal/High/Extreme ≠ Low/High d'Eden), `fast_cpu_time` et `use_fast_gpu_time` (booléens chez EmuReady, niveaux chez Eden), `enhanced_frame_pacing`, champs Android (`provoking_vertex`, `descriptor_indexing`, `enable_lru_cache`, `optimize_spirv_output`, `audio_output_engine`, pilotes Turnip), filtre « NVIDIA ».
+- Mode : résolution < ×1 → Performance, ×1 → Équilibré, > ×1 → Qualité.
+- Aucun correctif intégré sous forme de fichier : rien à préserver.
+- Constat EmuReady (Tears of the Kingdom, 2026-11-17) : Eden totalise 34 des 44 rapports « appareil » et 25 des 31 rapports PC. Les rapports avec réglages viennent surtout d'appareils Android : sur PC Windows, ils sortent en `Experimental` (consultables dans « Voir les configurations », jamais conseillés d'office).
+
+### 6.9 Émulateurs du catalogue sans adaptateur
 
 Vérifié dans leur code source le 2026-11-17, sauf mention :
 
@@ -401,6 +414,7 @@ Le questionnaire après session : au plus une fois par optimisation et une fois 
 - `smartconfig_status` renvoie maintenant `reason` (pourquoi l'identifiant manque) et tourne hors du fil principal (PCSX2 peut lire l'image du jeu).
 - **RPCS3** : identifiant seulement s'il figure dans le nom du fichier (`(BLUS-30443)`), le scanner ne lisant pas `PARAM.SFO` des images PS3 ; un jeu présent dans la base de configurations de RPCS3 exige que la configuration personnalisée soit d'abord créée dans RPCS3 ; chemin `m_path` de RPCS3 pour une image ISO non vérifié (seul `<fichier du jeu>.yml` est contrôlé).
 - **Azahar** : `.cia`, `.3dsx` et formats compressés non pris en charge ; la plupart des rapports EmuReady viennent d'Android.
+- **Eden** : XCI non pris en charge (identifiant de titre chiffré) ; réglages par jeu non encore vérifiés en jeu ; Ryubing et Citron non ajoutés (distribution non vérifiable automatiquement le 2026-11-17 : protection anti-robot, serveur injoignable).
 - **RetroArch** : six cœurs seulement ; contenu dans une archive : nom de l'archive sans extension (comportement de `path_set_basename`).
 - **Non vérifié en jeu** (nouveaux adaptateurs) : prise en compte d'un `config_<ID>.yml` partiel par RPCS3, lecture par Azahar d'un fichier par jeu créé par iBox, surcharge RetroArch dans le dossier « Play! ».
 - Détection OpenGL non faite ; Vulkan = chargeur présent seulement. Conséquence : OpenGL est refusé pour RPCS3, Azahar et RetroArch comme pour les autres.

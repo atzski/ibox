@@ -169,7 +169,8 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Résolution", value: "720p en portable, 1080p sur la télévision" },
       { label: "Support", value: "Carte de jeu" },
     ],
-    recommended: "lichii", alternatives: [],
+    // Eden : stable et le plus documenté sur EmuReady ; Lichii reste proposé
+    recommended: "eden", alternatives: ["lichii"],
   }),
   c({
     id: "switch2", name: "Nintendo Switch 2", manufacturer: "Nintendo", year: 2025, generation: 9, kind: "hybrid", support: "full",

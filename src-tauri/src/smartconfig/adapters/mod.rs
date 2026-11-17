@@ -5,6 +5,7 @@
 pub mod common;
 pub mod dolphin;
 pub mod duckstation;
+pub mod eden;
 pub mod azahar;
 pub mod pcsx2;
 pub mod ppsspp;
@@ -122,6 +123,7 @@ pub fn all() -> Vec<Box<dyn Adapter>> {
         Box::new(rpcs3::Rpcs3),
         Box::new(azahar::Azahar),
         Box::new(retroarch::RetroArch),
+        Box::new(eden::Eden),
     ]
 }
 

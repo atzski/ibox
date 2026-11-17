@@ -267,6 +267,7 @@ pub fn system_key(platform: &str) -> Option<&'static str> {
         "psp" => "sony_playstation_portable",
         "ps3" => "sony_playstation_3",
         "3ds" => "nintendo_3ds",
+        "switch" => "nintendo_switch",
         _ => return None,
     })
 }
@@ -281,6 +282,7 @@ pub fn emulator_name(adapter: &str) -> Option<&'static str> {
         "rpcs3" => "RPCS3",
         "azahar" => "Azahar",
         "retroarch" => "RetroArch",
+        "eden" => "Eden",
         _ => return None,
     })
 }
@@ -365,6 +367,7 @@ pub fn normalize_listing(l: &J, emulator: &str, pc: bool) -> Profile {
         "rpcs3" => rpcs3_settings(&fields),
         "azahar" => azahar_settings(&fields),
         "retroarch" => retroarch_settings(&fields),
+        "eden" => eden_settings(&fields),
         _ => (Vec::new(), Vec::new()),
     };
     let hardware = if pc {
@@ -727,6 +730,53 @@ fn azahar_settings(fields: &[(String, J)]) -> (Vec<Setting>, Vec<IgnoredField>) 
     n.done()
 }
 
+/// Champs EmuReady d'Eden (vérifiés le 2026-11-17 par `customFieldDefinitions.getByEmulator`).
+/// Correspondances avec les énumérations d'Eden (`settings_enums.h`) ; les champs
+/// propres à Android (pilotes Turnip, moteur audio oboe…) ou sans équivalent
+/// vérifié dans Eden sont écartés avec leur raison.
+fn eden_settings(fields: &[(String, J)]) -> (Vec<Setting>, Vec<IgnoredField>) {
+    let mut n = Norm::new("eden");
+    for (name, v) in fields {
+        match name.as_str() {
+            "gpu_api" => n.select(name, v, "backend", &[("Vulkan", "vulkan"), ("OpenGL", "opengl")]),
+            "resolution" => n.select(name, v, "resolution", &[("0.25", "0.25"), ("0.5", "0.5"), ("0.75", "0.75"), ("1", "1"), ("1.5", "1.5"), ("2", "2"), ("3", "3"), ("4", "4")]),
+            "vsync_mode" => n.select(name, v, "vsync", &[("Immediate (Off)", "immediate"), ("Mailbox", "mailbox"), ("FIFO (On)", "fifo"), ("FIFO Relaxed", "fifo_relaxed")]),
+            "anti_aliasing_method" => n.select(name, v, "anti_aliasing", &[("None", "none"), ("FXAA", "fxaa"), ("SMAA", "smaa")]),
+            // « NVIDIA » n'a pas d'équivalent unique dans Eden : écarté
+            "window_adapting_filter" => n.select(name, v, "scaling_filter", &[("Nearest Neighbor", "nearest"), ("Bilinear", "bilinear"), ("Bicubic", "bicubic"), ("Gaussian", "gaussian"), ("ScaleForce", "scaleforce"), ("AMD FidelityFX - Super Resolution", "fsr")]),
+            "anisotropic_filtering" => n.select(name, v, "anisotropy", &[("Auto", "auto"), ("Default", "default"), ("2x", "2x"), ("4x", "4x"), ("8x", "8x"), ("16x", "16x")]),
+            "disk_shader_cache" => n.boolean(name, v, "disk_shader_cache"),
+            "use_async_shaders" => n.boolean(name, v, "async_shaders"),
+            "use_reactive_flushing" => n.boolean(name, v, "reactive_flushing"),
+            "vram_usage_mode" => n.select(name, v, "vram_usage", &[("Conservative", "conservative"), ("Aggressive", "aggressive")]),
+            "nvdec_emulation" => n.select(name, v, "nvdec", &[("None", "off"), ("CPU", "cpu"), ("GPU", "gpu")]),
+            "astc_recompression_method" => n.select(name, v, "astc_recompression", &[("Uncompressed", "uncompressed"), ("BC1 (Low Quality)", "bc1"), ("BC3 (Medium Quality)", "bc3")]),
+            "extended_dynamic_state" => match v.as_i64() {
+                Some(i @ 0..=3) => n.choice("dyna_state", crate::smartconfig::adapters::eden::DYNA_STATE[i as usize]),
+                None if v.is_null() || v.as_str().is_some_and(|s| s.trim().is_empty()) => {}
+                _ => n.skip(name, "valeur hors de l'échelle d'Eden"),
+            },
+            "cpu_accuracy" => n.select(name, v, "cpu_accuracy", &[("Auto", "auto"), ("Accurate", "accurate"), ("Unsafe", "unsafe"), ("Paranoid (Slow)", "paranoid")]),
+            "cpu_backend" => n.select(name, v, "cpu_backend", &[("Dynamic (Slow)", "dynarmic"), ("Native code execution (NCE)", "nce")]),
+            "limit_speed" => n.boolean(name, v, "speed_limit"),
+            "synchronize_core_speed" => n.boolean(name, v, "sync_core_speed"),
+            "docked_mode" => match v.as_bool() {
+                Some(b) => n.choice("console_mode", if b { "docked" } else { "handheld" }),
+                None => n.skip(name, "valeur non booléenne"),
+            },
+            "accuracy_level" => n.skip(name, "niveaux EmuReady (Normal/High/Extreme) différents de ceux d'Eden (Low/High) : non appliqué"),
+            "fast_cpu_time" | "use_fast_gpu_time" => n.skip(name, "réglage à plusieurs niveaux dans Eden, booléen chez EmuReady : non appliqué"),
+            "enhanced_frame_pacing" => n.skip(name, "mode de cadence à plusieurs valeurs dans Eden : non appliqué"),
+            "provoking_vertex" | "descriptor_indexing" | "enable_lru_cache" | "optimize_spirv_output" => n.skip(name, "pas d'équivalent vérifié dans Eden pour Windows"),
+            "audio_output_engine" => n.skip(name, "sortie audio : propre à chaque appareil"),
+            "dynamic_driver_version" => {}
+            other if informative(other) => {}
+            other => n.skip(other, "champ inconnu d'iBox"),
+        }
+    }
+    n.done()
+}
+
 /// Champs EmuReady de RetroArch (réglages de l'interface, communs aux cœurs ;
 /// le cœur du rapport, texte libre, n'est pas comparé).
 fn retroarch_settings(fields: &[(String, J)]) -> (Vec<Setting>, Vec<IgnoredField>) {
@@ -799,6 +849,33 @@ mod tests {
         assert_eq!(normalize_title("The Legend of Zelda: Wind Waker (Europe) [!]"), "legend of zelda wind waker");
         assert_eq!(normalize_title("Pokémon Colosseum"), "pokemon colosseum");
         assert_eq!(normalize_title("Ratchet & Clank"), "ratchet and clank");
+    }
+
+    /// Rapport réel d'Eden pour Tears of the Kingdom (Galaxy S25 Ultra, Android) :
+    /// réglages transposables gardés, champs Android ou ambigus écartés avec raison.
+    #[test]
+    fn rapport_eden_reel() {
+        let detail = unwrap_envelope(include_str!("../fixtures/emuready_eden_by_id.json").as_bytes()).unwrap();
+        let p = normalize_listing(&detail, "eden", false);
+        assert_eq!(p.kind, ProfileKind::Configuration);
+        assert_eq!(p.game.title, "The Legend of Zelda: Tears of the Kingdom");
+        let has = |k: &str, c: &str| p.settings.contains(&Setting { key: k.into(), value: Value::Choice(c.into()) });
+        assert!(has("eden.backend", "vulkan"));
+        assert!(has("eden.resolution", "1"));
+        assert!(has("eden.vsync", "immediate"));
+        assert!(has("eden.anisotropy", "16x"));
+        assert!(has("eden.console_mode", "handheld"));
+        assert!(has("eden.dyna_state", "disabled"));
+        assert!(has("eden.cpu_backend", "nce")); // gardé ici, refusé ensuite sur PC x86 par la validation
+        assert!(p.settings.contains(&Setting { key: "eden.async_shaders".into(), value: Value::Bool(true) }));
+        for f in ["accuracy_level", "provoking_vertex", "audio_output_engine", "enhanced_frame_pacing"] {
+            assert!(p.ignored.iter().any(|i| i.field == f), "{f} devrait être écarté");
+        }
+        let hw = crate::smartconfig::hardware::HardwareInfo { os: crate::smartconfig::hardware::OsInfo { family: "windows".into(), version: None, arch: "x86_64".into() }, ..Default::default() };
+        use crate::smartconfig::adapters::Adapter;
+        let v = crate::smartconfig::validation::validate(&p.settings, crate::smartconfig::adapters::eden::Eden.specs(), &hw);
+        assert!(v.rejected.iter().any(|r| r.key == "eden.cpu_backend"));
+        assert!(v.rejected.iter().any(|r| r.key == "eden.backend")); // Vulkan non vérifié sur ce matériel fictif
     }
 
     #[test]
@@ -1056,5 +1133,20 @@ mod tests {
         let f = er.fetch(&sunshine(), "dolphin", &MemCache::default()).unwrap();
         assert!(f.matched);
         eprintln!("{} profils, dont {} configurations", f.profiles.len(), f.profiles.iter().filter(|p| p.kind == ProfileKind::Configuration).count());
+    }
+
+    /// Appel réel : Tears of the Kingdom sous Eden. `cargo test --lib emuready_eden_reel -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn emuready_eden_reel() {
+        let er = EmuReady::new(Box::new(HttpTransport::new().unwrap()));
+        let totk = GameQuery { game_id: 1, platform: "switch".into(), title: "The Legend of Zelda: Tears of the Kingdom".into(), serial: Some("0100F2C0115B6000".into()), region: None, id_confidence: 1.0 };
+        let f = er.fetch(&totk, "eden", &MemCache::default()).unwrap();
+        assert!(f.matched);
+        let configs: Vec<_> = f.profiles.iter().filter(|p| p.kind == ProfileKind::Configuration).collect();
+        eprintln!("{} profils, dont {} configurations", f.profiles.len(), configs.len());
+        for p in configs {
+            eprintln!("  {} · {} · {} réglages, {} écartés", p.hardware.label.as_deref().unwrap_or("?"), p.performance.as_ref().map(|x| x.label.as_str()).unwrap_or("?"), p.settings.len(), p.ignored.len());
+        }
     }
 }
