@@ -11,9 +11,9 @@ static FRIENDS: AtomicBool = AtomicBool::new(true);
 /// Une veille garde la fenêtre au-dessus des jeux tant qu'elle est affichée.
 static KEEPER: AtomicBool = AtomicBool::new(false);
 const LABEL: &str = "toast";
-/// Taille de la fenêtre (en points) : une carte et son ombre.
-const WIDTH: f64 = 400.0;
-const HEIGHT: f64 = 132.0;
+/// Taille de la fenêtre (en points) : une carte et toute son ombre (rien de rogné).
+const WIDTH: f64 = 430.0;
+const HEIGHT: f64 = 160.0;
 
 fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(LABEL) { return Some(w); }
@@ -108,7 +108,7 @@ pub fn push(app: &AppHandle, payload: Value) {
 
 #[tauri::command]
 pub async fn toast_update(app: AppHandle, version: String) {
-    push(&app, serde_json::json!({"kind":"update","friendId":"","name":format!("iBox {version}"),"body":"Cliquez pour installer la mise à jour."}));
+    push(&app, serde_json::json!({"kind":"update","friendId":"","name":format!("iBox {version}"),"body":"Cliquez pour installer la mise à jour. iBox redémarre tout seul."}));
 }
 
 /// Notification d'iBox (bibliothèque, succès, mise à jour…) montrée en bas à droite de l'écran,

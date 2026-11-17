@@ -8,6 +8,7 @@ import { useLibrary } from "@/services/library";
 import { getArtUrl } from "@/art/covers";
 import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
+import { useIsDark } from "@/app/shellState";
 import type { ToastPayload } from "@/services/social";
 
 const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 14000, notice: 8000 } as const;
@@ -55,6 +56,12 @@ export function ToastWindow() {
     if (items.length) setQueue((q) => [...q, ...items.map((p) => ({ ...p, key: ++counter.current }))]);
   }, []);
 
+  // même thème que la fenêtre principale (réglages partagés)
+  const dark = useIsDark();
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, [dark]);
+
   useEffect(() => {
     document.documentElement.classList.add("ibox-toast-window");
     void useLibrary.getState().reload().catch(() => undefined);
@@ -68,15 +75,15 @@ export function ToastWindow() {
   const next = useCallback(() => setQueue((q) => q.slice(1)), []);
 
   return (
-    <div className="fixed inset-0 flex items-end justify-end p-2">
+    <div className="fixed inset-0 flex items-end justify-end px-5 pt-3 pb-5">
       <AnimatePresence onExitComplete={() => queue.length === 0 && void invoke("toast_done")}>
-        {current && <Toast key={current.key} toast={current} onDone={next} />}
+        {current && <Toast key={current.key} toast={current} dark={dark} onDone={next} />}
       </AnimatePresence>
     </div>
   );
 }
 
-function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
+function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; onDone: () => void }) {
   const look = toast.kind === "notice"
     ? { ...LOOK.notice, ...(toast.tone ? NOTICE_TONE[toast.tone] : {}), icon: toast.icon ?? LOOK.notice.icon, label: toast.link?.kind === "achievements" ? "Succès" : "iBox" }
     : LOOK[toast.kind];
@@ -108,20 +115,30 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
     : toast.kind === "notice" || toast.kind === "update" ? <>{toast.body}</>
     : <span className="italic">« {toast.body} »</span>;
 
+  // en sombre, l'encre foncée du type devient sa teinte claire (contraste)
+  const ink = dark ? look.to : look.ink;
+
   return (
     <motion.div
       role="status"
-      initial={{ x: 420, opacity: 0, scale: 0.96 }}
-      animate={{ x: 0, opacity: 1, scale: 1 }}
-      exit={{ x: 420, opacity: 0 }}
-      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+      initial={{ x: 60, y: 8, opacity: 0, scale: 0.94 }}
+      animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+      exit={{ x: 70, opacity: 0, scale: 0.96, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      whileHover={{ y: -2 }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onClick={() => click(toast.kind === "request")}
-      className="group relative flex h-[7.25rem] w-[24rem] cursor-pointer items-center gap-3.5 overflow-hidden rounded-[1.6rem] bg-white/95 p-3 pr-4 shadow-[0_14px_34px_-14px_rgba(30,40,70,0.55)] ring-1 ring-black/5"
+      // liseré dégradé aux couleurs du type, ombre douce en deux couches (rien de rogné)
+      className="group relative w-[24rem] cursor-pointer rounded-[1.45rem] p-[1.5px] shadow-[0_18px_38px_-20px_rgba(20,30,60,0.6),0_4px_12px_-6px_rgba(20,30,60,0.22)]"
+      style={{ background: `linear-gradient(135deg, ${look.to}, color-mix(in srgb, ${look.from} 40%, transparent) 45%, color-mix(in srgb, ${look.to} 55%, transparent))` }}
     >
+      <div
+        className="relative flex min-h-[6.6rem] items-center gap-3.5 overflow-hidden rounded-[calc(1.45rem-1.5px)] p-3 pr-5 pb-4"
+        style={{ background: `color-mix(in srgb, var(--ibox-white) 95%, ${look.to})` }}
+      >
       {/* halo pastel du type de notification */}
-      <span aria-hidden className="pointer-events-none absolute -top-10 -left-10 size-40 rounded-full opacity-60 blur-2xl" style={{ background: `radial-gradient(circle, ${look.to}, transparent 70%)` }} />
+      <span aria-hidden className="pointer-events-none absolute -top-14 -left-12 size-44 rounded-full opacity-50 blur-2xl" style={{ background: `radial-gradient(circle, ${look.to}, transparent 70%)` }} />
       <span className="relative shrink-0">
         {toast.kind === "notice" && toast.image ? (
           <span className="relative grid size-[5rem] place-items-center rounded-2xl" style={{ background: `linear-gradient(140deg, #FFF3C4, #FFD36B)` }}>
@@ -130,8 +147,20 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
         ) : cover ? (
           <img src={cover} alt="" draggable={false} className="h-[5.5rem] w-[4.1rem] rounded-xl object-cover shadow-md ring-1 ring-black/5" />
         ) : toast.kind === "notice" || toast.kind === "update" ? (
-          <span className="grid size-[5rem] place-items-center rounded-2xl text-white shadow-inner" style={{ background: `linear-gradient(140deg, ${look.from}, ${look.to})`, color: look.ink }}>
-            <Icon name={look.icon} size="2.4rem" />
+          // pastille d'icône : dégradé, reflet en haut et petit rebord, comme les boutons iBox
+          <span
+            className="relative grid size-[4.4rem] place-items-center overflow-hidden rounded-[1.15rem] shadow-[inset_0_-3px_0_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7),0_8px_18px_-10px_rgba(20,30,60,0.5)]"
+            style={{ background: `linear-gradient(150deg, ${look.from}, ${look.to})`, color: look.ink }}
+          >
+            <span aria-hidden className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/45 to-transparent" />
+            <motion.span
+              className="relative"
+              initial={{ y: -6, opacity: 0 }}
+              animate={toast.kind === "update" ? { y: [0, 3, 0], opacity: 1 } : { y: 0, opacity: 1 }}
+              transition={toast.kind === "update" ? { y: { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }, opacity: { duration: 0.3 } } : { type: "spring", stiffness: 300, damping: 18 }}
+            >
+              <Icon name={look.icon} size="2.1rem" />
+            </motion.span>
           </span>
         ) : (
           <span className="grid size-[5rem] place-items-center rounded-2xl" style={{ background: `linear-gradient(140deg, ${look.from}, ${look.to})` }}>
@@ -145,29 +174,34 @@ function Toast({ toast, onDone }: { toast: ToastPayload; onDone: () => void }) {
         )}
       </span>
       <span className="relative min-w-0 flex-1">
-        <span className="flex items-center gap-1 text-[0.66rem] font-extrabold tracking-[0.14em] uppercase" style={{ color: look.ink }}>
-          <Icon name={look.icon} size="1.05em" filled={look.icon === "play"} />
-          {look.label}
-          {platform && <span className="ml-1 rounded-full bg-black/5 px-1.5 py-px tracking-normal normal-case text-ink-soft">{platform}</span>}
+        <span className="flex items-center gap-1.5 text-[0.66rem] font-extrabold tracking-[0.14em] uppercase" style={{ color: ink }}>
+          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5" style={{ background: `color-mix(in srgb, ${look.to} ${dark ? 18 : 30}%, transparent)` }}>
+            <Icon name={look.icon} size="1.05em" filled={look.icon === "play"} />
+            {look.label}
+          </span>
+          {platform && <span className="rounded-full bg-[var(--ibox-ink)]/5 px-1.5 py-px tracking-normal normal-case text-ink-soft">{platform}</span>}
         </span>
-        <span data-no-i18n className="mt-0.5 block truncate font-display text-[1.12rem] font-semibold text-ink">{toast.name}</span>
-        <span className="line-clamp-2 text-[0.84rem] leading-snug font-semibold text-ink-soft">{line}</span>
+        <span data-no-i18n className="mt-1 block truncate font-display text-[1.15rem] leading-tight font-semibold text-ink">{toast.name}</span>
+        <span className="mt-0.5 line-clamp-2 text-[0.82rem] leading-snug font-semibold text-ink-soft">{line}</span>
       </span>
       <button
         aria-label="Fermer"
         onClick={(e) => { e.stopPropagation(); onDone(); }}
-        className="absolute top-2 right-2 grid size-6 place-items-center rounded-full text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/5"
+        className="absolute top-2.5 right-2.5 grid size-6 place-items-center rounded-full text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--ibox-ink)]/8"
       >
         <Icon name="x" size="0.8em" />
       </button>
-      <motion.span
-        aria-hidden
-        className="absolute bottom-0 left-0 h-[3px] origin-left"
-        style={{ background: `linear-gradient(90deg, ${look.from}, ${look.to})`, width: "100%" }}
-        initial={{ scaleX: 1 }}
-        animate={{ scaleX: paused ? undefined : 0 }}
-        transition={{ duration: duration / 1000, ease: "linear" }}
-      />
+      {/* temps restant : fine jauge arrondie, à l'intérieur de la carte */}
+      <span aria-hidden className="absolute inset-x-5 bottom-2 h-[3px] overflow-hidden rounded-full bg-[var(--ibox-ink)]/8">
+        <motion.span
+          className="block h-full origin-left rounded-full"
+          style={{ background: `linear-gradient(90deg, ${look.to}, ${ink})` }}
+          initial={{ scaleX: 1 }}
+          animate={{ scaleX: paused ? undefined : 0 }}
+          transition={{ duration: duration / 1000, ease: "linear" }}
+        />
+      </span>
+      </div>
     </motion.div>
   );
 }

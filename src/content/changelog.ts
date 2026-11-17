@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.79",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "Un de vos jeux en fond d’accueil", text: "À chaque retour sur l’accueil, iBox choisit un de vos jeux au hasard et le met en fond, flou et en bonne qualité. Vous préférez toujours le même ? Choisissez-le avec le bouton « Fond » de l’accueil ou dans les Paramètres." },
+      { icon: "front", title: "Des notifications soignées", text: "Les notifications en bas à droite n’affichent plus de grand cadre sombre autour d’elles : une carte seule, avec un liseré aux couleurs de son type, une icône animée et le temps restant. Elles suivent le thème clair ou sombre de l’app." },
+      { icon: "shelf", title: "Une étagère encore plus vivante", text: "Sur l’étagère de l’accueil, les jaquettes tournent, sautent ou se balancent bien plus souvent." },
+    ],
+  },
+  {
     version: "0.1.78",
     date: "2026-11-17",
     highlights: [

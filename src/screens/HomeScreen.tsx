@@ -468,7 +468,7 @@ function useMarqueeRows(games: Game[]): Game[][] {
 type ShelfFx = { row: number; index: number; kind: "spin" | "hop" | "wobble"; token: number };
 
 /**
- * Vie de l'étagère : toutes les 2 à 5 secondes, une jaquette prise au hasard
+ * Vie de l'étagère : toutes les 0,9 à 2,3 secondes, une jaquette prise au hasard
  * tourne sur elle-même, saute ou se balance. Rien quand les animations sont
  * réduites ou que la fenêtre est cachée.
  */
@@ -485,12 +485,13 @@ function useShelfFx(rows: Game[][], reduced: boolean): ShelfFx | null {
         if (document.visibilityState === "visible") {
           const row = Math.floor(Math.random() * rows.length);
           const index = Math.floor(Math.random() * rows[row].length);
+          window.clearTimeout(clear);
           setFx({ row, index, kind: kinds[Math.floor(Math.random() * kinds.length)], token: ++token });
           // effet retiré à la fin : la même jaquette pourra le rejouer plus tard
           clear = window.setTimeout(() => setFx(null), 1300);
         }
         next();
-      }, 2000 + Math.random() * 3000);
+      }, 900 + Math.random() * 1400);
     };
     next();
     return () => {

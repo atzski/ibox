@@ -46,7 +46,12 @@ export function Backdrop({ home = false }: { home?: boolean }) {
 
   const globalStyle = useSettings((s) => s.backgroundStyle ?? "ambient");
   const globalImage = useSettings((s) => s.customBackground);
-  const homeImage = useSettings((s) => s.homeBackground);
+  const homeSetting = useSettings((s) => s.homeBackground);
+  // jamais choisi (undefined) ou « au hasard » : un de vos jeux, tiré à chaque retour sur l'accueil ;
+  // null = « Fond par défaut » (ambiance iBox)
+  const randomMode = home && (homeSetting === undefined || homeSetting?.type === "random");
+  const randomGame = useRandomHomeGame(randomMode);
+  const homeImage = homeSetting?.type === "random" ? null : homeSetting;
   const onHome = home && !!homeImage;
   const bgStyle = onHome ? "image" : globalStyle;
   const custom = onHome ? homeImage : globalImage;
@@ -58,7 +63,7 @@ export function Backdrop({ home = false }: { home?: boolean }) {
     onHome ? "home_wallpaper_read" : "wallpaper_read",
   );
   const fixedImage = bgStyle === "image" ? (wallpaper ?? customPlatformHero) : null;
-  const shownGame = bgStyle === "calm" ? null : bgStyle === "image" ? customGame : game;
+  const shownGame = randomMode && randomGame ? randomGame : bgStyle === "calm" ? null : bgStyle === "image" ? customGame : game;
   const layer = useBackdropLayer(shownGame);
 
   // sans console ni jeu : le ciel suit l'heure (matin pêche, jour ciel, soir lavande, nuit bleu profond)
@@ -113,7 +118,7 @@ export function Backdrop({ home = false }: { home?: boolean }) {
           {preset ? null : fixedImage ? (
             <GameBackdrop key={`p|${fixedImage}`} src={fixedImage} hero stage={stage || onHome} dark={dark} reduced={reduced} vivid={onHome} />
           ) : (
-            shownGame && layer && <GameBackdrop key={layer.key} src={layer.src} hero={layer.hero} stage={stage} dark={dark} reduced={reduced} />
+            shownGame && layer && <GameBackdrop key={layer.key} src={layer.src} hero={layer.hero} stage={randomMode ? false : stage} dark={dark} reduced={reduced} soft={randomMode} />
           )}
         </AnimatePresence>
       </motion.div>
@@ -137,6 +142,28 @@ function useSkyOfTheDay(): [string, string, string] {
   if (h >= 11 && h < 17) return ["#8CCDF1", "#B9A6E8", "#F5C4AC"]; // jour
   if (h >= 17 && h < 21) return ["#C3A6E8", "#F2B8C6", "#F6C9A8"]; // soir
   return ["#7F95D9", "#A79BE0", "#6FA6C9"]; // nuit
+}
+
+/**
+ * Fond « au hasard » de l'accueil : un nouveau jeu à chaque arrivée sur l'accueil, pris de
+ * préférence parmi ceux qui ont une grande illustration (bonne qualité), jamais deux fois de suite.
+ */
+function useRandomHomeGame(active: boolean): Game | null {
+  const games = useLibrary((l) => l.realGames);
+  const [id, setId] = useState<string | null>(null);
+  const ready = games.length > 0;
+  useEffect(() => {
+    if (!active || !ready) return;
+    const withHero = games.filter((g) => (g.media ?? []).some((m) => m.kind === "hero"));
+    const pool = withHero.length > 0 ? withHero : games;
+    setId((prev) => {
+      const others = pool.length > 1 ? pool.filter((g) => g.id !== prev) : pool;
+      return others[Math.floor(Math.random() * others.length)]?.id ?? null;
+    });
+    // un tirage par arrivée sur l'accueil (et au premier chargement de la bibliothèque)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, ready]);
+  return active ? (games.find((g) => g.id === id) ?? null) : null;
 }
 
 /** Jeu choisi comme fond fixe (Paramètres › Thèmes et fonds). */
@@ -223,11 +250,12 @@ function PresetBackdrop({ preset, reduced, dark }: { preset: HomePreset; reduced
   );
 }
 
-function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean; vivid?: boolean }) {
+function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false, soft = false }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean; vivid?: boolean; soft?: boolean }) {
   // Fond large : net sur la fiche, adouci ailleurs. Jaquette : simple halo coloré.
   // Fond choisi pour l'accueil : bien visible, presque sans voile.
-  const blur = hero ? (stage ? 0 : 10) : 60;
-  const opacity = (vivid ? 0.82 : hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
+  // Jeu au hasard sur l'accueil : flou doux et présent, l'interface reste lisible.
+  const blur = soft ? (hero ? 16 : 44) : hero ? (stage ? 0 : 10) : 60;
+  const opacity = (soft ? 0.62 : vivid ? 0.82 : hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
 
   return (
     <motion.div
@@ -245,7 +273,9 @@ function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false }: { src:
           className={`h-full w-full object-cover ${reduced ? "" : "ibox-kenburns"}`}
           style={{
             filter: blur ? `blur(${blur}px) saturate(1.15)` : "saturate(1.05)",
-            maskImage: vivid
+            maskImage: soft
+              ? "linear-gradient(to bottom, black 0%, black 60%, rgba(0,0,0,0.35) 100%)"
+              : vivid
               ? "linear-gradient(to bottom, black 0%, black 70%, rgba(0,0,0,0.55) 100%)"
               : hero
               ? "linear-gradient(to bottom, black 0%, black 35%, transparent 92%)"

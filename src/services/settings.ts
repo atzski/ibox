@@ -31,6 +31,8 @@ export type ThemePreference = "system" | "light" | "dark";
 
 /** Fond de l'écran d'accueil (remplace le fond général seulement là). */
 export type HomeBackground =
+  /** Un de vos jeux tiré au hasard à chaque retour sur l'accueil (comportement par défaut). */
+  | { type: "random" }
   | { type: "platform"; platformId: string }
   | { type: "game"; gameId: string }
   | { type: "preset"; id: string }

@@ -16,6 +16,7 @@ import { sound } from "@/services/sound";
 import type { Game } from "@/domain/types";
 
 type Tab = "presets" | "games" | "online" | "file";
+const RANDOM: HomeBackground = { type: "random" };
 interface Pic { url: string; thumb: string }
 
 /**
@@ -24,9 +25,12 @@ interface Pic { url: string; thumb: string }
  * Le fond choisi ne s'applique qu'à l'accueil.
  */
 export function HomeBackgroundPicker({ onClose }: { onClose: () => void }) {
-  const current = useSettings((s) => s.homeBackground ?? null);
+  // jamais choisi = « jeu au hasard » (comportement par défaut) ; constante : un nouvel objet
+  // renvoyé par le sélecteur provoquerait une boucle de rendus
+  const stored = useSettings((s) => s.homeBackground);
+  const current = stored === undefined ? RANDOM : stored;
   const set = useSettings((s) => s.set);
-  const [tab, setTab] = useState<Tab>(current?.type === "game" || current?.type === "platform" ? "games" : current?.type === "file" ? "file" : "presets");
+  const [tab, setTab] = useState<Tab>(current?.type === "game" || current?.type === "platform" || current?.type === "random" ? "games" : current?.type === "file" ? "file" : "presets");
 
   const choose = (bg: HomeBackground | null) => {
     sound.play("select");
@@ -39,7 +43,7 @@ export function HomeBackgroundPicker({ onClose }: { onClose: () => void }) {
       subtitle="Seul l’écran d’accueil change ; les autres écrans gardent leur fond."
       onClose={onClose}
       width="min(64rem, 92vw)"
-      headerAction={current ? <Button size="md" icon="reset" onClick={() => choose(null)}>Fond par défaut</Button> : undefined}
+      headerAction={current ? <Button size="md" icon="reset" onClick={() => choose(null)}>Ambiance iBox</Button> : undefined}
     >
       <div className="mb-4">
         <Segmented<Tab>
@@ -132,8 +136,29 @@ function GamesTab({ current, choose }: { current: HomeBackground | null; choose:
   );
   const shown = heroes.filter((g) => matchesQuery(g.title, query));
   const platforms = PLATFORMS.filter((p) => rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
+  const random = current?.type === "random";
   return (
     <>
+      {!query && (
+        <section className="mb-5">
+          <button
+            data-focusable
+            aria-pressed={random}
+            onClick={() => choose({ type: "random" })}
+            className={`ibox-focusable group relative flex w-full items-center gap-4 overflow-hidden rounded-xl p-4 text-left shadow-xs [--ring-radius:12px] ${random ? "ring-4 ring-[var(--accent-deep)]" : "ring-1 ring-black/5"}`}
+            style={{ background: "linear-gradient(120deg, var(--ibox-sky-soft), var(--ibox-lavender-soft) 55%, var(--ibox-peach-soft))" }}
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white/80 text-[var(--accent-deep)] shadow-sm transition-transform duration-500 group-hover:rotate-180">
+              <Icon name="reset" size="1.4em" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-display text-[1.1rem] font-semibold text-ink">Un de vos jeux, au hasard</span>
+              <span className="block text-[0.86rem] font-semibold text-ink-soft">Un nouveau fond à chaque retour sur l’accueil, flou et en bonne qualité{heroes.length > 0 ? ` (${heroes.length} illustrations)` : ""}.</span>
+            </span>
+            {random && <span className="ml-auto grid size-6 shrink-0 place-items-center rounded-full bg-[var(--accent-deep)] text-white"><Icon name="check" size="0.85em" /></span>}
+          </button>
+        </section>
+      )}
       {platforms.length > 0 && !query && (
         <section className="mb-5">
           <h3 className="mb-2 text-[0.75rem] font-extrabold tracking-[0.12em] text-ink-soft uppercase">Consoles</h3>

@@ -23,6 +23,8 @@ const isToast = windowLabel === "toast";
 const isOverlay = windowLabel === "overlay";
 // Remote Play : bandeau de l'hôte, toujours visible pendant un partage.
 const isIndicator = windowLabel === "remote-play-indicator";
+// fenêtres transparentes : jamais de décor plein écran derrière leur contenu
+if (isToast || isOverlay || isIndicator) document.documentElement.classList.add("ibox-transparent-window");
 const root = createRoot(document.getElementById("root")!);
 const initialize = async () => {
   if (!isToast && !isOverlay && !isIndicator) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));

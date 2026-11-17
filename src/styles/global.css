@@ -503,12 +503,22 @@ html[data-motion="reduced"] .ibox-node {
   color: #344459;
 }
 
-/* Fenêtre des notifications : fond transparent, seule la carte se voit. */
+/* Fenêtres transparentes (notifications, overlay en jeu, bandeau Remote Play) : seul leur
+   contenu se voit. Le décor de palette (body::before, plein écran) n'y est jamais peint :
+   sinon il dessinait un grand rectangle autour de la carte de notification. */
 html.ibox-toast-window,
 html.ibox-toast-window body,
-html.ibox-toast-window #root {
+html.ibox-toast-window #root,
+html.ibox-transparent-window,
+html.ibox-transparent-window body,
+html.ibox-transparent-window #root {
   background: transparent !important;
   overflow: hidden;
+}
+html.ibox-toast-window body::before,
+html.ibox-transparent-window body::before {
+  content: none;
+  display: none;
 }
 
 /* Cal Sans n'a qu'une graisse : pas de faux gras, un léger espacement pour la lecture. */
