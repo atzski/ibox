@@ -2982,4 +2982,6 @@ export const EN: Record<string, string> = {
   "Le jeu mis en avant derrière l’étagère de « Ma collection » ressort enfin : voile allégé, image plus nette et plus colorée. « Votre dernière aventure » laisse aussi bien mieux voir l’image du jeu, sous un voile de couleur bien plus léger.": "The game featured behind the “My collection” shelf finally stands out: a lighter veil and a sharper, more colorful image. “Your last adventure” also shows much more of the game’s image, under a far lighter color veil.",
   "Des visages d’amis plus nets": "Clearer friend faces",
   "Les photos du bouton Amis sont un peu plus grandes, cerclées et ne se mélangent plus quand elles se chevauchent.": "The photos on the Friends button are a little larger, outlined, and no longer blend together where they overlap.",
+  "Une étagère tout en douceur": "A smoother shelf",
+  "Dans « Ma collection », les jaquettes apparaissent et s’effacent désormais en fondu sur le bord gauche de l’étagère, comme à droite, au lieu d’être coupées net.": "In “My collection”, covers now fade in and out at the left edge of the shelf, just like on the right, instead of being cut off sharply.",
 };

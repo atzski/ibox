@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.85",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "shelf", title: "Une étagère tout en douceur", text: "Dans « Ma collection », les jaquettes apparaissent et s’effacent désormais en fondu sur le bord gauche de l’étagère, comme à droite, au lieu d’être coupées net." },
+    ],
+  },
+  {
     version: "0.1.84",
     date: "2026-11-18",
     highlights: [

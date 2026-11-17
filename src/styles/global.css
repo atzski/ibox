@@ -696,6 +696,10 @@ html[data-motion="full"] .ibox-collection-tile:is(:hover, :focus-visible) .ibox-
 .ibox-shelf3d-viewport {
   overflow: hidden;
   padding: 0.6rem 0 0;
+  /* les jaquettes s'effacent en fondu au bord gauche de la rangée (là où elle est coupée),
+     au lieu de disparaître d'un coup net */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.35) 9%, black 24%);
+  mask-image: linear-gradient(to right, transparent 0, rgba(0, 0, 0, 0.35) 9%, black 24%);
 }
 .ibox-shelf3d-item {
   margin-right: 0.85rem;
