@@ -45,14 +45,60 @@ export function CollectionsRow() {
     return () => window.removeEventListener("ibox:open-collection", listener);
   }, []);
 
+  // Mode « Organiser » : ordre provisoire pendant le glisser-déposer, enregistré à chaque dépôt
+  const reorder = useCollections((s) => s.reorder);
+  const [organizing, setOrganizing] = useState(false);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<number[] | null>(null);
+  const shown = draft ? draft.map((id) => list.find((c) => c.id === id)).filter((c): c is Collection => !!c) : list;
+  const save = (ids: number[]) => void reorder(ids).catch(() => sound.play("error"));
+  const move = (id: number, delta: -1 | 1) => {
+    const ids = shown.map((c) => c.id);
+    const i = ids.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    sound.play("move");
+    save(ids);
+  };
+  const dragOver = (overId: number) => {
+    if (dragId === null || dragId === overId) return;
+    const ids = (draft ?? list.map((c) => c.id)).filter((id) => id !== dragId);
+    ids.splice(ids.indexOf(overId) + (shown.findIndex((c) => c.id === dragId) < shown.findIndex((c) => c.id === overId) ? 1 : 0), 0, dragId);
+    setDraft(ids);
+  };
+  const drop = () => {
+    if (draft) save(draft);
+    sound.play("move");
+    setDragId(null);
+    setDraft(null);
+  };
+
   return (
     <ShelfRow
       title="Mes collections"
       group="home-collections"
       action={
-        <Button icon="plus" onClick={() => setEditing("new")}>
-          Nouvelle collection
-        </Button>
+        <div className="flex items-center gap-2">
+          {list.length > 1 && (
+            <Button
+              tone={organizing ? "green" : "purple"}
+              variant={organizing ? "primary" : "soft"}
+              icon={organizing ? "check" : "grid"}
+              onClick={() => {
+                sound.play(organizing ? "back" : "open");
+                setOrganizing((v) => !v);
+              }}
+            >
+              {organizing ? "Terminé" : "Organiser"}
+            </Button>
+          )}
+          {!organizing && (
+            <Button icon="plus" onClick={() => setEditing("new")}>
+              Nouvelle collection
+            </Button>
+          )}
+        </div>
       }
     >
       {list.length === 0 && (
@@ -60,17 +106,62 @@ export function CollectionsRow() {
           <Icon name="grid" /> Rangez vos jeux comme vous voulez : « À finir », « Coop »… depuis la fiche d'un jeu (bouton Collections).
         </div>
       )}
-      {list.map((c) => (
-        <motion.div key={c.id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }} className="group/collection relative shrink-0">
-          <CollectionCard
-            collection={c}
-            items={gamesOf(c)}
-            onOpen={() => {
-              sound.play("select");
-              setOpen(c);
-            }}
-            onEdit={() => setEditing(c)}
-          />
+      {shown.map((c, i) => (
+        <motion.div
+          key={c.id}
+          layout
+          transition={{ layout: { type: "spring", stiffness: 420, damping: 34 } }}
+          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+          draggable={organizing}
+          onDragStartCapture={(e: React.DragEvent) => {
+            if (!organizing) return;
+            e.dataTransfer.effectAllowed = "move";
+            setDragId(c.id);
+          }}
+          onDragOverCapture={(e: React.DragEvent) => {
+            if (!organizing || dragId === null) return;
+            e.preventDefault();
+            dragOver(c.id);
+          }}
+          onDropCapture={(e: React.DragEvent) => { if (organizing) { e.preventDefault(); drop(); } }}
+          onDragEndCapture={() => { if (organizing && dragId !== null) drop(); }}
+          className={`group/collection relative shrink-0 ${organizing ? `cursor-grab active:cursor-grabbing ${dragId === c.id ? "opacity-60" : "ibox-organize-wiggle"}` : ""}`}
+          style={organizing ? { ["--wiggle-delay" as string]: `${(i % 4) * -0.17}s` } : undefined}
+        >
+          <div className={organizing ? "pointer-events-none" : undefined}>
+            <CollectionCard
+              collection={c}
+              items={gamesOf(c)}
+              onOpen={organizing ? undefined : () => {
+                sound.play("select");
+                setOpen(c);
+              }}
+              onEdit={organizing ? undefined : () => setEditing(c)}
+            />
+          </div>
+          {organizing && (
+            // clavier et manette : déplacer d'un cran à gauche ou à droite
+            <div className="absolute inset-x-0 -bottom-4 flex justify-center gap-2">
+              <button
+                data-focusable
+                aria-label={`Déplacer ${c.name} vers la gauche`}
+                disabled={i === 0}
+                onClick={() => move(c.id, -1)}
+                className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
+              >
+                <Icon name="chevronRight" size="1em" className="rotate-180" />
+              </button>
+              <button
+                data-focusable
+                aria-label={`Déplacer ${c.name} vers la droite`}
+                disabled={i === shown.length - 1}
+                onClick={() => move(c.id, 1)}
+                className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
+              >
+                <Icon name="chevronRight" size="1em" />
+              </button>
+            </div>
+          )}
         </motion.div>
       ))}
       {editing && <CollectionEditor collection={editing === "new" ? null : editing} games={editing === "new" ? [] : gamesOf(editing)} onClose={() => setEditing(null)} />}

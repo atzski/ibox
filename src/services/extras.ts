@@ -80,10 +80,12 @@ interface CollectionsState {
   create: (name: string, color: string) => Promise<number>;
   update: (id: number, name: string, color: string) => Promise<void>;
   remove: (id: number) => Promise<void>;
+  /** Nouvel ordre (identifiants) : affiché tout de suite, enregistré ensuite. */
+  reorder: (ids: number[]) => Promise<void>;
   setGame: (id: number, gameId: number, member: boolean) => Promise<void>;
 }
 
-export const useCollections = create<CollectionsState>((set) => ({
+export const useCollections = create<CollectionsState>((set, get) => ({
   list: [],
   loaded: false,
   load: async () => {
@@ -97,6 +99,18 @@ export const useCollections = create<CollectionsState>((set) => ({
   },
   update: async (id, name, color) => set({ list: await call<Collection[]>("collection_update", { id, name, color }) }),
   remove: async (id) => set({ list: await call<Collection[]>("collection_delete", { id }) }),
+  reorder: async (ids) => {
+    const before = get().list;
+    const pos = new Map(ids.map((id, i) => [id, i]));
+    set({ list: [...before].sort((a, b) => (pos.get(a.id) ?? Infinity) - (pos.get(b.id) ?? Infinity)) });
+    if (!isTauri()) return;
+    try {
+      set({ list: await call<Collection[]>("collections_reorder", { ids }) });
+    } catch (e) {
+      set({ list: before });
+      throw e;
+    }
+  },
   setGame: async (id, gameId, member) => set({ list: await call<Collection[]>("collection_set_game", { id, gameId, member }) }),
 }));
 

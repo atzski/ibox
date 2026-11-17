@@ -271,6 +271,7 @@ pub fn run() {
             library::extras::collection_create,
             library::extras::collection_update,
             library::extras::collection_delete,
+            library::extras::collections_reorder,
             library::extras::collection_set_game,
             library::extras::saves_list,
             library::extras::saves_backup,

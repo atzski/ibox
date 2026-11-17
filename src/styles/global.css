@@ -783,3 +783,16 @@ html[data-motion="full"] .ibox-collection-tile:is(:hover, :focus-visible) .ibox-
 html[data-motion="reduced"] :is(.ibox-shelf3d-spin, .ibox-shelf3d-hop, .ibox-shelf3d-wobble) {
   animation: none !important;
 }
+
+/* Collections en mode « Organiser » : léger balancement, comme des icônes qu'on déplace */
+.ibox-organize-wiggle {
+  animation: ibox-organize-wiggle 0.7s ease-in-out infinite;
+  animation-delay: var(--wiggle-delay, 0s);
+}
+@keyframes ibox-organize-wiggle {
+  0%, 100% { rotate: -0.8deg; }
+  50% { rotate: 0.8deg; }
+}
+html[data-motion="reduced"] .ibox-organize-wiggle {
+  animation: none;
+}

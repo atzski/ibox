@@ -502,9 +502,29 @@ function useShelfFx(rows: Game[][], reduced: boolean): ShelfFx | null {
   return fx;
 }
 
+/**
+ * Jeu tiré au hasard pour la case « Ma collection » : un nouveau à chaque arrivée sur
+ * l'accueil (la case est recréée), parmi les jeux qui ont une grande illustration.
+ */
+function useRandomHeroGame(games: Game[], active: boolean): Game | null {
+  const pool = useMemo(() => games.filter((g) => !g.isDemo && (g.media ?? []).some((m) => m.kind === "hero")), [games]);
+  const [id, setId] = useState<string | null>(null);
+  const ready = pool.length > 0;
+  useEffect(() => {
+    if (active && ready && !id) setId(pool[Math.floor(Math.random() * pool.length)].id);
+    // un tirage par affichage de l'accueil, dès que la bibliothèque est chargée
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, ready]);
+  return active ? (pool.find((g) => g.id === id) ?? null) : null;
+}
+
 function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => void }) {
   const reduced = useReducedMotion();
   const rows = useMarqueeRows(games);
+  // « au hasard » (ou jamais choisi) dans Paramètres › Fond de l'accueil
+  const homeSetting = useSettings((s) => s.homeBackground);
+  const featured = useRandomHeroGame(games, homeSetting === undefined || homeSetting?.type === "random");
+  const featuredArt = useMediaUrl(featured ?? undefined, "hero");
   const shown = useCountUp(games.length, reduced);
   const fx = useShelfFx(rows, reduced);
   return (
@@ -523,6 +543,26 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
         className="ibox-focusable ibox-lift ibox-bubble ibox-collection-tile group relative isolate flex h-[21rem] w-full overflow-hidden rounded-xl text-left shadow-md [--ring-radius:var(--radius-xl)]"
         style={{ background: "linear-gradient(150deg, var(--ibox-sky-soft) 0%, var(--ibox-lavender-soft) 60%, var(--ibox-peach-soft) 100%)" }}
       >
+        {/* visuel du jeu tiré au hasard, derrière l'étagère : net mais adouci, fondu en douceur */}
+        <AnimatePresence>
+          {featuredArt && (
+            <motion.img
+              key={featuredArt}
+              aria-hidden
+              src={featuredArt}
+              alt=""
+              draggable={false}
+              initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] blur-[3px] saturate-[1.1] ${reduced ? "" : "ibox-kenburns"}`}
+            />
+          )}
+        </AnimatePresence>
+        {featuredArt && (
+          <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ibox-white)_18%,transparent),color-mix(in_srgb,var(--ibox-white)_42%,transparent))]" />
+        )}
         <span aria-hidden className="ibox-collection-orbits" />
 
         {/* la bibliothèque rangée sur une étagère 3D vue de biais : les jaquettes, debout sur

@@ -143,6 +143,30 @@ pub fn collection_update(state: State<LibraryState>, id: i64, name: String, colo
     })
 }
 
+/// Nouvel ordre des collections (identifiants dans l'ordre voulu). Les identifiants inconnus
+/// sont ignorés ; les collections absentes de la liste passent après, dans leur ordre actuel.
+pub fn reorder_collections(conn: &mut Connection, ids: &[i64]) -> Result<()> {
+    let tx = conn.transaction()?;
+    let current: Vec<i64> = tx.prepare("SELECT id FROM collections ORDER BY position, id")?.query_map([], |r| r.get(0))?.collect::<std::result::Result<_, _>>()?;
+    let mut order: Vec<i64> = ids.iter().copied().filter(|id| current.contains(id)).collect();
+    order.dedup();
+    let rest: Vec<i64> = current.iter().copied().filter(|id| !order.contains(id)).collect();
+    order.extend(rest);
+    for (i, id) in order.iter().enumerate() {
+        tx.execute("UPDATE collections SET position = ?2 WHERE id = ?1", params![id, i as i64 + 1])?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn collections_reorder(state: State<LibraryState>, ids: Vec<i64>) -> Res<Vec<Collection>> {
+    state.with(|c| {
+        reorder_collections(c, &ids)?;
+        list_collections(c)
+    })
+}
+
 /// Supprime la collection (les jeux restent dans la bibliothèque).
 #[tauri::command]
 pub fn collection_delete(state: State<LibraryState>, id: i64) -> Res<Vec<Collection>> {
@@ -461,6 +485,20 @@ mod tests {
         assert_eq!(s.top_games[0], (1, 4200));
         assert_eq!(s.days.len(), 14);
         assert_eq!(s.days[13], ("2026-11-13".to_string(), 3600));
+    }
+
+    #[test]
+    fn collections_reordonnees() {
+        let mut conn = crate::db::open_in_memory().unwrap();
+        for (i, n) in ["Zelda", "Mario", "Lego"].iter().enumerate() {
+            conn.execute("INSERT INTO collections (name, color, position, created_at) VALUES (?1, '#ffffff', ?2, '2026')", params![n, i as i64 + 1]).unwrap();
+        }
+        let names = |c: &Connection| list_collections(c).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
+        reorder_collections(&mut conn, &[3, 1, 2]).unwrap();
+        assert_eq!(names(&conn), ["Lego", "Zelda", "Mario"]);
+        // identifiant inconnu ignoré, collection oubliée gardée à la fin
+        reorder_collections(&mut conn, &[2, 99]).unwrap();
+        assert_eq!(names(&conn), ["Mario", "Lego", "Zelda"]);
     }
 
     #[test]

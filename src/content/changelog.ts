@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.80",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "Un jeu à l’honneur dans votre collection", text: "La case « Ma collection » de l’accueil met en avant un de vos jeux, tiré au hasard à chaque retour : sa grande illustration s’affiche derrière l’étagère, et le fond de l’écran retrouve son ambiance habituelle." },
+      { icon: "grid", title: "Rangez vos collections", text: "Le bouton « Organiser » des collections de l’accueil permet de les remettre dans l’ordre de votre choix : glissez-les à la souris, ou déplacez-les avec les flèches au clavier et à la manette." },
+    ],
+  },
+  {
     version: "0.1.79",
     date: "2026-11-17",
     highlights: [
