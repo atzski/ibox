@@ -796,3 +796,23 @@ html[data-motion="reduced"] :is(.ibox-shelf3d-spin, .ibox-shelf3d-hop, .ibox-she
 html[data-motion="reduced"] .ibox-organize-wiggle {
   animation: none;
 }
+
+/* Accueil : tuile « iBox Platforms » aux couleurs d'iBox (dégradé qui glisse lentement) */
+.ibox-platforms-glow {
+  background: linear-gradient(135deg, #4fa8f0 0%, #7a6cf0 35%, #c06bd9 65%, #f39a7b 100%);
+  background-size: 220% 220%;
+  animation: ibox-platforms-glow 14s ease-in-out infinite alternate;
+}
+.ibox-platforms-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 45%);
+}
+@keyframes ibox-platforms-glow {
+  from { background-position: 0% 30%; }
+  to { background-position: 100% 70%; }
+}
+html[data-motion="reduced"] .ibox-platforms-glow {
+  animation: none;
+}

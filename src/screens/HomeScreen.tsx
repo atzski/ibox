@@ -17,6 +17,7 @@ import { themeVars } from "@/theme/platformTheme";
 import { useLauncher } from "@/services/launcher";
 import { usePlayState } from "@/components/library/PlayControls";
 import { CoverImage } from "@/components/game/CoverImage";
+import { getArtUrl } from "@/art/covers";
 import { useMediaUrl } from "@/art/useMediaUrl";
 import { GameCard } from "@/components/game/GameCard";
 import { PlatformCard } from "@/components/platform/PlatformCard";
@@ -141,14 +142,17 @@ export function HomeScreen() {
                   sound.play("select");
                   go({ name: "platforms" });
                 }}
-                className="ibox-focusable ibox-lift flex h-[11rem] w-[11rem] flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-ink/10 bg-white/60 text-ink-soft [--ring-radius:var(--radius-lg)]"
+                // aux couleurs d'iBox : dégradé vivant qui glisse lentement, reflet et icône en relief
+                className="ibox-focusable ibox-lift ibox-platforms-tile group relative isolate flex h-[11rem] w-[11rem] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg text-white shadow-md [--ring-radius:var(--radius-lg)]"
               >
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-white shadow-sm">
+                <span aria-hidden className="ibox-platforms-glow absolute inset-0 -z-10" />
+                <span aria-hidden className="absolute -top-8 -right-8 -z-10 size-28 rounded-full bg-white/20 blur-xl transition-transform duration-500 group-hover:scale-125" />
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/90 text-[#6a4fd9] shadow-[inset_0_-3px_0_rgba(0,0,0,0.08),0_8px_18px_-8px_rgba(30,20,80,0.6)] transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:-rotate-6 group-hover:scale-110">
                   <Icon name="grid" size="1.4em" />
                 </span>
-                <span className="flex flex-col items-center leading-tight">
+                <span className="flex flex-col items-center leading-tight drop-shadow-[0_2px_6px_rgba(30,20,80,0.35)]">
                   <span className="font-display text-[1.05rem] font-semibold">iBox Platforms</span>
-                  <span className="mt-0.5 text-[0.78rem] font-bold text-ink-faint">Découvrir les consoles</span>
+                  <span className="mt-0.5 text-[0.78rem] font-bold text-white/85">Découvrir les consoles</span>
                 </span>
               </button>
             </motion.div>
@@ -507,7 +511,12 @@ function useShelfFx(rows: Game[][], reduced: boolean): ShelfFx | null {
  * l'accueil (la case est recréée), parmi les jeux qui ont une grande illustration.
  */
 function useRandomHeroGame(games: Game[], active: boolean): Game | null {
-  const pool = useMemo(() => games.filter((g) => !g.isDemo && (g.media ?? []).some((m) => m.kind === "hero")), [games]);
+  // de préférence un jeu avec une grande illustration ; sinon n'importe lequel (sa jaquette servira)
+  const pool = useMemo(() => {
+    const real = games.filter((g) => !g.isDemo);
+    const heroes = real.filter((g) => (g.media ?? []).some((m) => m.kind === "hero"));
+    return heroes.length > 0 ? heroes : real;
+  }, [games]);
   const [id, setId] = useState<string | null>(null);
   const ready = pool.length > 0;
   useEffect(() => {
@@ -521,10 +530,19 @@ function useRandomHeroGame(games: Game[], active: boolean): Game | null {
 function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => void }) {
   const reduced = useReducedMotion();
   const rows = useMarqueeRows(games);
-  // « au hasard » (ou jamais choisi) dans Paramètres › Fond de l'accueil
-  const homeSetting = useSettings((s) => s.homeBackground);
-  const featured = useRandomHeroGame(games, homeSetting === undefined || homeSetting?.type === "random");
-  const featuredArt = useMediaUrl(featured ?? undefined, "hero");
+  // un jeu mis en avant à chaque arrivée sur l'accueil, quel que soit le fond d'écran choisi
+  const featured = useRandomHeroGame(games, true);
+  const featuredHero = useMediaUrl(featured ?? undefined, "hero");
+  // repli : la jaquette, si le jeu n'a pas (ou plus) de grande illustration lisible
+  const [featuredCover, setFeaturedCover] = useState<string | null>(null);
+  useEffect(() => {
+    setFeaturedCover(null);
+    if (!featured || (featured.media ?? []).some((m) => m.kind === "hero")) return;
+    let alive = true;
+    getArtUrl(featured, "front").then((u) => alive && setFeaturedCover(u)).catch(() => undefined);
+    return () => { alive = false; };
+  }, [featured]);
+  const featuredArt = featuredHero ?? featuredCover;
   const shown = useCountUp(games.length, reduced);
   const fx = useShelfFx(rows, reduced);
   return (
@@ -556,7 +574,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] blur-[3px] saturate-[1.1] ${reduced ? "" : "ibox-kenburns"}`}
+              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] saturate-[1.1] ${featuredHero ? "blur-[3px]" : "scale-125 blur-[18px]"} ${reduced ? "" : "ibox-kenburns"}`}
             />
           )}
         </AnimatePresence>

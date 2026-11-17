@@ -286,23 +286,52 @@ pub fn owned_games(key: &str, steamid: &str, free: bool) -> Result<Vec<OwnedGame
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
+    // Les serveurs de Steam renvoient parfois 500/502/503/504 (passerelle surchargée, maintenance
+    // du mardi) : trois essais espacés, puis une requête plus légère (sans les jeux gratuits).
+    let attempts: &[(bool, u64)] = if free { &[(true, 0), (true, 1500), (true, 4000), (false, 2000)] } else { &[(false, 0), (false, 1500), (false, 4000)] };
+    let mut last = String::new();
+    for &(with_free, wait_ms) in attempts {
+        if wait_ms > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(wait_ms));
+        }
+        match owned_once(&client, key, steamid, with_free) {
+            Ok(games) => return Ok(games),
+            Err(Attempt::Retry(msg)) => last = msg,
+            Err(Attempt::Fatal(msg)) => return Err(msg),
+        }
+    }
+    Err(last)
+}
+
+enum Attempt {
+    /// Erreur passagère des serveurs de Steam : on peut réessayer.
+    Retry(String),
+    Fatal(String),
+}
+
+fn owned_once(client: &reqwest::blocking::Client, key: &str, steamid: &str, free: bool) -> Result<Vec<OwnedGame>, Attempt> {
     let url = reqwest::Url::parse_with_params(
         "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/",
         &[("key", key), ("steamid", steamid), ("include_appinfo", "1"), ("include_played_free_games", if free { "1" } else { "0" }), ("format", "json")],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| Attempt::Fatal(e.to_string()))?;
     let res = client
         .get(url)
         .send()
-        .map_err(|_| "Steam ne répond pas : vérifiez la connexion Internet.".to_string())?;
+        .map_err(|_| Attempt::Retry("Steam ne répond pas : vérifiez la connexion Internet.".to_string()))?;
     match res.status().as_u16() {
         200 => {}
-        401 | 403 => return Err("Steam refuse cette clé API Web : vérifiez-la sur steamcommunity.com/dev/apikey.".into()),
-        429 => return Err("Steam limite les requêtes : réessayez dans quelques minutes.".into()),
-        s => return Err(format!("Steam a répondu une erreur ({s}).")),
+        401 | 403 => return Err(Attempt::Fatal("Steam refuse cette clé API Web : vérifiez-la sur steamcommunity.com/dev/apikey.".into())),
+        429 => return Err(Attempt::Fatal("Steam limite les requêtes : réessayez dans quelques minutes.".into())),
+        s @ 500..=599 => {
+            return Err(Attempt::Retry(format!(
+                "Les serveurs de Steam sont momentanément indisponibles (erreur {s}, de leur côté) : vos jeux installés sont à jour, les jeux possédés non installés seront lus à la prochaine actualisation."
+            )))
+        }
+        s => return Err(Attempt::Fatal(format!("Steam a répondu une erreur ({s})."))),
     }
-    let body: serde_json::Value = res.json().map_err(|_| "Réponse de Steam illisible.".to_string())?;
-    parse_owned(&body)
+    let body: serde_json::Value = res.json().map_err(|_| Attempt::Retry("Réponse de Steam illisible.".to_string()))?;
+    parse_owned(&body).map_err(Attempt::Fatal)
 }
 
 pub fn parse_owned(body: &serde_json::Value) -> Result<Vec<OwnedGame>, String> {

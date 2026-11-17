@@ -153,7 +153,7 @@ function GamesTab({ current, choose }: { current: HomeBackground | null; choose:
             </span>
             <span className="min-w-0">
               <span className="block font-display text-[1.1rem] font-semibold text-ink">Un de vos jeux, au hasard</span>
-              <span className="block text-[0.86rem] font-semibold text-ink-soft">Mis en avant dans la case « Ma collection », derrière l’étagère : un autre à chaque retour sur l’accueil{heroes.length > 0 ? ` (${heroes.length} illustrations)` : ""}.</span>
+              <span className="block text-[0.86rem] font-semibold text-ink-soft">Fond d’écran aux couleurs d’iBox ; la case « Ma collection » met en avant un autre de vos jeux à chaque retour sur l’accueil{heroes.length > 0 ? ` (${heroes.length} illustrations)` : ""}.</span>
             </span>
             {random && <span className="ml-auto grid size-6 shrink-0 place-items-center rounded-full bg-[var(--accent-deep)] text-white"><Icon name="check" size="0.85em" /></span>}
           </button>

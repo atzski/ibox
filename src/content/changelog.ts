@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.81",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Votre collection change de visage", text: "La case « Ma collection » met désormais toujours en avant un de vos jeux, différent à chaque retour sur l’accueil, quel que soit le fond choisi. Et la tuile « iBox Platforms » se pare de couleurs vivantes." },
+      { icon: "download", title: "Steam plus patient", text: "Quand les serveurs de Steam ont un raté (erreur 502, souvent pendant leur maintenance du mardi), iBox réessaie tout seul et vous explique la situation : vos jeux installés restent à jour, et les jeux possédés arrivent à l’actualisation suivante." },
+    ],
+  },
+  {
     version: "0.1.80",
     date: "2026-11-17",
     highlights: [
