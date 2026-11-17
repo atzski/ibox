@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Comments, ReactionBar } from "@/components/community/Reactions";
-import { MentionField, mentionIds, RichText, useFriendNames, type Picked } from "@/components/community/Mentions";
+import { MentionField, mentionIds, RichText, useKnownPeople, type Picked } from "@/components/community/Mentions";
+import { PlayerLink, type PlayerTarget } from "@/components/social/PlayerProfile";
 import { takePendingShare } from "@/services/links";
 import { useReducedMotion, useScreenChrome } from "@/app/shellState";
 import { Avatar } from "@/components/profile/Avatar";
@@ -111,7 +112,7 @@ function Feed({ onMine }: { onMine: () => void }) {
     window.addEventListener("ibox:community-share", onShare);
     return () => window.removeEventListener("ibox:community-share", onShare);
   }, []);
-  const names = useFriendNames();
+  const people = useKnownPeople(items?.map((it) => ({ id: it.authorId, name: it.authorName, avatar: it.avatar })) ?? []);
 
   if (!user) {
     return (
@@ -142,7 +143,7 @@ function Feed({ onMine }: { onMine: () => void }) {
         <Button icon="reset" onClick={load}>Actualiser</Button>
       </div>
       <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] gap-5" data-nav-group="community-feed">
-        {items.map((it, i) => <SharedCard key={it.id} item={it} index={i} names={names} onOpen={() => setOpenId(it.id)} onReact={(k) => react(it, k)} />)}
+        {items.map((it, i) => <SharedCard key={it.id} item={it} index={i} people={people} onOpen={() => setOpenId(it.id)} onReact={(k) => react(it, k)} />)}
       </div>
       {open && (
         <Viewer source={{ shared: open.id }} title={open.game ?? "Capture"} subtitle={`${open.authorName} · ${relativeDay(new Date(open.createdAt).toISOString())}`} caption={open.caption} onClose={() => setOpenId(null)}
@@ -161,11 +162,12 @@ function Feed({ onMine }: { onMine: () => void }) {
   );
 }
 
-function SharedCard({ item, index, names, onOpen, onReact }: { item: SharedCapture; index: number; names: string[]; onOpen: () => void; onReact: (key: ReactionKey | null) => void }) {
+function SharedCard({ item, index, people, onOpen, onReact }: { item: SharedCapture; index: number; people: PlayerTarget[]; onOpen: () => void; onReact: (key: ReactionKey | null) => void }) {
   // miniature légère quand le partage en a une (sinon l'image entière, une seule fois grâce au cache)
   const url = useCaptureUrl({ shared: item.id, thumb: !!item.hasThumb });
   const platform = item.platformId ? getPlatform(item.platformId) : undefined;
   const comments = item.commentCount ?? 0;
+  const author = { id: item.authorId, name: item.authorName, avatar: item.avatar };
   return (
     <motion.div
       initial={{ opacity: 0, y: 24, scale: 0.96 }}
@@ -185,16 +187,16 @@ function SharedCard({ item, index, names, onOpen, onReact }: { item: SharedCaptu
         {item.kind === "clip" && <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[0.7rem] font-extrabold text-white"><Icon name="play" size="0.8em" /> Clip</span>}
       </div>
       <div className="flex items-center gap-3 p-3">
-        <Avatar size={34} choice={item.avatar} name={item.authorName} />
+        <PlayerLink player={author} className="shrink-0"><Avatar size={34} choice={item.avatar} name={item.authorName} /></PlayerLink>
         <div className="min-w-0 flex-1">
-          <div data-no-i18n className="truncate text-[0.9rem] font-bold text-ink">{item.authorName}</div>
+          <div data-no-i18n className="truncate text-[0.9rem] font-bold text-ink"><PlayerLink player={author} className="!rounded-md hover:underline">{item.authorName}</PlayerLink></div>
           <div className="truncate text-[0.78rem] font-semibold text-ink-soft">
             <span data-no-i18n>{item.game ?? "iBox"}</span>{platform ? ` · ${platform.shortName}` : ""}
           </div>
         </div>
         <span className="shrink-0 text-[0.72rem] font-bold text-ink-soft">{relativeDay(new Date(item.createdAt).toISOString())}</span>
       </div>
-      {item.caption && <p data-no-i18n className="-mt-1 line-clamp-2 px-3 pb-2 text-[0.82rem] font-semibold text-ink"><RichText text={item.caption} names={names} /></p>}
+      {item.caption && <p data-no-i18n className="-mt-1 line-clamp-2 px-3 pb-2 text-[0.82rem] font-semibold text-ink"><RichText text={item.caption} people={people} /></p>}
       </button>
       <div className="mt-auto flex items-center gap-2 border-t border-ink/5 px-3 py-2.5">
         <div className="min-w-0 flex-1">
@@ -307,8 +309,8 @@ function LocalCard({ item, index, onOpen }: { item: LocalCapture; index: number;
 }
 
 function CaptionLine({ caption }: { caption: string }) {
-  const names = useFriendNames();
-  return <p data-no-i18n className="mt-3 text-[0.95rem] font-semibold text-ink"><RichText text={caption} names={names} /></p>;
+  const people = useKnownPeople();
+  return <p data-no-i18n className="mt-3 text-[0.95rem] font-semibold text-ink"><RichText text={caption} people={people} /></p>;
 }
 
 function Viewer({ source, title, subtitle, caption, onClose, children, after }: {

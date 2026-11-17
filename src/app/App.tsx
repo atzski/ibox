@@ -32,6 +32,7 @@ import { Backdrop } from "@/components/shell/Backdrop";
 import { TopBar } from "@/components/shell/TopBar";
 import { HintBar } from "@/components/shell/HintBar";
 import { CommandsHost } from "@/components/shell/QuickMenu";
+import { PlayerSheetHost } from "@/components/social/PlayerProfile";
 import { BackgroundJobs } from "@/components/library/MetaStatus";
 import { LaunchOverlay } from "@/components/library/LaunchOverlay";
 import { HomeScreen } from "@/screens/HomeScreen";
@@ -273,6 +274,7 @@ export function App() {
       <InetboxModal />
       <DuplicatesHost />
       <CommandsHost />
+      <PlayerSheetHost />
       <PlayerJoinedOverlay />
       <LaunchOverlay />
       <RemotePlayLayer />

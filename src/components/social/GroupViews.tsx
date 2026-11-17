@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
+import { RichText, useKnownPeople } from "@/components/community/Mentions";
+import { PlayerLink } from "@/components/social/PlayerProfile";
 import { Icon } from "@/components/ui/Icon";
 import { call, useInetbox, type InetFriend } from "@/services/inetbox";
 import { GROUP_MAX_MEMBERS, membersLabel, useGroups, type ChatGroup, type GroupMember, type GroupMessage } from "@/services/groups";
@@ -181,6 +183,7 @@ export function GroupChatView({ group, onLeft }: { group: ChatGroup; onLeft: () 
   const selfId = useInetbox((s) => s.user?.id);
   const markRead = useGroups((s) => s.markRead);
   const [items, setItems] = useState<Pending[] | null>(null);
+  const people = useKnownPeople(group.members.map((x) => ({ id: x.id, name: x.displayName, avatar: x.avatar ?? null })));
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [typing, setTyping] = useState<string[]>([]);
@@ -304,22 +307,26 @@ export function GroupChatView({ group, onLeft }: { group: ChatGroup; onLeft: () 
                 className={`flex gap-2 ${m.mine ? "justify-end" : "justify-start"}`}
               >
                 {!m.mine && (
-                  <span className="w-7 shrink-0 self-end">{showName && <Avatar size={28} choice={author?.avatar ?? null} name={m.displayName ?? "?"} />}</span>
+                  <span className="w-7 shrink-0 self-end">{showName && <PlayerLink player={m.displayName && m.fromId ? { id: m.fromId, name: m.displayName, avatar: author?.avatar ?? null } : null}><Avatar size={28} choice={author?.avatar ?? null} name={m.displayName ?? "?"} /></PlayerLink>}</span>
                 )}
                 <div className={`flex max-w-[78%] flex-col ${m.mine ? "items-end" : "items-start"}`}>
-                  {showName && <span className="mb-0.5 ml-1 text-[0.72rem] font-extrabold text-ink-soft">{m.displayName ?? "Ancien membre"}</span>}
-                  <button
-                    type="button"
-                    tabIndex={m.failed ? 0 : -1}
-                    disabled={!m.failed}
-                    onClick={() => {
-                      if (m.failed) void send(m);
-                    }}
-                    title={m.failed ? "Envoi impossible : touchez pour réessayer" : new Date(m.createdAt).toLocaleString()}
-                    className={`rounded-[1.2rem] px-3.5 py-2 text-left text-[0.92rem] font-semibold break-words whitespace-pre-wrap ${m.mine ? "rounded-br-md bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white" : "rounded-bl-md bg-cream-deep text-ink"} ${m.pending ? "opacity-60" : ""} ${m.failed ? "ring-2 ring-peach-deep" : ""}`}
+                  {showName && <span className="mb-0.5 ml-1 text-[0.72rem] font-extrabold text-ink-soft">{m.displayName && m.fromId ? <PlayerLink player={{ id: m.fromId, name: m.displayName, avatar: author?.avatar ?? null }} className="!rounded-md hover:underline">{m.displayName}</PlayerLink> : "Ancien membre"}</span>}
+                  {m.failed ? (
+                    <button
+                      type="button"
+                      onClick={() => void send(m)}
+                      title="Envoi impossible : touchez pour réessayer"
+                      className={`rounded-[1.2rem] px-3.5 py-2 text-left text-[0.92rem] font-semibold break-words whitespace-pre-wrap ${m.mine ? "rounded-br-md bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white" : "rounded-bl-md bg-cream-deep text-ink"} ${m.pending ? "opacity-60" : ""} ${m.failed ? "ring-2 ring-peach-deep" : ""}`}
+                  
+                    >
+                      {m.body}
+                    </button>
+                  ) : (
+                    <div title={new Date(m.createdAt).toLocaleString()} className={`rounded-[1.2rem] px-3.5 py-2 text-left text-[0.92rem] font-semibold break-words whitespace-pre-wrap ${m.mine ? "rounded-br-md bg-[linear-gradient(135deg,#88CBF5,#B5A0E9)] text-white" : "rounded-bl-md bg-cream-deep text-ink"} ${m.pending ? "opacity-60" : ""} ${m.failed ? "ring-2 ring-peach-deep" : ""}`}
                   >
-                    {m.body}
-                  </button>
+                      <RichText text={m.body} people={people} />
+                    </div>
+                  )}
                   {m.failed && <span className="mt-0.5 text-[0.7rem] font-bold text-peach-deep">Non envoyé · touchez pour réessayer</span>}
                 </div>
               </motion.div>
@@ -436,9 +443,11 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
       <ul className="mt-3 space-y-1">
         {group.members.map((m) => (
           <li key={m.id} className="flex items-center gap-2.5 px-1 py-1">
-            <Avatar size={30} choice={m.avatar ?? null} name={m.displayName} />
+            <PlayerLink player={{ id: m.id, name: m.displayName, avatar: m.avatar ?? null }} className="shrink-0">
+              <Avatar size={30} choice={m.avatar ?? null} name={m.displayName} />
+            </PlayerLink>
             <span data-no-i18n className="min-w-0 flex-1 truncate text-[0.88rem] font-bold text-ink">
-              {m.displayName}
+              <PlayerLink player={{ id: m.id, name: m.displayName, avatar: m.avatar ?? null }} className="!rounded-md hover:underline">{m.displayName}</PlayerLink>
             </span>
             {m.id === selfId && <span className="text-[0.72rem] font-bold text-ink-faint">Vous</span>}
             {m.id === group.createdBy && m.id !== selfId && <span className="text-[0.72rem] font-bold text-ink-faint">Créateur</span>}

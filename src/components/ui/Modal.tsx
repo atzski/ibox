@@ -18,6 +18,7 @@ export function Modal({
   onClose,
   children,
   width = "36rem",
+  layer,
 }: {
   title: string;
   subtitle?: string;
@@ -25,6 +26,8 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
   width?: string;
+  /** Au-dessus d'un panneau déjà ouvert (ex. le panneau Social, z-70). */
+  layer?: number;
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -52,6 +55,7 @@ export function Modal({
       aria-label={title}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      style={layer ? { zIndex: layer } : undefined}
       className="fixed inset-0 z-50 grid place-items-center bg-[color-mix(in_oklab,var(--ibox-ink)_22%,transparent)] p-8 backdrop-blur-[3px]"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) onClose();

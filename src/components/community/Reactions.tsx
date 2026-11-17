@@ -7,7 +7,8 @@ import { community, QUICK_COMMENTS, REACTIONS, type ReactionKey, type ReactionSu
 import { sound } from "@/services/sound";
 import { useSettings } from "@/services/settings";
 import { tr } from "@/i18n";
-import { MentionField, mentionIds, RichText, useFriendNames, type Picked } from "./Mentions";
+import { MentionField, mentionIds, RichText, useKnownPeople, type Picked } from "./Mentions";
+import { PlayerLink } from "@/components/social/PlayerProfile";
 
 /**
  * Réactions d'un partage. `compact` (carte du fil) : seulement les réactions reçues
@@ -82,7 +83,7 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lang = useSettings((s) => s.language ?? "fr");
-  const names = useFriendNames();
+  const people = useKnownPeople(items?.map((c) => ({ id: c.authorId, name: c.authorName, avatar: c.avatar })) ?? []);
 
   const load = useCallback((focus?: string) => {
     community.comments(shareId).then((list) => {
@@ -155,7 +156,9 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
       transition={{ type: "spring", stiffness: 380, damping: 30 }}
       className={`group flex items-start gap-2.5 ${isReply ? "ml-10" : ""}`}
     >
-      <Avatar size={isReply ? 26 : 30} choice={c.avatar} name={c.authorName} />
+      <PlayerLink player={{ id: c.authorId, name: c.authorName, avatar: c.avatar }} className="shrink-0">
+        <Avatar size={isReply ? 26 : 30} choice={c.avatar} name={c.authorName} />
+      </PlayerLink>
       <div className="min-w-0 flex-1">
         <motion.div
           animate={fresh === c.id ? { boxShadow: ["0 0 0 0 rgba(74,91,234,0.45)", "0 0 0 8px rgba(74,91,234,0)"] } : undefined}
@@ -163,11 +166,11 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
           className={`inline-block max-w-full rounded-[1.1rem] px-3.5 py-2 ${c.mine ? "bg-sky-soft" : "bg-white"} ${isReply ? "rounded-tl-md" : ""}`}
         >
           <div className="flex items-baseline gap-2 text-[0.72rem] font-bold text-ink-soft">
-            <span data-no-i18n className="text-ink">{c.authorName}</span>
+            <PlayerLink player={{ id: c.authorId, name: c.authorName, avatar: c.avatar }} className="!rounded-md hover:underline"><span data-no-i18n className="text-ink">{c.authorName}</span></PlayerLink>
             <span>{relativeDay(new Date(c.createdAt).toISOString())}</span>
           </div>
           <p data-no-i18n className="text-[0.9rem] font-semibold break-words whitespace-pre-wrap text-ink">
-            <RichText text={c.body} names={names} />
+            <RichText text={c.body} people={people} />
           </p>
         </motion.div>
         <div className="mt-0.5 flex items-center gap-1 pl-2">

@@ -65,7 +65,7 @@ const actionDelay: Partial<Record<Action, number>> = {
   invite: 3500, gameInvite: 6500,
 };
 const reads = new Map<string, Promise<unknown>>();
-const sharedReads = new Set(["activity", "snapshot", "conversation", "friendProfile", "commonGames", "owners"]);
+const sharedReads = new Set(["activity", "snapshot", "conversation", "friendProfile", "player", "commonGames", "owners"]);
 let nextMessage = 0;
 
 function failure(e: unknown): InetError {

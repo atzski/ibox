@@ -2,6 +2,7 @@ import { forwardRef, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
 import { useInetbox, type InetFriend } from "@/services/inetbox";
+import { PlayerLink, type PlayerTarget } from "@/components/social/PlayerProfile";
 
 /**
  * Mentions « @ami » de la Communauté. Taper « @ » propose ses amis ; un ami choisi est inséré
@@ -21,28 +22,34 @@ export function mentionQuery(text: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Texte avec les « @Nom » mis en valeur. */
-export function RichText({ text, names }: { text: string; names?: string[] }): ReactNode {
-  // les noms connus (amis) d'abord, sinon « @mot »
-  const known = (names ?? []).filter(Boolean).sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+/** Texte avec les « @Nom » mis en valeur ; un nom reconnu ouvre la fiche du joueur. */
+export function RichText({ text, people }: { text: string; people?: PlayerTarget[] }): ReactNode {
+  // les noms connus (amis, auteurs) d'abord, sinon « @mot »
+  const byName = new Map((people ?? []).filter((p) => p.name).map((p) => [p.name.toLocaleLowerCase(), p]));
+  const known = [...byName.values()].map((p) => p.name).sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const re = new RegExp(`(@(?:${known.length ? `${known.join("|")}|` : ""}[^\\s@]{1,40}))`, "gu");
   const parts = text.split(re);
-  return parts.map((p, i) =>
-    i % 2 === 1 ? (
-      <span key={i} className="rounded-md bg-[#4A5BEA]/12 px-1 font-extrabold text-[#3A48C9]">
-        {p}
-      </span>
-    ) : (
-      p
-    ),
-  );
+  return parts.map((p, i) => {
+    if (i % 2 === 0) return p;
+    const chip = <span className="rounded-md bg-[#4A5BEA]/12 px-1 font-extrabold text-[#3A48C9]">{p}</span>;
+    const who = byName.get(p.slice(1).toLocaleLowerCase());
+    return who ? <PlayerLink key={i} player={who} className="!rounded-md">{chip}</PlayerLink> : <span key={i}>{chip}</span>;
+  });
 }
 
-/** Noms des amis, pour reconnaître les « @Nom » composés de plusieurs mots. */
-export function useFriendNames(): string[] {
+/** Personnes connues (amis, soi-même, et `extra` : auteurs visibles), pour relier les « @Nom ». */
+export function useKnownPeople(extra: PlayerTarget[] = []): PlayerTarget[] {
   const friends = useInetbox((s) => s.friends);
-  const me = useInetbox((s) => s.user?.displayName);
-  return useMemo(() => [...friends.map((f) => f.displayName), ...(me ? [me] : [])], [friends, me]);
+  const me = useInetbox((s) => s.user);
+  const key = extra.map((p) => p.id).join(",");
+  return useMemo(() => {
+    const all = new Map<string, PlayerTarget>();
+    for (const p of extra) if (p.id) all.set(p.id, p);
+    for (const f of friends) all.set(f.id, { id: f.id, name: f.displayName, avatar: f.avatar ?? null });
+    if (me) all.set(me.id, { id: me.id, name: me.displayName, avatar: me.avatar ?? null });
+    return [...all.values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends, me, key]);
 }
 
 /**

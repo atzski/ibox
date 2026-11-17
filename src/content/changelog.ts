@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.69",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "user", title: "Profils en un clic", text: "Dans un groupe, sur une publication ou un commentaire de la Communauté, cliquez sur une photo de profil, un pseudo ou un « @pseudo » pour ouvrir le profil du joueur, même s’il n’est pas votre ami." },
+      { icon: "sparkle", title: "Ajouter en ami directement", text: "Un profil public montre sa bannière, sa bio, ses jeux favoris et son succès mis en avant, avec un bouton « Ajouter en ami » : plus besoin de code-ami. Un profil privé garde tout pour ses amis et n’affiche que « Profil privé »." },
+    ],
+  },
+  {
     version: "0.1.68",
     date: "2026-11-17",
     highlights: [

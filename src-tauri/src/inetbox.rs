@@ -131,7 +131,7 @@ fn set_user(user: Value) -> Result<Value> {
 }
 fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
     let id = id.unwrap_or("");
-    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "commonGames" | "conversation" | "typing" | "deleteShare" | "react" | "unreact" | "comments" | "comment" | "deleteComment" | "renameGroup" | "addGroupMembers" | "leaveGroup" | "groupConversation" | "sendGroupMessage" | "groupTyping") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
+    if matches!(action, "accept" | "remove" | "block" | "unblock" | "dismissInvite" | "favorite" | "unfavorite" | "friendProfile" | "player" | "commonGames" | "conversation" | "typing" | "deleteShare" | "react" | "unreact" | "comments" | "comment" | "deleteComment" | "renameGroup" | "addGroupMembers" | "leaveGroup" | "groupConversation" | "sendGroupMessage" | "groupTyping") && (id.len() != 36 || !id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')) {
         return Err(err("INVALID_INPUT", "Identifiant invalide."));
     }
     Ok(match action {
@@ -149,6 +149,8 @@ fn route(action: &str, id: Option<&str>) -> Result<(Method, String)> {
         "unfavorite" => (Method::DELETE, format!("/v1/friends/{id}/favorite")),
         "friendProfile" => (Method::GET, format!("/v1/friends/{id}/profile")),
         "commonGames" => (Method::GET, format!("/v1/friends/{id}/common-games")),
+        // fiche d'un joueur croisé dans un groupe ou la Communauté
+        "player" => (Method::GET, format!("/v1/players/{id}")),
         "conversation" => (Method::GET, format!("/v1/messages/{id}")),
         "sendMessage" => (Method::POST, "/v1/messages".into()),
         "typing" => (Method::POST, format!("/v1/messages/{id}/typing")),
@@ -451,6 +453,8 @@ mod tests {
         assert_eq!(route("block", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/blocks/550e8400-e29b-41d4-a716-446655440000");
         assert_eq!(route("dismissInvite", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/game-invites/550e8400-e29b-41d4-a716-446655440000");
         assert!(route("dismissInvite", Some("../x")).is_err());
+        assert!(route("player", Some("../../v1/me")).is_err());
+        assert_eq!(route("player", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/players/550e8400-e29b-41d4-a716-446655440000");
         assert!(route("comment", Some("../../v1/me")).is_err());
         assert_eq!(route("deleteComment", Some("550e8400-e29b-41d4-a716-446655440000")).unwrap().1, "/v1/comments/550e8400-e29b-41d4-a716-446655440000");
     }
