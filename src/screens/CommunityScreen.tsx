@@ -29,6 +29,7 @@ export function CommunityScreen() {
     hints: [
       { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
       { keys: ["Entrée"], label: "Ouvrir" },
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });

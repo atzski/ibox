@@ -189,6 +189,7 @@ export function InspectViewer(props: ViewerProps) {
     const onAnalog = (e: Event) => {
       const { x, y } = (e as CustomEvent<{ x: number; y: number }>).detail;
       controller.nudge(x * 0.05, y * 0.03);
+      e.preventDefault();
     };
     const onZoom = (e: Event) => controller.zoomBy(1 - (e as CustomEvent<{ value: number }>).detail.value * 0.015);
     window.addEventListener("ibox:analog", onAnalog);

@@ -111,7 +111,11 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
             { keys: ["F"], label: "Retourner" },
             { keys: ["X"], label: "Jouer" },
           ]
-        : []),
+        : [
+            { keys: ["X"], label: "Jouer" },
+            { keys: ["F"], label: "Favori" },
+          ]),
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Entrée"], label: "Ouvrir" },
       { keys: ["Échap"], label: "Retour" },
     ],

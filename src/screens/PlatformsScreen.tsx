@@ -42,6 +42,7 @@ export function PlatformsScreen() {
     hints: [
       { keys: ["←", "→"], label: "Parcourir (ou molette)" },
       { keys: ["Entrée"], label: "Découvrir" },
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });

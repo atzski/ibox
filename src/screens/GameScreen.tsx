@@ -20,6 +20,7 @@ import { mixHex } from "@/art/paint";
 import { useArtPalette } from "@/art/usePalette";
 import { metadataApi } from "@/services/metadata";
 import { useNav } from "@/app/navigation";
+import { useGameSiblings } from "./gameSiblings";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { Button, Segmented } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -38,6 +39,7 @@ import type { Game } from "@/domain/types";
 
 export function GameScreen({ gameId }: { gameId: string }) {
   const game = useGame(gameId);
+  useGameSiblings(game);
   if (!game) {
     return (
       <EmptyState icon={<Icon name="disc" size="3rem" />} title="Jeu introuvable" body="Ce jeu ne fait plus partie de la collection." />
@@ -106,11 +108,13 @@ function GameSheet({ game }: { game: Game }) {
       ? [
           { keys: ["←", "→"], label: "Pivoter" },
           { keys: ["Entrée"], label: open ? "Fermer" : "Ouvrir" },
+          { keys: ["Q", "E"], label: "Jeu préc. / suiv." },
           { keys: ["Échap"], label: backLabel },
         ]
       : [
           { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
           { keys: ["Entrée"], label: "Valider" },
+          { keys: ["Q", "E"], label: "Jeu préc. / suiv." },
           { keys: ["Échap"], label: backLabel },
         ],
   });

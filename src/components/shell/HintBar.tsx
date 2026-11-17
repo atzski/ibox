@@ -1,47 +1,72 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useShell, type Hint } from "@/app/shellState";
-import { padLabels, useGamepad } from "@/input/gamepad";
+import { useGamepad } from "@/input/gamepad";
 import { useSettings } from "@/services/settings";
+import { PadGlyph, type PadKey } from "./PadGlyph";
 
-/** Traduit les touches clavier en boutons de la manette active. */
-function forGamepad(hints: Hint[], labels: ReturnType<typeof padLabels>): Hint[] {
-  const map: Record<string, string> = { Entrée: labels.confirm, "Échap": labels.back, Q: labels.tabPrev, E: labels.tabNext, X: labels.quick };
-  return hints.map((h) => {
-    const keys = h.keys.map((k) => (["↑", "↓", "←", "→"].includes(k) ? labels.dpad : (map[k] ?? k)));
-    return { ...h, keys: keys.filter((k, i) => keys.indexOf(k) === i) };
-  });
+/** Touche clavier (telle qu'écrite dans les indications) → bouton de la manette. */
+const PAD_OF: Record<string, PadKey> = {
+  Entrée: "confirm",
+  "Échap": "back",
+  Q: "lb",
+  E: "rb",
+  X: "west",
+  F: "north",
+  "Pg↑": "lt",
+  "Pg↓": "rt",
+  "Début": "l3",
+  Fin: "r3",
+  F1: "start",
+  "/": "select",
+};
+
+const ARROWS = ["↑", "↓", "←", "→"];
+
+/** Boutons de manette d'une indication (la croix remplace les flèches). */
+export function padKeysOf(keys: string[]): PadKey[] {
+  const v = keys.some((k) => k === "↑" || k === "↓");
+  const h = keys.some((k) => k === "←" || k === "→");
+  const out: PadKey[] = [];
+  for (const k of keys) {
+    const pad: PadKey | undefined = ARROWS.includes(k) ? (v && h ? "dpad" : v ? "dpadV" : "dpadH") : PAD_OF[k];
+    if (pad && !out.includes(pad)) out.push(pad);
+  }
+  return out;
 }
 
 /**
  * Barre d'indications de commandes (en bas à droite), comme sur une console.
- * Les touches du clavier sont remplacées par les boutons de la manette
- * dès qu'elle est utilisée (et reviennent au premier mouvement de souris).
+ * Les touches du clavier sont remplacées par les vrais boutons de la manette
+ * (couleurs et symboles de sa famille) dès qu'elle est utilisée, et reviennent
+ * au premier mouvement de souris. À la manette, Start (menu rapide) est rappelé.
  */
 export function HintBar() {
   const raw = useShell((s) => s.hints);
   const { active, family } = useGamepad();
   const side = useSettings((s) => s.gamepadConfirm);
-  const hints = active ? forGamepad(raw, padLabels(family, side)) : raw;
+  const hints: Hint[] = active ? [{ keys: ["F1"], label: "Menu" }, ...raw] : raw;
   return (
     <footer className="pointer-events-none relative z-20 flex h-[3.25rem] shrink-0 items-center justify-end gap-6 px-[3rem]">
       <AnimatePresence mode="popLayout" initial={false}>
         {hints.map((h) => (
           <motion.div
-            key={h.label + h.keys.join()}
+            key={h.label + h.keys.join() + (active ? family : "")}
             layout
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             className="flex items-center gap-2 text-[0.82rem] font-bold text-ink-soft"
           >
-            {h.keys.map((k) => (
-              <kbd
-                key={k}
-                className="inline-grid h-7 min-w-7 place-items-center rounded-lg bg-white px-2 font-body text-[0.75rem] font-extrabold text-ink shadow-[0_2px_0_rgba(52,68,89,0.12)]"
-              >
-                {k}
-              </kbd>
-            ))}
+            {active
+              ? padKeysOf(h.keys).map((k) => <PadGlyph key={k} k={k} family={family} side={side} />)
+              : h.keys.map((k) => (
+                  <kbd
+                    key={k}
+                    className="inline-grid h-7 min-w-7 place-items-center rounded-lg bg-white px-2 font-body text-[0.75rem] font-extrabold text-ink shadow-[0_2px_0_rgba(52,68,89,0.12)]"
+                  >
+                    {k}
+                  </kbd>
+                ))}
             <span>{h.label}</span>
           </motion.div>
         ))}

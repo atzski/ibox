@@ -58,6 +58,7 @@ function Sheet({ info }: { info: ConsoleInfo }) {
     hints: [
       { keys: ["↑", "↓"], label: "Parcourir la fiche" },
       { keys: ["Entrée"], label: "Valider" },
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });

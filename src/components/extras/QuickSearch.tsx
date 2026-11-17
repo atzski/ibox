@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNav } from "@/app/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -9,7 +9,7 @@ import { useCollections } from "@/services/extras";
 
 export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; onClose: () => void; onCollection: (id: number) => void }) {
   const [query, setQuery] = useState("");
-  const [keyboard, setKeyboard] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const go = useNav((s) => s.go);
   const { list, load } = useCollections();
   useEffect(() => void load().catch(() => undefined), [load]);
@@ -24,24 +24,12 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
   ];
   return (
     <Modal title="Recherche rapide" width="38rem" onClose={onClose}>
-      <input data-focusable data-autofocus aria-label="Rechercher un jeu, une console ou une collection"
+      <input ref={field} data-focusable data-autofocus aria-label="Rechercher un jeu, une console ou une collection"
         className="ibox-focusable mb-4 w-full rounded-full bg-cream-deep px-5 py-3 text-ink"
         placeholder="Jeu, console ou collection" value={query} onChange={(event) => setQuery(event.target.value)} />
-      <button data-focusable aria-expanded={keyboard} onClick={() => setKeyboard(!keyboard)}
+      {/* le clavier virtuel commun (celui de la manette) écrit directement dans le champ */}
+      <button data-focusable onClick={() => field.current && window.dispatchEvent(new CustomEvent("ibox:pad-keyboard", { detail: field.current }))}
         className="ibox-focusable mb-3 rounded-full bg-cream-deep px-4 py-1.5 text-sm font-bold text-ink">Clavier à l’écran</button>
-      {keyboard && <div className="mb-4 grid gap-1 rounded-2xl bg-cream-deep p-2">
-        {["AZERTYUIOP", "QSDFGHJKLM", "WXCVBN", "1234567890"].map((row) => (
-          <div key={row} className="grid grid-cols-10 gap-1">
-            {[...row].map((key) => <button key={key} data-focusable data-no-i18n
-              className="ibox-focusable rounded-lg bg-white py-1.5 font-bold text-ink"
-              onClick={() => setQuery((value) => value + key)}>{key}</button>)}
-          </div>
-        ))}
-        <div className="flex gap-1">
-          <button data-focusable className="ibox-focusable flex-1 rounded-lg bg-white py-1.5" onClick={() => setQuery((value) => value + " ")}>Espace</button>
-          <button data-focusable className="ibox-focusable rounded-lg bg-white px-3 py-1.5" onClick={() => setQuery((value) => value.slice(0, -1))}>Effacer</button>
-        </div>
-      </div>}
       {/* taille fixe : la fenêtre ne change pas de hauteur pendant la saisie */}
       <div className="h-[48vh] overflow-y-auto pr-1">
       {sections.every(({ items }) => !items.length) && <p className="text-ink-soft">Aucun résultat.</p>}

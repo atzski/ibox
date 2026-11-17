@@ -15,11 +15,20 @@ import { useSettings } from "@/services/settings";
 export type PadFamily = "xbox" | "playstation" | "nintendo" | "generic";
 export type ConfirmSide = "auto" | "south" | "east";
 
-/** `flip` (Y / △) et `quick` (X / □) : actions de l'étagère 3D (retourner le boîtier, lancer). */
-export type PadAction = "up" | "down" | "left" | "right" | "confirm" | "back" | "tabPrev" | "tabNext" | "flip" | "quick";
+/**
+ * Actions de la manette, identiques partout dans iBox :
+ *  - `flip` (Y / △) : option du contexte (retourner le boîtier, favori…) ;
+ *  - `quick` (X / □) : action rapide (jouer, recherche sur l'accueil) ;
+ *  - `pagePrev` / `pageNext` (gâchettes) : défilement rapide, page par page ;
+ *  - `first` / `last` (clic des sticks) : début / fin de la liste ;
+ *  - `menu` (Start) : menu rapide ; `search` (Select) : recherche ; `home` (bouton central) : accueil.
+ */
+export type PadAction =
+  | "up" | "down" | "left" | "right" | "confirm" | "back" | "tabPrev" | "tabNext" | "flip" | "quick"
+  | "pagePrev" | "pageNext" | "first" | "last" | "menu" | "search" | "home";
 
 /** Index de la disposition standard (W3C Gamepad, « standard mapping »). */
-const B = { south: 0, east: 1, west: 2, north: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, start: 9, up: 12, down: 13, left: 14, right: 15 } as const;
+const B = { south: 0, east: 1, west: 2, north: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, start: 9, l3: 10, r3: 11, up: 12, down: 13, left: 14, right: 15, guide: 16 } as const;
 
 export function detectFamily(id: string): PadFamily {
   const s = id.toLowerCase();
@@ -58,11 +67,28 @@ export function padLabels(family: PadFamily, side: ConfirmSide) {
 export interface PadState {
   buttons: boolean[];
   axes: number[];
+  /** Valeurs analogiques des boutons (gâchettes) ; à défaut, `buttons`. */
+  values?: number[];
 }
 
 const DEADZONE = 0.55;
+const TRIGGER = 0.5;
 const REPEAT_DELAY = 380;
 const REPEAT_RATE = 110;
+/** Maintenue longtemps, une direction accélère : les longues listes défilent vite. */
+const FAST_AFTER = 1300;
+const FAST_RATE = 45;
+/** Gâchettes maintenues : une page toutes les… */
+const PAGE_RATE = 170;
+
+const DIRECTIONS = new Set<PadAction>(["up", "down", "left", "right"]);
+
+/** Cadence de répétition d'une action maintenue depuis `heldFor` ms (0 = pas de répétition). */
+export function repeatRate(action: PadAction, heldFor: number): number {
+  if (DIRECTIONS.has(action)) return heldFor >= FAST_AFTER ? FAST_RATE : REPEAT_RATE;
+  if (action === "pagePrev" || action === "pageNext") return PAGE_RATE;
+  return 0;
+}
 
 /**
  * Traduit l'état d'une manette en actions, avec répétition des directions
@@ -87,16 +113,23 @@ export class PadProcessor {
       tabNext: b(B.rb),
       flip: b(B.north),
       quick: b(B.west),
+      pagePrev: (state.values?.[B.lt] ?? (b(B.lt) ? 1 : 0)) > TRIGGER,
+      pageNext: (state.values?.[B.rt] ?? (b(B.rt) ? 1 : 0)) > TRIGGER,
+      first: b(B.l3),
+      last: b(B.r3),
+      menu: b(B.start),
+      search: b(B.select),
+      home: b(B.guide),
     };
     const out: PadAction[] = [];
     for (const [name, down] of Object.entries(pressed) as [PadAction, boolean][]) {
       const was = this.prev[name];
-      const repeatable = name === "up" || name === "down" || name === "left" || name === "right";
+      const rate = down && was ? repeatRate(name, now - this.held[name]) : 0;
       if (down && !was) {
         out.push(name);
         this.held[name] = now;
         this.lastRepeat[name] = now;
-      } else if (down && repeatable && now - this.held[name] >= REPEAT_DELAY && now - this.lastRepeat[name] >= REPEAT_RATE) {
+      } else if (down && rate && now - this.held[name] >= REPEAT_DELAY && now - this.lastRepeat[name] >= rate) {
         out.push(name);
         this.lastRepeat[name] = now;
       }
@@ -179,7 +212,28 @@ const KEYS: Record<PadAction, string> = {
   tabNext: "e",
   flip: "f",
   quick: "x",
+  pagePrev: "PageUp",
+  pageNext: "PageDown",
+  first: "Home",
+  last: "End",
+  menu: "F1",
+  search: "/",
+  home: "BrowserHome",
 };
+
+/** Champ de saisie de texte (le clavier virtuel s'ouvre dessus à la manette). */
+export function isTextField(el: Element | null): el is HTMLInputElement | HTMLTextAreaElement {
+  if (el instanceof HTMLTextAreaElement) return !el.readOnly && !el.disabled;
+  if (!(el instanceof HTMLInputElement) || el.readOnly || el.disabled) return false;
+  return ["text", "search", "email", "url", "tel", "number", ""].includes(el.type);
+}
+
+/** Change la valeur d'un champ comme le ferait l'utilisateur (React voit l'événement). */
+export function setFieldValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): void {
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(el, value);
+  el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+}
 
 function perform(action: PadAction): void {
   const target = (document.activeElement as HTMLElement | null) ?? document.body;
@@ -188,11 +242,54 @@ function perform(action: PadAction): void {
     target.click();
     return;
   }
-  if (action === "confirm" && target instanceof HTMLInputElement) {
-    target.focus();
+  // champ de texte : clavier virtuel ; case à cocher : bascule ; liste et curseur : ← → changent la valeur
+  if (action === "confirm" && isTextField(target)) {
+    window.dispatchEvent(new CustomEvent("ibox:pad-keyboard", { detail: target }));
+    return;
+  }
+  if (action === "confirm" && target instanceof HTMLInputElement && (target.type === "checkbox" || target.type === "radio")) {
+    target.click();
+    return;
+  }
+  if (target instanceof HTMLSelectElement && (action === "left" || action === "right" || action === "confirm")) {
+    const n = target.options.length;
+    if (n) {
+      const i = (target.selectedIndex + (action === "left" ? -1 : 1) + n) % n;
+      setFieldValue(target, target.options[i].value);
+    }
+    return;
+  }
+  if (target instanceof HTMLInputElement && target.type === "range" && (action === "left" || action === "right")) {
+    const step = Number(target.step) || 1;
+    const value = Math.min(Number(target.max || 100), Math.max(Number(target.min || 0), Number(target.value) + (action === "left" ? -step : step)));
+    setFieldValue(target, String(value));
     return;
   }
   target.dispatchEvent(new KeyboardEvent("keydown", { key: KEYS[action], bubbles: true, cancelable: true }));
+}
+
+/** Conteneur qui défile autour de l'élément actif (sinon le premier grand conteneur de l'écran). */
+export function scrollerOf(el: Element | null): HTMLElement | null {
+  const scrolls = (n: HTMLElement) => /(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight + 4;
+  for (let node = el instanceof HTMLElement ? el : null; node && node !== document.body; node = node.parentElement) {
+    if (scrolls(node)) return node;
+  }
+  const roots = document.querySelectorAll<HTMLElement>("[data-nav-root]");
+  const root = roots[roots.length - 1];
+  if (!root) return null;
+  return Array.from(root.querySelectorAll<HTMLElement>("div, section, main")).find((n) => n.clientHeight > 200 && scrolls(n)) ?? null;
+}
+
+let stickScroller: { el: HTMLElement | null; at: number } = { el: null, at: 0 };
+/** Stick droit : défilement doux, plus rapide en poussant à fond. */
+function scrollWithStick(ry: number): void {
+  const now = performance.now();
+  if (now - stickScroller.at > 400 || !stickScroller.el?.isConnected) stickScroller.el = scrollerOf(document.activeElement);
+  stickScroller.at = now;
+  const el = stickScroller.el;
+  if (!el) return;
+  const strength = (Math.abs(ry) - 0.2) / 0.8;
+  el.scrollBy({ top: Math.sign(ry) * (4 + strength * strength * 34), behavior: "instant" });
 }
 
 /**
@@ -239,7 +336,7 @@ export function attachGamepads(): () => void {
         let processor = processors.get(pad.index);
         if (!processor) { processor = new PadProcessor(); processors.set(pad.index, processor); }
         const confirm = confirmButton(player?.family ?? detectFamily(pad.id), useSettings.getState().gamepadConfirm);
-        const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), axes: [...pad.axes] }, confirm, performance.now());
+        const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), values: pad.buttons.map((b) => b.value), axes: [...pad.axes] }, confirm, performance.now());
         if (actions.length) {
           useGamepad.setState({ active: true, lastAction: actions[actions.length - 1], lastSlot: player?.slot ?? 1, ...(player ? { family: player.family } : {}) });
           actions.forEach(perform);
@@ -248,7 +345,10 @@ export function attachGamepads(): () => void {
         const rx = pad.axes[2] ?? 0;
         const ry = pad.axes[3] ?? 0;
         if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) {
-          window.dispatchEvent(new CustomEvent("ibox:analog", { detail: { x: rx, y: ry } }));
+          // l'objet 3D qui consomme le stick annule l'événement ; sinon le stick fait défiler la page
+          const analog = new CustomEvent("ibox:analog", { detail: { x: rx, y: ry }, cancelable: true });
+          window.dispatchEvent(analog);
+          if (!analog.defaultPrevented && Math.abs(ry) > 0.2) scrollWithStick(ry);
         }
         const zoom = (pad.buttons[B.rt]?.value ?? 0) - (pad.buttons[B.lt]?.value ?? 0);
         if (Math.abs(zoom) > 0.1) window.dispatchEvent(new CustomEvent("ibox:zoom", { detail: { value: zoom } }));

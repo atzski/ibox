@@ -78,3 +78,39 @@ describe("jusqu'à 8 joueurs", () => {
     expect(players.map((p) => p.slot)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 });
+
+describe("commandes 0.1.65", () => {
+  it("gâchettes : défilement rapide par pages, avec répétition", () => {
+    const p = new PadProcessor();
+    const values = (lt: number, rt: number) => ({ ...pad(), values: Array.from({ length: 17 }, (_, i) => (i === 6 ? lt : i === 7 ? rt : 0)) });
+    expect(p.update(values(0.3, 0), "south", 0)).toEqual([]);
+    expect(p.update(values(0, 0.8), "south", 16)).toEqual(["pageNext"]);
+    const seq: string[] = [];
+    for (let t = 32; t <= 1000; t += 16) seq.push(...p.update(values(0, 0.8), "south", t));
+    expect(seq.every((a) => a === "pageNext")).toBe(true);
+    expect(seq.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("Start, Select, bouton central et clics des sticks", () => {
+    const p = new PadProcessor();
+    expect(p.update(pad([9]), "south", 0)).toEqual(["menu"]);
+    expect(p.update(pad([8]), "south", 16)).toEqual(["search"]);
+    expect(p.update(pad([16]), "south", 32)).toEqual(["home"]);
+    expect(p.update(pad([10]), "south", 48)).toEqual(["first"]);
+    expect(p.update(pad([11]), "south", 64)).toEqual(["last"]);
+    // pas de répétition pour ces boutons
+    expect(p.update(pad([11]), "south", 900)).toEqual([]);
+  });
+
+  it("une direction maintenue longtemps accélère", () => {
+    const p = new PadProcessor();
+    const count = (from: number, to: number) => {
+      let n = 0;
+      for (let t = from; t <= to; t += 8) n += p.update(pad([13]), "south", t).length;
+      return n;
+    };
+    const slow = count(0, 1000) - 1; // sans le premier appui
+    const fast = count(1400, 2400);
+    expect(fast).toBeGreaterThan(slow * 2);
+  });
+});

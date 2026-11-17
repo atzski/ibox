@@ -11,7 +11,7 @@ import { useNav } from "@/app/navigation";
 import { useScreenChrome, focusAmbientGame, useReducedMotion } from "@/app/shellState";
 import { PLATFORMS, requirePlatform } from "@/domain/platforms";
 import type { Game } from "@/domain/types";
-import { QuickSearch } from "@/components/extras/QuickSearch";
+import { useCommands } from "@/input/commands";
 import { relativeDay } from "@/domain/text";
 import { onSurface, themeVars } from "@/theme/platformTheme";
 import { useArtPalette } from "@/art/usePalette";
@@ -43,7 +43,8 @@ export function HomeScreen() {
   const favorites = useSettings((s) => s.favorites);
   const go = useNav((s) => s.go);
   const [editing, setEditing] = useState(false);
-  const [search, setSearch] = useState(false);
+  const search = useCommands((s) => s.search);
+  const setSearch = useCommands((s) => s.setSearch);
   const [picking, setPicking] = useState(false);
   useEffect(() => {
     if (editing || search) return;
@@ -67,7 +68,9 @@ export function HomeScreen() {
       : [
           { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
           { keys: ["Entrée"], label: "Ouvrir" },
-          { keys: ["X"], label: "Recherche rapide" },
+          { keys: ["X"], label: "Jouer" },
+          { keys: ["F"], label: "Favori" },
+          { keys: ["/"], label: "Recherche" },
         ],
   });
 
@@ -205,11 +208,6 @@ export function HomeScreen() {
   return (
     <div className="h-full overflow-y-auto pb-8 [mask-image:linear-gradient(to_bottom,transparent_0,black_1.1rem,black_calc(100%-1.5rem),transparent)]">
       <WhatsNew />
-      {search && <QuickSearch games={games} onClose={() => setSearch(false)} onCollection={(id) => {
-        setSearch(false);
-        setSetting("homeBlocks", blocks.map((block) => block.id === "collections" ? { ...block, visible: true } : block));
-        requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("ibox:open-collection", { detail: id })));
-      }} />}
       {!editing && (
         <HomeQuickBar
           onAchievements={() => go({ name: "achievements" })}

@@ -2,7 +2,9 @@ import { syncRaProgress } from "@/services/achievementProgress";
 import { menuMusicApi, useMenuMusic } from "@/services/menuMusic";
 import { jinglesApi, useJingleSync } from "@/services/jingles";
 import { InetboxPanel } from "@/components/social/InetboxPanel";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { input } from "@/input/InputController";
+import { ControlsSheet } from "@/components/shell/QuickMenu";
 import { motion } from "motion/react";
 import { listProfiles, switchProfile, useSession } from "@/services/profiles";
 import { DeleteProfileModal } from "@/components/profile/DeleteProfileModal";
@@ -113,6 +115,8 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
     title: "Paramètres",
     hints: [
       { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
+      { keys: ["Q", "E"], label: "Catégorie" },
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });
@@ -123,6 +127,39 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
     lastCategory = id;
     setCat(id);
   };
+
+  // Q / E (LB / RB) : catégorie précédente / suivante, sans quitter l'endroit où l'on est
+  const pageRef = useRef<HTMLElement>(null);
+  useEffect(
+    () =>
+      input.onTab((d) => {
+        const i = CATEGORIES.findIndex((c) => c.id === cat);
+        const next = CATEGORIES[(i + d + CATEGORIES.length) % CATEGORIES.length];
+        const inPage = !!pageRef.current?.contains(document.activeElement);
+        choose(next.id);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const target = inPage
+            ? input.focusables().find((el) => pageRef.current?.contains(el))
+            : document.querySelector<HTMLElement>(`[data-category="${next.id}"]`);
+          if (target) input.focus(target, { instant: true });
+        }));
+        return "quiet";
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cat],
+  );
+  // Retour depuis une page : on revient d'abord à la liste des catégories
+  useEffect(
+    () =>
+      input.onBack(() => {
+        if (!pageRef.current?.contains(document.activeElement)) return false;
+        const target = document.querySelector<HTMLElement>(`[data-category="${cat}"]`);
+        if (!target) return false;
+        input.focus(target);
+        return true;
+      }),
+    [cat],
+  );
 
   const groups = [...new Set(CATEGORIES.map((c) => c.group))];
 
@@ -150,6 +187,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
                   key={c.id}
                   data-focusable
                   data-autofocus={active || undefined}
+                  data-category={c.id}
                   aria-current={active ? "page" : undefined}
                   onClick={() => choose(c.id)}
                   onFocus={() => document.documentElement.dataset.input !== "pointer" && choose(c.id)}
@@ -177,7 +215,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
         ))}
       </nav>
 
-      <section className="min-h-0 overflow-y-auto pr-1 pb-8" data-nav-group={`settings-${cat}`}>
+      <section ref={pageRef} className="min-h-0 overflow-y-auto pr-1 pb-8" data-nav-group={`settings-${cat}`}>
         {/* la page précédente disparaît aussitôt : la manette ne vise jamais un élément sortant */}
         <motion.div
           key={cat}
@@ -1212,21 +1250,9 @@ function ControlsPage() {
           />
         </Row>
       </Group>
-      <Group title="Commandes" icon="grid">
-        <div className="grid grid-cols-2 gap-3 border-none py-1">
-          {[
-            ["Croix ou stick gauche", "Naviguer"],
-            [`${labels.confirm}`, "Valider"],
-            [`${labels.back}`, "Retour"],
-            [`${labels.tabPrev} / ${labels.tabNext}`, "Changer de vue"],
-            ["Stick droit", "Tourner le boîtier"],
-            ["Gâchettes", "Zoom"],
-          ].map(([k, v]) => (
-            <div key={v} className="flex items-center justify-between gap-3 rounded-xl bg-cream-deep/60 px-4 py-2.5">
-              <span className="text-[0.9rem] font-semibold text-ink-soft">{v}</span>
-              <span className="rounded-full bg-white px-3 py-1 text-[0.82rem] font-extrabold text-ink shadow-xs">{k}</span>
-            </div>
-          ))}
+      <Group title="Commandes" icon="grid" note="Les mêmes partout dans iBox. Valider un champ de texte à la manette ouvre le clavier virtuel ; dans la fiche d'un jeu, les gâchettes zooment sur le boîtier.">
+        <div className="border-none py-1">
+          <ControlsSheet family={pad.connected ? pad.family : "xbox"} side={s.gamepadConfirm} />
         </div>
       </Group>
     </>

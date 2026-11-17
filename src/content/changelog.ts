@@ -10,6 +10,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.65",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Une vraie manette partout", text: "Les mêmes boutons dans tout iBox : A valide, B revient, LB / RB changent d’onglet, de vue, de catégorie ou de jeu, X lance le jeu choisi, Y le met en favori ou retourne le boîtier. La barre du bas montre les vrais boutons de votre manette, aux couleurs Xbox, PlayStation ou Nintendo." },
+      { icon: "shelf", title: "Défiler beaucoup plus vite", text: "Les gâchettes sautent d’une page entière dans les grilles, les listes et les étagères (8 boîtiers d’un coup) ; un clic de stick ramène au début ou à la fin. Une direction maintenue accélère, et le stick droit fait défiler la page en douceur." },
+      { icon: "grid", title: "Menu rapide", text: "Start (ou F1) ouvre un menu pour aller partout en deux appuis — accueil, collection, iBox Platforms, succès, communauté, paramètres — avec l’aide de toutes les commandes. Select (ou /) ouvre la recherche depuis n’importe quel écran, le bouton central revient à l’accueil." },
+      { icon: "key", title: "Clavier virtuel", text: "Valider un champ de texte à la manette ouvre un clavier à l’écran (accents compris) : X efface, Y met une espace, Start valide. La recherche, les messages et les noms se remplissent sans clavier." },
+      { icon: "front", title: "Feuilleter sa collection", text: "Sur la fiche d’un jeu, LB / RB passent au jeu précédent ou suivant de la même console. Dans les Paramètres, LB / RB changent de catégorie et B ramène d’abord à la liste ; les listes déroulantes se règlent à la croix." },
+    ],
+  },
+  {
     version: "0.1.64",
     date: "2026-11-17",
     highlights: [

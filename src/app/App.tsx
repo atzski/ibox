@@ -31,6 +31,7 @@ import { applyAppTheme } from "@/theme/appThemes";
 import { Backdrop } from "@/components/shell/Backdrop";
 import { TopBar } from "@/components/shell/TopBar";
 import { HintBar } from "@/components/shell/HintBar";
+import { CommandsHost } from "@/components/shell/QuickMenu";
 import { BackgroundJobs } from "@/components/library/MetaStatus";
 import { LaunchOverlay } from "@/components/library/LaunchOverlay";
 import { HomeScreen } from "@/screens/HomeScreen";
@@ -221,7 +222,7 @@ export function App() {
   return (
     <MotionConfig reducedMotion={reduced ? "always" : "never"}>
       <Backdrop home={route.name === "home"} />
-      <div data-nav-root className="relative flex h-full flex-col">
+      <div data-nav-root data-nav-main className="relative flex h-full flex-col">
         <TopBar />
         {libraryError && route.name !== "settings" && (
           <div role="alert" className="mx-8 mb-2 flex items-center justify-between gap-4 rounded-lg bg-peach-soft p-3 text-ink">
@@ -256,6 +257,7 @@ export function App() {
       </AnimatePresence>
       <InetboxModal />
       <DuplicatesHost />
+      <CommandsHost />
       <PlayerJoinedOverlay />
       <LaunchOverlay />
       <RemotePlayLayer />

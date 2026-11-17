@@ -65,6 +65,7 @@ export function AchievementsScreen({ gameId }: { gameId?: string }) {
     hints: [
       { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
       { keys: ["Entrée"], label: "Détails" },
+      { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });

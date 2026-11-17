@@ -80,11 +80,13 @@ export function PcGameSheet({ game }: { game: Game }) {
       ? [
           { keys: ["←", "→"], label: "Pivoter" },
           { keys: ["Entrée"], label: open ? "Fermer" : "Ouvrir" },
+          { keys: ["Q", "E"], label: "Jeu préc. / suiv." },
           { keys: ["Échap"], label: backLabel },
         ]
       : [
           { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
           { keys: ["Entrée"], label: "Valider" },
+          { keys: ["Q", "E"], label: "Jeu préc. / suiv." },
           { keys: ["Échap"], label: backLabel },
         ],
   });

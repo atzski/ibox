@@ -2,7 +2,8 @@ import { motion } from "motion/react";
 import type { Game } from "@/domain/types";
 import { CoverImage } from "./CoverImage";
 import { Icon } from "@/components/ui/Icon";
-import { useIsFavorite } from "@/services/library";
+import { useIsFavorite, useLibrary } from "@/services/library";
+import { useLauncher } from "@/services/launcher";
 import { useNav } from "@/app/navigation";
 import { sound } from "@/services/sound";
 import { focusAmbientGame } from "@/app/shellState";
@@ -64,6 +65,21 @@ export function GameCard({
         onClick={() => {
           sound.play("select");
           go({ name: "game", gameId: game.id });
+        }}
+        // X (X / □) : jouer tout de suite ; F (Y / △) : favori — sans ouvrir la fiche
+        onKeyDown={(e) => {
+          const key = e.key.toLowerCase();
+          if (key !== "x" && key !== "f") return;
+          e.preventDefault();
+          if (key === "f") {
+            sound.play("toggle");
+            void useLibrary.getState().toggleFavorite(game);
+            return;
+          }
+          const { phase, play } = useLauncher.getState();
+          if (game.dbId === undefined || game.missing || phase === "animating" || phase === "starting" || phase === "running") return sound.play("error");
+          sound.play("select");
+          void play(game.dbId, game.title);
         }}
         // l'arrière-plan suit le jeu sélectionné (manette, clavier ou souris)
         onFocus={() => focusAmbientGame(game)}

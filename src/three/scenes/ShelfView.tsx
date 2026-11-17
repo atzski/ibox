@@ -587,6 +587,7 @@ export function ShelfView({
     const onAnalog = (e: Event) => {
       const { x } = (e as CustomEvent<{ x: number; y: number }>).detail;
       spin.current = Math.abs(x) < 0.12 ? 0 : x * 1.25;
+      e.preventDefault();
     };
     window.addEventListener("ibox:analog", onAnalog);
     return () => window.removeEventListener("ibox:analog", onAnalog);
