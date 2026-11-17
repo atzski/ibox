@@ -1,6 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { create } from "zustand";
 import { PlayerCard } from "@/components/profile/PlayerCard";
+import { AchievementShowcase } from "@/components/profile/AchievementShowcase";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
@@ -131,14 +132,7 @@ function PlayerSheet({ target, onClose }: { target: PlayerTarget; onClose: () =>
         </p>
       )}
       {failed && <p className="mt-3 text-center text-[0.88rem] font-semibold text-ink-soft">Ce profil est indisponible pour le moment.</p>}
-      {!hidden && player?.achievementHighlight && (
-        <section className="mt-3 rounded-2xl bg-cream-deep p-4 text-ink">
-          <div className="flex items-center gap-2 font-bold"><Icon name="star" />{player.achievementHighlight.source}</div>
-          <p data-no-i18n className="mt-1 break-words">{player.achievementHighlight.title}</p>
-          <progress className="my-2 w-full accent-mint-deep" max={player.achievementHighlight.total} value={player.achievementHighlight.earned} />
-          <p className="text-sm text-ink-soft">{player.achievementHighlight.earned} / {player.achievementHighlight.total} succès</p>
-        </section>
-      )}
+      {!hidden && player?.achievementHighlight && <AchievementShowcase highlight={player.achievementHighlight} accent={player.accent} />}
       {error && <p className="mt-3 text-center text-[0.85rem] font-bold text-peach-deep">{error}</p>}
     </Modal>
   );

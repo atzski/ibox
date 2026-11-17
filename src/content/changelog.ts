@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.70",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "trophy", title: "Un succès mis en avant qui brille", text: "Sur un profil, le succès mis en avant a sa propre carte : médaille dont l’anneau se remplit, pastille Steam ou RetroAchievements, pourcentage et barre de progression lumineuse animée. À 100 %, tout passe en or." },
+    ],
+  },
+  {
     version: "0.1.69",
     date: "2026-11-17",
     highlights: [

@@ -2478,4 +2478,11 @@ export const EN: Record<string, string> = {
   "Dans un groupe, sur une publication ou un commentaire de la Communauté, cliquez sur une photo de profil, un pseudo ou un « @pseudo » pour ouvrir le profil du joueur, même s’il n’est pas votre ami.": "In a group, or on a Community post or comment, click a profile picture, a username or an “@username” to open that player’s profile, even if they aren’t your friend.",
   "Ajouter en ami directement": "Add friends directly",
   "Un profil public montre sa bannière, sa bio, ses jeux favoris et son succès mis en avant, avec un bouton « Ajouter en ami » : plus besoin de code-ami. Un profil privé garde tout pour ses amis et n’affiche que « Profil privé ».": "A public profile shows its banner, bio, favorite games and featured achievement, with an “Add as friend” button: no friend code needed. A private profile keeps everything for friends and only shows “Private profile”.",
+  "Tous les succès": "All achievements",
+  "Succès mis en avant": "Featured achievement",
+  "Progression des succès": "Achievement progress",
+  "Platine !": "Platinum!",
+  "Encore {0}": "{0} to go",
+  "Un succès mis en avant qui brille": "A featured achievement that shines",
+  "Sur un profil, le succès mis en avant a sa propre carte : médaille dont l’anneau se remplit, pastille Steam ou RetroAchievements, pourcentage et barre de progression lumineuse animée. À 100 %, tout passe en or.": "On a profile, the featured achievement gets its own card: a medal whose ring fills up, a Steam or RetroAchievements badge, a percentage and a glowing animated progress bar. At 100%, everything turns gold.",
 };

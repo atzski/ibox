@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
 import { PlayerCard } from "@/components/profile/PlayerCard";
+import { AchievementShowcase } from "@/components/profile/AchievementShowcase";
 import { Button } from "@/components/ui/Button";
 import { supportsMultiplayer } from "@/services/extras";
 import { Icon } from "@/components/ui/Icon";
@@ -118,12 +119,7 @@ export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetF
           {isTauri() && <Button icon="play" onClick={() => setInviting(true)}>Inviter à jouer</Button>}
         </div>} />
       {friend && inviting && <InviteDialog friendId={friend.id} friendName={friend.displayName} onClose={() => setInviting(false)} />}
-      {friend && p?.achievementHighlight && <section className="mt-3 rounded-2xl bg-cream-deep p-4 text-ink">
-        <div className="flex items-center gap-2 font-bold"><Icon name="star" />{p.achievementHighlight.source}</div>
-        <p data-no-i18n className="mt-1 break-words">{p.achievementHighlight.title}</p>
-        <progress className="my-2 w-full accent-mint-deep" max={p.achievementHighlight.total} value={p.achievementHighlight.earned} />
-        <p className="text-sm text-ink-soft">{p.achievementHighlight.earned} / {p.achievementHighlight.total} succès</p>
-      </section>}
+      {friend && p?.achievementHighlight && <AchievementShowcase highlight={p.achievementHighlight} accent={p.accent} />}
       {friend && p?.featuredGames && <CommonGames friend={friend} />}
       {friend && (failed ? <Empty icon="user" text="Profil indisponible pour le moment." /> : !p ? <Empty icon="user" text="Chargement…" /> : p.since !== null && (
         <>
