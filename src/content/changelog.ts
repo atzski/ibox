@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.84",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "shelf", title: "Votre collection bien en vue", text: "Le jeu mis en avant derrière l’étagère de « Ma collection » ressort enfin : voile allégé, image plus nette et plus colorée. « Votre dernière aventure » laisse aussi bien mieux voir l’image du jeu, sous un voile de couleur bien plus léger." },
+      { icon: "user", title: "Des visages d’amis plus nets", text: "Les photos du bouton Amis sont un peu plus grandes, cerclées et ne se mélangent plus quand elles se chevauchent." },
+    ],
+  },
+  {
     version: "0.1.83",
     date: "2026-11-18",
     highlights: [

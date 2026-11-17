@@ -361,7 +361,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-[#ffffff] shadow-md"
+      className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-[#ffffff] shadow-md [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]"
       style={{ ...themeVars(platform), background: deep }}
     >
       {/* fond : illustration du jeu si elle existe, sinon sa jaquette floutée */}
@@ -373,7 +373,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
             alt=""
             draggable={false}
             initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
-            animate={{ opacity: 0.55, scale: 1 }}
+            animate={{ opacity: 0.92, scale: 1 }}
             transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
             className="ibox-kenburns h-full w-full object-cover object-[center_30%]"
           />
@@ -382,14 +382,16 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
           <motion.div
             key={game.id}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.8 }}
+            animate={{ opacity: 0.95 }}
             transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
             className={`absolute inset-[-8%] blur-[5px] saturate-[1.15] ${reduced ? "" : "ibox-kenburns"}`}
           >
             {cover && <img src={cover} alt="" draggable={false} className="h-full w-full object-cover object-[center_25%]" />}
           </motion.div>
         )}
-        <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${deep} 35%, transparent) 0%, color-mix(in oklab, ${deep} 92%, transparent) 72%)` }} />
+        {/* voile léger : l'image reste bien visible, une ombre neutre en bas garde le texte lisible */}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${deep} 12%, transparent) 0%, color-mix(in oklab, ${deep} 28%, transparent) 45%, color-mix(in oklab, ${deep} 62%, transparent) 100%)` }} />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,transparent_30%,rgba(0,0,0,0.38)_100%)]" />
       </div>
 
       <div className="text-[0.75rem] font-extrabold tracking-[0.16em] text-[#ffffffd9] uppercase">{label}</div>
@@ -588,12 +590,12 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] saturate-[1.1] ${featuredHero ? "blur-[3px]" : "scale-125 blur-[18px]"} ${reduced ? "" : "ibox-kenburns"}`}
+              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] saturate-[1.25] ${featuredHero ? "blur-[1px]" : "scale-125 blur-[10px]"} ${reduced ? "" : "ibox-kenburns"}`}
             />
           )}
         </AnimatePresence>
         {featuredArt && (
-          <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ibox-white)_18%,transparent),color-mix(in_srgb,var(--ibox-white)_42%,transparent))]" />
+          <span aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,transparent,color-mix(in_srgb,var(--ibox-white)_20%,transparent))]" />
         )}
         <span aria-hidden className="ibox-collection-orbits" />
 
@@ -631,7 +633,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
         </div>
 
         {/* lisibilité du texte : voile clair à gauche */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--ibox-white)_88%,transparent)_0%,color-mix(in_srgb,var(--ibox-white)_62%,transparent)_30%,transparent_52%)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--ibox-white)_82%,transparent)_0%,color-mix(in_srgb,var(--ibox-white)_48%,transparent)_24%,transparent_40%)]" />
 
         <div className="relative flex h-full w-[15rem] shrink-0 flex-col justify-between p-7">
           <div>

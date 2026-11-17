@@ -2978,4 +2978,8 @@ export const EN: Record<string, string> = {
   "La tuile « iBox Platforms » de l’accueil devient une plaque de verre dépoli, translucide et plus douce, teintée par votre thème.": "The “iBox Platforms” tile on Home becomes a pane of frosted glass, translucent and softer, tinted by your theme.",
   "Un fond d’accueil plus doux": "A softer Home background",
   "Le grand fond de l’accueil est légèrement flouté pour laisser respirer les cases. Et « Votre dernière aventure » affiche toujours l’image du jeu, même sans grande illustration.": "The large Home background is slightly blurred to give the tiles room to breathe. And “Your last adventure” always shows the game’s image, even without large artwork.",
+  "Votre collection bien en vue": "Your collection in plain sight",
+  "Le jeu mis en avant derrière l’étagère de « Ma collection » ressort enfin : voile allégé, image plus nette et plus colorée. « Votre dernière aventure » laisse aussi bien mieux voir l’image du jeu, sous un voile de couleur bien plus léger.": "The game featured behind the “My collection” shelf finally stands out: a lighter veil and a sharper, more colorful image. “Your last adventure” also shows much more of the game’s image, under a far lighter color veil.",
+  "Des visages d’amis plus nets": "Clearer friend faces",
+  "Les photos du bouton Amis sont un peu plus grandes, cerclées et ne se mélangent plus quand elles se chevauchent.": "The photos on the Friends button are a little larger, outlined, and no longer blend together where they overlap.",
 };

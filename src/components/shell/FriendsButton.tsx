@@ -78,12 +78,17 @@ export function FriendsButton() {
         {shown.length > 0 ? (
           <>
             {extra > 0 && <span className="font-display text-[1.05rem] font-bold text-ink tabular-nums">+{extra}</span>}
+            {/* visages opaques cerclés : qu'ils se recouvrent un peu sans se mélanger */}
             <span className="flex items-center">
               {shown.map((f, i) => (
-                <span key={f.id} className="relative" style={{ marginLeft: i ? -12 : 0, zIndex: shown.length - i }}>
-                  <Avatar size={34} name={f.displayName} choice={f.avatar ?? null} className={f.status === "offline" ? "opacity-60 grayscale" : ""} />
+                <span
+                  key={f.id}
+                  className="relative isolate shrink-0 rounded-full bg-[var(--ibox-white)] ring-[2.5px] ring-[color-mix(in_srgb,var(--tone-green)_70%,var(--ibox-white))]"
+                  style={{ marginLeft: i ? -7 : 0, zIndex: shown.length - i }}
+                >
+                  <Avatar size={36} name={f.displayName} choice={f.avatar ?? null} className={f.status === "offline" ? "grayscale-[0.7] brightness-90" : ""} />
                   {f.status !== "offline" && (
-                    <span className="absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-white" style={{ background: STATUS_COLOR[f.status] }} />
+                    <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full ring-2 ring-[var(--ibox-white)]" style={{ background: STATUS_COLOR[f.status] }} />
                   )}
                 </span>
               ))}
