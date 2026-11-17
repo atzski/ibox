@@ -61,6 +61,8 @@ pub struct HostOptions {
     /// Essais seulement : (temps RTP 90 kHz, instant d'envoi à l'encodeur) de chaque image
     /// envoyée, pour mesurer la latence image par image côté invité.
     pub frame_log: Option<FrameLog>,
+    /// Envoyer le son du PC (sortie par défaut) à l'invité, s'il en a la permission.
+    pub audio: bool,
 }
 
 /// (temps RTP 90 kHz, envoi à l'encodeur, remise à str0m).
@@ -71,6 +73,7 @@ enum Msg {
     Frame { packet: Packet, origin: Instant },
     Opened(Opened),
     VideoEnded(Result<(), String>),
+    Audio { packet: crate::remote_play::audio::AudioPacket, origin: Instant },
     Answer(String, Sender<Result<String, String>>),
     RemoteCandidate(String),
     Rumble { pad: u8, large: u8, small: u8 },
@@ -210,6 +213,12 @@ fn open_sockets(network: &Network, port: u16) -> Result<OpenedSockets, String> {
             Ok((sockets, reflexive, nat_v4, nat_v6))
         }
     }
+}
+
+/// Le profil et le mode de l'invité lui donnent-ils le son ?
+fn peer_grants_audio(opts: &HostOptions) -> bool {
+    let mut session = Session::new(opts.mode, opts.blocked.clone());
+    session.join(GUEST, &opts.guest_account).is_ok() && session.set_profile(GUEST, opts.profile, false).is_ok() && session.effective(GUEST).has(Permission::Audio)
 }
 
 fn area_for(target: Target) -> Area {
@@ -399,6 +408,28 @@ fn start_video(opts: &HostOptions, profile: H264Profile, kbps: u32, tx: Sender<M
     Ok(Video { control, join })
 }
 
+struct Audio {
+    stop: Arc<AtomicBool>,
+    join: JoinHandle<()>,
+}
+
+/// Son du PC → paquets Opus vers la boucle. Un échec (aucune sortie audio…) n'arrête pas la
+/// session : l'image continue sans le son.
+fn start_audio(tx: Sender<Msg>) -> Result<Audio, String> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let flag = stop.clone();
+    let join = std::thread::Builder::new()
+        .name("remote-play-audio".into())
+        .spawn(move || {
+            let result = crate::remote_play::audio::stream(&flag, &mut |packet, origin| tx.send(Msg::Audio { packet, origin }).is_ok());
+            if let Err(e) = result {
+                eprintln!("[remote-play] {e}");
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(Audio { stop, join })
+}
+
 fn send_all(sockets: &[Bound], out: &mut Vec<Datagram>) {
     for d in out.drain(..) {
         // str0m émet depuis la base du candidat (la socket locale), même pour un `srflx`
@@ -429,6 +460,8 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
     let _timer = TimerResolution::begin();
     let started = Instant::now();
     let mut video: Option<Video> = None;
+    let mut audio: Option<Audio> = None;
+    let audio_allowed = opts.audio && peer_grants_audio(&opts);
     let mut out = Vec::new();
     let mut published = Instant::now();
     let mut stopped = false;
@@ -443,6 +476,9 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
             match start_video(&opts, profile, peer.current_kbps(), tx.clone()) {
                 Ok(v) => video = Some(v),
                 Err(e) => peer.fail_with(e),
+            }
+            if audio_allowed {
+                audio = start_audio(tx.clone()).ok();
             }
         }
         if let Some(v) = &video {
@@ -495,6 +531,12 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
                     }
                 }
             }
+            Ok(Msg::Audio { packet, origin }) => {
+                let wallclock = origin + Duration::from_micros(packet.at * 1_000_000 / crate::remote_play::audio::SAMPLE_RATE as u64);
+                if let Err(e) = peer.write_audio(wallclock, packet.at, &packet.data) {
+                    eprintln!("[remote-play] {e}");
+                }
+            }
             Ok(Msg::Opened(o)) => peer.set_encoder(format!("{}{}", o.encoder, if o.hardware { "" } else { " (logiciel)" }), o.output),
             Ok(Msg::VideoEnded(r)) => peer.fail_with(r.err().unwrap_or_else(|| "source vidéo fermée".into())),
             Ok(Msg::Answer(sdp, reply)) => {
@@ -522,6 +564,10 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
     if let Some(v) = video {
         v.control.stop();
         let _ = v.join.join();
+    }
+    if let Some(a) = audio {
+        a.stop.store(true, Ordering::Relaxed);
+        let _ = a.join.join();
     }
     if let Ok(mut s) = shared.lock() {
         *s = peer.stats(Instant::now());

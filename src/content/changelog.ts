@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.59",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Le son arrive chez l’invité", text: "En Remote Play, votre ami entend maintenant le son de votre PC (jeu, musique, vidéos), en plus de l’image. Si Windows bloque la lecture sonore, le son démarre au premier clic ou à la première touche." },
+      { icon: "front", title: "Carte de partage masquable", text: "La carte Remote Play de l’hôte (code de sécurité, connexion) se masque d’un clic et laisse une petite pastille dans le coin ; un clic dessus la rouvre." },
+    ],
+  },
+  {
     version: "0.1.58",
     date: "2026-11-17",
     highlights: [

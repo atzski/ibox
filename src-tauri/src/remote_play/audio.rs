@@ -1,0 +1,317 @@
+//! Son de l'hôte : capture WASAPI en boucle (« ce que le PC joue », périphérique de sortie par
+//! défaut) → 48 kHz stéréo → Opus 20 ms (`opus-rs`, Rust pur). Les paquets partent sur la piste
+//! audio de la session (`transport::peer`).
+//!
+//! WASAPI en boucle ne livre rien tant que rien ne joue : les trous sont comblés par du silence
+//! pour que l'horodatage RTP suive l'horloge réelle (sinon le son prendrait du retard sur l'image).
+
+use opus_rs::{Application, OpusEncoder};
+
+pub const SAMPLE_RATE: u32 = 48_000;
+/// 20 ms à 48 kHz (échantillons par voie).
+pub const FRAME: usize = 960;
+pub const BITRATE_BPS: i32 = 128_000;
+
+/// Paquet Opus prêt à envoyer ; `at` = position (échantillons à 48 kHz) depuis le début du son.
+#[derive(Debug, Clone)]
+pub struct AudioPacket {
+    pub at: u64,
+    pub data: Vec<u8>,
+}
+
+/// Une image stéréo (gauche, droite).
+pub type Stereo = [f32; 2];
+
+/// Réduit une image multivoie (ordre WAVE : FL FR FC LFE BL BR SL SR) en stéréo.
+pub fn downmix(frame: &[f32]) -> Stereo {
+    match frame.len() {
+        0 => [0.0, 0.0],
+        1 => [frame[0], frame[0]],
+        2 => [frame[0], frame[1]],
+        n => {
+            let c = frame[2] * 0.707;
+            let (mut l, mut r) = (frame[0] + c, frame[1] + c);
+            for pair in [(4, 5), (6, 7)] {
+                if n > pair.1 {
+                    l += frame[pair.0] * 0.5;
+                    r += frame[pair.1] * 0.5;
+                }
+            }
+            [l.clamp(-1.0, 1.0), r.clamp(-1.0, 1.0)]
+        }
+    }
+}
+
+/// Rééchantillonnage linéaire vers 48 kHz (44,1 kHz, 96 kHz… selon le format du mélangeur).
+pub struct Resampler {
+    step: f64,
+    pos: f64,
+    prev: Stereo,
+}
+
+impl Resampler {
+    pub fn new(from_hz: u32) -> Self {
+        Resampler { step: from_hz.max(1) as f64 / SAMPLE_RATE as f64, pos: 1.0, prev: [0.0, 0.0] }
+    }
+
+    /// Ajoute `input` (au débit d'origine) à `out` (stéréo entrelacée, 48 kHz).
+    pub fn process(&mut self, input: &[Stereo], out: &mut Vec<f32>) {
+        if (self.step - 1.0).abs() < f64::EPSILON {
+            out.extend(input.iter().flatten());
+            return;
+        }
+        // indices virtuels : 0 = dernière image du bloc précédent, k = input[k - 1]
+        let n = input.len();
+        while self.pos < n as f64 {
+            let i = self.pos.floor() as usize;
+            let f = (self.pos - i as f64) as f32;
+            let a = if i == 0 { self.prev } else { input[i - 1] };
+            let b = input[i];
+            out.push(a[0] + (b[0] - a[0]) * f);
+            out.push(a[1] + (b[1] - a[1]) * f);
+            self.pos += self.step;
+        }
+        self.pos -= n as f64;
+        if let Some(last) = input.last() {
+            self.prev = *last;
+        }
+    }
+}
+
+/// Découpe le flux 48 kHz stéréo en trames de 20 ms et les encode en Opus.
+pub struct Encoder {
+    opus: OpusEncoder,
+    pending: Vec<f32>,
+    /// Échantillons (par voie) déjà encodés.
+    encoded: u64,
+    out: Vec<u8>,
+}
+
+impl Encoder {
+    pub fn new() -> Result<Self, String> {
+        let mut opus = OpusEncoder::new(SAMPLE_RATE as i32, 2, Application::Audio).map_err(|e| format!("Opus : {e}"))?;
+        opus.bitrate_bps = BITRATE_BPS;
+        Ok(Encoder { opus, pending: Vec::with_capacity(FRAME * 4), encoded: 0, out: vec![0u8; 1500] })
+    }
+
+    /// Échantillons (par voie) reçus jusqu'ici, encodés ou en attente.
+    pub fn position(&self) -> u64 {
+        self.encoded + (self.pending.len() / 2) as u64
+    }
+
+    /// Ajoute de l'audio 48 kHz stéréo entrelacé ; renvoie les paquets complets.
+    pub fn push(&mut self, samples: &[f32]) -> Vec<AudioPacket> {
+        self.pending.extend_from_slice(samples);
+        let mut packets = Vec::new();
+        while self.pending.len() >= FRAME * 2 {
+            let at = self.encoded;
+            if let Ok(n) = self.opus.encode(&self.pending[..FRAME * 2], FRAME, &mut self.out) {
+                if n > 0 {
+                    packets.push(AudioPacket { at, data: self.out[..n].to_vec() });
+                }
+            }
+            self.pending.drain(..FRAME * 2);
+            self.encoded += FRAME as u64;
+        }
+        packets
+    }
+
+    /// Comble par du silence jusqu'à la position `target` (échantillons par voie).
+    pub fn pad_to(&mut self, target: u64) -> Vec<AudioPacket> {
+        let missing = target.saturating_sub(self.position()) as usize;
+        if missing == 0 {
+            return Vec::new();
+        }
+        self.push(&vec![0.0; missing * 2])
+    }
+}
+
+#[cfg(windows)]
+pub use win::stream;
+
+#[cfg(windows)]
+mod win {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+    use windows::Win32::Media::Audio::{
+        eConsole, eRender, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator, MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED,
+        AUDCLNT_STREAMFLAGS_LOOPBACK, WAVEFORMATEX,
+    };
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED};
+
+    /// Retard toléré avant de combler par du silence (rien ne joue sur le PC).
+    const GAP: u64 = SAMPLE_RATE as u64 / 10;
+
+    #[derive(Clone, Copy)]
+    enum Sample {
+        F32,
+        I16,
+        I32,
+    }
+
+    struct Com(bool);
+    impl Drop for Com {
+        fn drop(&mut self) {
+            if self.0 {
+                unsafe { CoUninitialize() };
+            }
+        }
+    }
+
+    /// Capture le son du PC jusqu'à `stop` ; `send` reçoit chaque paquet Opus (et l'instant
+    /// correspondant au début du son) et renvoie `false` pour arrêter.
+    pub fn stream(stop: &AtomicBool, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> Result<(), String> {
+        let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
+        unsafe { capture(stop, send) }.map_err(|e| format!("capture du son : {e}"))
+    }
+
+    unsafe fn capture(stop: &AtomicBool, send: &mut dyn FnMut(AudioPacket, Instant) -> bool) -> windows::core::Result<()> {
+        let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+        let device = devices.GetDefaultAudioEndpoint(eRender, eConsole)?;
+        let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
+        let format = client.GetMixFormat()?;
+        let fmt: WAVEFORMATEX = std::ptr::read_unaligned(format);
+        let init = client.Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, 2_000_000, 0, format, None);
+        CoTaskMemFree(Some(format as *const _));
+        init?;
+        let channels = fmt.nChannels.max(1) as usize;
+        let kind = match (fmt.wFormatTag, fmt.wBitsPerSample) {
+            (3, 32) | (0xFFFE, 32) => Sample::F32, // IEEE float (le mélangeur partagé l'est presque toujours)
+            (1, 16) | (0xFFFE, 16) => Sample::I16,
+            (1, 32) => Sample::I32,
+            _ => return Err(windows::core::Error::new(windows::core::HRESULT(0x88890008u32 as i32), "format audio non pris en charge")),
+        };
+        let block = fmt.nBlockAlign as usize;
+        let capture: IAudioCaptureClient = client.GetService()?;
+        let mut resampler = Resampler::new(fmt.nSamplesPerSec);
+        let mut encoder = Encoder::new().map_err(|e| windows::core::Error::new(windows::core::HRESULT(-1), e))?;
+        let mut frames: Vec<Stereo> = Vec::new();
+        let mut converted: Vec<f32> = Vec::new();
+        let mut scratch = vec![0f32; channels];
+
+        client.Start()?;
+        let origin = Instant::now();
+        let mut result = Ok(());
+        'outer: while !stop.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(5));
+            loop {
+                let size = match capture.GetNextPacketSize() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        result = Err(e);
+                        break 'outer;
+                    }
+                };
+                if size == 0 {
+                    break;
+                }
+                let mut data: *mut u8 = std::ptr::null_mut();
+                let mut count = 0u32;
+                let mut flags = 0u32;
+                if let Err(e) = capture.GetBuffer(&mut data, &mut count, &mut flags, None, None) {
+                    result = Err(e);
+                    break 'outer;
+                }
+                frames.clear();
+                let silent = flags & (AUDCLNT_BUFFERFLAGS_SILENT.0 as u32) != 0 || data.is_null();
+                for i in 0..count as usize {
+                    if silent {
+                        frames.push([0.0, 0.0]);
+                        continue;
+                    }
+                    let base = data.add(i * block);
+                    for (c, s) in scratch.iter_mut().enumerate() {
+                        *s = match kind {
+                            Sample::F32 => std::ptr::read_unaligned(base.add(c * 4) as *const f32),
+                            Sample::I16 => std::ptr::read_unaligned(base.add(c * 2) as *const i16) as f32 / 32768.0,
+                            Sample::I32 => std::ptr::read_unaligned(base.add(c * 4) as *const i32) as f32 / 2147483648.0,
+                        };
+                    }
+                    frames.push(downmix(&scratch));
+                }
+                let _ = capture.ReleaseBuffer(count);
+                converted.clear();
+                resampler.process(&frames, &mut converted);
+                for p in encoder.push(&converted) {
+                    if !send(p, origin) {
+                        break 'outer;
+                    }
+                }
+            }
+            // rien ne joue : WASAPI se tait, l'horloge RTP doit continuer d'avancer
+            let expected = (origin.elapsed().as_secs_f64() * SAMPLE_RATE as f64) as u64;
+            if expected > encoder.position() + GAP {
+                for p in encoder.pad_to(expected - FRAME as u64) {
+                    if !send(p, origin) {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        let _ = client.Stop();
+        result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Capture réelle (sortie par défaut de ce PC) : `cargo test --lib capture_reelle -- --ignored --nocapture`
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn capture_reelle() {
+        use std::sync::atomic::AtomicBool;
+        let stop = AtomicBool::new(false);
+        let start = std::time::Instant::now();
+        let mut packets = 0u64;
+        let mut last = 0u64;
+        stream(&stop, &mut |p, _| {
+            assert!(p.at >= last);
+            last = p.at;
+            packets += 1;
+            start.elapsed() < std::time::Duration::from_millis(1500)
+        })
+        .unwrap();
+        println!("{packets} paquets, position {last}");
+        assert!(packets >= 50, "au moins 1 s de son (silence compris)");
+    }
+
+    #[test]
+    fn mixage_stereo() {
+        assert_eq!(downmix(&[0.5]), [0.5, 0.5]);
+        assert_eq!(downmix(&[0.1, 0.2]), [0.1, 0.2]);
+        let six = downmix(&[0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
+        assert!((six[0] - 0.707).abs() < 1e-3 && (six[1] - 0.707).abs() < 1e-3, "voix centrale conservée");
+    }
+
+    #[test]
+    fn reechantillonnage_44100() {
+        let mut r = Resampler::new(44_100);
+        let mut out = Vec::new();
+        for _ in 0..10 {
+            r.process(&vec![[0.25, -0.25]; 4410], &mut out);
+        }
+        let frames = out.len() / 2;
+        assert!((frames as i64 - 48_000).abs() <= 2, "{frames} images pour 1 s");
+        assert!(out[200..].chunks(2).all(|c| (c[0] - 0.25).abs() < 1e-6 && (c[1] + 0.25).abs() < 1e-6));
+    }
+
+    #[test]
+    fn trames_opus_de_20_ms() {
+        let mut e = Encoder::new().unwrap();
+        let tone: Vec<f32> = (0..FRAME * 3).flat_map(|i| {
+            let s = (i as f32 * 440.0 * std::f32::consts::TAU / SAMPLE_RATE as f32).sin() * 0.3;
+            [s, s]
+        }).collect();
+        let packets = e.push(&tone[..(FRAME * 2 + 5) * 2]);
+        assert_eq!(packets.len(), 2);
+        assert_eq!(packets[1].at, FRAME as u64);
+        assert!(packets.iter().all(|p| !p.data.is_empty() && p.data.len() < 1500));
+        let padded = e.pad_to(FRAME as u64 * 5);
+        assert_eq!(padded.len(), 3);
+        assert_eq!(e.position(), FRAME as u64 * 5);
+    }
+}

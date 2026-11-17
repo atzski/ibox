@@ -12,7 +12,7 @@ use str0m::bwe::{Bitrate, BweKind};
 use str0m::channel::{ChannelConfig, ChannelId, Reliability};
 use str0m::change::{SdpAnswer, SdpPendingOffer};
 use str0m::format::Codec;
-use str0m::media::{Direction, MediaKind, MediaTime, Mid, Pt};
+use str0m::media::{Direction, Frequency, MediaKind, MediaTime, Mid, Pt};
 use str0m::net::{Protocol, Receive};
 use str0m::{Candidate, Event, IceConnectionState, Input, Output, Rtc, RtcConfig};
 
@@ -79,6 +79,9 @@ pub struct HostPeer<H: InputHandler> {
     pending: Option<SdpPendingOffer>,
     video: Mid,
     pt: Option<(Pt, Profile)>,
+    /// Piste audio Opus (son du PC) ; `audio_pt` connu après la réponse de l'invité.
+    audio: Mid,
+    audio_pt: Option<Pt>,
     channels: HashMap<ChannelId, Channel>,
     control: Option<ChannelId>,
     handler: H,
@@ -141,6 +144,7 @@ impl<H: InputHandler> HostPeer<H> {
         let mut rtc = RtcConfig::new()
             .clear_codecs()
             .enable_h264(true)
+            .enable_opus(true, false)
             .enable_bwe(Some(Bitrate::kbps(rate.current_kbps() as u64)))
             .set_stats_interval(Some(Duration::from_secs(1)))
             .build(now);
@@ -157,6 +161,8 @@ impl<H: InputHandler> HostPeer<H> {
         }
         let mut api = rtc.sdp_api();
         let video = api.add_media(MediaKind::Video, Direction::SendOnly, Some("ibox".into()), Some("screen".into()), None);
+        // même flux (« ibox ») que l'image : l'invité lit le son dans le même élément <video>
+        let audio = api.add_media(MediaKind::Audio, Direction::SendOnly, Some("ibox".into()), Some("sound".into()), None);
         api.add_channel_with_config(ChannelConfig {
             label: INPUT_LABEL.into(),
             ordered: false,
@@ -173,6 +179,8 @@ impl<H: InputHandler> HostPeer<H> {
             pending: Some(pending),
             video,
             pt: None,
+            audio,
+            audio_pt: None,
             channels: HashMap::new(),
             control: None,
             handler,
@@ -199,6 +207,7 @@ impl<H: InputHandler> HostPeer<H> {
         let answer_fp = sdp::fingerprint(&cleaned).ok_or("réponse sans empreinte DTLS")?;
         self.rtc.sdp_api().accept_answer(pending, parsed).map_err(|e| format!("réponse refusée : {e}"))?;
         self.pt = self.choose_pt();
+        self.audio_pt = self.rtc.writer(self.audio).and_then(|w| w.payload_params().find(|p| p.spec().codec == Codec::Opus).map(|p| p.pt()));
         if self.pt.is_none() {
             return Err("l'invité n'accepte aucun profil H.264 compatible (packetization-mode=1)".into());
         }
@@ -302,6 +311,15 @@ impl<H: InputHandler> HostPeer<H> {
             self.encode_us.push(now, t.as_micros() as u64);
         }
         Ok(())
+    }
+
+    /// Paquet Opus (20 ms) ; ignoré si l'invité n'a pas accepté l'audio.
+    pub fn write_audio(&mut self, wallclock: Instant, at_48khz: u64, data: &[u8]) -> Result<(), String> {
+        let Some(pt) = self.audio_pt else { return Ok(()) };
+        let Some(writer) = self.rtc.writer(self.audio) else { return Ok(()) };
+        writer
+            .write(pt, wallclock, MediaTime::new(at_48khz, Frequency::FORTY_EIGHT_KHZ), data.to_vec())
+            .map_err(|e| format!("envoi du son : {e}"))
     }
 
     /// Message hôte → invité sur le canal `control` (vibration, pong…).

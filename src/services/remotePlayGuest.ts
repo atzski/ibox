@@ -259,6 +259,7 @@ export class GuestSession {
   private minimalBuffer = false;
   private closed = false;
   private seq = 0;
+  private readonly media = new MediaStream();
 
   /** Numéro de séquence des entrées, commun à toute la session : l'hôte refuse tout numéro déjà vu
    * (un compteur qui repartirait de 1 après « Rendre les commandes » serait ignoré). */
@@ -278,6 +279,13 @@ export class GuestSession {
     this.pc = new RTCPeerConnection({ iceServers: urls.length ? [{ urls }] : [], bundlePolicy: "max-bundle", iceTransportPolicy: "all" });
     this.pc.ontrack = (e) => {
       const receiver = e.receiver as RTCRtpReceiver & { jitterBufferTarget?: number | null; playoutDelayHint?: number };
+      // image et son (piste Opus de l'hôte) dans un seul flux lu par l'élément <video>
+      if (!this.media.getTracks().includes(e.track)) this.media.addTrack(e.track);
+      if (this.video.srcObject !== this.media) this.video.srcObject = this.media;
+      if (e.track.kind === "audio") {
+        this.unmute();
+        return;
+      }
       try {
         receiver.jitterBufferTarget = 0;
         this.minimalBuffer = receiver.jitterBufferTarget === 0;
@@ -285,8 +293,7 @@ export class GuestSession {
         this.minimalBuffer = false;
       }
       if (!this.minimalBuffer && "playoutDelayHint" in receiver) receiver.playoutDelayHint = 0;
-      this.video.srcObject = e.streams[0] ?? new MediaStream([e.track]);
-      this.video.muted = true;
+      if (!this.media.getAudioTracks().length) this.video.muted = true;
       void this.video.play().catch(() => undefined);
       this.watchFrames();
     };
@@ -446,9 +453,30 @@ export class GuestSession {
     return out;
   }
 
+  /** Active le son ; si le navigateur refuse la lecture sonore sans geste, l'image reste lue
+   * (muette) et le son revient au premier clic ou à la première touche. */
+  private unmute() {
+    this.video.muted = false;
+    this.video.volume = 1;
+    this.video.play().catch(() => {
+      this.video.muted = true;
+      void this.video.play().catch(() => undefined);
+      const retry = () => {
+        window.removeEventListener("pointerdown", retry, true);
+        window.removeEventListener("keydown", retry, true);
+        if (this.closed) return;
+        this.video.muted = false;
+        void this.video.play().catch(() => undefined);
+      };
+      window.addEventListener("pointerdown", retry, true);
+      window.addEventListener("keydown", retry, true);
+    });
+  }
+
   close() {
     this.closed = true;
     window.clearInterval(this.pingTimer);
+    this.media.getTracks().forEach((t) => this.media.removeTrack(t));
     this.pc.close();
     this.video.srcObject = null;
   }

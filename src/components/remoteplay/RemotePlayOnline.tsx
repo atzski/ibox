@@ -534,12 +534,35 @@ const STAGE: Record<OnlineStatus["stage"], string> = {
 function HostCard({ status }: { status: OnlineStatus }) {
   const [stats, setStats] = useState<HostStats | null>(null);
   const [open, setOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const done = status.stage === "ended" || status.stage === "failed";
   useEffect(() => {
-    if (done) return;
+    if (done || hidden) return;
     const timer = window.setInterval(() => void remotePlayApi.hostStats().then(setStats, () => undefined), 1000);
     return () => window.clearInterval(timer);
+  }, [done, hidden]);
+  // une fin ou un échec réaffiche la carte (message, bouton Fermer)
+  useEffect(() => {
+    if (done) setHidden(false);
   }, [done]);
+  if (hidden && !done) {
+    // témoin réduit : un partage ne doit jamais devenir invisible
+    return (
+      <button
+        type="button"
+        role="status"
+        onClick={() => setHidden(false)}
+        title="Afficher"
+        className="fixed right-4 bottom-4 z-[70] flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-[0.8rem] font-bold text-ink shadow-xl ring-1 ring-black/5"
+      >
+        <span className={`h-2.5 w-2.5 rounded-full ${status.stage === "live" ? "animate-pulse bg-[#E5484D]" : "bg-[#F5A524]"}`} />
+        <span>Remote Play</span>
+        <span data-no-i18n className="max-w-[8rem] truncate font-semibold text-ink-soft">
+          {status.peerName}
+        </span>
+      </button>
+    );
+  }
   return (
     <div role="status" className="fixed right-4 bottom-4 z-[70] w-[22rem] space-y-2 rounded-2xl bg-white/95 p-3 text-ink shadow-xl ring-1 ring-black/5">
       <div className="flex items-center gap-2">
@@ -560,7 +583,7 @@ function HostCard({ status }: { status: OnlineStatus }) {
       {stats && !done && (
         <p className="text-[0.8rem] text-ink-soft">
           {`Connexion : ${pathLabel(stats.path)}`} · {`IPv4 ${natLabel(stats.natV4)}`}
-          {stats.natV6 ? ` · IPv6 ${natLabel(stats.natV6)}` : ""}
+          {stats.natV6 && <> · {`IPv6 ${natLabel(stats.natV6)}`}</>}
         </p>
       )}
       {open && stats && (
@@ -580,8 +603,12 @@ function HostCard({ status }: { status: OnlineStatus }) {
             {open ? "Moins" : "Statistiques"}
           </Button>
         )}
+        {!done && (
+          <Button icon="minus" onClick={() => setHidden(true)}>
+            Masquer
+          </Button>
+        )}
         <Button
-         
           icon="close"
           variant={done ? "soft" : "primary"}
           onClick={() => (done ? useRemotePlayOnline.setState({ status: null }) : void onlineApi.stop().catch(() => undefined))}

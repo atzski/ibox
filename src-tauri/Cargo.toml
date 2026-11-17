@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.58"
+version = "0.1.59"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -49,6 +49,8 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphic
 vigem-client = { version = "0.1.4", features = ["unstable_xtarget_notification"] }
 # transport P2P Remote Play (MIT/Apache-2.0, sans E/S) ; cryptographie Windows CNG : ni OpenSSL ni AWS-LC à livrer
 str0m = { version = "0.25", default-features = false, features = ["wincrypto"] }
+# son Remote Play : encodeur Opus en Rust pur (BSD-3-Clause, aucune dépendance, pas de C à compiler)
+opus-rs = "0.1.42"
 
 [profile.release]
 codegen-units = 1

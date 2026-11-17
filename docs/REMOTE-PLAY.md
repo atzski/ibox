@@ -565,7 +565,7 @@ boîte aux lettres (15 min sans message : la session P2P continue, la fin n'est 
 au pair que par la coupure DTLS/ICE).
 
 **Limites connues** : pas de TURN (réseaux en NAT symétrique des deux côtés, CGNAT strict, UDP
-bloqué : échec expliqué) ; un seul invité ; pas de son (WASAPI/Opus à faire) ; une seule session
+bloqué : échec expliqué) ; un seul invité ; son : WASAPI en boucle (sortie par défaut) → Opus 128 kbit/s (`audio.rs`, 0.1.59), « jeu seulement » pas encore ; une seule session
 (hôte ou invité) à la fois ; `stuns:` non pris en charge ; demandes « je veux rejoindre » (`kind:
 request`) ignorées ; un 429 du serveur suspend iNetbox quelques secondes (comportement existant du
 transport iNetbox).

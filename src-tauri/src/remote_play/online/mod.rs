@@ -489,6 +489,7 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
             blocked: cfg.blocked_accounts.clone(),
             guest_account: args.friend_id.clone(),
             frame_log: None,
+            audio: cfg.audio != crate::remote_play::config::AudioSource::None,
         };
         let invite = ctx.api.create_invite(&args.friend_id, invite_mode(args.profile)).map_err(|e| e.message)?;
         let cancel = Arc::new(AtomicBool::new(false));

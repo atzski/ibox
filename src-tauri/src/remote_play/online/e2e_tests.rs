@@ -112,6 +112,7 @@ fn invitation_signature_stun_et_connexion() {
         blocked: vec![],
         guest_account: bob.id.clone(),
         frame_log: None,
+        audio: false,
     })
     .expect("hôte");
     println!("hôte prêt en {} ms, NAT {:?}", t0.elapsed().as_millis(), host.nat());

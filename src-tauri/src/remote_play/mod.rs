@@ -8,6 +8,7 @@
 //! (boucle locale, LAN) tant qu'iNetbox n'est pas déployé. Rien ne démarre si Remote Play est
 //! désactivé (défaut).
 
+pub mod audio;
 pub mod capture;
 pub mod config;
 pub mod diagnostics;
@@ -167,6 +168,7 @@ pub async fn remote_play_host_start(state: State<'_, RemotePlay>, args: HostStar
         blocked: cfg.blocked_accounts.clone(),
         guest_account: if args.lan { "lan".into() } else { "boucle-locale".into() },
         frame_log: None,
+        audio: args.lan && cfg.audio != config::AudioSource::None,
     };
     let previous = state.host.lock().map_err(|_| "session indisponible")?.take();
     let host = tauri::async_runtime::spawn_blocking(move || {
