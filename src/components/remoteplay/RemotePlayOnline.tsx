@@ -434,7 +434,7 @@ export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTit
               {room > 1 ? `Jusqu'à ${room} amis à la fois` : room === 1 ? "Encore 1 place dans la partie" : "La partie est complète"}
             </p>
           </div>
-          <div className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          <div className="-m-2 grid max-h-[50vh] gap-2 overflow-y-auto p-2 sm:grid-cols-2">
             {sorted.map((f, i) => {
               const on = picked.some((x) => x.id === f.id);
               const full = !on && picked.length >= room;

@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.67",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Invitations Remote Play plus nettes", text: "Dans la liste des amis à inviter, le contour d’un ami coché n’est plus coupé en haut et en bas." },
+    ],
+  },
+  {
     version: "0.1.66",
     date: "2026-11-17",
     highlights: [

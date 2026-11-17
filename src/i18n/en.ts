@@ -2439,6 +2439,8 @@ export const EN: Record<string, string> = {
   "Défiler vite": "Scroll fast",
   "Jeu préc. / suiv.": "Prev. / next game",
   "Les mêmes partout dans iBox. Valider un champ de texte à la manette ouvre le clavier virtuel ; dans la fiche d'un jeu, les gâchettes zooment sur le boîtier.": "The same everywhere in iBox. Confirming a text field with a controller opens the virtual keyboard; on a game page, the triggers zoom on the case.",
+  "Invitations Remote Play plus nettes": "Cleaner Remote Play invitations",
+  "Dans la liste des amis à inviter, le contour d’un ami coché n’est plus coupé en haut et en bas.": "In the list of friends to invite, a checked friend's outline is no longer cut off at the top and bottom.",
   "iBox s’allume avec Windows": "iBox starts with Windows",
   "À l’ouverture de session, iBox démarre en arrière-plan, sans fenêtre ni musique, et attend dans la zone de notification : il est prêt dès que vous l’ouvrez. Activé par défaut, à couper dans Paramètres › Système › Démarrage (ou dans l’assistant de configuration).": "When you sign in, iBox starts in the background, with no window or music, and waits in the notification area: it's ready as soon as you open it. On by default; turn it off in Settings › System › Startup (or in the setup assistant).",
   "Un démarrage plus propre": "A cleaner startup",
