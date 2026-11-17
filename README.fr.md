@@ -57,7 +57,22 @@ Quand une console a besoin d’un émulateur, sa page propose d’installer celu
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-**En préparation.** SmartConfig examine le matériel de votre PC et règle chaque émulateur en conséquence, pour qu’un jeu tourne bien dès le premier lancement, sans fouiller dans les menus de réglages.
+> 🛠️ **En préparation**, en commençant par Dolphin (GameCube et Wii).
+
+Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *et* de votre PC : ce qui tourne en 4K sur une tour de joueur rame sur un portable. SmartConfig fait ce travail à votre place, jeu par jeu.
+
+**Comment ça marche**
+
+1. **Il fait connaissance avec votre PC.** Processeur, carte graphique, écran, et s’il s’agit d’un PC portable de jeu. Ces informations restent sur votre ordinateur.
+2. **Il cherche des réglages qui ont fait leurs preuves.** Des configurations essayées par d’autres joueurs, classées selon la proximité de leur matériel avec le vôtre : même machine, machine proche ou conseil général.
+3. **Vous choisissez un objectif.** ⚡ *Performance* pour un jeu fluide, ⚖️ *Équilibré*, ou ✨ *Qualité* pour l’image la plus nette. *Manuel* ne touche à rien.
+4. **Il applique les réglages à ce jeu seulement**, et vous revenez à votre configuration précédente en un clic.
+
+**Sûr par conception**
+
+- Seuls des réglages connus d’iBox, avec des valeurs dans la plage permise, sont écrits. Rien de ce qui est téléchargé n’est recopié tel quel dans vos fichiers.
+- Votre configuration précédente est sauvegardée avant chaque changement, et un réglage modifié à la main n’est jamais écrasé sans votre accord.
+- Les correctifs livrés avec l’émulateur ne sont jamais contredits, et le reste de vos fichiers de configuration reste intact.
 
 ## Pensé pour le canapé
 
@@ -91,7 +106,34 @@ Avec un compte **iNetbox** facultatif, ajoutez des amis, voyez à quoi ils jouen
 
 <h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
 
-**Expérimental, désactivé par défaut.** Recevez jusqu’à cinq amis dans votre partie, par internet et d’un PC à l’autre. Chaque invité joue avec sa propre manette, et vous décidez qui regarde, qui joue et qui peut utiliser le clavier et la souris. Détails dans [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md).
+> 🧪 **Expérimental**, désactivé par défaut : à activer dans *Paramètres › Remote Play*.
+
+Jouez à un jeu multijoueur local avec des amis qui habitent loin. Le jeu tourne sur **votre** PC ; vos amis le voient en direct dans leur iBox et jouent avec leur propre manette, comme s’ils étaient assis dans votre canapé. Vous seul avez besoin de posséder et d’installer le jeu.
+
+**Comment ça marche**
+
+1. **Invitez.** Ouvrez le profil d’un ami et choisissez *Inviter à jouer*. Choisissez ce que vous partagez (tout l’écran ou seulement la fenêtre du jeu) et ce que votre ami a le droit de faire.
+2. **Il accepte.** Votre ami reçoit une notification et vous rejoint en un clic.
+3. **Jouez.** L’image et le son lui arrivent en temps réel, et sa manette apparaît sur votre PC comme un joueur de plus. Jusqu’à cinq amis peuvent rejoindre la même partie.
+
+**Vous décidez qui fait quoi**
+
+| Rôle | Ce qu’il peut faire |
+|---|---|
+| 👀 **Spectateur** | Regarder la partie, rien d’autre |
+| 🎮 **Joueur** | Jouer avec sa propre manette |
+| 🖱️ **Collaborateur** | Utiliser aussi le clavier et la souris, après votre confirmation |
+
+Quand vous ne partagez que la fenêtre du jeu, les invités peuvent utiliser des manettes, jamais votre clavier ni votre souris.
+
+**Vous gardez la main**
+
+- **Connexion directe.** L’image et les commandes vont d’un PC à l’autre. Le serveur iNetbox ne fait que vous présenter ; il ne voit jamais la partie.
+- **Code de sécurité.** Le même code s’affiche sur les deux écrans : vous vérifiez que vous êtes bien connecté à votre ami.
+- **Arrêt d’urgence.** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>F12</kbd> coupe tout d’un coup, et un indicateur reste visible tant que quelqu’un est connecté. Verrouiller Windows met aussi fin à la session.
+- **Aucune surprise.** Vous ne recevez d’invitations que si vous l’avez autorisé, et quand un réseau bloque la connexion directe, iBox vous explique pourquoi au lieu d’échouer en silence.
+
+Les détails techniques sont dans [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md).
 
 ## Plateformes prises en charge
 

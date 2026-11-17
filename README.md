@@ -57,7 +57,22 @@ When a console needs an emulator, its page offers to install the recommended one
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-**In development.** SmartConfig looks at your PC's hardware and sets up each emulator to match, so a game runs well the first time without digging through settings menus.
+> 🛠️ **In development**, starting with Dolphin (GameCube and Wii).
+
+Emulators have dozens of settings, and the right ones depend on the game *and* on your PC: what runs at 4K on a gaming tower stutters on a laptop. SmartConfig does the homework for you, one game at a time.
+
+**How it works**
+
+1. **It gets to know your PC.** Processor, graphics card, screen, and whether you are on a handheld PC. This stays on your computer.
+2. **It looks for settings that worked.** Configurations tested by other players, ranked by how close their hardware is to yours: same machine, similar machine, or general advice.
+3. **You pick a goal.** ⚡ *Performance* for a smooth game, ⚖️ *Balanced*, or ✨ *Quality* for the sharpest picture. *Manual* leaves everything as it is.
+4. **It applies the settings to that game only**, and you can go back to your previous setup in one click.
+
+**Safe by design**
+
+- Only settings iBox knows, with values in the allowed range, are ever written. Nothing downloaded is copied into your files as is.
+- Your previous configuration is saved before every change, and a setting you changed by hand is never overwritten without asking.
+- Fixes that ship with the emulator are never contradicted, and the rest of your configuration files stays untouched.
 
 ## Made for the sofa
 
@@ -91,7 +106,34 @@ With an optional **iNetbox** account you can add friends, see what they are play
 
 <h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
 
-**Experimental, off by default.** Host a game for up to five friends over the internet, PC to PC. Each guest plays with their own controller, and you decide who can only watch, who can play and who can use the keyboard and mouse. More in [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
+> 🧪 **Experimental**, off by default: turn it on in *Settings › Remote Play*.
+
+Play a local multiplayer game with friends who live far away. The game runs on **your** PC; your friends see it live in their own iBox and play with their own controller, as if they were sitting on your sofa. Only you need to own and install the game.
+
+**How it works**
+
+1. **Invite.** Open a friend's profile and choose *Invite to play*. Pick what you share (your whole screen or just the game window) and what your friend is allowed to do.
+2. **Accept.** Your friend gets a notification and joins with one click.
+3. **Play.** The picture and sound reach them in real time, and their controller shows up on your PC as an extra player. Up to five friends can join the same game.
+
+**You choose who does what**
+
+| Role | What they can do |
+|---|---|
+| 👀 **Spectator** | Watch the game, nothing else |
+| 🎮 **Player** | Play with their own controller |
+| 🖱️ **Collaborator** | Also use the keyboard and mouse, after you confirm it |
+
+When you share only the game window, guests can use controllers but never your keyboard and mouse.
+
+**You stay in control**
+
+- **Direct connection.** Picture and controls go straight from PC to PC. The iNetbox server only introduces you to each other; it never sees the game.
+- **Security code.** Both screens show the same code, so you can check you are really connected to your friend.
+- **Emergency stop.** <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>F12</kbd> cuts everything at once, and a visible indicator stays on while someone is connected. Locking Windows also ends the session.
+- **Nothing by surprise.** You only receive invitations if you allowed it, and when a network blocks a direct connection, iBox tells you why instead of failing silently.
+
+The technical details are in [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
 
 ## Supported platforms
 
