@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.73",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "Une iBox plus colorée", text: "Chaque action a désormais sa couleur, partout dans l’app : bleu pour ouvrir, vert pour jouer et les amis, jaune pour les favoris, violet pour les collections, rose pour les images, orange pour les réglages, rouge pour supprimer ou quitter. Les boutons ont un petit relief façon console, les fenêtres un bandeau aux couleurs du thème, et les catégories des Paramètres de vraies icônes colorées." },
+      { icon: "grid", title: "Les palettes changent vraiment tout", text: "La palette choisie dans Paramètres › Apparence teinte maintenant les cartes, les menus, les filets et le fond, en mode clair comme en mode sombre. Les contrastes ont été vérifiés pour que chaque texte reste lisible." },
+      { icon: "front", title: "Une fiche de jeu bien rangée", text: "Le bouton « Désinstaller » n’apparaît plus en double. Jouer et Remote Play sont côte à côte, les outils (Favoris, Collections, Sauvegardes, Images, Versions, Corriger) forment une grille régulière, et la désinstallation reste à part, en rouge, à côté des détails du fichier." },
+    ],
+  },
+  {
     version: "0.1.72",
     date: "2026-11-17",
     highlights: [

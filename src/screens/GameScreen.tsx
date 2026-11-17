@@ -234,7 +234,7 @@ function GameSheet({ game }: { game: Game }) {
         )}
 
         <FriendsWithGame title={game.title} platformId={game.platformId} />
-          <JinglePicker dbId={game.dbId} title={game.title} />
+        <JinglePicker dbId={game.dbId} title={game.title} />
 
         {game.description && <Synopsis text={game.description} />}
 
@@ -251,44 +251,36 @@ function GameSheet({ game }: { game: Game }) {
               setView("front");
             }}
           />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button cue="toggle" aria-pressed={favorite} onClick={() => void toggleFavorite(game)} className={favorite ? "!text-[#C9821A]" : ""}>
+          {/* outils du jeu : une couleur par action, en grille régulière */}
+          <div className="mt-4 grid grid-cols-3 gap-2 [&>button]:w-full [&>button]:px-3 [&>button]:text-[0.9rem]">
+            <Button tone="yellow" cue="toggle" aria-pressed={favorite} onClick={() => void toggleFavorite(game)}>
               <Icon name="star" filled={favorite} />
               {favorite ? "Favori" : "Favoris"}
             </Button>
             {game.dbId !== undefined && (
               <>
-                <Button icon="front" cue="select" onClick={() => setEditingMedia(true)}>
-                  Images
-                </Button>
-                <Button icon="grid" cue="select" onClick={() => setCollecting(true)}>
+                <Button tone="purple" icon="grid" cue="select" onClick={() => setCollecting(true)}>
                   Collections
                 </Button>
-                <Button icon="disc" cue="select" onClick={() => setSaving(true)}>
+                <Button tone="green" icon="disc" cue="select" onClick={() => setSaving(true)}>
                   Sauvegardes
                 </Button>
-                <Button icon="copy" cue="select" onClick={() => setVersioning(true)}>
+                <Button tone="pink" icon="front" cue="select" onClick={() => setEditingMedia(true)}>
+                  Images
+                </Button>
+                <Button tone="teal" icon="copy" cue="select" onClick={() => setVersioning(true)}>
                   {game.variants?.length ? `Versions (${game.variants.length + 1})` : "Versions"}
                 </Button>
-                <Button icon="gear" cue="select" onClick={() => setCorrecting(true)}>
+                <Button tone="orange" icon="gear" cue="select" onClick={() => setCorrecting(true)}>
                   Corriger
                 </Button>
-                {!version.missing && version.dbId !== undefined && (
-                  <Button icon="trash" cue="select" className="!text-[#D0584F]" onClick={() => setUninstalling(true)}>
-                    Désinstaller
-                  </Button>
-                )}
-                {!version.missing && version.dbId !== undefined && (
-                  <Button icon="trash" cue="select" className="!text-[#D0584F]" onClick={() => setUninstalling(true)}>
-                    Désinstaller
-                  </Button>
-                )}
               </>
             )}
           </div>
           {/* détails techniques repliés : utiles en cas de souci, invisibles sinon */}
           {game.dbId !== undefined && (
-            <details className="group mt-4 rounded-lg bg-white/45 px-4 py-2.5 text-[0.82rem] text-ink-soft">
+            <div className="mt-3 flex items-start gap-2">
+            <details className="group min-w-0 flex-1 rounded-lg bg-white/70 px-4 py-2.5 text-[0.82rem] text-ink-soft ring-1 ring-[var(--ibox-line)]">
               <summary data-focusable className="ibox-focusable cursor-pointer list-none font-bold [--ring-radius:8px]">
                 <span className="inline-block transition-transform group-open:rotate-90">›</span> Détails du fichier
               </summary>
@@ -302,6 +294,13 @@ function GameSheet({ game }: { game: Game }) {
                 <Tech label="Fichier" value={game.filePath} mono />
               </dl>
             </details>
+            {/* action destructive à part, en rouge, loin de « Jouer » */}
+            {!version.missing && version.dbId !== undefined && (
+              <Button tone="red" variant="ghost" icon="trash" cue="select" className="!h-10 !px-4" onClick={() => setUninstalling(true)}>
+                Désinstaller
+              </Button>
+            )}
+            </div>
           )}
         </div>
         {correcting && <CorrectionModal game={game} onClose={() => setCorrecting(false)} />}

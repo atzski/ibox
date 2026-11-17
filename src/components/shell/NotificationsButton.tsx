@@ -65,7 +65,7 @@ export function NotificationsButton() {
           sound.play(open ? "close" : "open");
           setOpen((v) => !v);
         }}
-        className="ibox-focusable ibox-lift relative grid h-12 w-12 place-items-center rounded-full bg-white text-ink shadow-sm [--ring-radius:999px]"
+        className="ibox-focusable ibox-lift relative grid h-12 w-12 place-items-center rounded-full ibox-chip tone-yellow [--ring-radius:999px]"
       >
         <BellIcon />
         {unread > 0 && (

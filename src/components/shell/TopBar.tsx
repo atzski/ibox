@@ -68,7 +68,7 @@ export function TopBar() {
               }}
               aria-label={`Profil de ${profile} — modifier`}
               title="Modifier le profil"
-              className="ibox-focusable ibox-lift flex items-center gap-3 rounded-full py-1 pr-4 pl-1 [--ring-radius:999px] hover:bg-white/60"
+              className="ibox-focusable ibox-lift flex items-center gap-3 rounded-full py-1 pr-4 pl-1 [--ring-radius:999px] hover:bg-[color-mix(in_srgb,var(--accent)_16%,transparent)]"
             >
               <Avatar size={48} />
               <span className="font-display text-[1.15rem] font-semibold text-ink">{profile}</span>
@@ -90,7 +90,7 @@ export function TopBar() {
                 back();
               }}
               aria-label="Retour"
-              className="ibox-focusable ibox-lift grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm [--ring-radius:999px]"
+              className="ibox-focusable ibox-lift grid h-12 w-12 shrink-0 place-items-center rounded-full ibox-chip [--ring-radius:999px]"
             >
               <Icon name="back" size="1.4em" />
             </button>
@@ -121,7 +121,7 @@ export function TopBar() {
               sound.play("back");
               useNav.getState().home();
             }}
-            className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-ink shadow-sm [--ring-radius:999px]"
+            className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-blue [--ring-radius:999px]"
           >
             <Icon name="home" size="1.3em" />
           </button>
@@ -146,7 +146,7 @@ export function TopBar() {
               sound.play("select");
               go({ name: "settings" });
             }}
-            className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-ink shadow-sm [--ring-radius:999px]"
+            className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-orange [--ring-radius:999px]"
           >
             <Icon name="gear" size="1.35em" />
           </button>

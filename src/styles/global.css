@@ -542,3 +542,74 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .ibox-float, .ibox-float-shadow { animation: none; }
 }
+
+/* ——— Code couleur des actions ———
+ * Une « teinte » (--tone) par classe tone-* ; sans classe, la teinte suit
+ * l'accent (console active ou palette d'iBox). Les boutons s'en servent pour
+ * leur fond teinté, leur liseré, leur relief et la couleur de leur icône.
+ */
+.tone-blue { --tone: var(--tone-blue); --tone-ink: var(--tone-blue-ink); --tone-on: #ffffff; }
+.tone-green { --tone: var(--tone-green); --tone-ink: var(--tone-green-ink); --tone-on: #ffffff; }
+.tone-yellow { --tone: var(--tone-yellow); --tone-ink: var(--tone-yellow-ink); --tone-on: #2a1f00; }
+.tone-orange { --tone: var(--tone-orange); --tone-ink: var(--tone-orange-ink); --tone-on: #ffffff; }
+.tone-red { --tone: var(--tone-red); --tone-ink: var(--tone-red-ink); --tone-on: #ffffff; }
+.tone-pink { --tone: var(--tone-pink); --tone-ink: var(--tone-pink-ink); --tone-on: #ffffff; }
+.tone-purple { --tone: var(--tone-purple); --tone-ink: var(--tone-purple-ink); --tone-on: #ffffff; }
+.tone-teal { --tone: var(--tone-teal); --tone-ink: var(--tone-teal-ink); --tone-on: #ffffff; }
+
+@layer components {
+  .ibox-btn {
+    --tone: var(--accent-deep);
+    --tone-ink: var(--accent-text);
+    --tone-on: var(--ibox-on-accent);
+  }
+  /* bouton plein : dégradé lumineux et petit rebord en relief, façon console */
+  .ibox-btn-primary {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 82%, #ffffff), var(--tone) 70%);
+    color: var(--tone-on);
+    box-shadow:
+      inset 0 -3px 0 color-mix(in srgb, var(--tone) 72%, #000000),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 10px 24px -10px var(--tone);
+  }
+  .ibox-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08) saturate(1.05);
+  }
+  /* bouton teinté : surface colorée, liseré et icône à la couleur de l'action */
+  .ibox-btn-soft,
+  .ibox-chip {
+    background: color-mix(in srgb, var(--tone) 12%, var(--ibox-white));
+    color: var(--ibox-ink);
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--tone) 28%, transparent),
+      inset 0 -3px 0 color-mix(in srgb, var(--tone) 22%, transparent),
+      var(--shadow-xs);
+  }
+  .ibox-btn-soft > svg,
+  .ibox-chip {
+    color: var(--tone-ink);
+  }
+  .ibox-btn-soft:hover:not(:disabled),
+  .ibox-chip:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tone) 22%, var(--ibox-white));
+  }
+  .ibox-btn-ghost {
+    background: transparent;
+    color: var(--ibox-ink);
+  }
+  .ibox-btn-ghost > svg {
+    color: var(--tone-ink);
+  }
+  .ibox-btn-ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tone) 14%, transparent);
+  }
+  /* actif (favori, option choisie) : la couleur prend toute la place */
+  .ibox-btn-soft[aria-pressed="true"],
+  .ibox-chip[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--tone) 26%, var(--ibox-white));
+    box-shadow:
+      inset 0 0 0 2px color-mix(in srgb, var(--tone) 55%, transparent),
+      inset 0 -3px 0 color-mix(in srgb, var(--tone) 35%, transparent),
+      var(--shadow-xs);
+  }
+}

@@ -3,11 +3,14 @@ import { Icon, type IconName } from "./Icon";
 import { sound, type SoundCue } from "@/services/sound";
 
 type Variant = "primary" | "soft" | "ghost";
+/** Code couleur des actions (voir tokens.css) ; sans teinte : l'accent courant. */
+export type Tone = "blue" | "green" | "yellow" | "orange" | "red" | "pink" | "purple" | "teal";
 type Size = "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  tone?: Tone;
   icon?: IconName;
   /** Son joué au clic (par défaut : « select »). `null` = silencieux. */
   cue?: SoundCue | null;
@@ -17,10 +20,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    "bg-[var(--accent-deep)] text-on-accent shadow-[0_10px_24px_-10px_var(--accent-deep)] hover:brightness-110",
-  soft: "bg-white text-ink shadow-sm",
-  ghost: "bg-transparent text-ink hover:bg-white/70",
+  primary: "ibox-btn-primary",
+  soft: "ibox-btn-soft",
+  ghost: "ibox-btn-ghost",
 };
 
 const SIZES: Record<Size, string> = {
@@ -30,7 +32,7 @@ const SIZES: Record<Size, string> = {
 
 /** Bouton pilule focalisable (clavier, souris, manette). */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "soft", size = "md", icon, cue = "select", badge, className = "", children, onClick, autoFocusScreen, ...rest },
+  { variant = "soft", size = "md", tone, icon, cue = "select", badge, className = "", children, onClick, autoFocusScreen, ...rest },
   ref,
 ) {
   return (
@@ -38,7 +40,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       data-focusable
       data-autofocus={autoFocusScreen || undefined}
-      className={`ibox-focusable inline-flex shrink-0 items-center justify-center rounded-full font-bold whitespace-nowrap disabled:opacity-55 disabled:shadow-none [--ring-radius:999px] active:scale-[0.97] ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`ibox-focusable ibox-btn ${tone ? `tone-${tone}` : ""} inline-flex shrink-0 items-center justify-center rounded-full font-bold whitespace-nowrap disabled:opacity-55 disabled:shadow-none [--ring-radius:999px] active:scale-[0.97] ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
       onClick={(e) => {
         if (cue) sound.play(cue);
         onClick?.(e);
@@ -73,7 +75,7 @@ export function Segmented<T extends string>({
   cue?: SoundCue | null;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 rounded-full bg-white/80 p-1 shadow-xs">
+    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 rounded-full bg-white/80 p-1 shadow-xs ring-1 ring-[color-mix(in_srgb,var(--accent)_25%,transparent)]">
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -89,7 +91,7 @@ export function Segmented<T extends string>({
               }
             }}
             className={`ibox-focusable inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[0.88rem] font-bold [--ring-radius:999px] ${
-              active ? "bg-[var(--accent-deep)] text-on-accent shadow-sm" : "text-ink-soft hover:text-ink"
+              active ? "ibox-btn ibox-btn-primary" : "text-ink-soft hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-ink"
             }`}
           >
             {o.icon && <Icon name={o.icon} size="1.1em" />}

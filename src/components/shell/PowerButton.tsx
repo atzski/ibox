@@ -44,7 +44,7 @@ export function PowerButton() {
           sound.play("open");
           setAsking(true);
         }}
-        className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-peach-deep shadow-sm [--ring-radius:999px]"
+        className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-red [--ring-radius:999px]"
       >
         <Icon name="power" size="1.3em" />
       </button>
@@ -125,7 +125,7 @@ export function MinimizeButton() {
         aria-label="Réduire iBox"
         title="Réduire iBox"
         onClick={minimize}
-        className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full bg-white text-ink-soft shadow-sm [--ring-radius:999px]"
+        className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-teal [--ring-radius:999px]"
       >
         <Icon name="minus" size="1.3em" />
       </button>

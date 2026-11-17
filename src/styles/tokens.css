@@ -15,8 +15,12 @@
   /* — Palette de base — */
   --ibox-cream: light-dark(#f8f7f3, #161a25);
   --ibox-cream-deep: light-dark(#f1efe8, #1f2433);
-  /* « blanc » = surface des cartes (Tailwind bg-white y est relié) */
-  --ibox-white: light-dark(#ffffff, #252b3b);
+  /* teinte du thème (palette d'iBox) : colore légèrement surfaces et filets */
+  --ibox-tint: var(--ibox-sky);
+  /* surface de nuit propre au thème (redéfinie par chaque palette) */
+  --ibox-night: #252b3b;
+  /* « blanc » = surface des cartes (Tailwind bg-white y est relié), teintée par le thème */
+  --ibox-white: light-dark(color-mix(in srgb, var(--ibox-tint) 6%, #ffffff), color-mix(in srgb, var(--ibox-tint) 9%, var(--ibox-night)));
   --ibox-sky: #8ccdf1;
   --ibox-sky-soft: light-dark(#ddf1fc, #1d3346);
   --ibox-sky-deep: light-dark(#2f7fb0, #9ed8f7);
@@ -34,7 +38,7 @@
   --ibox-ink: light-dark(#344459, #e8ecf5); /* 9.4:1 / 13:1 */
   --ibox-ink-soft: light-dark(#637184, #a7b0c3); /* 4.6:1 / 7.5:1 */
   --ibox-ink-faint: light-dark(#8794a3, #7c869a); /* décoratif uniquement */
-  --ibox-line: light-dark(rgba(52, 68, 89, 0.08), rgba(232, 236, 245, 0.08));
+  --ibox-line: light-dark(color-mix(in srgb, var(--ibox-tint) 22%, rgba(52, 68, 89, 0.08)), color-mix(in srgb, var(--ibox-tint) 18%, rgba(232, 236, 245, 0.08)));
   --ibox-dots: light-dark(rgba(52, 68, 89, 0.07), rgba(232, 236, 245, 0.05));
   /* Texte toujours clair, posé sur un fond d'accent saturé */
   --ibox-on-accent: #ffffff;
@@ -47,6 +51,37 @@
   /* texte d'accent lisible sur le fond courant */
   --accent-text: var(--ibox-sky-deep);
   --accent-glow: rgba(140, 205, 241, 0.55);
+
+  /*
+   * — Couleurs d'action (code couleur commun à toute l'app) —
+   * solid : fond plein (texte --tone-on, contraste ≥ 4,5:1) ;
+   * ink : texte ou icône colorés lisibles sur une surface claire OU sombre.
+   * bleu = ouvrir / naviguer · vert = jouer, valider, social · jaune = favoris, mise en avant
+   * orange = réglages, corriger · rouge = supprimer, quitter · violet = collections, personnaliser
+   * rose = images, médias · turquoise = versions, sauvegardes, système
+   */
+  --tone-blue: #1e6fd9;
+  --tone-blue-ink: light-dark(#1b5fb8, #8cc0ff);
+  --tone-green: #1b7f47;
+  --tone-green-ink: light-dark(#1a7444, #7fdca6);
+  --tone-yellow: #f2b200;
+  --tone-yellow-ink: light-dark(#8a5a00, #ffd36b);
+  --tone-orange: #c2540a;
+  --tone-orange-ink: light-dark(#a84a0a, #ffb27a);
+  --tone-red: #d63a3a;
+  --tone-red-ink: light-dark(#b42a2a, #ff9a94);
+  --tone-pink: #d13a82;
+  --tone-pink-ink: light-dark(#a82466, #ff9ccb);
+  --tone-purple: #7a4bdb;
+  --tone-purple-ink: light-dark(#6236c4, #c4a8ff);
+  --tone-teal: #0c7c81;
+  --tone-teal-ink: light-dark(#0b6e72, #74dcdc);
+
+  /* décor de couleurs derrière l'interface (chaque palette a le sien) */
+  --ibox-backdrop: radial-gradient(60% 55% at 0% 0%, color-mix(in srgb, var(--ibox-sky) 38%, transparent), transparent 70%),
+    radial-gradient(55% 60% at 100% 10%, color-mix(in srgb, var(--ibox-lavender) 34%, transparent), transparent 70%),
+    radial-gradient(60% 55% at 85% 100%, color-mix(in srgb, var(--ibox-peach) 34%, transparent), transparent 70%),
+    radial-gradient(50% 50% at 10% 95%, color-mix(in srgb, var(--ibox-mint) 34%, transparent), transparent 70%);
 
   /* — Espacements (base 4 px, en rem pour suivre l'échelle TV) — */
   --space-1: 0.25rem;

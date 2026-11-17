@@ -18,7 +18,7 @@ export function RemotePlayButton({ game, onLaunch, size = "md" }: { game: Game; 
   if (!isTauri() || game.dbId === undefined) return null;
   return (
     <>
-      <Button variant="soft" size={size} icon="globe" className="self-start" onClick={() => setOpen(true)}>
+      <Button variant="soft" tone="blue" size={size} icon="globe" className="self-start" onClick={() => setOpen(true)}>
         Remote Play
       </Button>
       {open && <RemotePlayGameDialog gameTitle={game.title} onLaunch={onLaunch} onClose={() => setOpen(false)} />}
@@ -124,6 +124,8 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Jouer en grand, Remote Play à côté : les deux façons de lancer le jeu */}
+      <div className="flex items-start gap-2 [&>*:first-child]:flex-1">
       {reason ? (
         <Button variant="primary" size="lg" icon="play" disabled title={reason}>
           {reason}
@@ -150,7 +152,8 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
           {thisOne && busy ? "En cours…" : "Jouer"}
         </Button>
       )}
-      <RemotePlayButton game={game} onLaunch={reason || !configured ? undefined : launch} />
+      <RemotePlayButton game={game} size="lg" onLaunch={reason || !configured ? undefined : launch} />
+      </div>
       {game.dbId !== undefined && (
         <div className="flex items-center gap-2 pl-2 text-[0.82rem] font-semibold text-ink-soft">
           {emulator ? (

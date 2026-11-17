@@ -19,7 +19,7 @@ import { tr } from "@/i18n";
 import { useSettings, type GridDensity, type MotionPreference, type Region, type ThemePreference } from "@/services/settings";
 import { useReducedMotion, useScreenChrome } from "@/app/shellState";
 import { useNav } from "@/app/navigation";
-import { Button, Segmented } from "@/components/ui/Button";
+import { Button, Segmented, type Tone } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { sound } from "@/services/sound";
 import { getAppInfo, type AppInfo } from "@/services/native";
@@ -65,22 +65,24 @@ interface Category {
   icon: IconName;
   /** couleur de la pastille et du bandeau */
   tone: [string, string];
+  /** couleur vive de l'icône (code couleur commun, voir tokens.css) */
+  hue: Tone;
   group: string;
 }
 
 const CATEGORIES: Category[] = [
-  { id: "inetbox", label: "iNetbox", hint: "Compte, amis et confidentialité", icon: "globe", tone: ["#DCCFFA", "#F6E9FF"], group: "Vous" },
-  { id: "profile", label: "Profil", hint: "Votre nom, votre photo, votre collection", icon: "user", tone: ["#FFD9C7", "#FBE6EE"], group: "Vous" },
-  { id: "home", label: "Accueil", hint: "Sections et horloge de l'écran d'accueil", icon: "home", tone: ["#FFE7B8", "#FFF4DC"], group: "Vous" },
-  { id: "display", label: "Apparence", hint: "Couleurs, fond d'écran, tailles et animations", icon: "sparkle", tone: ["#DCCFFA", "#EFE9FF"], group: "Écran" },
-  { id: "library", label: "Bibliothèque", hint: "Dossiers de jeux, région, jeux masqués", icon: "folder", tone: ["#C9EEDD", "#E6F8EF"], group: "Jeux" },
-  { id: "consoles", label: "Consoles", hint: "Émulateur, plein écran, lancement et sauvegardes de chaque console", icon: "gamepad", tone: ["#FFD6D6", "#FFEDED"], group: "Jeux" },
-  { id: "pc", label: "PC et émulateurs", hint: "Boutiques PC et émulateurs des consoles", icon: "disc", tone: ["#C3E9EC", "#E4F6F7"], group: "Jeux" },
-  { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], group: "Jeux" },
-  { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], group: "Système" },
-  { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], group: "Système" },
-  { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], group: "Système" },
-  { id: "system", label: "Système", hint: "Plein écran, notifications, sauvegardes, à propos", icon: "gear", tone: ["#E2E5EC", "#F2F4F7"], group: "Système" },
+  { id: "inetbox", label: "iNetbox", hint: "Compte, amis et confidentialité", icon: "globe", tone: ["#DCCFFA", "#F6E9FF"], hue: "purple", group: "Vous" },
+  { id: "profile", label: "Profil", hint: "Votre nom, votre photo, votre collection", icon: "user", tone: ["#FFD9C7", "#FBE6EE"], hue: "pink", group: "Vous" },
+  { id: "home", label: "Accueil", hint: "Sections et horloge de l'écran d'accueil", icon: "home", tone: ["#FFE7B8", "#FFF4DC"], hue: "yellow", group: "Vous" },
+  { id: "display", label: "Apparence", hint: "Couleurs, fond d'écran, tailles et animations", icon: "sparkle", tone: ["#DCCFFA", "#EFE9FF"], hue: "purple", group: "Écran" },
+  { id: "library", label: "Bibliothèque", hint: "Dossiers de jeux, région, jeux masqués", icon: "folder", tone: ["#C9EEDD", "#E6F8EF"], hue: "green", group: "Jeux" },
+  { id: "consoles", label: "Consoles", hint: "Émulateur, plein écran, lancement et sauvegardes de chaque console", icon: "gamepad", tone: ["#FFD6D6", "#FFEDED"], hue: "red", group: "Jeux" },
+  { id: "pc", label: "PC et émulateurs", hint: "Boutiques PC et émulateurs des consoles", icon: "disc", tone: ["#C3E9EC", "#E4F6F7"], hue: "teal", group: "Jeux" },
+  { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], hue: "blue", group: "Jeux" },
+  { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], hue: "pink", group: "Système" },
+  { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], hue: "green", group: "Système" },
+  { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], hue: "blue", group: "Système" },
+  { id: "system", label: "Système", hint: "Plein écran, notifications, sauvegardes, à propos", icon: "gear", tone: ["#E2E5EC", "#F2F4F7"], hue: "orange", group: "Système" },
 ];
 
 // catégorie gardée entre deux visites
@@ -202,8 +204,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
                     />
                   )}
                   <span
-                    className={`ibox-light-surface relative grid size-9 shrink-0 place-items-center rounded-xl transition-transform duration-300 ease-[var(--ease-bounce)] ${active ? "scale-110" : ""}`}
-                    style={{ background: `linear-gradient(140deg, ${c.tone[0]}, ${c.tone[1]})` }}
+                    className={`tone-${c.hue} relative grid size-9 shrink-0 place-items-center rounded-xl bg-[linear-gradient(160deg,color-mix(in_srgb,var(--tone)_78%,#ffffff),var(--tone))] text-[var(--tone-on)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.18),0_4px_10px_-4px_var(--tone)] transition-transform duration-300 ease-[var(--ease-bounce)] ${active ? "scale-110" : ""}`}
                   >
                     <Icon name={c.icon} size="1.1em" />
                   </span>
@@ -216,7 +217,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
         ))}
       </nav>
 
-      <section ref={pageRef} className="min-h-0 overflow-y-auto pr-1 pb-8" data-nav-group={`settings-${cat}`}>
+      <section ref={pageRef} className={`tone-${current.hue} min-h-0 overflow-y-auto pr-1 pb-8`} data-nav-group={`settings-${cat}`}>
         {/* la page précédente disparaît aussitôt : la manette ne vise jamais un élément sortant */}
         <motion.div
           key={cat}
@@ -242,7 +243,7 @@ function PageHeader({ category }: { category: Category }) {
     >
       <span aria-hidden className="ibox-drift-a absolute -top-16 right-24 size-48 rounded-full bg-white/40 blur-2xl" />
       <span aria-hidden className="absolute -right-6 -bottom-10 size-40 rounded-full border-[18px] border-white/35" />
-      <span className="relative grid size-16 place-items-center rounded-[1.3rem] bg-white/85 text-ink shadow-md">
+      <span className={`tone-${category.hue} relative grid size-16 place-items-center rounded-[1.3rem] bg-[linear-gradient(160deg,color-mix(in_srgb,var(--tone)_78%,#ffffff),var(--tone))] text-[var(--tone-on)] shadow-[inset_0_-3px_0_rgba(0,0,0,0.18),0_10px_22px_-10px_var(--tone)]`}>
         <Icon name={category.icon} size="1.8em" />
       </span>
       <div className="relative">
@@ -259,7 +260,7 @@ function Group({ title, icon, children, note }: { title?: string; icon?: IconNam
       {title && (
         <div className="mb-3 flex items-center gap-2.5">
           {icon && (
-            <span className="grid size-8 place-items-center rounded-xl bg-cream-deep text-ink">
+            <span className="grid size-8 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--tone,var(--accent))_16%,var(--ibox-white))] text-[var(--tone-ink,var(--accent-text))]">
               <Icon name={icon} size="1em" />
             </span>
           )}

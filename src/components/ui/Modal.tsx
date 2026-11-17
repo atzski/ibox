@@ -65,10 +65,12 @@ export function Modal({
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 380, damping: 30 }}
-        className="flex max-h-full flex-col overflow-hidden rounded-xl bg-white shadow-lg"
+        className="flex max-h-full flex-col overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
         style={{ width }}
       >
-        <div className="flex items-start gap-4 px-7 pt-6 pb-4">
+        {/* bandeau d'en-tête aux couleurs du thème (console active ou palette) */}
+        <div aria-hidden className="h-1.5 shrink-0 bg-[linear-gradient(90deg,var(--accent),color-mix(in_srgb,var(--accent)_45%,var(--ibox-lavender)))]" />
+        <div className="flex items-start gap-4 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_14%,transparent),transparent)] px-7 pt-5 pb-4">
           <div className="min-w-0 flex-1">
             <h2 className="text-[1.5rem] font-semibold text-ink">{title}</h2>
             {subtitle && <p className="mt-1 text-[0.9rem] font-semibold text-ink-soft">{subtitle}</p>}
@@ -81,7 +83,7 @@ export function Modal({
               sound.play("back");
               onClose();
             }}
-            className="ibox-focusable grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cream-deep text-ink [--ring-radius:999px]"
+            className="ibox-focusable ibox-chip grid h-10 w-10 shrink-0 place-items-center rounded-full [--ring-radius:999px]"
           >
             <Icon name="plus" className="rotate-45" />
           </button>

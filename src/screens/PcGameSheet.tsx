@@ -204,31 +204,32 @@ export function PcGameSheet({ game }: { game: Game }) {
             />
             <Button
               size="lg"
+              tone="yellow"
               cue="toggle"
               aria-pressed={favorite}
               aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
               title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
               onClick={() => void toggleFavorite(game)}
-              className={`!w-14 !px-0 ${favorite ? "!text-[#E8A23A]" : ""}`}
+              className="!w-14 !px-0"
             >
               <Icon name="star" filled={favorite} size="1.4em" />
             </Button>
           </div>
           {game.dbId !== undefined && (
             <div className="flex flex-wrap items-center gap-1 border-t border-white/60 pt-2.5">
-              <Button variant="ghost" icon="front" className="!h-10 !px-4" onClick={() => setEditingMedia(true)}>
+              <Button variant="ghost" tone="pink" icon="front" className="!h-10 !px-4" onClick={() => setEditingMedia(true)}>
                 Illustrations
               </Button>
-              <Button variant="ghost" icon="gear" className="!h-10 !px-4" onClick={() => setCorrecting(true)}>
+              <Button variant="ghost" tone="orange" icon="gear" className="!h-10 !px-4" onClick={() => setCorrecting(true)}>
                 Modifier
               </Button>
-              <Button variant="ghost" icon="copy" className="!h-10 !px-4" onClick={() => setMerging(true)}>
+              <Button variant="ghost" tone="teal" icon="copy" className="!h-10 !px-4" onClick={() => setMerging(true)}>
                 Regrouper une version
               </Button>
               {canUninstall && (
                 <>
                   <span className="mx-1 h-6 w-px bg-ink/10" aria-hidden />
-                  <Button variant="ghost" icon="trash" className="!h-10 !px-4 !text-[#D0584F] hover:!bg-[#E2665E]/12" onClick={() => setUninstalling(true)}>
+                  <Button variant="ghost" tone="red" icon="trash" className="!h-10 !px-4" onClick={() => setUninstalling(true)}>
                     Désinstaller
                   </Button>
                 </>

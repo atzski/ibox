@@ -16,6 +16,9 @@ const v = (cream: string, creamDeep: string, sky: string, lavender: string, mint
   "--ibox-cream": `light-dark(${cream}, ${dark})`,
   "--ibox-cream-deep": `light-dark(${creamDeep}, ${darkDeep})`,
   "--ibox-sky": sky,
+  // surfaces de nuit dans la couleur du thème (et plus seulement le fond)
+  "--ibox-night": `color-mix(in srgb, ${darkDeep} 90%, #ffffff)`,
+  "--ibox-tint": accent,
   "--ibox-lavender": lavender,
   "--ibox-mint": mint,
   "--ibox-peach": peach,

@@ -66,10 +66,10 @@ export function FriendsButton() {
           if (!open) setTarget(null);
           setOpen((v) => !v);
         }}
-        className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full bg-white px-4 text-ink shadow-sm [--ring-radius:999px]"
+        className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full ibox-chip tone-green px-4 [--ring-radius:999px]"
       >
         <FriendsGlyph />
-        <span className="text-[0.95rem] font-bold">Amis</span>
+        <span className="text-[0.95rem] font-bold text-ink">Amis</span>
         {onlineCount > 0 && (
           <span className="flex items-center gap-1 text-[0.85rem] font-bold text-ink-soft">
             <span className="size-2 rounded-full" style={{ background: STATUS_COLOR.online }} />

@@ -2554,4 +2554,10 @@ export const EN: Record<string, string> = {
   "Les clips démarrent avec la partie : rejouez quelques secondes.": "Clips start with the game: play a few more seconds.",
   "Clip illisible.": "Unreadable clip.",
   "{0} s": "{0} s",
+  "Une iBox plus colorée": "A more colorful iBox",
+  "Chaque action a désormais sa couleur, partout dans l’app : bleu pour ouvrir, vert pour jouer et les amis, jaune pour les favoris, violet pour les collections, rose pour les images, orange pour les réglages, rouge pour supprimer ou quitter. Les boutons ont un petit relief façon console, les fenêtres un bandeau aux couleurs du thème, et les catégories des Paramètres de vraies icônes colorées.": "Every action now has its own color across the app: blue to open, green to play and for friends, yellow for favorites, purple for collections, pink for images, orange for settings, red to delete or quit. Buttons get a small console-style bevel, windows a header in the theme's colors, and Settings categories real colored icons.",
+  "Les palettes changent vraiment tout": "Palettes really change everything",
+  "La palette choisie dans Paramètres › Apparence teinte maintenant les cartes, les menus, les filets et le fond, en mode clair comme en mode sombre. Les contrastes ont été vérifiés pour que chaque texte reste lisible.": "The palette chosen in Settings › Appearance now tints cards, menus, borders and the background, in light and dark mode alike. Contrast was checked so every text stays readable.",
+  "Une fiche de jeu bien rangée": "A tidy game page",
+  "Le bouton « Désinstaller » n’apparaît plus en double. Jouer et Remote Play sont côte à côte, les outils (Favoris, Collections, Sauvegardes, Images, Versions, Corriger) forment une grille régulière, et la désinstallation reste à part, en rouge, à côté des détails du fichier.": "The “Uninstall” button no longer shows up twice. Play and Remote Play sit side by side, the tools (Favorites, Collections, Saves, Images, Versions, Fix) form a tidy grid, and uninstalling stays apart, in red, next to the file details.",
 };
