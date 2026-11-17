@@ -1,61 +1,120 @@
 <div align="center">
-  <img src="docs/screenshots/ibox-wordmark.png" width="420" alt="iBox">
-  <p><strong>Your games, together.</strong></p>
-  <p>A personal game library for Windows, built for exploring and playing.</p>
-  <p><a href="https://github.com/atzski/ibox/releases/latest"><strong>Download iBox for Windows</strong></a> · Windows 10 and 11 · 64-bit</p>
+
+<img src="docs/media/branding/ibox-wordmark.png" width="320" alt="iBox">
+
+### Your games, back on the shelf.
+
+iBox gathers your PC games and your console collection in one place and gives every game its case again: a real box you can turn over, open and play.
+
+<a href="https://github.com/atzski/ibox/releases/latest"><strong>Download iBox for Windows</strong></a>
+
+Windows 10 and 11 (64-bit) · Free and open source
+
+<sub>English · <a href="README.fr.md">Français</a></sub>
+
+<br>
+
+<img src="docs/media/demos/library-tour.webp" width="100%" alt="Browsing an iBox library on the 3D shelf: Nintendo Switch, Wii, PSP, DS and Switch 2 cases slide past while the background changes with each game">
+
 </div>
 
-## About iBox
+## A shelf for everything you play
 
-iBox brings your PC games and console collection together in one place. Browse a 3D shelf, turn game cases around to see their artwork, and launch your next adventure from a single library.
+Your Steam, Epic and GOG games sit right next to your Wii discs and Game Boy cartridges. iBox finds them, fetches their covers, and lines them up on a shelf per console, the way they would sit in your living room. Pick one, and the whole screen takes on its colours.
 
-<img src="docs/screenshots/etagere-switch.webp" alt="The iBox 3D game shelf" width="900">
+<p align="center">
+  <img src="docs/media/screenshots/home.webp" width="100%" alt="The iBox home screen with the last game played, the collection counter and a row of consoles">
+</p>
 
-## Features
+- **One library** for PC games (Steam, Epic Games Store, GOG Galaxy, or any `.exe`) and console games from your own folders.
+- **Artwork found for you** from SteamGridDB, GameTDB, LaunchBox, the libretro thumbnails and iiDB: covers, backs, spines, real disc scans, logos and backgrounds.
+- **Collections and favourites** to group games your way, and regional versions of the same game merged into a single entry.
 
-- **One library:** bring together PC games and your own console game folders.
-- **3D game cases:** explore cover artwork and game details.
-- **Personal collections:** choose artwork and colours, and arrange your games your way.
-- **Controller support:** navigate with a controller, keyboard or mouse.
-- **iNetbox:** optionally add friends, share your status and send game invitations.
-- **Remote Play (experimental):** play together over the internet, up to 6 players, each with their own controller.
-- **Community:** share screenshots and clips, react, reply and mention friends with @.
-- **Your activity:** revisit recently played games and track playtime.
+## Cases you can hold
 
-> **New to iBox?** Follow the [step-by-step setup and API keys guide](docs/GUIDE.md).
+This is the part we care about most. Every game has a proper case in 3D, sized for its console: a keep case for GameCube and Wii, a slim case for Switch, a cardboard box for Game Boy, a DVD case for PC. Turn it around to read the back, look at the spine, open it, and take out the disc or the cartridge.
 
-## Download and setup
+<p align="center">
+  <img src="docs/media/demos/game-case.webp" width="58%" alt="Kirby and the Forgotten Land: the case flies in from the shelf, shows its spine and back, opens, and the cartridge slides out">
+  <img src="docs/media/screenshots/disc.webp" width="40%" alt="An open Super Mario Galaxy case showing the real Wii disc art">
+</p>
 
-1. Download the installer from the [latest release](https://github.com/atzski/ibox/releases/latest).
-2. Install iBox and follow the setup guide to add your game folders and configure your sources and emulators.
-3. Open your library and choose a game.
+Works with a mouse (drag, scroll to zoom), the keyboard or a controller's right stick.
 
-Existing users can check for updates under **Settings → System → Updates**. iBox also checks for new versions on its own and offers a one-click install.
+## iBox Platforms
 
-## Remote Play (experimental)
+A small museum of 29 consoles, from the Atari 2600 to the Switch 2, photographed and laid out on a timeline. Each console has its own page with its history, its hardware and your games for it.
 
-Play with your iNetbox friends from anywhere, directly from PC to PC. The host shares their screen or a game window; friends see it, hear it and play with their own controller, as if they were in the same room.
+<p align="center">
+  <img src="docs/media/demos/platforms.webp" width="100%" alt="iBox Platforms: consoles floating one after another, from the Nintendo 64 to the Xbox and the PSP">
+</p>
 
-- **Up to 6 players:** the host plus 5 guests, each with their own direct connection and controller. Guest controllers appear on the host as extra Xbox controllers (through the ViGEmBus driver, installed in one click).
-- **Picture and sound:** Windows Graphics Capture, hardware H.264 encoding (NVIDIA NVENC, AMD AMF, Intel Quick Sync, including PCs with two graphics cards; software as a last resort) and 48 kHz Opus audio, sent peer to peer over WebRTC (UDP) with no relay server.
-- **The host decides:** every guest starts with no rights. *Spectator* (watch and listen), *Player* (+ controller), *Collaborator* (+ keyboard and mouse, after confirmation). On a game window, keyboard and mouse stay confined to that window and system shortcuts (Windows key, Alt+Tab, Alt+F4…) are refused.
-- **Security:** iNetbox only introduces the two PCs (offers signed with a per-device key, DTLS fingerprints checked, a safety code to compare out loud); it never sees the picture or the inputs. A banner stays visible during any share, an emergency shortcut cuts everything, and sharing stops as soon as Windows locks.
-- **Turning it on:** off by default; use the *Remote Play* button on a game page, or **Settings → Remote Play**. Technical details: [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
+When a console needs an emulator, its page offers to install the recommended one. iBox downloads it from the official source, checks the file, installs it in your `iBox\Emulators` folder and links it to the console. It also tells you when a BIOS or firmware is missing and lets you import your own file. Emulators you already use are detected and never replaced without asking.
 
-## Games and privacy
+<p align="center">
+  <img src="docs/media/screenshots/platform-emulator.webp" width="100%" alt="The PlayStation Portable page in iBox Platforms, with PPSSPP recommended and ready to play">
+</p>
 
-iBox does not include games, BIOS files or emulators. Use your own legally obtained games and the software needed to run them. iBox is independent and is not affiliated with the owners of the platforms or brands it supports.
+## Made for the sofa
 
-Your library, collections, settings and local profile are stored on your PC; your game files stay in their original folders. Online artwork services and the optional iNetbox account require an internet connection.
+iBox is designed to be used from across the room. Every screen works with a controller, up to eight of them, and a TV mode makes the interface bigger and hides the cursor. Keyboard and mouse work just as well at a desk.
 
-## A closer look
+Make it yours: twelve colour palettes in light or dark mode, a home background picked from your games or your own image, an original menu soundtrack (or your own music), and a short jingle for each game. Everyone in the house gets their own profile, with their own settings, theme and friends; the games stay shared.
 
-<img src="docs/screenshots/boitier-3d.webp" alt="Game details and an open 3D case in iBox" width="900">
+<p align="center">
+  <img src="docs/media/screenshots/home-dark.webp" width="49%" alt="The iBox home screen in dark mode with the Lavender palette">
+  <img src="docs/media/screenshots/themes.webp" width="49%" alt="Appearance settings: system, light and dark modes and the colour palettes">
+</p>
 
-Game artwork and trademarks shown in screenshots belong to their respective owners.
+## Your journey
 
-## Support and development
+iBox keeps track of what you play: time per game and per console, sessions, streaks and the last two weeks at a glance. Steam achievements and RetroAchievements meet in one trophy room, with rarity, next goals and a leaderboard with your friends. A RetroAchievements unlock shows up right away, over the game.
 
-Found a problem? [Open an issue](https://github.com/atzski/ibox/issues) with your iBox version and steps to reproduce it. Check screenshots and logs for private information before sharing them.
+<p align="center">
+  <img src="docs/media/screenshots/achievements.webp" width="49%" alt="The iBox trophy room: player level, achievements unlocked and next goals">
+  <img src="docs/media/screenshots/stats.webp" width="49%" alt="Play statistics: this week, streak, the last 14 days, time per console and most played games">
+</p>
 
-Looking for build instructions, controls or technical documentation? See the [development guide](docs/DEVELOPMENT.md). iBox code is available under the [MIT license](LICENSE); third-party licenses remain applicable.
+<p align="center">
+  <img src="docs/media/screenshots/game-sheet-pc.webp" width="100%" alt="The Elden Ring page in iBox: DVD case in 3D, Steam playtime, achievements and installed versions">
+</p>
+
+## Play together
+
+With an optional **iNetbox** account you can add friends, see what they are playing, chat, and invite them to a game.
+
+- **Community:** press <kbd>Alt</kbd>+<kbd>E</kbd> during a game to save a screenshot or a clip of the last 12 seconds, then share it with friends, who can react, reply and mention each other.
+- **Remote Play** (experimental, off by default): host a game for up to five friends over the internet, PC to PC. Each guest plays with their own controller, and you decide who can only watch, who can play and who can use the keyboard and mouse. More in [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
+
+## Supported platforms
+
+- **Nintendo:** NES, Super NES, Nintendo 64, GameCube, Wii, Wii U, Switch, Switch 2, Game Boy, Game Boy Color, Game Boy Advance, DS, 3DS
+- **Sony:** PlayStation, PlayStation 2, PlayStation 3, PSP
+- **Microsoft:** Xbox, Xbox 360
+- **Sega:** Master System, Mega Drive, Game Gear, Saturn, Dreamcast
+- **Atari:** 2600, Jaguar
+- **PC:** Steam, Epic Games Store, GOG Galaxy and standalone games
+
+iBox launches console games through the emulator of your choice. For most consoles it can install one for you, including Dolphin, PCSX2, DuckStation, PPSSPP, RPCS3, Cemu, melonDS, Azahar, mGBA, Flycast and RetroArch.
+
+## Getting started
+
+1. Download the `-setup.exe` installer from the [latest release](https://github.com/atzski/ibox/releases/latest) and run it.
+2. Follow the setup wizard: choose your game folders and, if you like, connect Steam and the artwork services.
+3. Open your library and pick a game.
+
+API keys for Steam, SteamGridDB, iiDB and RetroAchievements are optional: they add features, and the [user guide](docs/GUIDE.md) shows how to get each one in a couple of minutes. iBox updates itself and offers new versions with one click.
+
+## Your games, your files
+
+iBox does not include or download games, BIOS files or firmware keys. Use games you own and dump them yourself. Your game files stay where they are; your library, collections, settings and profiles are stored on your PC. Artwork services and iNetbox need an internet connection.
+
+iBox is an independent project, not affiliated with Nintendo, Sony, Microsoft, Sega, Atari, Valve or any other platform owner. Game covers and trademarks shown in these images belong to their respective owners.
+
+## Help and contributing
+
+- **Something wrong?** [Open an issue](https://github.com/atzski/ibox/issues) with your iBox version and the steps to reproduce it. Please remove personal information and API keys from screenshots and logs.
+- **Building iBox or reading the code?** See the [development guide](docs/DEVELOPMENT.md).
+- **Release notes** are on the [Releases page](https://github.com/atzski/ibox/releases); iBox also shows them after each update.
+
+iBox is released under the [MIT licence](LICENSE). The Cal Sans font is under the [SIL Open Font License](src/assets/fonts/cal-sans/OFL.txt), and the licences of other included components still apply.

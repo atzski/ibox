@@ -11,7 +11,9 @@ This guide walks you through installation and connecting services. **API keys ar
 3. Open the file, follow the installer, and launch iBox.
 4. Follow the setup wizard to choose your game folders and configure your emulators.
 
-Your games remain in their original folders. iBox does not include games, BIOS files or emulators: use your own legally obtained files and install the software needed to run them.
+Your games remain in their original folders. iBox does not include games, BIOS files or emulators: use your own legally obtained files.
+
+**Need an emulator?** Open **iBox Platforms** from the home screen, choose a console and select **Install**. iBox downloads the recommended emulator from its official source, checks the file, installs it in your `iBox\Emulators` folder and links it to the console. The console page also tells you if a BIOS, firmware or Windows component is still missing and lets you import your own file; iBox never downloads BIOS files or keys. Emulators you already have are detected and reused.
 
 ## 2. What are API keys?
 
@@ -57,7 +59,23 @@ If Steam refuses to create a key, follow the instructions on its page: Steam det
 3. In iBox, paste it into **RetroAchievements API key** and select **Save**. Also enter your RetroAchievements username in iBox settings if prompted.
 4. To earn achievements while playing, configure RetroAchievements separately in a compatible emulator; adding the key to iBox does not configure your emulator.
 
-## 4. Troubleshooting
+## 4. Controls
+
+iBox works with a controller, a keyboard or a mouse, and you can switch between them at any time. Up to eight controllers are recognised (P1 to P8).
+
+| Action | Keyboard | Controller | Mouse |
+| --- | --- | --- | --- |
+| Navigate | Arrow keys | D-pad / left stick | Hover / click |
+| Confirm | Enter | A (bottom button; right button on Nintendo layouts) | Click |
+| Back | Esc / Backspace | B | Back arrow, top left |
+| Switch view (library) | Q / E | L / R | 3D shelf / Covers switch |
+| Turn the case around | ← → (viewer focused) | Right stick | Drag |
+| Open / close the case | Enter (viewer focused) | A | Double-click or **Open** |
+| Zoom | + / − | Triggers | Mouse wheel |
+
+During a game, **Alt+E** opens the iBox overlay to save a screenshot or a clip of the last seconds.
+
+## 5. Troubleshooting
 
 - **Key rejected:** check that you signed in to the correct account, copy the entire key without extra spaces, and try again.
 - **Steam games missing:** check the public game details setting, then refresh your library.

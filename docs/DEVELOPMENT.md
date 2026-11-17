@@ -1,75 +1,75 @@
-# iBox
+# Developing iBox
 
-Bibliothèque de jeux et frontend d'émulation immersif pour Windows (Tauri 2 · React · Three.js).
-[Télécharger iBox pour Windows](https://github.com/atzski/ibox/releases/latest).
+[← Home](../README.md) · [User guide](GUIDE.md)
 
-## Aperçu
+iBox is a Windows desktop app built with **Tauri 2** (Rust, WebView2) and **React 19**, **TypeScript**, **Three.js** (React Three Fiber) and **SQLite**. This page is for people who want to build it, read the code or contribute.
 
-**Étagère 3D Nintendo Switch**
+## Requirements
 
-![Bibliothèque Nintendo Switch avec des boîtiers 3D en éventail et Kirby au premier plan](screenshots/etagere-switch.webp)
+- Windows 10 or 11, 64-bit
+- [Node.js](https://nodejs.org/) 24
+- [Rust](https://rustup.rs/) stable with the MSVC toolchain
+- Visual Studio Build Tools with the C++ workload
+- Microsoft Edge WebView2 Runtime (already present on most Windows installations)
 
-**Fiche du jeu et boîtier ouvert**
-
-![Fiche de Kirby dans iBox, avec le boîtier ouvert et sa cartouche](screenshots/boitier-3d.webp)
-
-Les marques et illustrations de jeux visibles dans ces captures appartiennent à leurs ayants droit.
-
-## Développement
-
-Node.js 24, Rust stable (MSVC), Visual Studio Build Tools avec C++ et WebView2 sont requis.
-
-Ce dépôt contient l'application Windows, ses modèles 3D et le code client iNetbox. Les builds GitHub Actions produisent un installateur Windows de test et son SHA-256 à partir du commit. Les versions distribuées aux utilisateurs sont disponibles dans le dépôt des téléchargements.
-
-La compilation publique permet d'importer sa propre musique d'ambiance dans Paramètres → Son. La piste locale des versions historiques et les médias récupérés auprès des fournisseurs de jaquettes ne sont pas inclus.
-
-## Commandes
+## Commands
 
 ```bash
 npm ci
-npm run tauri dev      # application Windows avec rechargement à chaud
-npm run dev            # aperçu dans le navigateur (http://localhost:1420)
-npm test               # tests unitaires (interface)
-cd src-tauri && cargo test   # tests Rust (scanner, base, métadonnées)
-cd src-tauri && cargo test --test live_sources -- --ignored --nocapture   # tests réseau réels
-npm run build          # vérification des types + build du front
+npm run tauri dev      # Windows app with hot reload
+npm run dev            # interface only, in a browser (http://localhost:1420)
+npm test               # interface unit tests (Vitest)
+npm run build          # type check + front-end build
+cd src-tauri && cargo test   # Rust tests (scanner, database, metadata)
+cd src-tauri && cargo test --test live_sources -- --ignored --nocapture   # real network tests
 npm run tauri build -- --bundles nsis --config src-tauri/tauri.ci.conf.json
 ```
 
-## Commandes de l'interface
+In the browser preview (`npm run dev`), native features (scanning, launching, iNetbox) are unavailable; iBox shows a small library of fictional demo games instead.
 
-| Action | Clavier | Manette | Souris |
-| --- | --- | --- | --- |
-| Naviguer | Flèches | Croix / stick gauche | Survol / clic |
-| Valider | Entrée | A (Nintendo : droite, Xbox/PS : bas) | Clic |
-| Retour | Échap / Retour arrière | B | Bouton « précédent » / flèche en haut à gauche |
-| Changer de vue (bibliothèque) | Q / E | L / R | Interrupteur Jaquettes / Étagère 3D |
-| Pivoter le boîtier | ← → (visionneuse focalisée) | Stick droit | Glisser |
-| Ouvrir / fermer | Entrée (visionneuse) | A | Double-clic ou bouton Ouvrir |
-| Zoom | + / − | Gâchettes | Molette |
+## Continuous integration
 
-## Documentation
+The [Windows build](../.github/workflows/windows.yml) workflow runs the TypeScript and Rust tests, then builds a test NSIS installer and its SHA-256 checksum, attached to the workflow run. These CI artifacts are not official releases: official versions are published on the [Releases page](https://github.com/atzski/ibox/releases). See [RELEASE.md](RELEASE.md) (in French).
 
-- [Architecture et design system](ARCHITECTURE.md)
-- [Phase 2 — bibliothèque réelle](PHASE2.md)
-- [Phase 3 — métadonnées et jaquettes](PHASE3.md)
-- [Phase 4 — émulateurs](PHASE4.md)
-- [Phase 5 — boîtiers par console, manette](PHASE5.md)
-- [Sources et licences](PROVIDERS.md)
-- [Profils de lancement des émulateurs](EMULATORS.md)
+Public builds let you import your own menu music under **Settings → Sound**. Media fetched from artwork providers are not included in the repository.
 
-### Données et restauration
+## Repository layout
 
-L’exécutable autonome `ibox.exe` et l’installateur NSIS utilisent le même dossier de données Windows, `%APPDATA%\app.ibox.desktop`. WebView2 est requis. Les fichiers de jeux restent dans leurs dossiers d’origine.
+| Folder | Contents |
+| --- | --- |
+| `src/` | React interface: screens, components, 3D scenes (`three/`), procedural artwork (`art/`), services, translations (`i18n/`) |
+| `src-tauri/` | Rust side: SQLite library, scanner, metadata providers, launchers, emulator installation, iNetbox client, Remote Play, capture |
+| `3d-assets/` | Sources and pipeline of the 3D game cases |
+| `public/` | Static assets: console photos, case models, interface sounds |
+| `docs/` | Documentation and README media |
 
-Dans **Paramètres → Bibliothèque → Sauvegardes de la bibliothèque**, choisissez une sauvegarde par date et nombre de jeux. iBox se ferme après confirmation. Au prochain lancement, la base précédente est archivée dans un dossier `before-restore-*`. Les sauvegardes concernent SQLite. Les fichiers de jeux et les images en cache restent sur le disque.
+## Data and restore
 
-## Profile Studio
+The standalone `ibox.exe` and the NSIS installer share the same Windows data folder, `%APPDATA%\app.ibox.desktop`. Game files always stay in their original folders.
 
-Ouvrir **Paramètres → Profil → Personnaliser** pour éditer le profil local et voir l’aperçu avant enregistrement. Les avatars existants restent compatibles. Les photos et bannières importées restent sur cet ordinateur. Les références Riot sont enregistrées sans copier les images distantes dans le dépôt.
+Under **Settings → Library → Library backups**, pick a backup by date and number of games. iBox closes after confirmation; on the next launch, the previous database is archived in a `before-restore-*` folder. Backups cover the SQLite database only: game files and cached images stay on disk.
 
-**Riot Data Dragon** se règle dans **Sources d’avatars**. Le catalogue est paginé et les images viennent du CDN. Avant distribution publique, enregistrer iBox et soumettre la fonctionnalité à l’audit Riot. [Politiques Riot](https://developer.riotgames.com/policies/general)
+## Profile Studio and Riot Data Dragon
+
+**Settings → Profile → Customize** edits the local profile with a live preview. Imported photos and banners stay on the PC. Riot references are saved without copying remote images into the repository.
+
+**Riot Data Dragon** is configured under **Avatar sources**; its catalogue is paginated and images come from Riot's CDN. Before any wider public distribution of this feature, iBox must be registered and submitted to Riot's review. See the [Riot policies](https://developer.riotgames.com/policies/general).
+
+## Technical documentation
+
+Most design notes are written in French.
+
+- [Architecture and design system](ARCHITECTURE.md)
+- [Real library](PHASE2.md) · [Metadata and artwork](PHASE3.md) · [Emulators](PHASE4.md) · [Cases per console, controllers](PHASE5.md)
+- [PC games](PC.md) · [iBox Platforms](PLATFORMS.md) · [Emulator launch profiles](EMULATORS.md)
+- [Artwork sources and licences](PROVIDERS.md) · [3D assets](ASSETS.md)
+- [Remote Play](REMOTE-PLAY.md) · [iNetbox database](INETBOX-DATABASE.md)
+- [Regenerating the README media](media/README.md)
+
+## Reporting a bug
+
+[Open an issue](https://github.com/atzski/ibox/issues) with your iBox version (**Settings → System**), what you did and what happened. Check screenshots and logs for private information first, and never share API keys.
 
 ## Licence
 
-Le code iBox est distribué sous licence [MIT](../LICENSE). La police Cal Sans est sous [SIL Open Font License](../src/assets/fonts/cal-sans/OFL.txt). Les avis de licence présents dans le dépôt restent applicables aux composants concernés.
+iBox code is released under the [MIT licence](../LICENSE). The Cal Sans font is under the [SIL Open Font License](../src/assets/fonts/cal-sans/OFL.txt). Licence notices included in the repository still apply to the components they cover.
