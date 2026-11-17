@@ -131,7 +131,7 @@ impl Encoder {
 }
 
 #[cfg(windows)]
-pub use win::stream;
+pub use win::{pcm, stream};
 
 /// Noms des exécutables Discord (application, PTB, Canary), en minuscules.
 const DISCORD: [&str; 3] = ["discord.exe", "discordptb.exe", "discordcanary.exe"];
@@ -362,6 +362,106 @@ mod win {
                     if !send(p, origin) {
                         break 'outer;
                     }
+                }
+            }
+        }
+        let _ = client.Stop();
+        result
+    }
+
+    /// Micro par défaut de Windows, au format de son mélangeur.
+    unsafe fn open_microphone() -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
+        use windows::Win32::Media::Audio::eCapture;
+        let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+        let device = devices.GetDefaultAudioEndpoint(eCapture, eConsole)?;
+        let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
+        let format = client.GetMixFormat()?;
+        let fmt: WAVEFORMATEX = std::ptr::read_unaligned(format);
+        let init = client.Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 2_000_000, 0, format, None);
+        CoTaskMemFree(Some(format as *const _));
+        init?;
+        Ok((client, fmt))
+    }
+
+    /// Son brut 48 kHz stéréo entrelacé (clips) : sortie de Windows (`microphone = false`) ou
+    /// micro par défaut. Les silences de WASAPI sont comblés : l'échantillon n° k correspond à
+    /// `k / 48 000` s après le début. `on` renvoie `false` pour arrêter.
+    pub fn pcm(stop: &AtomicBool, microphone: bool, on: &mut dyn FnMut(&[f32]) -> bool) -> Result<(), String> {
+        let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
+        let what = if microphone { "micro" } else { "son de Windows" };
+        let (client, fmt) = unsafe { if microphone { open_microphone() } else { open_default() } }.map_err(|e| format!("{what} : {e}"))?;
+        unsafe { pump(&client, fmt, stop, on) }.map_err(|e| format!("{what} : {e}"))
+    }
+
+    unsafe fn pump(client: &IAudioClient, fmt: WAVEFORMATEX, stop: &AtomicBool, on: &mut dyn FnMut(&[f32]) -> bool) -> windows::core::Result<()> {
+        let channels = fmt.nChannels.max(1) as usize;
+        let kind = match (fmt.wFormatTag, fmt.wBitsPerSample) {
+            (3, 32) | (0xFFFE, 32) => Sample::F32,
+            (1, 16) | (0xFFFE, 16) => Sample::I16,
+            (1, 32) => Sample::I32,
+            _ => return Err(windows::core::Error::new(windows::core::HRESULT(0x88890008u32 as i32), "format audio non pris en charge")),
+        };
+        let block = fmt.nBlockAlign as usize;
+        let capture: IAudioCaptureClient = client.GetService()?;
+        let mut resampler = Resampler::new(fmt.nSamplesPerSec);
+        let mut frames: Vec<Stereo> = Vec::new();
+        let mut converted: Vec<f32> = Vec::new();
+        let mut scratch = vec![0f32; channels];
+        let mut position = 0u64;
+        client.Start()?;
+        let origin = Instant::now();
+        let mut result = Ok(());
+        'outer: while !stop.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(10));
+            loop {
+                let size = match capture.GetNextPacketSize() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        result = Err(e);
+                        break 'outer;
+                    }
+                };
+                if size == 0 {
+                    break;
+                }
+                let mut data: *mut u8 = std::ptr::null_mut();
+                let mut count = 0u32;
+                let mut flags = 0u32;
+                if let Err(e) = capture.GetBuffer(&mut data, &mut count, &mut flags, None, None) {
+                    result = Err(e);
+                    break 'outer;
+                }
+                frames.clear();
+                let silent = flags & (AUDCLNT_BUFFERFLAGS_SILENT.0 as u32) != 0 || data.is_null();
+                for i in 0..count as usize {
+                    if silent {
+                        frames.push([0.0, 0.0]);
+                        continue;
+                    }
+                    let base = data.add(i * block);
+                    for (c, s) in scratch.iter_mut().enumerate() {
+                        *s = match kind {
+                            Sample::F32 => std::ptr::read_unaligned(base.add(c * 4) as *const f32),
+                            Sample::I16 => std::ptr::read_unaligned(base.add(c * 2) as *const i16) as f32 / 32768.0,
+                            Sample::I32 => std::ptr::read_unaligned(base.add(c * 4) as *const i32) as f32 / 2147483648.0,
+                        };
+                    }
+                    frames.push(downmix(&scratch));
+                }
+                let _ = capture.ReleaseBuffer(count);
+                converted.clear();
+                resampler.process(&frames, &mut converted);
+                position += (converted.len() / 2) as u64;
+                if !converted.is_empty() && !on(&converted) {
+                    break 'outer;
+                }
+            }
+            let expected = (origin.elapsed().as_secs_f64() * SAMPLE_RATE as f64) as u64;
+            if expected > position + GAP {
+                let missing = (expected - FRAME as u64 - position) as usize;
+                position += missing as u64;
+                if !on(&vec![0.0; missing * 2]) {
+                    break;
                 }
             }
         }

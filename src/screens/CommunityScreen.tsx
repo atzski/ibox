@@ -240,7 +240,12 @@ function Mine() {
       )}
       {open && (
         <Viewer source={{ local: open.name }} title={open.game ?? "Capture"} subtitle={`${open.kind === "clip" ? "Clip" : "Capture d’écran"} · ${formatBytes(open.size)}`} onClose={() => setOpen(null)}>
-          {user ? (
+          {open.kind === "clip" ? (
+            <p className="flex flex-1 items-center gap-2 text-[0.88rem] font-semibold text-ink-soft">
+              <Icon name="lock" size="1rem" />
+              Les clips vidéo restent sur ce PC : la Communauté n’accepte que les images pour le moment.
+            </p>
+          ) : user ? (
             <form className="flex flex-1 items-center gap-2" onSubmit={async (e) => {
               e.preventDefault();
               setBusy(true);
@@ -286,7 +291,9 @@ function Mine() {
 }
 
 function LocalCard({ item, index, onOpen }: { item: LocalCapture; index: number; onOpen: () => void }) {
-  const url = useCaptureUrl({ local: item.name });
+  // vidéo : pas de chargement dans la grille (fichiers lourds), lecture dans la visionneuse
+  const video = item.name.endsWith(".mp4");
+  const url = useCaptureUrl(video ? null : { local: item.name });
   return (
     <motion.button
       data-focusable
@@ -298,6 +305,11 @@ function LocalCard({ item, index, onOpen }: { item: LocalCapture; index: number;
     >
       <div className="relative aspect-video bg-ink/10">
         {url && <img src={url} alt="" loading="lazy" className="size-full object-cover" />}
+        {video && (
+          <div className="grid size-full place-items-center bg-[linear-gradient(145deg,#1d2340,#0e1222)] text-white/85">
+            <span className="grid size-12 place-items-center rounded-full bg-white/15"><Icon name="play" size="1.4rem" /></span>
+          </div>
+        )}
         {item.kind === "clip" && <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[0.7rem] font-extrabold text-white"><Icon name="play" size="0.8em" /> Clip</span>}
       </div>
       <div className="px-3 py-2">
@@ -320,7 +332,9 @@ function Viewer({ source, title, subtitle, caption, onClose, children, after }: 
   return (
     <Modal title={title} subtitle={subtitle} width="min(70rem, 94vw)" onClose={onClose}>
       <div className="overflow-hidden rounded-2xl bg-black">
-        {url ? (
+        {url && "local" in source && source.local.endsWith(".mp4") ? (
+          <video src={url} controls autoPlay playsInline className="mx-auto max-h-[52vh] w-auto" />
+        ) : url ? (
           <motion.img src={url} alt="" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35 }} className="mx-auto max-h-[52vh] w-auto object-contain" />
         ) : (
           <div className="ibox-shimmer aspect-video opacity-30" />

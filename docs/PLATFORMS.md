@@ -56,6 +56,7 @@ fichiers attendus et exécutables sont déterminés côté Rust.
 | Stella | GitHub `stella-emu/stella` | `Stella-*-windows.zip` | selon la release |
 | RetroArch | `buildbot.libretro.com/stable/<dernière>/windows/x86_64/RetroArch.7z` | | non publiée |
 | Cœurs libretro | `buildbot.libretro.com/nightly/windows/x86_64/latest/<cœur>.dll.zip` | | non publiée |
+| Cœurs sans BIOS (0.1.72) | Play! (`play_libretro`, PS2), PCSX ReARMed (`pcsx_rearmed_libretro`, PS1), Yabause (`yabause_libretro`, Saturn) : même serveur | | non publiée |
 | BigPEmu, MAME | parcours assisté (site officiel), pas de téléchargement automatique | | |
 
 « Empreinte : selon la release » : GitHub ne publie l'empreinte que pour les
@@ -64,6 +65,25 @@ l'interface dit « téléchargée depuis la source officielle », jamais « vér
 
 Essai réel de toutes les sources (zip et 7z, chemin avec espaces et accents) :
 `cd src-tauri && IBOX_PKGS=ppsspp,dolphin,… IBOX_EMU_ROOT=<dossier> cargo test --lib emulators::install::tests::vrai -- --ignored --nocapture`.
+
+## Consoles sans BIOS (0.1.72)
+
+Recommandés par défaut parce qu'ils n'exigent rien d'extrait d'une console
+(BIOS réimplémenté librement, « HLE ») : PS2 → Play!, PS1 → PCSX ReARMed,
+Saturn → Yabause, tous via RetroArch. PCSX2, DuckStation et Beetle Saturn
+restent en alternatives ; leur BIOS est un prérequis `required: false`
+(« Facultatif »). Analyse des autres consoles :
+
+| Console | Exigence | Alternative sans fichier de console |
+|---|---|---|
+| PS3 (RPCS3) | micrologiciel officiel de Sony, téléchargeable | inutile (simple installation) |
+| Vita (Vita3K) | micrologiciel officiel de Sony, téléchargeable | inutile |
+| Xbox (xemu) | ROM MCPX + BIOS + disque dur tirés d'une Xbox | aucune : Cxbx-Reloaded ne lit pas les ISO (dossiers .xbe seulement) et n'a que des préversions |
+| PS4 (shadPS4) | modules système pour certains jeux | aucun autre émulateur PS4 |
+| Wii U (Cemu) | clés pour les jeux chiffrés | aucun autre émulateur Wii U |
+| 3DS (Azahar) | jeux déchiffrés | aucun autre émulateur 3DS maintenu |
+| Dreamcast (Flycast) | BIOS facultatif | déjà sans BIOS |
+| NES/SNES (Mesen) | runtime .NET 8 de Microsoft | inutile (composant gratuit) |
 
 ## Sécurité
 

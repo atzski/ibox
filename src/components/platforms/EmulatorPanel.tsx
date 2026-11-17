@@ -469,8 +469,9 @@ function Requirements({ info, items, onChange }: { info: ConsoleInfo; items: Req
       <ul className="flex flex-col divide-y divide-ink/6">
         {items.map((r) => {
           const t = REQUIREMENT_TEXT[r.id];
-          const icon = r.state === "ok" ? "check" : r.state === "missing" ? "lock" : "sparkle";
-          const color = r.state === "ok" ? "bg-mint-soft text-mint-deep" : r.state === "missing" ? "bg-peach-soft text-peach-deep" : "bg-sky-soft text-sky-deep";
+          const optional = !r.required && r.state === "missing";
+          const icon = r.state === "ok" ? "check" : optional ? "sparkle" : r.state === "missing" ? "lock" : "sparkle";
+          const color = r.state === "ok" ? "bg-mint-soft text-mint-deep" : optional ? "bg-sky-soft text-sky-deep" : r.state === "missing" ? "bg-peach-soft text-peach-deep" : "bg-sky-soft text-sky-deep";
           return (
             <li key={r.id} className="flex items-start gap-3 py-3 first:pt-1 last:pb-1">
               <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${color}`}>
@@ -479,7 +480,7 @@ function Requirements({ info, items, onChange }: { info: ConsoleInfo; items: Req
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-ink">{t?.title ?? r.id}</span>
-                  <span className="text-[0.76rem] font-bold text-ink-faint">{r.state === "ok" ? "Présent" : r.state === "missing" ? "Manquant" : "À faire dans l'émulateur"}</span>
+                  <span className="text-[0.76rem] font-bold text-ink-faint">{r.state === "ok" ? "Présent" : optional ? "Facultatif" : r.state === "missing" ? "Manquant" : "À faire dans l'émulateur"}</span>
                 </div>
                 {t && <p className="mt-0.5 text-[0.87rem] leading-relaxed font-semibold text-ink-soft">{t.body}</p>}
                 <div className="mt-2 flex flex-wrap gap-2">

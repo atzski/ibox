@@ -131,7 +131,14 @@ export function App() {
   // overlay en jeu (Alt+E) : réglages des clips et du raccourci, ouverture de la Communauté
   const captureClips = useSettings((s) => s.captureClips !== false);
   const captureHotkey = useSettings((s) => s.captureHotkey !== false);
-  useEffect(() => void captures.settings(captureClips, captureHotkey).catch(() => undefined), [captureClips, captureHotkey]);
+  const clipQuality = useSettings((s) => s.clipQuality ?? "medium");
+  const clipSeconds = useSettings((s) => s.clipSeconds ?? 15);
+  const clipSystemAudio = useSettings((s) => s.clipSystemAudio !== false);
+  const clipMicrophone = useSettings((s) => s.clipMicrophone === true);
+  useEffect(
+    () => void captures.settings(captureClips, captureHotkey, { quality: clipQuality, seconds: clipSeconds, systemAudio: clipSystemAudio, microphone: clipMicrophone }).catch(() => undefined),
+    [captureClips, captureHotkey, clipQuality, clipSeconds, clipSystemAudio, clipMicrophone],
+  );
   useEffect(() => {
     if (!isTauri()) return;
     const off = import("@tauri-apps/api/event").then(({ listen }) => listen("open-community", () => useNav.getState().go({ name: "community" })));

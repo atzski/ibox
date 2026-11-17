@@ -8,6 +8,10 @@ import type { AvatarChoice } from "./settings";
  * par profil, et partagées sur iNetbox seulement sur demande.
  */
 export interface LocalCapture { name: string; kind: "screenshot" | "clip"; game?: string | null; platformId?: string | null; at: number; size: number }
+/** Réglages des clips vidéo (voir `clips.rs`). */
+export interface ClipSettings { quality: "low" | "medium" | "high"; seconds: number; systemAudio: boolean; microphone: boolean }
+export const CLIP_SECONDS_CHOICES = [5, 10, 15, 20, 30] as const;
+
 export interface SharedCapture {
   id: string; kind: "screenshot" | "clip"; game: string | null; platformId: string | null; caption: string;
   size: number; createdAt: number; hasThumb?: boolean; authorId: string; authorName: string; avatar: AvatarChoice | null; mine: boolean;
@@ -44,7 +48,7 @@ export const captures = {
   remove: (name: string) => invoke<void>("captures_delete", { name }),
   folder: () => invoke<void>("captures_folder"),
   share: (name: string, caption?: string, mentions: string[] = []) => invoke<{ id: string }>("community_share", { name, caption: caption ?? null, mentions }),
-  settings: (clips: boolean, hotkey: boolean) => (isTauri() ? invoke<void>("capture_settings", { clips, hotkey }) : Promise.resolve()),
+  settings: (clips: boolean, hotkey: boolean, clip: ClipSettings) => (isTauri() ? invoke<void>("capture_settings", { clips, hotkey, clip }) : Promise.resolve()),
 };
 
 export const community = {
@@ -77,7 +81,7 @@ export function useCaptureUrl(source: { local: string } | { shared: string; thum
         if (!alive) return;
         const name = "local" in source ? source.local : "";
         const head = new Uint8Array(bytes.slice(0, 3));
-        const type = name.endsWith(".gif") || head[0] === 0x47 ? "image/gif" : head[0] === 0xff ? "image/jpeg" : "image/png";
+        const type = name.endsWith(".mp4") ? "video/mp4" : name.endsWith(".gif") || head[0] === 0x47 ? "image/gif" : head[0] === 0xff ? "image/jpeg" : "image/png";
         made = URL.createObjectURL(new Blob([bytes], { type }));
         setUrl(made);
       } catch {

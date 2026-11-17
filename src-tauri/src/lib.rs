@@ -20,6 +20,7 @@ pub mod uninstall;
 pub mod inetbox;
 pub mod profile;
 pub mod capture;
+pub mod clips;
 pub mod toast;
 pub mod remote_play;
 mod achievements;

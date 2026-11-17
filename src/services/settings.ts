@@ -152,6 +152,14 @@ export interface SettingsState {
   steamFamily: boolean;
   /** Overlay en jeu : mémoire des dernières secondes pour les clips. */
   captureClips?: boolean;
+  /** Clips : qualité de l'image (480p 30 i/s, 720p 30 i/s, 1080p 60 i/s). */
+  clipQuality?: "low" | "medium" | "high";
+  /** Clips : durée gardée, 5 à 30 secondes. */
+  clipSeconds?: number;
+  /** Clips : son de Windows (jeu compris). */
+  clipSystemAudio?: boolean;
+  /** Clips : micro par défaut de Windows. */
+  clipMicrophone?: boolean;
   /** Overlay en jeu : raccourci Alt+E pendant les parties. */
   captureHotkey?: boolean;
   /** Bouton de validation de la manette : auto (selon la famille), en bas, à droite. */

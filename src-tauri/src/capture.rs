@@ -3,30 +3,24 @@
 //! Communauté). Les captures restent dans le dossier de données d'iBox, propre
 //! à chaque profil ; rien ne part en ligne sans un partage explicite.
 //!
-//! Alt+E marche aussi hors partie (capture de tout l'écran) ; le clip des
-//! dernières secondes, lui, n'est tenu que pendant un jeu.
+//! Alt+E marche aussi hors partie (capture de tout l'écran) ; le clip vidéo des
+//! dernières secondes (MP4 avec son, voir `clips.rs`), lui, n'est tenu que
+//! pendant un jeu. Les clips restent sur le PC : la Communauté n'accepte que
+//! les images (0.1.72).
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "overlay";
-/// Clip : 12 dernières secondes, 8 images par seconde, 480 points de large.
-pub const CLIP_SECONDS: usize = 12;
-const CLIP_FPS: usize = 8;
-const CLIP_WIDTH: u32 = 480;
 
 /// Image du jeu prise à l'appui sur Alt+E (PNG), en attente d'être gardée.
 static PENDING: Mutex<Option<Shot>> = Mutex::new(None);
-/// Images récentes du jeu (indices de palette), pour les clips.
-static RING: Mutex<VecDeque<Vec<u8>>> = Mutex::new(VecDeque::new());
-static RING_SIZE: Mutex<(u32, u32)> = Mutex::new((0, 0));
 /// Jeu en cours (titre, console) tel que vu par la dernière vérification.
 static GAME: Mutex<Option<(String, String)>> = Mutex::new(None);
 /// Réglage « Clips » : la mémoire des dernières secondes est tenue pendant les parties.
@@ -59,7 +53,7 @@ pub fn file_name(at: u64, game: Option<&str>, ext: &str) -> String {
 
 /// Nom de capture valide (rien d'autre n'est lu ni supprimé).
 pub fn valid_name(name: &str) -> bool {
-    name.len() <= 80 && !name.starts_with('.') && (name.ends_with(".png") || name.ends_with(".gif"))
+    name.len() <= 80 && !name.starts_with('.') && (name.ends_with(".png") || name.ends_with(".gif") || name.ends_with(".mp4"))
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.')
         && name.matches('.').count() == 1
 }
@@ -72,7 +66,7 @@ fn describe(path: &Path) -> Option<Capture> {
     let meta: Value = fs::read(sidecar(path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(Value::Null);
     let at = name.split('-').next().and_then(|n| n.parse().ok()).unwrap_or(0);
     Some(Capture {
-        kind: if name.ends_with(".gif") { "clip".into() } else { "screenshot".into() },
+        kind: if name.ends_with(".gif") || name.ends_with(".mp4") { "clip".into() } else { "screenshot".into() },
         game: meta["game"].as_str().map(String::from),
         platform_id: meta["platformId"].as_str().map(String::from),
         size: fs::metadata(path).map(|m| m.len()).unwrap_or(0),
@@ -189,31 +183,12 @@ pub fn start(app: AppHandle) {
     let watch = app.clone();
     std::thread::spawn(move || loop {
         let game = game_now(&watch);
+        // clip vidéo tenu seulement pendant une partie, si les clips sont activés
+        crate::clips::set_active(game.is_some() && CLIPS.load(Ordering::Relaxed));
         if let Ok(mut g) = GAME.lock() { *g = game; }
         std::thread::sleep(Duration::from_secs(2));
     });
-    // mémoire des dernières secondes (seulement pendant une partie)
-    std::thread::spawn(move || {
-        let period = Duration::from_millis((1000 / CLIP_FPS) as u64);
-        loop {
-            let playing = GAME.lock().map(|g| g.is_some()).unwrap_or(false);
-            if !playing || !CLIPS.load(Ordering::Relaxed) {
-                if let Ok(mut r) = RING.lock() { r.clear(); }
-                std::thread::sleep(Duration::from_millis(800));
-                continue;
-            }
-            let t = Instant::now();
-            if let Some((w, h, rgb)) = grab(Some(CLIP_WIDTH)) {
-                let frame = quantize(&rgb);
-                if let (Ok(mut ring), Ok(mut size)) = (RING.lock(), RING_SIZE.lock()) {
-                    if *size != (w, h) { ring.clear(); *size = (w, h); }
-                    if ring.len() >= CLIP_SECONDS * CLIP_FPS { ring.pop_front(); }
-                    ring.push_back(frame);
-                }
-            }
-            std::thread::sleep(period.saturating_sub(t.elapsed()));
-        }
-    });
+    crate::clips::start();
     hotkey_thread(app);
 }
 
@@ -306,10 +281,9 @@ pub fn overlay_state() -> Value {
     let pending = PENDING.lock().ok();
     let shot = pending.as_ref().and_then(|p| p.as_ref());
     let game = shot.and_then(|s| s.game.clone()).or_else(|| GAME.lock().ok().and_then(|g| g.clone()));
-    let frames = RING.lock().map(|r| r.len()).unwrap_or(0);
     json!({
         "game": game.as_ref().map(|g| &g.0), "platformId": game.as_ref().map(|g| &g.1),
-        "hasShot": shot.is_some(), "clipSeconds": frames / CLIP_FPS, "clips": CLIPS.load(Ordering::Relaxed),
+        "hasShot": shot.is_some(), "clipSeconds": crate::clips::available_seconds(), "clipMax": crate::clips::settings().seconds, "clips": CLIPS.load(Ordering::Relaxed),
     })
 }
 
@@ -327,16 +301,25 @@ pub async fn overlay_save_shot(app: AppHandle) -> Result<Capture, String> {
     tauri::async_runtime::spawn_blocking(move || store(&app, &shot.png, "png", shot.game, shot.at)).await.map_err(|e| e.to_string())?
 }
 
-/// Enregistre les dernières secondes de jeu en clip animé.
+/// Enregistre les dernières secondes de jeu en clip vidéo (MP4, son selon les réglages).
 #[tauri::command]
 pub async fn overlay_save_clip(app: AppHandle) -> Result<Capture, String> {
-    let frames: Vec<Vec<u8>> = RING.lock().map_err(|_| "Indisponible.")?.iter().cloned().collect();
-    if frames.len() < CLIP_FPS { return Err("Pas encore assez d'images : rejouez quelques secondes.".into()); }
-    let (w, h) = *RING_SIZE.lock().map_err(|_| "Indisponible.")?;
     let game = PENDING.lock().ok().and_then(|p| p.as_ref().and_then(|s| s.game.clone())).or_else(|| GAME.lock().ok().and_then(|g| g.clone()));
     tauri::async_runtime::spawn_blocking(move || {
-        let bytes = encode_gif(w, h, &frames, (100 / CLIP_FPS) as u16)?;
-        store(&app, &bytes, "gif", game, now())
+        let d = dir(&app)?;
+        let at = now();
+        let path = d.join(file_name(at, game.as_ref().map(|g| g.0.as_str()), "mp4"));
+        // nom de travail hors liste (`valid_name` refuse « _ ») puis renommage
+        let work = d.join(format!("_clip-{at}.mp4"));
+        let written = crate::clips::save(&work).and_then(|_| fs::rename(&work, &path).map_err(|e| e.to_string()));
+        if let Err(e) = written {
+            let _ = fs::remove_file(&work);
+            return Err(e);
+        }
+        if let Some((title, platform)) = &game {
+            let _ = fs::write(sidecar(&path), serde_json::to_vec(&json!({ "game": title, "platformId": platform })).unwrap_or_default());
+        }
+        describe(&path).ok_or_else(|| "Clip illisible.".to_string())
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -355,8 +338,9 @@ pub async fn overlay_open_community(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn capture_settings(clips: bool, hotkey: bool) {
+pub fn capture_settings(clips: bool, hotkey: bool, clip: Option<crate::clips::ClipSettings>) {
     CLIPS.store(clips, Ordering::Relaxed);
+    if let Some(c) = clip { crate::clips::configure(c); }
     HOTKEY.store(hotkey, Ordering::Relaxed);
 }
 
@@ -498,6 +482,10 @@ fn prune_share_cache(dir: &Path) {
 pub async fn community_share(app: AppHandle, name: String, caption: Option<String>, mentions: Option<Vec<String>>) -> Result<Value, crate::inetbox::Error> {
     let bad = |m: &str| crate::inetbox::Error::new("INVALID_INPUT", m);
     let capture = describe(&dir(&app).map_err(|e| bad(&e))?.join(&name)).filter(|_| valid_name(&name)).ok_or_else(|| bad("Capture introuvable."))?;
+    // 0.1.72 : la Communauté n'accepte que les images ; les clips restent sur ce PC
+    if capture.kind != "screenshot" {
+        return Err(bad("Les clips ne se partagent pas dans la Communauté pour le moment : seules les images sont acceptées."));
+    }
     let bytes = read_bytes(&app, &name).map_err(|e| bad(&e))?;
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = if capture.kind == "screenshot" { shareable_png(&bytes).unwrap_or(bytes) } else { bytes };

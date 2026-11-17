@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.72",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "disc", title: "PS2, PS1 et Saturn sans BIOS", text: "iBox Platforms recommande désormais des émulateurs libres qui n’ont besoin d’aucun BIOS : Play! pour la PlayStation 2, PCSX ReARMed pour la PlayStation et Yabause pour la Saturn. Un clic installe RetroArch et le bon cœur, et les jeux se lancent. PCSX2, DuckStation et Beetle Saturn restent proposés dans « Alternatives pour les connaisseurs », leur BIOS devient facultatif." },
+      { icon: "front", title: "Des clips vidéo avec le son", text: "Les clips de l’overlay (Alt+E) deviennent de vraies vidéos MP4, encodées par la carte graphique : réglez leur durée (jusqu’à 30 secondes), leur qualité (480p, 720p ou 1080p à 60 images par seconde), et choisissez d’enregistrer le son de Windows et votre micro, dans Paramètres › Système › Overlay en jeu." },
+      { icon: "globe", title: "Communauté : images seulement", text: "Pour le moment, la Communauté n’accepte que les captures d’écran : les clips vidéo restent sur votre PC, où vous pouvez les regarder et les retrouver dans le dossier des captures." },
+    ],
+  },
+  {
     version: "0.1.71",
     date: "2026-11-17",
     highlights: [

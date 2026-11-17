@@ -127,11 +127,11 @@ pub fn for_platform(platform: &str, retroarch_dir: Option<&Path>) -> Vec<Require
     };
     let info = |id: &'static str, kind: &'static str, required: bool, link: &'static str| Requirement { id, kind, state: State::Unknown, required, folder: None, importable: false, link: Some(link) };
     match platform {
-        "ps1" => vec![bios(PS1.id, duckstation_bios(), &PS1, true, Some("https://www.duckstation.org/wiki/BIOS"))],
-        "ps2" => vec![bios(PS2.id, pcsx2_bios(), &PS2, true, Some("https://pcsx2.net/docs/setup/bios/"))],
+        "ps1" => vec![bios(PS1.id, duckstation_bios(), &PS1, false, Some("https://www.duckstation.org/wiki/BIOS"))],
+        "ps2" => vec![bios(PS2.id, pcsx2_bios(), &PS2, false, Some("https://pcsx2.net/docs/setup/bios/"))],
         "saturn" => match retroarch_dir {
-            Some(ra) => vec![bios(SATURN.id, ra.join("system"), &SATURN, true, Some("https://docs.libretro.com/library/beetle_saturn/#bios"))],
-            None => vec![info(SATURN.id, "bios", true, "https://docs.libretro.com/library/beetle_saturn/#bios")],
+            Some(ra) => vec![bios(SATURN.id, ra.join("system"), &SATURN, false, Some("https://docs.libretro.com/library/beetle_saturn/#bios"))],
+            None => vec![info(SATURN.id, "bios", false, "https://docs.libretro.com/library/beetle_saturn/#bios")],
         },
         "ps3" => vec![
             info("ps3-firmware", "firmware", true, "https://rpcs3.net/quickstart"),

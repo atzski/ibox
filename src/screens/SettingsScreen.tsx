@@ -38,6 +38,7 @@ import { Avatar } from "@/components/profile/Avatar";
 import { CoverImage } from "@/components/game/CoverImage";
 import { isFavorite, useLibrary } from "@/services/library";
 import { isHidden, pcApi } from "@/services/pc";
+import { CLIP_SECONDS_CHOICES } from "@/services/community";
 import { useNotifications } from "@/services/notifications";
 import { PLATFORMS } from "@/domain/platforms";
 import type { Game, Platform } from "@/domain/types";
@@ -1333,9 +1334,39 @@ function SystemPage() {
         <Row label="Raccourci Alt+E" note="À tout moment, ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie). Désactivez-le si un autre logiciel utilise Alt+E.">
           <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Raccourci Alt+E" />
         </Row>
-        <Row label="Clips des 12 dernières secondes" note="iBox garde en mémoire les dernières secondes de jeu, rien n’est écrit sans votre demande.">
+        <Row label="Clips vidéo" note="Pendant une partie, iBox garde en mémoire les dernières secondes (vidéo MP4 avec le son). Rien n’est écrit sans votre demande, et les clips restent sur ce PC.">
           <Toggle checked={s.captureClips !== false} onChange={(v) => s.set("captureClips", v)} label="Clips" />
         </Row>
+        {s.captureClips !== false && (
+          <>
+            <Row label="Durée d’un clip" note="Les dernières secondes gardées quand vous enregistrez un clip (30 secondes au plus).">
+              <Segmented<string>
+                label="Durée d’un clip"
+                value={String(s.clipSeconds ?? 15)}
+                onChange={(v) => s.set("clipSeconds", Number(v))}
+                options={CLIP_SECONDS_CHOICES.map((n) => ({ value: String(n), label: `${n} s` }))}
+              />
+            </Row>
+            <Row label="Qualité du clip" note="Plus la qualité est haute, plus le fichier est lourd. La carte graphique encode l’image, sans ralentir le jeu sur un PC récent.">
+              <Segmented<"low" | "medium" | "high">
+                label="Qualité du clip"
+                value={s.clipQuality ?? "medium"}
+                onChange={(v) => s.set("clipQuality", v)}
+                options={[
+                  { value: "low", label: "Légère (480p)" },
+                  { value: "medium", label: "Standard (720p)" },
+                  { value: "high", label: "Haute (1080p 60)" },
+                ]}
+              />
+            </Row>
+            <Row label="Son de Windows" note="Tout ce que le PC joue : le jeu, mais aussi la musique, les appels ou les autres applications.">
+              <Toggle checked={s.clipSystemAudio !== false} onChange={(v) => s.set("clipSystemAudio", v)} label="Son de Windows" />
+            </Row>
+            <Row label="Micro" note="Votre voix, par le micro par défaut de Windows, mélangée au son du clip.">
+              <Toggle checked={s.clipMicrophone === true} onChange={(v) => s.set("clipMicrophone", v)} label="Micro" />
+            </Row>
+          </>
+        )}
       </Group>
       <Group title="Sauvegardes de la bibliothèque" icon="database">
         <div className="border-none">

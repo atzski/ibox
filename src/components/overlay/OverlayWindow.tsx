@@ -6,7 +6,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
 
-interface OverlayState { game: string | null; platformId: string | null; hasShot: boolean; clipSeconds: number; clips: boolean }
+interface OverlayState { game: string | null; platformId: string | null; hasShot: boolean; clipSeconds: number; clipMax?: number; clips: boolean }
 type Done = { kind: "screenshot" | "clip"; at: number } | null;
 
 /**
@@ -129,7 +129,7 @@ export function OverlayWindow() {
                       className="absolute inset-x-3 bottom-3 flex items-center gap-2 rounded-xl bg-[#2BB673]/90 px-3 py-2 text-[0.85rem] font-bold"
                     >
                       <Icon name="check" size="1rem" />
-                      {done.kind === "clip" ? "Clip enregistré dans la Communauté" : "Capture enregistrée dans la Communauté"}
+                      {done.kind === "clip" ? "Clip vidéo enregistré sur ce PC" : "Capture enregistrée dans la Communauté"}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -138,7 +138,7 @@ export function OverlayWindow() {
                 <Action icon="front" label="Garder la capture" hint="S" disabled={!state?.hasShot || !!busy} busy={busy === "screenshot"} onClick={() => void save("screenshot")} />
                 <Action
                   icon="play"
-                  label={!state?.clips ? "Clips désactivés" : !state.game ? "Clip : seulement en jeu" : `Clip des ${Math.max(1, Math.min(12, state.clipSeconds))} dernières s`}
+                  label={!state?.clips ? "Clips désactivés" : !state.game ? "Clip : seulement en jeu" : `Clip des ${Math.max(1, Math.min(state.clipMax ?? 30, state.clipSeconds))} dernières s`}
                   hint="C"
                   disabled={!state?.clips || (state?.clipSeconds ?? 0) < 1 || !!busy}
                   busy={busy === "clip"}

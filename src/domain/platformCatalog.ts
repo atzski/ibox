@@ -284,7 +284,7 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Résolution", value: "256 × 224 à 640 × 480" },
       { label: "Support", value: "CD-ROM" },
     ],
-    recommended: "duckstation", alternatives: ["retroarch"],
+    recommended: "core-pcsx-rearmed", alternatives: ["duckstation"],
   }),
   c({
     id: "ps2", name: "PlayStation 2", manufacturer: "Sony", year: 2000, generation: 6, kind: "home", support: "full",
@@ -301,7 +301,7 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Support", value: "DVD-ROM et CD-ROM" },
       { label: "Particularité", value: "Rétrocompatible PlayStation" },
     ],
-    recommended: "pcsx2", alternatives: [],
+    recommended: "core-play", alternatives: ["pcsx2"],
   }),
   c({
     id: "ps3", name: "PlayStation 3", manufacturer: "Sony", year: 2006, generation: 7, kind: "home", support: "full",
@@ -471,7 +471,7 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Mémoire", value: "2 Mo + 1,5 Mo de mémoire vidéo" },
       { label: "Support", value: "CD-ROM" },
     ],
-    recommended: "core-beetle-saturn", alternatives: [],
+    recommended: "core-yabause", alternatives: ["core-beetle-saturn"],
   }),
   c({
     id: "dreamcast", name: "Dreamcast", manufacturer: "Sega", year: 1998, generation: 6, kind: "home", support: "full",
