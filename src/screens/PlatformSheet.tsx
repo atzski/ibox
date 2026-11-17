@@ -78,7 +78,7 @@ function Sheet({ info }: { info: ConsoleInfo }) {
 
       {/* la console exposée */}
       <div className="relative flex min-h-0 flex-col items-center justify-center px-[3rem] pb-8">
-        <ConsolePhoto info={info} reduced={reduced} priority className="h-[min(58vh,36rem)] w-full max-w-[52rem]" />
+        <ConsolePhoto info={info} reduced={reduced} priority className="h-[min(46vh,28rem)] w-full max-w-[42rem]" />
         {logo && (
           <motion.img
             src={logo}
@@ -98,8 +98,8 @@ function Sheet({ info }: { info: ConsoleInfo }) {
 
       {/* la fiche */}
       <motion.div
-        initial={reduced ? { opacity: 0 } : { opacity: 0, x: 24 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
         className="min-h-0 overflow-y-auto pt-2 pr-[3rem] pb-12"
       >

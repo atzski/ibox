@@ -39,7 +39,7 @@ export function PlatformsScreen() {
   useScreenChrome({
     title: "iBox Platforms",
     hints: [
-      { keys: ["←", "→"], label: "Parcourir" },
+      { keys: ["←", "→"], label: "Parcourir (ou molette)" },
       { keys: ["Entrée"], label: "Découvrir" },
       { keys: ["Échap"], label: "Retour" },
     ],
@@ -113,6 +113,26 @@ export function PlatformsScreen() {
     select(next);
     document.querySelector<HTMLElement>(`[data-focus-id="console:${next.id}"]`)?.focus();
   };
+  // molette : une console par cran. Un cran arrive en plusieurs événements
+  // (défilement doux) : on les regroupe en un geste, puis une console de plus
+  // toutes les 380 ms si l'on continue de tourner la molette.
+  const wheel = useRef({ last: 0, stepAt: 0, sum: 0, stepped: false });
+  const onWheel = (e: React.WheelEvent) => {
+    if ((e.target as HTMLElement).closest("input")) return;
+    const w = wheel.current;
+    const now = performance.now();
+    if (now - w.last > 220) {
+      w.sum = 0;
+      w.stepped = false;
+    }
+    w.last = now;
+    w.sum += Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (Math.abs(w.sum) < 30 || (w.stepped && now - w.stepAt < 380)) return;
+    step(w.sum > 0 ? 1 : -1);
+    w.stepAt = now;
+    w.stepped = true;
+    w.sum = 0;
+  };
   const open = (c: ConsoleInfo) => {
     sound.play("select");
     go({ name: "platform", platformId: c.id });
@@ -135,7 +155,7 @@ export function PlatformsScreen() {
   const count = active ? (counts.get(active.id) ?? 0) : 0;
 
   return (
-    <div className="relative isolate flex h-full flex-col overflow-hidden">
+    <div className="relative isolate flex h-full flex-col overflow-hidden" onWheel={onWheel}>
       {active && <AmbienceHalo info={active} center="50% 40%" />}
 
       {/* filtres : discrets, une seule ligne */}
@@ -181,29 +201,32 @@ export function PlatformsScreen() {
           <>
             <SideConsole info={prev} side="left" onClick={() => step(-1)} reduced={reduced} />
             <div className="relative flex min-w-0 flex-[0_1_56rem] flex-col items-center justify-end pb-2">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.button
-                  key={active.id}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => open(active)}
-                  aria-label={`Découvrir ${active.name}`}
-                  className="group relative h-[min(46vh,30rem)] w-full cursor-pointer"
-                  initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.92, y: 18 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -8, transition: { duration: 0.22 } }}
-                  transition={{ type: "spring", stiffness: 170, damping: 22 }}
-                >
-                  <ConsolePhoto info={active} reduced={reduced} priority className="h-full w-full transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:scale-[1.02]" />
-                </motion.button>
-              </AnimatePresence>
+              {/* fondu enchaîné sur place : la console ne glisse pas, elle flotte en continu */}
+              <div className="relative h-[min(36vh,22rem)] w-full max-w-[40rem]">
+                <AnimatePresence initial={false}>
+                  <motion.button
+                    key={active.id}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => open(active)}
+                    aria-label={`Découvrir ${active.name}`}
+                    className="group absolute inset-0 cursor-pointer"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: reduced ? 0.12 : 0.4, ease: "easeInOut" }}
+                  >
+                    <ConsolePhoto info={active} reduced={reduced} priority className="h-full w-full transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:scale-[1.02]" />
+                  </motion.button>
+                </AnimatePresence>
+              </div>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={active.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
                   className="mt-3 flex flex-col items-center text-center"
                 >
                   <div className="text-[0.8rem] font-bold tracking-[0.14em] text-ink-soft uppercase">
@@ -294,28 +317,31 @@ function shortName(c: ConsoleInfo): string {
 }
 
 /** Console voisine, en retrait sur le côté (souris ; la manette passe par la frise). */
-function SideConsole({ info, side, onClick, reduced }: { info: ConsoleInfo | null; side: "left" | "right"; onClick: () => void; reduced: boolean }) {
+function SideConsole({ info, onClick, reduced }: { info: ConsoleInfo | null; side: "left" | "right"; onClick: () => void; reduced: boolean }) {
   return (
-    <div className="relative hidden w-[18%] max-w-[16rem] shrink-0 items-center md:flex">
-      <AnimatePresence mode="popLayout" initial={false}>
-        {info && (
-          <motion.button
-            key={info.id}
-            type="button"
-            tabIndex={-1}
-            onClick={onClick}
-            aria-label={info.name}
-            initial={{ opacity: 0, x: side === "left" ? -30 : 30 }}
-            animate={{ opacity: 0.42, x: 0 }}
-            exit={{ opacity: 0 }}
-            whileHover={{ opacity: 0.75 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="h-[min(22vh,13rem)] w-full cursor-pointer blur-[0.4px] grayscale-[30%]"
-          >
-            <ConsolePhoto info={info} reduced={reduced} float={false} shared={false} className="h-full w-full" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+    <div className="relative hidden w-[18%] max-w-[15rem] shrink-0 items-center md:flex">
+      {/* fondu sur place, sans glissement latéral */}
+      <div className="relative h-[min(18vh,10rem)] w-full">
+        <AnimatePresence initial={false}>
+          {info && (
+            <motion.button
+              key={info.id}
+              type="button"
+              tabIndex={-1}
+              onClick={onClick}
+              aria-label={info.name}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.42 }}
+              exit={{ opacity: 0 }}
+              whileHover={{ opacity: 0.75 }}
+              transition={{ duration: reduced ? 0.12 : 0.4, ease: "easeInOut" }}
+              className="absolute inset-0 cursor-pointer blur-[0.4px] grayscale-[30%]"
+            >
+              <ConsolePhoto info={info} reduced={reduced} float={false} className="h-full w-full" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -2329,4 +2329,12 @@ export const EN: Record<string, string> = {
   "Chaque fiche indique ce qui manque encore (BIOS, micrologiciel, composant Windows) et importe votre propre fichier au bon endroit. iBox ne télécharge jamais de BIOS ni de clés.": "Each sheet shows what is still missing (BIOS, firmware, Windows component) and imports your own file to the right place. iBox never downloads BIOS or keys.",
   "Votre jeu est presque prêt": "Your game is almost ready",
   "Un jeu sans émulateur propose désormais d’installer celui de sa console. Vos installations existantes sont reconnues, réutilisées et jamais remplacées sans votre accord.": "A game with no emulator now offers to install its console's. Your existing installations are recognised, reused and never replaced without your consent.",
+  "Parcourir (ou molette)": "Browse (or mouse wheel)",
+  // ——— iBox Platforms (0.1.61) ———
+  "iBox Platforms plus naturel": "A more natural iBox Platforms",
+  "Les consoles flottent doucement sur place, sans glisser d’un côté à l’autre, et leur mouvement continue sans repartir de zéro quand vous changez de console. Elles sont aussi un peu plus petites pour mieux respirer à l’écran.": "Consoles now float gently in place, without sliding from side to side, and their motion carries on instead of restarting when you switch consoles. They are also a little smaller, giving the screen more room.",
+  "Parcourir à la molette": "Browse with the mouse wheel",
+  "Dans iBox Platforms, chaque cran de molette passe à la console suivante ou précédente.": "In iBox Platforms, each notch of the mouse wheel moves to the next or previous console.",
+  "Les nouvelles consoles à l’accueil": "New consoles on the home screen",
+  "Sur l’accueil, les consoles sans illustration montrent maintenant leur vraie photo : Xbox 360, Dreamcast, Mega Drive et toutes les autres.": "On the home screen, consoles without artwork now show their real photo: Xbox 360, Dreamcast, Mega Drive and all the others.",
 };

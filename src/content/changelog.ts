@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.62",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "iBox Platforms plus naturel", text: "Les consoles flottent doucement sur place, sans glisser d’un côté à l’autre, et leur mouvement continue sans repartir de zéro quand vous changez de console. Elles sont aussi un peu plus petites pour mieux respirer à l’écran." },
+      { icon: "gamepad", title: "Parcourir à la molette", text: "Dans iBox Platforms, chaque cran de molette passe à la console suivante ou précédente." },
+      { icon: "grid", title: "Les nouvelles consoles à l’accueil", text: "Sur l’accueil, les consoles sans illustration montrent maintenant leur vraie photo : Xbox 360, Dreamcast, Mega Drive et toutes les autres." },
+    ],
+  },
+  {
     version: "0.1.61",
     date: "2026-11-17",
     highlights: [

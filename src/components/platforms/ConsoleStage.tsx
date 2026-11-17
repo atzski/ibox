@@ -1,47 +1,49 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { ConsoleInfo } from "@/domain/platformCatalog";
 
+/** Durée d'un cycle de flottement (ms). */
+const FLOAT_MS = 6000;
+
 /**
  * Une console exposée comme un objet de collection : photographie détourée qui
- * flotte doucement au-dessus de son ombre, halo coloré à son identité.
- * Partagé par la galerie et la fiche (même `layoutId` : la photo voyage d'un
- * écran à l'autre).
+ * flotte doucement, de haut en bas, au-dessus de son ombre.
+ *
+ * Le flottement est une animation CSS calée sur l'horloge : une console qui
+ * réapparaît (changement de console, retour de fiche) reprend à la même phase,
+ * sans repartir de zéro.
  */
 export function ConsolePhoto({
   info,
   className = "",
   float = true,
   reduced,
-  shared = true,
   priority,
 }: {
   info: ConsoleInfo;
   className?: string;
   float?: boolean;
   reduced: boolean;
-  shared?: boolean;
   priority?: boolean;
 }) {
   const bob = float && !reduced;
+  // phase commune à toutes les consoles : délai négatif pris sur l'horloge
+  const phase = bob ? { animationDelay: `-${Date.now() % FLOAT_MS}ms`, animationDuration: `${FLOAT_MS}ms` } : undefined;
   return (
     <div className={`relative ${className}`}>
       {/* ombre au sol : se resserre quand la console monte */}
-      <motion.span
+      <span
         aria-hidden
-        className="absolute bottom-[3%] left-1/2 h-[8%] w-[64%] -translate-x-1/2 rounded-[50%] bg-[rgba(8,12,22,0.32)] blur-[18px]"
-        animate={bob ? { scaleX: [1, 0.9, 1], opacity: [0.8, 0.55, 0.8] } : undefined}
-        transition={bob ? { duration: 5.5, repeat: Infinity, ease: "easeInOut" } : undefined}
+        style={phase}
+        className={`absolute bottom-[3%] left-1/2 h-[8%] w-[64%] -translate-x-1/2 rounded-[50%] bg-[rgba(8,12,22,0.32)] blur-[18px] ${bob ? "ibox-float-shadow" : ""}`}
       />
-      <motion.img
-        layoutId={shared ? `console-photo-${info.id}` : undefined}
+      <img
         src={info.photo}
         alt={info.name}
         draggable={false}
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
-        className="absolute inset-0 z-[1] h-full w-full object-contain drop-shadow-[0_22px_26px_rgba(10,14,24,0.26)] select-none"
-        animate={bob ? { y: ["0%", "-2.2%", "0%"] } : undefined}
-        transition={bob ? { duration: 5.5, repeat: Infinity, ease: "easeInOut" } : { type: "spring", stiffness: 140, damping: 20 }}
+        style={phase}
+        className={`absolute inset-0 z-[1] h-full w-full object-contain drop-shadow-[0_22px_26px_rgba(10,14,24,0.26)] select-none ${bob ? "ibox-float" : ""}`}
       />
     </div>
   );

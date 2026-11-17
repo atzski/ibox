@@ -6,6 +6,7 @@ import { sound } from "@/services/sound";
 import { cardEnter } from "@/components/game/GameCard";
 import { usePlatformArt } from "@/services/platformArt";
 import { trimStyle, useImageInfo } from "@/art/imageTone";
+import { consoleInfo } from "@/domain/platformCatalog";
 
 /**
  * Carte d'une console. Composition commune à toutes les machines :
@@ -34,6 +35,7 @@ export function PlatformCard({
   const icon = usePlatformArt(platform.id, "platform_icon");
   const logo = usePlatformArt(platform.id, "platform_logo");
   const logoInfo = useImageInfo(logo);
+  const photo = consoleInfo(platform.id)?.photo;
   const tone = logoInfo.tone;
   const t = platform.theme;
   const games = count > 0 ? `${count} jeu${count > 1 ? "x" : ""}` : "Aucun jeu";
@@ -78,7 +80,18 @@ export function PlatformCard({
             }}
           />
         )}
-        {!hero && !logo && (
+        {!hero && photo && (
+          // pas d'illustration iiDB : la vraie console (photo d'iBox Platforms) occupe la carte
+          <img
+            src={photo}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="pointer-events-none absolute top-3 right-3 -z-10 h-[56%] w-[60%] object-contain object-right-top drop-shadow-[0_8px_10px_rgba(10,20,40,0.22)] transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:scale-[1.06] group-focus:scale-[1.06]"
+          />
+        )}
+        {!hero && !logo && !photo && (
           <>
             <span className="pointer-events-none absolute -top-10 -right-8 h-36 w-36 rounded-full bg-white/45 blur-2xl" />
             <span className="pointer-events-none absolute right-4 bottom-3 opacity-20 transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:scale-110 group-focus:scale-110">

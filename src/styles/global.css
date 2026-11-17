@@ -527,3 +527,18 @@ body::before {
   background: var(--ibox-backdrop, none);
   transition: background var(--dur-slow) var(--ease-out-soft);
 }
+
+/* iBox Platforms : flottement vertical des consoles (phase donnée par l'horloge) */
+@keyframes ibox-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.2%); }
+}
+@keyframes ibox-float-shadow {
+  0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.8; }
+  50% { transform: translateX(-50%) scaleX(0.9); opacity: 0.55; }
+}
+.ibox-float { animation: ibox-float 6s ease-in-out infinite; will-change: transform; }
+.ibox-float-shadow { animation: ibox-float-shadow 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ibox-float, .ibox-float-shadow { animation: none; }
+}
