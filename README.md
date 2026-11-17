@@ -57,7 +57,7 @@ When a console needs an emulator, its page offers to install the recommended one
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-> 🛠️ **In development**, starting with Dolphin (GameCube and Wii).
+> **In development**, starting with Dolphin (GameCube and Wii).
 
 Emulators have dozens of settings, and the right ones depend on the game *and* on your PC: what runs at 4K on a gaming tower stutters on a laptop. SmartConfig does the homework for you, one game at a time.
 
@@ -65,7 +65,7 @@ Emulators have dozens of settings, and the right ones depend on the game *and* o
 
 1. **It gets to know your PC.** Processor, graphics card, screen, and whether you are on a handheld PC. This stays on your computer.
 2. **It looks for settings that worked.** Configurations tested by other players, ranked by how close their hardware is to yours: same machine, similar machine, or general advice.
-3. **You pick a goal.** ⚡ *Performance* for a smooth game, ⚖️ *Balanced*, or ✨ *Quality* for the sharpest picture. *Manual* leaves everything as it is.
+3. **You pick a goal.** *Performance* for a smooth game, *Balanced*, or *Quality* for the sharpest picture. *Manual* leaves everything as it is.
 4. **It applies the settings to that game only**, and you can go back to your previous setup in one click.
 
 **Safe by design**
@@ -106,7 +106,7 @@ With an optional **iNetbox** account you can add friends, see what they are play
 
 <h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
 
-> 🧪 **Experimental**, off by default: turn it on in *Settings › Remote Play*.
+> **Experimental**, off by default: turn it on in *Settings › Remote Play*.
 
 Play a local multiplayer game with friends who live far away. The game runs on **your** PC; your friends see it live in their own iBox and play with their own controller, as if they were sitting on your sofa. Only you need to own and install the game.
 
@@ -120,9 +120,9 @@ Play a local multiplayer game with friends who live far away. The game runs on *
 
 | Role | What they can do |
 |---|---|
-| 👀 **Spectator** | Watch the game, nothing else |
-| 🎮 **Player** | Play with their own controller |
-| 🖱️ **Collaborator** | Also use the keyboard and mouse, after you confirm it |
+| **Spectator** | Watch the game, nothing else |
+| **Player** | Play with their own controller |
+| **Collaborator** | Also use the keyboard and mouse, after you confirm it |
 
 When you share only the game window, guests can use controllers but never your keyboard and mouse.
 

@@ -57,7 +57,7 @@ Quand une console a besoin d’un émulateur, sa page propose d’installer celu
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-> 🛠️ **En préparation**, en commençant par Dolphin (GameCube et Wii).
+> **En préparation**, en commençant par Dolphin (GameCube et Wii).
 
 Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *et* de votre PC : ce qui tourne en 4K sur une tour de joueur rame sur un portable. SmartConfig fait ce travail à votre place, jeu par jeu.
 
@@ -65,7 +65,7 @@ Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *e
 
 1. **Il fait connaissance avec votre PC.** Processeur, carte graphique, écran, et s’il s’agit d’un PC portable de jeu. Ces informations restent sur votre ordinateur.
 2. **Il cherche des réglages qui ont fait leurs preuves.** Des configurations essayées par d’autres joueurs, classées selon la proximité de leur matériel avec le vôtre : même machine, machine proche ou conseil général.
-3. **Vous choisissez un objectif.** ⚡ *Performance* pour un jeu fluide, ⚖️ *Équilibré*, ou ✨ *Qualité* pour l’image la plus nette. *Manuel* ne touche à rien.
+3. **Vous choisissez un objectif.** *Performance* pour un jeu fluide, *Équilibré*, ou *Qualité* pour l’image la plus nette. *Manuel* ne touche à rien.
 4. **Il applique les réglages à ce jeu seulement**, et vous revenez à votre configuration précédente en un clic.
 
 **Sûr par conception**
@@ -106,7 +106,7 @@ Avec un compte **iNetbox** facultatif, ajoutez des amis, voyez à quoi ils jouen
 
 <h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
 
-> 🧪 **Expérimental**, désactivé par défaut : à activer dans *Paramètres › Remote Play*.
+> **Expérimental**, désactivé par défaut : à activer dans *Paramètres › Remote Play*.
 
 Jouez à un jeu multijoueur local avec des amis qui habitent loin. Le jeu tourne sur **votre** PC ; vos amis le voient en direct dans leur iBox et jouent avec leur propre manette, comme s’ils étaient assis dans votre canapé. Vous seul avez besoin de posséder et d’installer le jeu.
 
@@ -120,9 +120,9 @@ Jouez à un jeu multijoueur local avec des amis qui habitent loin. Le jeu tourne
 
 | Rôle | Ce qu’il peut faire |
 |---|---|
-| 👀 **Spectateur** | Regarder la partie, rien d’autre |
-| 🎮 **Joueur** | Jouer avec sa propre manette |
-| 🖱️ **Collaborateur** | Utiliser aussi le clavier et la souris, après votre confirmation |
+| **Spectateur** | Regarder la partie, rien d’autre |
+| **Joueur** | Jouer avec sa propre manette |
+| **Collaborateur** | Utiliser aussi le clavier et la souris, après votre confirmation |
 
 Quand vous ne partagez que la fenêtre du jeu, les invités peuvent utiliser des manettes, jamais votre clavier ni votre souris.
 
