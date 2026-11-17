@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { input } from "@/input/InputController";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +20,20 @@ import {
   type ScMode,
 } from "@/services/smartconfig";
 import { ConfigsModal, type ScGame } from "./ConfigsModal";
-import { StatePill, formatDate, useEmulatorName } from "./ScParts";
+import { BADGE, formatDate, useEmulatorName } from "./ScParts";
+
+/** État en deux mots, sur la pastille repliée. */
+const SHORT: Record<keyof typeof BADGE, string> = {
+  searching: "Recherche…",
+  applied: "Optimisé",
+  custom: "Personnalisé",
+  newRecommendation: "Nouveauté",
+  available: "Prêt à optimiser",
+  noReliable: "Rien de fiable",
+  unsupported: "Non pris en charge",
+  idle: "Optimiser ce jeu",
+  error: "Indisponible",
+};
 
 const SUBTITLE: Partial<Record<string, string>> = {
   idle: "Des réglages adaptés à votre PC, en un geste. Rien n'est modifié sans votre accord.",
@@ -48,6 +61,9 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
+  // replié par défaut : une seule ligne sur la fiche, le détail s'ouvre au clic
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   // la confirmation remplace « Restaurer » : le focus va au choix sûr (Annuler)
   useEffect(() => {
@@ -128,24 +144,58 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
       : `Appliquée le ${formatDate(active.createdAt)}`
     : SUBTITLE[badge];
 
+  const shown = open || confirmRestore || !!error;
+  const b = BADGE[badge];
+  // une nouveauté à proposer : la pastille respire doucement pour donner envie d'ouvrir
+  const inviting = badge === "available" || badge === "newRecommendation";
+
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 28 }}
-      aria-label="SmartConfig"
-      className="mb-3 rounded-[1.3rem] bg-white/75 p-3.5 ring-1 ring-[var(--ibox-line)] backdrop-blur-sm"
-    >
-      <div className="flex items-center gap-3">
-        <span aria-hidden className="tone-orange grid size-9 shrink-0 place-items-center rounded-xl bg-[linear-gradient(160deg,color-mix(in_srgb,var(--tone)_75%,#ffffff),var(--tone))] text-[var(--tone-on)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.16)]">
-          <Icon name="tune" size="1.1em" />
+    <section aria-label="SmartConfig" className="mb-3">
+      <motion.button
+        data-focusable
+        type="button"
+        aria-expanded={shown}
+        aria-controls={panelId}
+        onClick={() => { sound.play(shown ? "back" : "open"); setOpen(!shown); if (shown) { setError(null); setConfirmRestore(false); } }}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileTap={{ scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 340, damping: 26 }}
+        className={`ibox-focusable group tone-${b.tone} relative inline-flex h-10 max-w-full items-center gap-2 rounded-full bg-white/70 py-1 pr-3 pl-1 ring-1 backdrop-blur-sm transition-[background-color,box-shadow] duration-200 [--ring-radius:999px] hover:bg-white/90 ${
+          shown ? "bg-white/90 ring-[color-mix(in_srgb,var(--tone)_45%,transparent)]" : "ring-[var(--ibox-line)]"
+        } ${inviting ? "shadow-[0_0_0_4px_color-mix(in_srgb,var(--tone)_16%,transparent),0_6px_18px_-8px_var(--tone)]" : ""}`}
+      >
+        <span aria-hidden className="tone-orange relative grid size-8 shrink-0 place-items-center rounded-full bg-[linear-gradient(160deg,color-mix(in_srgb,var(--tone)_70%,#ffffff),var(--tone))] text-[var(--tone-on)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.16)]">
+          <Icon name="tune" size="1em" />
+          {inviting && <span className={`tone-${b.tone} ibox-sc-pulse absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-[var(--tone)] ring-2 ring-[var(--ibox-white)]`} />}
         </span>
+        <span className="text-[0.88rem] font-extrabold text-ink">SmartConfig</span>
+        <span aria-hidden className="h-3.5 w-px bg-[var(--ibox-line)]" />
+        <span role="status" className="inline-flex min-w-0 items-center gap-1 truncate text-[0.8rem] font-extrabold text-[var(--tone-ink)]">
+          <Icon name={b.icon} size="0.95em" className={`shrink-0 ${badge === "searching" ? "ibox-sc-pulse" : ""}`} />
+          <span className="truncate">{SHORT[badge]}</span>
+        </span>
+        <motion.span aria-hidden animate={{ rotate: shown ? 90 : 0 }} transition={{ type: "spring", stiffness: 380, damping: 26 }} className="shrink-0 text-ink-soft">
+          <Icon name="chevronRight" size="0.95em" />
+        </motion.span>
+      </motion.button>
+
+      <AnimatePresence initial={false}>
+        {shown && (
+          <motion.div
+            id={panelId}
+            key="panel"
+            initial={{ opacity: 0, height: 0, y: -4 }}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -4 }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="overflow-hidden"
+          >
+          <div className={`tone-${b.tone} mt-2 rounded-[1.3rem] bg-[linear-gradient(150deg,color-mix(in_srgb,var(--tone)_10%,var(--ibox-white)),var(--ibox-white)_70%)] p-3.5 ring-1 ring-[var(--ibox-line)] backdrop-blur-sm`}>
+      <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[0.95rem] font-extrabold text-ink">SmartConfig</span>
-            <StatePill badge={badge} />
-          </div>
-          {subtitle && <p className="mt-0.5 text-[0.78rem] leading-snug font-semibold text-ink-soft">{subtitle}</p>}
+          {/* l'état est déjà sur la pastille : ici, seulement l'explication */}
+          <p className="pt-1.5 text-[0.82rem] leading-snug font-semibold text-ink-soft">{subtitle ?? BADGE[badge].label}</p>
         </div>
         <button
           data-focusable
@@ -199,8 +249,12 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
           </Button>
         </div>
       )}
+          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {modal && <ConfigsModal game={game} open={modal.open} playAfter={modal.playAfter} onClose={() => setModal(null)} />}
-    </motion.section>
+    </section>
   );
 }
 

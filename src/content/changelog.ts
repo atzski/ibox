@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.75",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "SmartConfig plus discret", text: "Sur la fiche d’un jeu, SmartConfig tient maintenant sur une seule pastille au-dessus de « Jouer » : son état en deux mots, et un léger halo quand une recommandation vous attend. Un clic la déplie pour optimiser, restaurer ou voir les configurations." },
+    ],
+  },
+  {
     version: "0.1.74",
     date: "2026-11-17",
     highlights: [
