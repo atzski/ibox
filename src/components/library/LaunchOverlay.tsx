@@ -8,6 +8,7 @@ import { CoverImage } from "@/components/game/CoverImage";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { input } from "@/input/InputController";
+import { consoleInfo } from "@/domain/platformCatalog";
 
 /**
  * Transition de lancement : la jaquette s'avance, le disque en sort et tourne,
@@ -21,6 +22,8 @@ export function LaunchOverlay() {
   const [disc, setDisc] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const wasAnimated = useLauncherWasAnimated();
+  // aucun émulateur associé et une fiche iBox Platforms existe : parcours d'installation
+  const noEmulator = !!error && error.startsWith("Aucun émulateur") && !!game && !!consoleInfo(game.platformId)?.recommended;
 
   // Échap / Retour ferme le message d'erreur
   useEffect(() => {
@@ -114,7 +117,13 @@ export function LaunchOverlay() {
               </span>
               <h2 className="text-[1.4rem] font-semibold text-ink">Le jeu n'a pas pu démarrer</h2>
             </div>
-            <p className="mt-4 text-[0.98rem] leading-relaxed font-semibold text-ink-soft">{error}</p>
+            {noEmulator && game ? (
+              <p className="mt-4 text-[0.98rem] leading-relaxed font-semibold text-ink-soft">
+                Votre jeu est presque prêt. Installez l'émulateur recommandé pour cette console : iBox l'associera tout seul, puis revenez jouer.
+              </p>
+            ) : (
+              <p className="mt-4 text-[0.98rem] leading-relaxed font-semibold text-ink-soft">{error}</p>
+            )}
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 icon="gear"
@@ -125,9 +134,23 @@ export function LaunchOverlay() {
               >
                 Paramètres des émulateurs
               </Button>
-              <Button variant="primary" autoFocusScreen onClick={dismiss}>
-                Fermer
-              </Button>
+              {noEmulator && game ? (
+                <Button
+                  variant="primary"
+                  icon="download"
+                  autoFocusScreen
+                  onClick={() => {
+                    dismiss();
+                    go({ name: "platform", platformId: game.platformId });
+                  }}
+                >
+                  Voir l'émulateur recommandé
+                </Button>
+              ) : (
+                <Button variant="primary" autoFocusScreen onClick={dismiss}>
+                  Fermer
+                </Button>
+              )}
             </div>
           </motion.div>
         </motion.div>

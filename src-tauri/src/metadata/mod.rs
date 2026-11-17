@@ -145,6 +145,17 @@ pub fn libretro_system(platform_id: &str) -> Option<&'static str> {
         "ps1" => "Sony - PlayStation",
         "ps2" => "Sony - PlayStation 2",
         "psp" => "Sony - PlayStation Portable",
+        "ps3" => "Sony - PlayStation 3",
+        "nes" => "Nintendo - Nintendo Entertainment System",
+        "mastersystem" => "Sega - Master System - Mark III",
+        "megadrive" => "Sega - Mega Drive - Genesis",
+        "gamegear" => "Sega - Game Gear",
+        "saturn" => "Sega - Saturn",
+        "dreamcast" => "Sega - Dreamcast",
+        "atari2600" => "Atari - 2600",
+        "jaguar" => "Atari - Jaguar",
+        "xbox" => "Microsoft - Xbox",
+        "xbox360" => "Microsoft - Xbox 360",
         _ => return None,
     })
 }

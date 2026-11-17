@@ -407,7 +407,7 @@ mod tests {
         assert!(matches!(add_folder(&conn, "Z:/n/existe/pas", None), Err(LibraryError::FolderNotFound(_))));
         let tmp = tempfile::tempdir().unwrap();
         assert!(matches!(
-            add_folder(&conn, tmp.path().to_str().unwrap(), Some("dreamcast")),
+            add_folder(&conn, tmp.path().to_str().unwrap(), Some("virtualboy")),
             Err(LibraryError::UnknownPlatform(_))
         ));
     }

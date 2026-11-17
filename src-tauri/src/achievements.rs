@@ -84,6 +84,15 @@ pub async fn achievements_ra_search(platform: String, title: String) -> Result<V
             "ps1" => "12",
             "ps2" => "21",
             "psp" => "41",
+            // identifiants de consoles RetroAchievements (API_GetConsoleIDs)
+            "megadrive" => "1",
+            "nes" => "7",
+            "mastersystem" => "11",
+            "gamegear" => "15",
+            "jaguar" => "17",
+            "atari2600" => "25",
+            "saturn" => "39",
+            "dreamcast" => "40",
             _ => return Ok(json!([])),
         };
         let key = keys::get("retroachievements")

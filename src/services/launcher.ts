@@ -21,6 +21,10 @@ export interface Emulator {
   platforms: string[];
   suggestedPlatforms: string[];
   available: boolean;
+  /** managed : installé par iBox Platforms ; detected : trouvé sur Windows ; manual : ajouté à la main. */
+  origin: "managed" | "detected" | "manual";
+  packageId: string | null;
+  version: string | null;
 }
 
 export interface Suggestion {

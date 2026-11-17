@@ -28,6 +28,11 @@ pub struct Emulator {
     pub suggested_platforms: Vec<String>,
     /// L'exécutable existe toujours.
     pub available: bool,
+    /// Provenance : « managed » (installé par iBox), « detected » (trouvé sur Windows), « manual ».
+    pub origin: String,
+    /// Paquet du catalogue iBox Platforms (installations gérées).
+    pub package_id: Option<String>,
+    pub version: Option<String>,
 }
 
 /// Vérifie qu'un chemin désigne bien un exécutable Windows existant.
@@ -46,12 +51,16 @@ pub fn validate_exe(path: &str) -> Result<PathBuf> {
 
 fn read(conn: &Connection, id: i64) -> Result<Emulator> {
     let row = conn
-        .query_row("SELECT id, profile_id, name, exe_path, args, fullscreen, cores FROM emulators WHERE id = ?1", [id], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get(2)?, r.get(3)?, r.get::<_, String>(4)?, r.get(5)?, r.get::<_, Option<String>>(6)?))
+        .query_row("SELECT id, profile_id, name, exe_path, args, fullscreen, cores, origin, package_id, version FROM emulators WHERE id = ?1", [id], |r| {
+            Ok((
+                (r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get(2)?, r.get(3)?, r.get::<_, String>(4)?, r.get(5)?, r.get::<_, Option<String>>(6)?),
+                (r.get::<_, String>(7)?, r.get::<_, Option<String>>(8)?, r.get::<_, Option<String>>(9)?),
+            ))
         })
         .optional()?
         .ok_or(LaunchError::NotFound)?;
-    let (id, profile_id, name, exe_path, args, fullscreen, cores): (i64, String, String, String, String, bool, Option<String>) = row;
+    type Head = (i64, String, String, String, String, bool, Option<String>);
+    let ((id, profile_id, name, exe_path, args, fullscreen, cores), (origin, package_id, version)): (Head, (String, Option<String>, Option<String>)) = row;
     let profile = profiles::profile(&profile_id);
     let mut stmt = conn.prepare("SELECT platform_id FROM platform_emulators WHERE emulator_id = ?1 ORDER BY platform_id")?;
     let platforms = stmt.query_map([id], |r| r.get(0))?.collect::<rusqlite::Result<Vec<String>>>()?;
@@ -68,6 +77,9 @@ fn read(conn: &Connection, id: i64) -> Result<Emulator> {
         fullscreen,
         cores: cores.and_then(|c| serde_json::from_str(&c).ok()).unwrap_or_default(),
         platforms,
+        origin,
+        package_id,
+        version,
     })
 }
 
@@ -123,6 +135,67 @@ pub fn add(conn: &Connection, exe_path: &str) -> Result<Emulator> {
         conn.execute("INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id) VALUES (?1, ?2)", params![platform, id])?;
     }
     read(conn, id)
+}
+
+/// Provenance d'un émulateur ajouté (« detected » : proposé par la détection de Windows).
+pub fn set_origin(conn: &Connection, id: i64, origin: &str) -> Result<Emulator> {
+    if !matches!(origin, "manual" | "detected") {
+        return Err(LaunchError::Invalid("Provenance inconnue.".into()));
+    }
+    conn.execute("UPDATE emulators SET origin = ?2 WHERE id = ?1 AND origin <> 'managed'", params![id, origin])?;
+    read(conn, id)
+}
+
+/// Enregistre (ou met à jour) un émulateur installé par iBox. Les consoles sans
+/// émulateur lui sont associées ; une association choisie par l'utilisateur n'est jamais remplacée.
+pub fn register_managed(conn: &Connection, exe_path: &str, package_id: &str, version: &str, platforms: &[&str]) -> Result<Emulator> {
+    let emu = add(conn, exe_path)?;
+    conn.execute("UPDATE emulators SET origin = 'managed', package_id = ?2, version = ?3 WHERE id = ?1", params![emu.id, package_id, version])?;
+    if !emu.needs_core {
+        for p in platforms {
+            conn.execute("INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id) VALUES (?1, ?2)", params![p, emu.id])?;
+        }
+    }
+    read(conn, emu.id)
+}
+
+/// Cœur libretro installé dans le RetroArch géré : renseigné pour les consoles qui n'en ont pas.
+pub fn register_core(conn: &Connection, package_id: &str, core: &str, platforms: &[&str]) -> Result<Emulator> {
+    let id: i64 = conn
+        .query_row("SELECT id FROM emulators WHERE package_id = ?1 AND origin = 'managed'", [package_id], |r| r.get(0))
+        .optional()?
+        .ok_or(LaunchError::NotFound)?;
+    let mut emu = read(conn, id)?;
+    for p in platforms {
+        emu.cores.entry(p.to_string()).or_insert_with(|| core.to_string());
+        conn.execute("INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id) VALUES (?1, ?2)", params![p, id])?;
+    }
+    conn.execute("UPDATE emulators SET cores = ?2 WHERE id = ?1", params![id, serde_json::to_string(&emu.cores).unwrap_or_default()])?;
+    read(conn, id)
+}
+
+/// Retire les enregistrements d'un paquet géré (désinstallation).
+pub fn forget_managed(conn: &Connection, package_id: &str) -> Result<()> {
+    conn.execute("DELETE FROM emulators WHERE package_id = ?1 AND origin = 'managed'", [package_id])?;
+    Ok(())
+}
+
+/// Cœur retiré : la console perd son cœur (et son association si elle passait par lui).
+pub fn forget_core(conn: &Connection, retroarch_package: &str, core: &str) -> Result<()> {
+    let Some(id) = conn
+        .query_row("SELECT id FROM emulators WHERE package_id = ?1 AND origin = 'managed'", [retroarch_package], |r| r.get::<_, i64>(0))
+        .optional()?
+    else {
+        return Ok(());
+    };
+    let mut emu = read(conn, id)?;
+    let gone: Vec<String> = emu.cores.iter().filter(|(_, c)| c.eq_ignore_ascii_case(core)).map(|(p, _)| p.clone()).collect();
+    for p in &gone {
+        emu.cores.remove(p);
+        conn.execute("DELETE FROM platform_emulators WHERE platform_id = ?1 AND emulator_id = ?2", params![p, id])?;
+    }
+    conn.execute("UPDATE emulators SET cores = ?2 WHERE id = ?1", params![id, serde_json::to_string(&emu.cores).unwrap_or_default()])?;
+    Ok(())
 }
 
 pub fn update(conn: &Connection, id: i64, name: &str, args: &[String], fullscreen: bool, cores: &BTreeMap<String, String>) -> Result<Emulator> {

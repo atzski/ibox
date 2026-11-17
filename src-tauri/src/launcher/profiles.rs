@@ -115,11 +115,129 @@ pub const PROFILES: &[Profile] = &[
         fullscreen: &["-f"],
         needs_core: false,
     },
+    // — iBox Platforms (options vérifiées dans le code source, 2026-11-17) —
+    Profile {
+        id: "mesen",
+        name: "Mesen",
+        exe_prefixes: &["mesen"],
+        platforms: &["nes", "snes"],
+        // UI/Utilities/CommandLineHelper.cs : fichier positionnel, « --fullscreen »
+        args: &["{fullscreen}", "{rom}"],
+        fullscreen: &["--fullscreen"],
+        needs_core: false,
+    },
+    Profile {
+        id: "rmg",
+        name: "Rosalie's Mupen GUI",
+        exe_prefixes: &["rmg"],
+        platforms: &["n64"],
+        // Source/RMG/main.cpp : -q quitte à la fin de l'émulation, -f plein écran, ROM positionnelle
+        args: &["-q", "{fullscreen}", "{rom}"],
+        fullscreen: &["-f"],
+        needs_core: false,
+    },
+    Profile {
+        id: "sameboy",
+        name: "SameBoy",
+        exe_prefixes: &["sameboy"],
+        platforms: &["gb", "gbc"],
+        // SDL/main.c : « --fullscreen » / « -f »
+        args: &["{fullscreen}", "{rom}"],
+        fullscreen: &["--fullscreen"],
+        needs_core: false,
+    },
+    Profile {
+        id: "xemu",
+        name: "xemu",
+        exe_prefixes: &["xemu"],
+        platforms: &["xbox"],
+        // system/vl.c : -dvd_path ; option QEMU -full-screen
+        args: &["{fullscreen}", "-dvd_path", "{rom}"],
+        fullscreen: &["-full-screen"],
+        needs_core: false,
+    },
+    Profile {
+        id: "xenia",
+        name: "Xenia Canary",
+        exe_prefixes: &["xenia_canary", "xenia"],
+        platforms: &["xbox360"],
+        // src/xenia/app/emulator_window.cc : DEFINE_bool(fullscreen) ; cible positionnelle
+        args: &["{fullscreen}", "{rom}"],
+        fullscreen: &["--fullscreen"],
+        needs_core: false,
+    },
+    Profile {
+        id: "rpcs3",
+        name: "RPCS3",
+        exe_prefixes: &["rpcs3"],
+        platforms: &["ps3"],
+        // rpcs3/rpcs3.cpp : « no-gui », « fullscreen » (seulement avec no-gui)
+        args: &["--no-gui", "{fullscreen}", "{rom}"],
+        fullscreen: &["--fullscreen"],
+        needs_core: false,
+    },
+    Profile {
+        id: "vita3k",
+        name: "Vita3K",
+        exe_prefixes: &["vita3k"],
+        // les jeux s'installent dans Vita3K puis se lancent depuis son interface
+        platforms: &[],
+        args: &["{rom}"],
+        fullscreen: &[],
+        needs_core: false,
+    },
+    Profile {
+        id: "shadps4",
+        name: "shadPS4",
+        exe_prefixes: &["shadps4"],
+        platforms: &[],
+        // src/main.cpp : -g/--game, -f/--fullscreen true|false
+        args: &["{fullscreen}", "-g", "{rom}"],
+        fullscreen: &["-f", "true"],
+        needs_core: false,
+    },
+    Profile {
+        id: "flycast",
+        name: "Flycast",
+        exe_prefixes: &["flycast"],
+        platforms: &["dreamcast"],
+        // core/cfg/cl.cpp : -config section:clé=valeur ; fichier positionnel
+        args: &["{fullscreen}", "{rom}"],
+        fullscreen: &["-config", "window:fullscreen=yes"],
+        needs_core: false,
+    },
+    Profile {
+        id: "stella",
+        name: "Stella",
+        exe_prefixes: &["stella"],
+        platforms: &["atari2600"],
+        args: &["{fullscreen}", "{rom}"],
+        fullscreen: &["-fullscreen", "1"],
+        needs_core: false,
+    },
+    Profile {
+        id: "bigpemu",
+        name: "BigPEmu",
+        exe_prefixes: &["bigpemu"],
+        platforms: &["jaguar"],
+        args: &["{rom}"],
+        fullscreen: &[],
+        needs_core: false,
+    },
+    Profile {
+        id: "mame",
+        name: "MAME",
+        exe_prefixes: &["mame"],
+        platforms: &[],
+        args: &["{rom}"],
+        fullscreen: &[],
+        needs_core: false,
+    },
     Profile {
         id: "retroarch",
         name: "RetroArch",
         exe_prefixes: &["retroarch"],
-        platforms: &["n64", "snes", "gb", "gbc", "gba", "ds", "ps1", "psp"],
+        platforms: &["n64", "snes", "gb", "gbc", "gba", "ds", "ps1", "psp", "nes", "megadrive", "mastersystem", "gamegear", "saturn", "atari2600", "dreamcast"],
         args: &["{fullscreen}", "-L", "{core}", "{rom}"],
         fullscreen: &["-f"],
         needs_core: true,
@@ -145,6 +263,12 @@ pub fn suggested_cores(platform: &str) -> &'static [&'static str] {
         "ds" => &["melondsds_libretro.dll", "melonds_libretro.dll", "desmume_libretro.dll"],
         "ps1" => &["swanstation_libretro.dll", "mednafen_psx_hw_libretro.dll", "pcsx_rearmed_libretro.dll"],
         "psp" => &["ppsspp_libretro.dll"],
+        "nes" => &["mesen_libretro.dll", "nestopia_libretro.dll", "fceumm_libretro.dll"],
+        "megadrive" | "mastersystem" | "gamegear" => &["genesis_plus_gx_libretro.dll", "picodrive_libretro.dll"],
+        "saturn" => &["mednafen_saturn_libretro.dll"],
+        "atari2600" => &["stella_libretro.dll", "stella2014_libretro.dll"],
+        "dreamcast" => &["flycast_libretro.dll"],
+        "arcade" => &["fbneo_libretro.dll"],
         _ => &[],
     }
 }
@@ -244,6 +368,12 @@ mod tests {
         assert_eq!(detect_profile("azahar.exe").id, "azahar");
         assert_eq!(detect_profile("citra-qt.exe").id, "azahar");
         assert_eq!(detect_profile("lichii.exe").id, "lichii");
+        assert_eq!(detect_profile("Mesen.exe").id, "mesen");
+        assert_eq!(detect_profile("RMG.exe").id, "rmg");
+        assert_eq!(detect_profile("xenia_canary.exe").id, "xenia");
+        assert_eq!(detect_profile("rpcs3.exe").id, "rpcs3");
+        assert_eq!(detect_profile("flycast.exe").id, "flycast");
+        assert_eq!(detect_profile("Stella.exe").id, "stella");
         assert_eq!(detect_profile("eden-cli.exe").id, "custom");
         assert_eq!(detect_profile("notepad.exe").id, "custom");
     }

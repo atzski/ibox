@@ -248,6 +248,153 @@
         "jeux pc",
         "windows"
       ]
+    },
+    "nes": {
+      "extensions": [
+        ".nes",
+        ".fds",
+        ".unf",
+        ".unif",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "nes",
+        "famicom",
+        "nintendo entertainment system",
+        "fc"
+      ]
+    },
+    "mastersystem": {
+      "extensions": [
+        ".sms",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "master system",
+        "mastersystem",
+        "sms",
+        "sega master system",
+        "mark iii"
+      ]
+    },
+    "megadrive": {
+      "extensions": [
+        ".md",
+        ".gen",
+        ".smd",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "mega drive",
+        "megadrive",
+        "genesis",
+        "sega genesis",
+        "md"
+      ]
+    },
+    "gamegear": {
+      "extensions": [
+        ".gg",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "game gear",
+        "gamegear",
+        "gg",
+        "sega game gear"
+      ]
+    },
+    "saturn": {
+      "extensions": [
+        ".cue",
+        ".chd",
+        ".ccd",
+        ".mds",
+        ".m3u"
+      ],
+      "folderHints": [
+        "saturn",
+        "sega saturn",
+        "ss"
+      ]
+    },
+    "dreamcast": {
+      "extensions": [
+        ".gdi",
+        ".cdi",
+        ".chd",
+        ".cue",
+        ".m3u"
+      ],
+      "folderHints": [
+        "dreamcast",
+        "sega dreamcast",
+        "dc"
+      ]
+    },
+    "atari2600": {
+      "extensions": [
+        ".a26",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "atari 2600",
+        "atari2600",
+        "2600",
+        "vcs"
+      ]
+    },
+    "jaguar": {
+      "extensions": [
+        ".j64",
+        ".jag",
+        ".zip",
+        ".7z"
+      ],
+      "folderHints": [
+        "jaguar",
+        "atari jaguar"
+      ]
+    },
+    "xbox": {
+      "extensions": [
+        ".iso",
+        ".xiso"
+      ],
+      "folderHints": [
+        "xbox",
+        "original xbox",
+        "ogxbox",
+        "xemu"
+      ]
+    },
+    "xbox360": {
+      "extensions": [
+        ".iso",
+        ".xex",
+        ".zar"
+      ],
+      "folderHints": [
+        "xbox 360",
+        "xbox360",
+        "x360",
+        "xenia"
+      ]
+    },
+    "ps3": {
+      "extensions": [
+        ".iso"
+      ],
+      "folderHints": [
+        "ps3",
+        "playstation 3",
+        "rpcs3"
+      ]
     }
   }
 }

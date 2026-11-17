@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.60"
+version = "0.1.61"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -53,6 +53,8 @@ str0m = { version = "0.25", default-features = false, features = ["wincrypto"] }
 opus-rs = "0.1.42"
 # `#[implement]` (rappel COM de l'activation du son « sans Discord »), même version que `windows`
 windows-core = "0.62"
+# iBox Platforms : archives .7z des émulateurs officiels (Rust pur, Apache-2.0)
+sevenz-rust2 = { version = "0.25", default-features = false, features = ["util"] }
 
 [profile.release]
 codegen-units = 1

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { ChooseEmulatorModal } from "./EmulatorsPanel";
 import { RemotePlayGameDialog } from "@/components/remoteplay/RemotePlayOnline";
 import { isTauri } from "@/services/native";
+import { consoleInfo } from "@/domain/platformCatalog";
 
 /** « Remote Play » : inviter un ami iNetbox sur ce jeu, sans passer par les paramètres. */
 export function RemotePlayButton({ game, onLaunch }: { game: Game; onLaunch?: () => void }) {
@@ -128,9 +129,21 @@ export function PlayControls({ game, beforeLaunch }: { game: Game; beforeLaunch?
           {reason}
         </Button>
       ) : !configured ? (
-        <Button variant="primary" size="lg" icon="gear" autoFocusScreen onClick={() => go({ name: "settings" })}>
-          Configurer un émulateur
-        </Button>
+        // parcours iBox Platforms : la fiche de la console propose l'émulateur recommandé
+        <div className="flex flex-col gap-1.5">
+          <Button
+            variant="primary"
+            size="lg"
+            icon={consoleInfo(game.platformId)?.recommended ? "download" : "gear"}
+            autoFocusScreen
+            onClick={() => go(consoleInfo(game.platformId) ? { name: "platform", platformId: game.platformId } : { name: "settings" })}
+          >
+            {consoleInfo(game.platformId)?.recommended ? "Installer l'émulateur" : "Configurer un émulateur"}
+          </Button>
+          {consoleInfo(game.platformId)?.recommended && (
+            <span className="max-w-[22rem] pl-2 text-[0.78rem] font-bold text-ink-soft">Votre jeu est presque prêt : installez l'émulateur recommandé pour cette console.</span>
+          )}
+        </div>
       ) : (
         // sélection de départ de la fiche : un second appui sur A lance le jeu
         <Button variant="primary" size="lg" icon="play" autoFocusScreen={!busy} disabled={busy} onClick={launch}>

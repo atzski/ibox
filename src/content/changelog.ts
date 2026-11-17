@@ -10,6 +10,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.61",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "iBox Platforms", text: "Un musée des consoles dans iBox : 29 machines en vraies photographies, de l’Atari 2600 à la Switch 2, avec leur histoire, leur matériel et votre collection. Parcourez-les à la manette sur une frise chronologique, filtrez par constructeur ou par type." },
+      { icon: "download", title: "L’émulateur installé pour vous", text: "Sur la fiche d’une console, « Installer » télécharge l’émulateur recommandé depuis sa source officielle, vérifie son empreinte, l’installe dans votre dossier iBox\\Emulators, l’enregistre et l’associe à la console. Progression réelle, annulation, mise à jour et retour à la version précédente." },
+      { icon: "gamepad", title: "11 nouvelles consoles", text: "NES, Master System, Mega Drive, Game Gear, Saturn, Dreamcast, Atari 2600, Jaguar, Xbox, Xbox 360 et PlayStation 3 rejoignent la bibliothèque, avec leurs formats de jeux, jaquettes et profils de lancement. PS4, PS Vita et l’arcade sont à découvrir." },
+      { icon: "key", title: "BIOS et prérequis expliqués", text: "Chaque fiche indique ce qui manque encore (BIOS, micrologiciel, composant Windows) et importe votre propre fichier au bon endroit. iBox ne télécharge jamais de BIOS ni de clés." },
+      { icon: "front", title: "Votre jeu est presque prêt", text: "Un jeu sans émulateur propose désormais d’installer celui de sa console. Vos installations existantes sont reconnues, réutilisées et jamais remplacées sans votre accord." },
+    ],
+  },
+  {
     version: "0.1.60",
     date: "2026-11-17",
     highlights: [

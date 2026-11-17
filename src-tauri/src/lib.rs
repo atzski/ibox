@@ -8,6 +8,7 @@
 
 pub mod assets;
 pub mod db;
+pub mod emulators;
 pub mod launcher;
 pub mod library;
 pub mod metadata;
@@ -75,6 +76,7 @@ pub fn run() {
             app.manage(state);
             app.manage(meta_cmd::MetadataState::open(app.handle())?);
             app.manage(launch_cmd::LauncherState::default());
+            app.manage(emulators::commands::EmulatorsState::default());
             app.manage(shell::Behavior::default());
             app.manage(remote_play::RemotePlay::open(app.handle()));
             if let Err(e) = shell::install(app.handle()) {
@@ -93,6 +95,21 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            emulators::commands::emulators_overview,
+            emulators::commands::emulator_install,
+            emulators::commands::emulator_install_cancel,
+            emulators::commands::emulator_latest,
+            emulators::commands::emulator_uninstall,
+            emulators::commands::emulator_restore,
+            emulators::commands::emulator_purge_backups,
+            emulators::commands::emulators_root_set,
+            emulators::commands::emulators_open_folder,
+            emulators::commands::emulator_open,
+            emulators::commands::emulators_open_url,
+            emulators::commands::emulator_requirements,
+            emulators::commands::emulator_requirement_folder,
+            emulators::commands::emulator_bios_import,
+            launch_cmd::emulator_set_origin,
             inetbox::inetbox_call,
             profile::profile_activate,
             profile::profile_delete,

@@ -35,6 +35,8 @@ import { BackgroundJobs } from "@/components/library/MetaStatus";
 import { LaunchOverlay } from "@/components/library/LaunchOverlay";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { PlatformsScreen } from "@/screens/PlatformsScreen";
+import { PlatformSheet } from "@/screens/PlatformSheet";
+import { useEmulators } from "@/services/emulators";
 import { LibraryScreen } from "@/screens/LibraryScreen";
 import { GameScreen } from "@/screens/GameScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
@@ -48,6 +50,8 @@ function Screen({ route }: { route: Route }) {
       return <HomeScreen />;
     case "platforms":
       return <PlatformsScreen />;
+    case "platform":
+      return <PlatformSheet platformId={route.platformId} />;
     case "library":
       return <LibraryScreen platformId={route.platformId} shelfGameId={route.shelfGameId} />;
     case "game":
@@ -136,7 +140,11 @@ export function App() {
     void useLauncher.getState().load();
     void usePlatformArtStore.getState().refresh();
     const off = useLauncher.getState().attach();
-    return () => void off.then((f) => f());
+    const offEmu = useEmulators.getState().attach();
+    return () => {
+      void off.then((f) => f());
+      void offEmu.then((f) => f());
+    };
   }, [load]);
 
   // Entrées : clavier, manettes + bouton « précédent » de la souris

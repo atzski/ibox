@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn charge_la_table_partagee() {
-        assert_eq!(table().len(), 16);
+        assert_eq!(table().len(), 27);
     }
 
     #[test]

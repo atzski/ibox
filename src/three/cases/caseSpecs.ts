@@ -188,6 +188,14 @@ for (const id of ["gamecube", "wii", "ps2", "pc", "ps1", "psp", "ds", "3ds"]) {
   if (s?.model === "keep" && !s.glb) s.glb = `/models/cases/${id}.glb`;
 }
 
+// iBox Platforms : boîtiers DVD et Blu-ray (modèle PS2), boîtiers cristal (modèle PS1)
+SPECS.xbox = keep({ kind: "ps2", width: 1.35, height: 1.9, depth: 0.14, plastic: "#15171b", plasticInner: "#20242a", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
+SPECS.xbox360 = keep({ kind: "ps2", width: 1.35, height: 1.9, depth: 0.14, plastic: "#2f6b2a", plasticInner: "#3a7d33", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
+SPECS.ps3 = keep({ kind: "ps2", width: 1.35, height: 1.7, depth: 0.12, plastic: "#1b2a44", plasticInner: "#24344f", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
+for (const id of ["saturn", "dreamcast"]) {
+  SPECS[id] = { ...(SPECS.ps1 as KeepCaseSpec), glb: "/models/cases/ps1.glb" };
+}
+
 /** Tous les modèles GLB de boîtiers (préchargement). */
 export const CASE_MODELS: string[] = Object.values(SPECS).flatMap((s) => (s.model === "keep" && s.glb ? [s.glb] : []));
 
@@ -245,6 +253,24 @@ const BOXES: Record<string, BoxSpec> = {
     cartridge: { shape: "gba", width: 0.57, height: 0.35, depth: 0.08, color: "#8d929a", label: [0.08, 0.12, 0.84, 0.72] },
   },
 };
+
+// boîtes en carton portrait des consoles à cartouches (cartouche large, modèle SNES)
+const tallBox = (cardboard: string, color: string): BoxSpec => ({
+  model: "box",
+  kind: "retro-box",
+  width: 1.3,
+  height: 1.8,
+  depth: 0.3,
+  cardboard,
+  tray: "#f4f1ea",
+  cartridge: { shape: "snes", width: 1.0, height: 0.8, depth: 0.18, color, label: [0.15, 0.08, 0.7, 0.58] },
+});
+BOXES.nes = tallBox("#ece8df", "#8e9198");
+BOXES.mastersystem = tallBox("#e9e6e1", "#2b2d33");
+BOXES.megadrive = tallBox("#e6e6e8", "#26282d");
+BOXES.atari2600 = tallBox("#efe6d6", "#2a2b2e");
+BOXES.jaguar = tallBox("#e6e3e3", "#1f2023");
+BOXES.gamegear = { ...BOXES.gb, cartridge: { ...BOXES.gb.cartridge, color: "#2b2d33" } };
 
 /** Modèle 3D d'une console (repli : boîtier GameCube générique). */
 export function caseFor(platform: Platform | string): CaseSpec {

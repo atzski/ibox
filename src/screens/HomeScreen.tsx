@@ -149,7 +149,10 @@ export function HomeScreen() {
                 <span className="grid h-12 w-12 place-items-center rounded-full bg-white shadow-sm">
                   <Icon name="grid" size="1.4em" />
                 </span>
-                <span className="font-display text-[1.05rem] font-semibold">Toutes les consoles</span>
+                <span className="flex flex-col items-center leading-tight">
+                  <span className="font-display text-[1.05rem] font-semibold">iBox Platforms</span>
+                  <span className="mt-0.5 text-[0.78rem] font-bold text-ink-faint">Découvrir les consoles</span>
+                </span>
               </button>
             </motion.div>
             {platforms.map((p) => {

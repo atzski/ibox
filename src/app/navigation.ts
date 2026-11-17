@@ -8,7 +8,9 @@ import { create } from "zustand";
  */
 export type Route =
   | { name: "home" }
-  | { name: "platforms" }
+  | { name: "platforms"; focusId?: string }
+  /** Fiche iBox Platforms d'une console. */
+  | { name: "platform"; platformId: string }
   | { name: "library"; platformId: string | "all"; shelfGameId?: string }
   | { name: "game"; gameId: string }
   | { name: "settings"; category?: string }
@@ -71,6 +73,8 @@ export function routeKey(r: Route): string {
       return `library:${r.platformId}`;
     case "game":
       return `game:${r.gameId}`;
+    case "platform":
+      return `platform:${r.platformId}`;
     case "achievements":
       return "achievements";
     default:

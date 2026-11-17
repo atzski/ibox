@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { sortKey } from "@/domain/text";
 
-export const RA_SYSTEM: Record<string, number> = { snes: 3, n64: 2, gb: 4, gba: 5, gbc: 6, ds: 18, "3ds": 62, gamecube: 16, wii: 19, ps1: 12, ps2: 21, psp: 41 };
+export const RA_SYSTEM: Record<string, number> = { snes: 3, n64: 2, gb: 4, gba: 5, gbc: 6, ds: 18, "3ds": 62, gamecube: 16, wii: 19, ps1: 12, ps2: 21, psp: 41, megadrive: 1, nes: 7, mastersystem: 11, gamegear: 15, jaguar: 17, atari2600: 25, saturn: 39, dreamcast: 40 };
 type Progress = { id: number; system: number; title: string; earned: number; total: number };
 let cache: { user: string; expires: number; request: Promise<Progress[]> } | undefined;
 

@@ -11,6 +11,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Switch } from "@/components/ui/Switch";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { sound } from "@/services/sound";
+import { emulatorsApi, useEmulators } from "@/services/emulators";
+import { useNav } from "@/app/navigation";
 
 /**
  * Émulateurs : iBox n'en télécharge aucun. Vous désignez ceux que vous avez
@@ -46,9 +48,10 @@ export function EmulatorsPanel() {
     }
   };
 
-  const add = (path: string) =>
+  const add = (path: string, origin: "detected" | "manual" = "manual") =>
     run(async () => {
-      await launcherApi.add(path);
+      const emu = await launcherApi.add(path);
+      if (origin === "detected") await emulatorsApi.setOrigin(emu.id, "detected").catch(() => undefined);
       sound.play("select");
       setSuggestions((s) => s?.filter((x) => x.exePath !== path) ?? null);
     });
@@ -56,10 +59,11 @@ export function EmulatorsPanel() {
   return (
     <div>
       <p className="mb-4 text-[0.9rem] font-semibold text-ink-soft">
-        Indiquez les émulateurs installés sur ce PC : iBox n'en télécharge aucun. Le profil de lancement (Dolphin, PCSX2,
-        melonDS…) est reconnu automatiquement et reste modifiable. Les jeux sont lancés sans passer par une ligne de
-        commande : un nom de fichier ne peut rien déclencher d'autre.
+        Installez un émulateur depuis iBox Platforms, ou indiquez ceux déjà présents sur ce PC. Le profil de lancement
+        (Dolphin, PCSX2, melonDS…) est reconnu automatiquement et reste modifiable. Les jeux sont lancés sans passer par une
+        ligne de commande : un nom de fichier ne peut rien déclencher d'autre.
       </p>
+      <ManagedFolder />
 
       {/* Émulateurs enregistrés */}
       <div className="flex flex-col gap-2" data-nav-group="emulators">
@@ -119,7 +123,7 @@ export function EmulatorsPanel() {
                   <span className="min-w-0 flex-1 truncate font-mono text-[0.78rem] text-ink-soft" title={s.exePath}>
                     {s.exePath}
                   </span>
-                  <Button icon="plus" onClick={() => void add(s.exePath)}>
+                  <Button icon="plus" onClick={() => void add(s.exePath, "detected")}>
                     Ajouter
                   </Button>
                 </div>
@@ -196,6 +200,68 @@ export function EmulatorsPanel() {
   );
 }
 
+/** Dossier des émulateurs installés par iBox Platforms (personnalisable, sur un autre disque au besoin). */
+function ManagedFolder() {
+  const overview = useEmulators((s) => s.overview);
+  const load = useEmulators((s) => s.load);
+  const go = useNav((s) => s.go);
+  const [error, setError] = useState<string | null>(null);
+  if (!overview) return null;
+  const custom = overview.root !== overview.defaultRoot;
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg bg-cream-deep px-4 py-3">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-ink-soft">
+        <Icon name="download" size="1.2em" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-[1.02rem] font-semibold text-ink">Émulateurs installés par iBox</div>
+        <div data-no-i18n className="truncate font-mono text-[0.78rem] text-ink-soft" title={overview.root}>
+          {overview.root}
+        </div>
+        {error && <div className="mt-1 text-[0.82rem] font-semibold text-peach-deep">{error}</div>}
+      </div>
+      <Button icon="sparkle" onClick={() => go({ name: "platforms" })}>
+        iBox Platforms
+      </Button>
+      <Button variant="ghost" icon="folder" onClick={() => void emulatorsApi.openFolder("root").catch(() => undefined)}>
+        Ouvrir
+      </Button>
+      <Button
+        variant="ghost"
+        icon="gear"
+        onClick={async () => {
+          setError(null);
+          const path = await emulatorsApi.pickFolder("Dossier des émulateurs installés par iBox");
+          if (!path) return;
+          try {
+            await emulatorsApi.setRoot(path);
+            await load();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
+        }}
+      >
+        Changer
+      </Button>
+      {custom && (
+        <Button
+          variant="ghost"
+          icon="reset"
+          onClick={async () => {
+            await emulatorsApi.setRoot(null).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+            await load();
+          }}
+        >
+          Par défaut
+        </Button>
+      )}
+      <p className="w-full text-[0.8rem] font-semibold text-ink-faint">
+        Les émulateurs déjà installés restent à leur place. Vos propres installations ne sont jamais modifiées ni remplacées.
+      </p>
+    </div>
+  );
+}
+
 function EmulatorRow({ emu, onEdit, onChanged, onError }: { emu: Emulator; onEdit: () => void; onChanged: () => void; onError: (m: string) => void }) {
   const [confirming, setConfirming] = useState(false);
   useEffect(() => {
@@ -220,6 +286,13 @@ function EmulatorRow({ emu, onEdit, onChanged, onError }: { emu: Emulator; onEdi
           {emu.profileId !== "custom" && emu.profileName !== emu.name && (
             <span className="rounded-full bg-white px-2 py-0.5 text-[0.68rem] font-extrabold text-ink-soft uppercase">{emu.profileName}</span>
           )}
+          <span
+            title={emu.origin === "managed" ? "Installé et mis à jour par iBox Platforms" : undefined}
+            className={`rounded-full px-2 py-0.5 text-[0.68rem] font-extrabold ${emu.origin === "managed" ? "bg-mint-soft text-mint-deep" : "bg-white text-ink-faint"}`}
+          >
+            {emu.origin === "managed" ? "Géré par iBox" : emu.origin === "detected" ? "Trouvé sur ce PC" : "Ajouté à la main"}
+            {emu.origin === "managed" && emu.version && <span data-no-i18n> · {emu.version}</span>}
+          </span>
           {emu.platforms.map((pid) => {
             const p = getPlatform(pid);
             return p ? (

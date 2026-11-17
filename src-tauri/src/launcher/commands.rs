@@ -36,6 +36,12 @@ pub fn emulator_add(lib: State<LibraryState>, exe_path: String) -> Res<Emulator>
     lib.with(|c| repo::add(c, &exe_path).map_err(lib_err))
 }
 
+/// Provenance d'un émulateur ajouté depuis la détection (« detected ») ou à la main (« manual »).
+#[tauri::command]
+pub fn emulator_set_origin(lib: State<LibraryState>, id: i64, origin: String) -> Res<Emulator> {
+    lib.with(|c| repo::set_origin(c, id, &origin).map_err(lib_err))
+}
+
 #[tauri::command]
 pub fn emulator_update(
     lib: State<LibraryState>,
