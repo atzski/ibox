@@ -60,6 +60,7 @@ export function TopBar() {
             exit={{ opacity: 0, x: -12 }}
             className="flex items-center gap-3"
           >
+            <UserSwitcher />
             <button
               data-focusable
               onClick={() => {
@@ -73,7 +74,6 @@ export function TopBar() {
               <Avatar size={48} />
               <span className="font-display text-[1.15rem] font-semibold text-ink">{profile}</span>
             </button>
-            <UserSwitcher />
           </motion.div>
         ) : (
           <motion.div

@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.82",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "user", title: "Vos amis en un coup d’œil", text: "Le bouton Amis de la barre du haut affiche maintenant les photos de vos amis, ceux en ligne en premier, avec leur pastille de présence et le nombre des autres." },
+      { icon: "sparkle", title: "Un accueil plus sobre", text: "Les boutons de « Mes collections » se résument à leur icône, la ligne du nombre de plateformes disparaît, et le bouton pour changer d’utilisateur passe à gauche de votre profil." },
+    ],
+  },
+  {
     version: "0.1.81",
     date: "2026-11-18",
     highlights: [

@@ -85,19 +85,16 @@ export function CollectionsRow() {
               tone={organizing ? "green" : "purple"}
               variant={organizing ? "primary" : "soft"}
               icon={organizing ? "check" : "grid"}
+              aria-label={organizing ? "Terminé" : "Organiser"}
+              title={organizing ? "Terminé" : "Organiser"}
+              className="w-11 px-0!"
               onClick={() => {
                 sound.play(organizing ? "back" : "open");
                 setOrganizing((v) => !v);
               }}
-            >
-              {organizing ? "Terminé" : "Organiser"}
-            </Button>
+            />
           )}
-          {!organizing && (
-            <Button icon="plus" onClick={() => setEditing("new")}>
-              Nouvelle collection
-            </Button>
-          )}
+          {!organizing && <Button icon="plus" aria-label="Nouvelle collection" title="Nouvelle collection" className="w-11 px-0!" onClick={() => setEditing("new")} />}
         </div>
       }
     >

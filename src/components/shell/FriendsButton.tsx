@@ -26,6 +26,8 @@ import type { FriendsTarget } from "@/services/social";
 
 type View = "list" | "add" | "requests" | "activity" | "chat" | "profile" | "newGroup" | "group";
 
+const NO_FRIENDS: InetFriend[] = [];
+
 /** Pastille « Amis » de la barre du haut et son panneau latéral. */
 export function FriendsButton() {
   const [open, setOpen] = useState(false);
@@ -33,6 +35,11 @@ export function FriendsButton() {
   const bell = useRef<HTMLButtonElement>(null);
   const incoming = useInetbox((s) => s.invitations.filter((i) => !i.outgoing).length + s.unread.reduce((n, u) => n + u.unread, 0));
   const onlineCount = useInetbox((s) => (s.status === "online" ? s.friends.filter((f) => f.status !== "offline").length : 0));
+  // aperçu : les visages des amis (en ligne d'abord, puis favoris), le reste en « +N »
+  const friends = useInetbox((s) => (s.status === "online" ? s.friends : NO_FRIENDS));
+  const ranked = [...friends].sort((a, b) => Number(b.status !== "offline") - Number(a.status !== "offline") || Number(!!b.favorite) - Number(!!a.favorite));
+  const shown = ranked.slice(0, 4);
+  const extra = ranked.length - shown.length;
 
   // « Social » dans le menu de l'icône de notification
   useEffect(() => {
@@ -66,15 +73,27 @@ export function FriendsButton() {
           if (!open) setTarget(null);
           setOpen((v) => !v);
         }}
-        className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full ibox-chip tone-green px-4 [--ring-radius:999px]"
+        className={`ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full ibox-chip tone-green [--ring-radius:999px] ${shown.length ? (extra > 0 ? "pr-1.5 pl-3.5" : "px-1.5") : "px-4"}`}
       >
-        <FriendsGlyph />
-        <span className="text-[0.95rem] font-bold text-ink">Amis</span>
-        {onlineCount > 0 && (
-          <span className="flex items-center gap-1 text-[0.85rem] font-bold text-ink-soft">
-            <span className="size-2 rounded-full" style={{ background: STATUS_COLOR.online }} />
-            {onlineCount}
-          </span>
+        {shown.length > 0 ? (
+          <>
+            {extra > 0 && <span className="font-display text-[1.05rem] font-bold text-ink tabular-nums">+{extra}</span>}
+            <span className="flex items-center">
+              {shown.map((f, i) => (
+                <span key={f.id} className="relative" style={{ marginLeft: i ? -12 : 0, zIndex: shown.length - i }}>
+                  <Avatar size={34} name={f.displayName} choice={f.avatar ?? null} className={f.status === "offline" ? "opacity-60 grayscale" : ""} />
+                  {f.status !== "offline" && (
+                    <span className="absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-white" style={{ background: STATUS_COLOR[f.status] }} />
+                  )}
+                </span>
+              ))}
+            </span>
+          </>
+        ) : (
+          <>
+            <FriendsGlyph />
+            <span className="text-[0.95rem] font-bold text-ink">Amis</span>
+          </>
         )}
         {incoming > 0 && (
           <span className="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#EE8F80] px-1 text-[0.68rem] font-extrabold text-white shadow-xs">

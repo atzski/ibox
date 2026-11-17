@@ -132,7 +132,6 @@ export function HomeScreen() {
           <ShelfRow
             title="Consoles"
             group="home-platforms"
-            action={<span className="text-[0.85rem] font-bold text-ink-soft">{PLATFORMS.length} plateformes prises en charge</span>}
           >
             <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="shrink-0">
               <button

@@ -2968,4 +2968,8 @@ export const EN: Record<string, string> = {
   "Rien : les profils sont inclus dans l'application.": "Nothing: the profiles are included in the app.",
   "{0} : réglages par jeu pas encore pris en charge sous Linux": "{0}: per-game settings not supported on Linux yet",
   "dossier personnel introuvable": "home folder not found",
+  "Vos amis en un coup d’œil": "Your friends at a glance",
+  "Le bouton Amis de la barre du haut affiche maintenant les photos de vos amis, ceux en ligne en premier, avec leur pastille de présence et le nombre des autres.": "The Friends button in the top bar now shows your friends’ pictures, online ones first, with their presence dot and a count of the others.",
+  "Un accueil plus sobre": "A cleaner Home",
+  "Les boutons de « Mes collections » se résument à leur icône, la ligne du nombre de plateformes disparaît, et le bouton pour changer d’utilisateur passe à gauche de votre profil.": "The “My collections” buttons are now icons only, the platform count line is gone, and the switch-user button moves to the left of your profile.",
 };
