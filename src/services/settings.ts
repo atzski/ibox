@@ -1,5 +1,6 @@
 import { DEFAULT_BLOCKS, type HomeBlock } from "./homeLayout";
 import type { RiotAvatar, RiotChampionAvatar } from "./avatarProviders";
+import type { SmartConfigPrefs } from "./smartconfig";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
@@ -164,6 +165,8 @@ export interface SettingsState {
   captureHotkey?: boolean;
   /** Bouton de validation de la manette : auto (selon la famille), en bas, à droite. */
   gamepadConfirm: "auto" | "south" | "east";
+  /** iBox SmartConfig (valeurs absentes : défauts de `services/smartconfig`). */
+  smartConfig?: Partial<SmartConfigPrefs>;
 
   set: <K extends keyof Omit<SettingsState, "set" | "toggleFavorite">>(
     key: K,

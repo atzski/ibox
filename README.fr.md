@@ -57,7 +57,7 @@ Quand une console a besoin d’un émulateur, sa page propose d’installer celu
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-> **En préparation**, en commençant par Dolphin (GameCube et Wii).
+> **Disponible depuis la 0.1.74** pour Dolphin (GameCube, Wii), PCSX2, DuckStation, PPSSPP, RPCS3, Azahar et RetroArch (cœurs choisis). Les réglages sont vérifiés dans le code source de chaque émulateur, pas encore essayés dans chaque jeu.
 
 Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *et* de votre PC : ce qui tourne en 4K sur une tour de joueur rame sur un portable. SmartConfig fait ce travail à votre place, jeu par jeu.
 
@@ -73,6 +73,12 @@ Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *e
 - Seuls des réglages connus d’iBox, avec des valeurs dans la plage permise, sont écrits. Rien de ce qui est téléchargé n’est recopié tel quel dans vos fichiers.
 - Votre configuration précédente est sauvegardée avant chaque changement, et un réglage modifié à la main n’est jamais écrasé sans votre accord.
 - Les correctifs livrés avec l’émulateur ne sont jamais contredits, et le reste de vos fichiers de configuration reste intact.
+
+**D’où viennent les réglages**
+
+- Les rapports publics de la communauté [EmuReady](https://www.emuready.com), consultés seulement quand vous ouvrez SmartConfig pour un jeu : seul le titre du jeu est envoyé.
+- **SmartConfig Community** : partagez une configuration qui marche chez vous avec votre compte iNetbox, après un aperçu exact, et confirmez ou signalez celles des autres. Les profils partagés sont dans le domaine public (CC0 1.0). Consulter ne demande aucun compte.
+- Aucune télémétrie : votre matériel reste sur votre PC, et chaque source se désactive dans Paramètres › SmartConfig.
 
 ## Pensé pour le canapé
 

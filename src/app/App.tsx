@@ -43,6 +43,8 @@ import { LibraryScreen } from "@/screens/LibraryScreen";
 import { GameScreen } from "@/screens/GameScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { CommunityScreen } from "@/screens/CommunityScreen";
+import { SmartConfigScreen } from "@/screens/SmartConfigScreen";
+import { SmartConfigFeedback } from "@/components/smartconfig/SmartConfigFeedback";
 import { captures } from "@/services/community";
 import { isTauri } from "@/services/native";
 
@@ -64,6 +66,8 @@ function Screen({ route }: { route: Route }) {
       return <AchievementsScreen gameId={route.gameId} />;
     case "community":
       return <CommunityScreen />;
+    case "smartconfig":
+      return <SmartConfigScreen tab={route.tab} />;
   }
 }
 
@@ -284,6 +288,7 @@ export function App() {
       <PlayerSheetHost />
       <PlayerJoinedOverlay />
       <LaunchOverlay />
+      <SmartConfigFeedback />
       <RemotePlayLayer />
       <FlightLayer />
     </MotionConfig>

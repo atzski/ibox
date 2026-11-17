@@ -23,6 +23,7 @@ pub mod capture;
 pub mod clips;
 pub mod toast;
 pub mod remote_play;
+pub mod smartconfig;
 mod achievements;
 
 use library::commands as lib_cmd;
@@ -81,6 +82,11 @@ pub fn run() {
             app.manage(emulators::commands::EmulatorsState::default());
             app.manage(shell::Behavior::default());
             app.manage(remote_play::RemotePlay::open(app.handle()));
+            app.manage(smartconfig::commands::SmartConfigState::default());
+            let conflicts = smartconfig::commands::recover(app.handle());
+            if conflicts > 0 {
+                eprintln!("iBox SmartConfig : {conflicts} optimisation(s) interrompue(s) à vérifier");
+            }
             if let Err(e) = shell::install(app.handle()) {
                 eprintln!("iBox : icône de notification indisponible : {e}");
             }
@@ -108,6 +114,25 @@ pub fn run() {
             emulators::commands::emulator_requirement_folder,
             emulators::commands::emulator_bios_import,
             launch_cmd::emulator_set_origin,
+            smartconfig::commands::smartconfig_hardware,
+            smartconfig::commands::smartconfig_providers,
+            smartconfig::commands::smartconfig_status,
+            smartconfig::commands::smartconfig_recommend,
+            smartconfig::commands::smartconfig_preview,
+            smartconfig::commands::smartconfig_apply,
+            smartconfig::commands::smartconfig_restore,
+            smartconfig::commands::smartconfig_history,
+            smartconfig::commands::smartconfig_cache_clear,
+            smartconfig::commands::smartconfig_feedback,
+            smartconfig::contribute::smartconfig_community_preview,
+            smartconfig::contribute::smartconfig_community_publish,
+            smartconfig::contribute::smartconfig_community_profile,
+            smartconfig::contribute::smartconfig_community_player,
+            smartconfig::contribute::smartconfig_community_mine,
+            smartconfig::contribute::smartconfig_community_vote,
+            smartconfig::contribute::smartconfig_community_unvote,
+            smartconfig::contribute::smartconfig_community_report,
+            smartconfig::contribute::smartconfig_community_withdraw,
             inetbox::inetbox_call,
             profile::profile_activate,
             profile::profile_delete,

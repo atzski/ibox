@@ -188,6 +188,29 @@ const PATHS = {
       <path d="M5 19.5h14" />
     </>
   ),
+  /** Réglages fins (SmartConfig). */
+  tune: (
+    <>
+      <path d="M5 7h8M17 7h2M5 17h2M11 17h8" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </>
+  ),
+  /** Composant électronique (matériel détecté). */
+  chip: (
+    <>
+      <rect x="7" y="7" width="10" height="10" rx="2" />
+      <path d="M10 3.5V7M14 3.5V7M10 17v3.5M14 17v3.5M3.5 10H7M3.5 14H7M17 10h3.5M17 14h3.5" />
+    </>
+  ),
+  /** Historique (horloge qui revient en arrière). */
+  history: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 4.5v3.2h3.2" />
+      <path d="M12 8.5V12l2.5 1.8" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

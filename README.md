@@ -57,7 +57,7 @@ When a console needs an emulator, its page offers to install the recommended one
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
 
-> **In development**, starting with Dolphin (GameCube and Wii).
+> **Available since 0.1.74** for Dolphin (GameCube, Wii), PCSX2, DuckStation, PPSSPP, RPCS3, Azahar and RetroArch (selected cores). Settings have been checked against each emulator's source code, not yet tested in every game.
 
 Emulators have dozens of settings, and the right ones depend on the game *and* on your PC: what runs at 4K on a gaming tower stutters on a laptop. SmartConfig does the homework for you, one game at a time.
 
@@ -73,6 +73,12 @@ Emulators have dozens of settings, and the right ones depend on the game *and* o
 - Only settings iBox knows, with values in the allowed range, are ever written. Nothing downloaded is copied into your files as is.
 - Your previous configuration is saved before every change, and a setting you changed by hand is never overwritten without asking.
 - Fixes that ship with the emulator are never contradicted, and the rest of your configuration files stays untouched.
+
+**Where the settings come from**
+
+- Public reports from the [EmuReady](https://www.emuready.com) community, fetched only when you open SmartConfig for a game: only the game's title is sent.
+- **SmartConfig Community**: share a configuration that works for you with your iNetbox account, after an exact preview, and confirm or report other players' ones. Shared profiles are public domain (CC0 1.0). Browsing needs no account.
+- No telemetry: your hardware stays on your PC, and every source can be turned off in Settings › SmartConfig.
 
 ## Made for the sofa
 

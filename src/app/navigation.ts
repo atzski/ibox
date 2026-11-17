@@ -17,7 +17,9 @@ export type Route =
   /** Univers RetroAchievements : tableau de bord, ou la page d'un jeu. */
   | { name: "achievements"; gameId?: string }
   /** Hub de la communauté : captures et clips partagés. */
-  | { name: "community" };
+  | { name: "community" }
+  /** Univers iBox SmartConfig : matériel détecté, jeux optimisés, historique. */
+  | { name: "smartconfig"; tab?: "hardware" | "games" | "history" };
 
 interface NavState {
   stack: Route[];

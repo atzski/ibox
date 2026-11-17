@@ -29,6 +29,7 @@ import { MediaModal } from "@/components/library/MediaModal";
 import { CollectionsModal } from "@/components/extras/CollectionsModal";
 import { SavesModal } from "@/components/extras/SavesModal";
 import { PlayControls } from "@/components/library/PlayControls";
+import { GameSmartConfig } from "@/components/smartconfig/GameSmartConfig";
 import { formatPlayTime } from "@/services/launcher";
 import { relativeDay } from "@/domain/text";
 import { PlatformPicker } from "@/components/platform/PlatformPicker";
@@ -240,6 +241,8 @@ function GameSheet({ game }: { game: Game }) {
 
         {/* actions : jouer d'abord, le reste en petit */}
         <div className="mt-auto pt-6">
+          {/* SmartConfig : discret, au-dessus de Jouer, jamais bloquant */}
+          {version.dbId !== undefined && <GameSmartConfig game={{ dbId: version.dbId, title: version.title, platformName: platform.name }} />}
           <VersionPicker game={game} value={version} onChange={(v) => setVersionId(v.id)} />
           <PlayControls
             game={version}

@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.74",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "sparkle", title: "iBox SmartConfig", text: "Less configuration. More gaming. Sur la fiche d’un jeu, SmartConfig cherche des réglages testés par d’autres joueurs pour votre émulateur, les compare à votre PC (processeur, carte graphique, écran) et vous explique pourquoi il en recommande un. Rien n’est appliqué sans vous : vous voyez d’abord la liste exacte des changements." },
+      { icon: "disc", title: "Réglages par jeu, toujours réversibles", text: "SmartConfig n’écrit que dans les réglages propres au jeu, prévus par l’émulateur (Dolphin, PCSX2, DuckStation, PPSSPP, RPCS3, Azahar et RetroArch), jamais dans vos manettes, BIOS ou sauvegardes. Chaque optimisation est sauvegardée : « Restaurer » remet tout comme avant, et l’historique se consulte dans l’univers SmartConfig." },
+      { icon: "globe", title: "Les réglages de la communauté", text: "Partagez une configuration qui marche bien chez vous avec votre compte iNetbox (aperçu exact avant publication), confirmez celles des autres et signalez les mauvaises. Consulter les recommandations ne demande aucun compte. Tout se règle dans Paramètres › SmartConfig, y compris les sources de données." },
+    ],
+  },
+  {
     version: "0.1.73",
     date: "2026-11-17",
     highlights: [

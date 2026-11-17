@@ -55,8 +55,9 @@ import { ExperimentalBadge } from "@/components/remoteplay/RemotePlayOnline";
 import { onlineApi } from "@/services/remotePlayOnline";
 import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostReport, type NetworkReport, type RemotePlayConfig } from "@/services/remotePlay";
 import { BLOCK_INFO, DEFAULT_BLOCKS, normalizeBlocks } from "@/services/homeLayout";
+import { SmartConfigSettings } from "@/components/smartconfig/SmartConfigSettings";
 
-type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "images" | "sound" | "controls" | "remoteplay" | "system";
+type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "sound" | "controls" | "remoteplay" | "system";
 
 interface Category {
   id: CategoryId;
@@ -78,6 +79,7 @@ const CATEGORIES: Category[] = [
   { id: "library", label: "Bibliothèque", hint: "Dossiers de jeux, région, jeux masqués", icon: "folder", tone: ["#C9EEDD", "#E6F8EF"], hue: "green", group: "Jeux" },
   { id: "consoles", label: "Consoles", hint: "Émulateur, plein écran, lancement et sauvegardes de chaque console", icon: "gamepad", tone: ["#FFD6D6", "#FFEDED"], hue: "red", group: "Jeux" },
   { id: "pc", label: "PC et émulateurs", hint: "Boutiques PC et émulateurs des consoles", icon: "disc", tone: ["#C3E9EC", "#E4F6F7"], hue: "teal", group: "Jeux" },
+  { id: "smartconfig", label: "SmartConfig", hint: "Réglages d'émulateurs adaptés à votre PC, sources de données", icon: "tune", tone: ["#FFDDC4", "#FFF0E3"], hue: "orange", group: "Jeux" },
   { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], hue: "blue", group: "Jeux" },
   { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], hue: "pink", group: "Système" },
   { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], hue: "green", group: "Système" },
@@ -326,6 +328,8 @@ function CategoryPage({ id }: { id: CategoryId }) {
           </Group>
         </>
       );
+    case "smartconfig":
+      return <SmartConfigSettings ui={{ Group, Row, Toggle }} />;
     case "images":
       return <ImagesPage />;
     case "sound":

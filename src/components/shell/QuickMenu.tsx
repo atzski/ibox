@@ -50,6 +50,7 @@ const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "se
   { label: "iBox Platforms", icon: "gamepad", route: { name: "platforms" } },
   { label: "Succès", icon: "trophy", route: { name: "achievements" } },
   { label: "Communauté", icon: "chat", route: { name: "community" } },
+  { label: "SmartConfig", icon: "tune", route: { name: "smartconfig" } },
   { label: "Recherche", icon: "search", action: "search" },
   { label: "Paramètres", icon: "gear", route: { name: "settings" } },
 ];

@@ -43,7 +43,7 @@ const PS1: Bios = Bios { id: "ps1-bios", sizes: &[512 * KIB] };
 const PS2: Bios = Bios { id: "ps2-bios", sizes: &[4096 * KIB, 8192 * KIB] };
 const SATURN: Bios = Bios { id: "saturn-bios", sizes: &[512 * KIB] };
 
-fn documents() -> PathBuf {
+pub(crate) fn documents() -> PathBuf {
     #[cfg(windows)]
     {
         use winreg::enums::HKEY_CURRENT_USER;

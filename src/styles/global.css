@@ -613,3 +613,19 @@ body::before {
       var(--shadow-xs);
   }
 }
+
+/* SmartConfig : recherche en cours (respiration douce de l'icône) */
+.ibox-sc-pulse {
+  animation: ibox-sc-pulse 1.4s var(--ease-out-soft) infinite;
+}
+@keyframes ibox-sc-pulse {
+  50% {
+    transform: scale(0.82);
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ibox-sc-pulse {
+    animation: none;
+  }
+}

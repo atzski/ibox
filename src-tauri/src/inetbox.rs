@@ -21,7 +21,12 @@ const SERVICE: &str = match option_env!("IBOX_INETBOX_URL") { Some(url) => url, 
 #[serde(rename_all = "camelCase")]
 pub struct Error { code: String, message: String, retry_after_seconds: Option<u64> }
 type Result<T> = std::result::Result<T, Error>;
-impl Error { pub(crate) fn new(code: &str, message: &str) -> Self { err(code, message) } pub(crate) fn message(&self) -> &str { &self.message } }
+impl Error {
+    pub(crate) fn new(code: &str, message: &str) -> Self { err(code, message) }
+    pub(crate) fn message(&self) -> &str { &self.message }
+    pub(crate) fn code(&self) -> &str { &self.code }
+    pub(crate) fn retry_after(&self) -> Option<u64> { self.retry_after_seconds }
+}
 fn err(code: &str, message: &str) -> Error { Error { code: code.into(), message: message.into(), retry_after_seconds: None } }
 fn vault_error() -> Error { err("VAULT_ERROR", "Le coffre Windows est indisponible.") }
 fn base_url(raw: &str) -> Result<Url> {
@@ -84,10 +89,23 @@ fn http(client: &Client, method: Method, path: &str, token: Option<&str>, body: 
             "EMAIL_UNAVAILABLE" => Some(("EMAIL_UNAVAILABLE", "Cette adresse e-mail est déjà utilisée par un autre compte.")),
             "MAIL_UNAVAILABLE" => Some(("MAIL_UNAVAILABLE", "L’envoi d’e-mails n’est pas encore disponible sur iNetbox.")),
             "MAIL_FAILED" => Some(("MAIL_FAILED", "L’e-mail n’a pas pu partir. Réessayez dans un instant.")),
+            // iBox SmartConfig Community
+            "UNSAFE_TEXT" => Some(("UNSAFE_TEXT", "Texte refusé : retirez les chemins, adresses, liens, clés et numéros de série.")),
+            "INVALID_SETTINGS" => Some(("INVALID_SETTINGS", "Certains réglages ne sont pas acceptés par la communauté SmartConfig.")),
+            "UNSUPPORTED_EMULATOR" => Some(("UNSUPPORTED_EMULATOR", "Cet émulateur ou cette console n’est pas encore pris en charge par la communauté.")),
+            "PROFILE_EXISTS" => Some(("PROFILE_EXISTS", "Vous avez déjà publié un profil pour ce jeu : publiez-en une nouvelle version.")),
+            "TOO_MANY_PROFILES" => Some(("TOO_MANY_PROFILES", "Nombre maximal de profils publiés atteint.")),
+            "TOO_MANY_VERSIONS" => Some(("TOO_MANY_VERSIONS", "Nombre maximal de versions atteint pour ce profil.")),
+            "OWN_PROFILE" => Some(("OWN_PROFILE", "Impossible sur votre propre profil.")),
+            "ALREADY_REPORTED" => Some(("ALREADY_REPORTED", "Vous avez déjà signalé ce profil.")),
+            "PROFILE_HIDDEN" => Some(("PROFILE_HIDDEN", "Ce profil est masqué.")),
             _ => None,
         };
         if let Some((code, message)) = known {
             return Err(Error { code: code.into(), message: message.into(), retry_after_seconds: None });
+        }
+        if value["error"]["code"].as_str() == Some("DAILY_LIMIT") {
+            return Err(Error { code: "DAILY_LIMIT".into(), message: "Limite de publications atteinte pour aujourd’hui.".into(), retry_after_seconds: retry });
         }
         let (code, message) = match status.as_u16() {
             401 => ("UNAUTHENTICATED", "Identifiants incorrects ou session expirée. Reconnectez-vous."),
@@ -228,6 +246,32 @@ pub(crate) fn share_media(id: &str, thumb: bool) -> Result<Vec<u8>> {
     let image = bytes.starts_with(&[0x89, b'P', b'N', b'G']) || bytes.starts_with(b"GIF8") || (thumb && bytes.starts_with(&[0xff, 0xd8, 0xff]));
     if bytes.len() > 8 * 1024 * 1024 || !image { return Err(err("INVALID_RESPONSE", "Capture invalide.")); }
     Ok(bytes)
+}
+
+/// Adresse du service iNetbox utilisé par cette compilation.
+pub(crate) fn service_url() -> &'static str { SERVICE }
+
+/// Identifiant UUID attendu par une route iNetbox.
+pub(crate) fn is_uuid(id: &str) -> bool { id.len() == 36 && id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') }
+
+/// iBox SmartConfig Community : appel natif. `auth` = avec la session iNetbox du profil actif
+/// (publier, voter, signaler, retirer) ; sinon lecture publique, sans jeton. Le jeton ne quitte
+/// jamais le natif ; les messages d'erreur sont fixes (jamais le texte reçu).
+pub(crate) fn smartconfig_call(method: Method, path: &str, body: Option<&Value>, auth: bool) -> Result<Value> {
+    static SC_CLIENT: OnceLock<Client> = OnceLock::new();
+    if !path.starts_with("/v1/smartconfig/") || path.contains("..") { return Err(err("CONFIG_ERROR", "Route invalide.")); }
+    let client = match SC_CLIENT.get() {
+        Some(c) => c,
+        None => {
+            let c = Client::builder().timeout(Duration::from_secs(20)).connect_timeout(Duration::from_secs(10))
+                .redirect(reqwest::redirect::Policy::none()).build().map_err(|_| err("NETWORK_ERROR", "Connexion indisponible."))?;
+            SC_CLIENT.get_or_init(|| c)
+        }
+    };
+    let token = if auth {
+        Some(keys::get(&credential()).map_err(|_| vault_error())?.ok_or_else(|| err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour contribuer à SmartConfig."))?)
+    } else { None };
+    http(client, method, path, token.as_deref(), body)
 }
 
 fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Result<Value> {
