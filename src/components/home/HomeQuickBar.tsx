@@ -19,10 +19,10 @@ export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommuni
   return (
     <div className="flex items-center justify-end gap-3 px-[3rem] pt-2">
       <div className="flex items-center gap-1 rounded-full bg-white/55 p-1 shadow-[0_6px_18px_-12px_rgba(30,40,70,0.5)] ring-1 ring-black/5 backdrop-blur">
-        <Chip icon="trophy" label="Succès" onClick={onAchievements} tint="#B07A00" />
-        <Chip icon="globe" label="Communauté" onClick={onCommunity} />
-        <Chip icon="front" label="Fond" title="Changer le fond de l’accueil" onClick={onBackground} />
-        <Chip icon="search" label="Recherche" title="Recherche rapide (X)" onClick={onSearch} />
+        <Chip icon="trophy" label="Succès" onClick={onAchievements} tint="var(--tone-yellow-ink)" />
+        <Chip icon="globe" label="Communauté" onClick={onCommunity} tint="var(--tone-green-ink)" />
+        <Chip icon="front" label="Fond" title="Changer le fond de l’accueil" onClick={onBackground} tint="var(--tone-pink-ink)" />
+        <Chip icon="search" label="Recherche" title="Recherche rapide (X)" onClick={onSearch} tint="var(--tone-blue-ink)" />
       </div>
     </div>
   );

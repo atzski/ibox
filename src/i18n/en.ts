@@ -2972,4 +2972,10 @@ export const EN: Record<string, string> = {
   "Le bouton Amis de la barre du haut affiche maintenant les photos de vos amis, ceux en ligne en premier, avec leur pastille de présence et le nombre des autres.": "The Friends button in the top bar now shows your friends’ pictures, online ones first, with their presence dot and a count of the others.",
   "Un accueil plus sobre": "A cleaner Home",
   "Les boutons de « Mes collections » se résument à leur icône, la ligne du nombre de plateformes disparaît, et le bouton pour changer d’utilisateur passe à gauche de votre profil.": "The “My collections” buttons are now icons only, the platform count line is gone, and the switch-user button moves to the left of your profile.",
+  "Des boutons aux couleurs de votre thème": "Buttons in your theme’s colors",
+  "Boutons et icônes de toute l’app prennent maintenant les couleurs du thème choisi, tout en douceur ; les thèmes volontairement vifs, comme Bonbon et Agrume, gardent leur éclat.": "Buttons and icons across the app now take on the colors of your chosen theme, gently; deliberately bold themes such as Bonbon and Agrume keep their punch.",
+  "iBox Platforms en verre": "Glass iBox Platforms",
+  "La tuile « iBox Platforms » de l’accueil devient une plaque de verre dépoli, translucide et plus douce, teintée par votre thème.": "The “iBox Platforms” tile on Home becomes a pane of frosted glass, translucent and softer, tinted by your theme.",
+  "Un fond d’accueil plus doux": "A softer Home background",
+  "Le grand fond de l’accueil est légèrement flouté pour laisser respirer les cases. Et « Votre dernière aventure » affiche toujours l’image du jeu, même sans grande illustration.": "The large Home background is slightly blurred to give the tiles room to breathe. And “Your last adventure” always shows the game’s image, even without large artwork.",
 };

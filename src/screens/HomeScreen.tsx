@@ -141,17 +141,17 @@ export function HomeScreen() {
                   sound.play("select");
                   go({ name: "platforms" });
                 }}
-                // aux couleurs d'iBox : dégradé vivant qui glisse lentement, reflet et icône en relief
-                className="ibox-focusable ibox-lift ibox-platforms-tile group relative isolate flex h-[11rem] w-[11rem] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg text-white shadow-md [--ring-radius:var(--radius-lg)]"
+                // verre dépoli aux couleurs du thème : dégradé qui glisse lentement, reflet et icône en relief
+                className="ibox-focusable ibox-lift ibox-platforms-tile group relative isolate flex h-[11rem] w-[11rem] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg text-[#ffffff] [--ring-radius:var(--radius-lg)]"
               >
                 <span aria-hidden className="ibox-platforms-glow absolute inset-0 -z-10" />
-                <span aria-hidden className="absolute -top-8 -right-8 -z-10 size-28 rounded-full bg-white/20 blur-xl transition-transform duration-500 group-hover:scale-125" />
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/90 text-[#6a4fd9] shadow-[inset_0_-3px_0_rgba(0,0,0,0.08),0_8px_18px_-8px_rgba(30,20,80,0.6)] transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:-rotate-6 group-hover:scale-110">
+                <span aria-hidden className="absolute -top-8 -right-8 -z-10 size-28 rounded-full bg-[#ffffff33] blur-xl transition-transform duration-500 group-hover:scale-125" />
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#ffffffcc] text-[var(--theme-deep)] shadow-[inset_0_-3px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-8px_color-mix(in_srgb,var(--theme-deep)_70%,transparent)] backdrop-blur-sm transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:-rotate-6 group-hover:scale-110">
                   <Icon name="grid" size="1.4em" />
                 </span>
                 <span className="flex flex-col items-center leading-tight drop-shadow-[0_2px_6px_rgba(30,20,80,0.35)]">
                   <span className="font-display text-[1.05rem] font-semibold">iBox Platforms</span>
-                  <span className="mt-0.5 text-[0.78rem] font-bold text-white/85">Découvrir les consoles</span>
+                  <span className="mt-0.5 text-[0.78rem] font-bold text-[#ffffffd9]">Découvrir les consoles</span>
                 </span>
               </button>
             </motion.div>
@@ -346,14 +346,22 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
   const platform = requirePlatform(game.platformId);
   const reduced = useReducedMotion();
   const hero = useMediaUrl(game, "hero");
-  const deep = `color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`;
+  // repli automatique : la jaquette du jeu sert de fond quand il n'a pas de grande illustration
+  const [cover, setCover] = useState<string | null>(null);
+  useEffect(() => {
+    setCover(null);
+    let alive = true;
+    getArtUrl(game, "front").then((u) => alive && setCover(u)).catch(() => undefined);
+    return () => { alive = false; };
+  }, [game]);
+  const deep =`color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`;
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-white shadow-md"
+      className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-[#ffffff] shadow-md"
       style={{ ...themeVars(platform), background: deep }}
     >
       {/* fond : illustration du jeu si elle existe, sinon sa jaquette floutée */}
@@ -370,14 +378,21 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
             className="ibox-kenburns h-full w-full object-cover object-[center_30%]"
           />
         ) : (
-          <div className="absolute inset-0 scale-125 opacity-50 blur-2xl">
-            <CoverImage game={game} className="h-full w-full" rounded="" sheen={false} />
-          </div>
+          // pas de grande illustration : la jaquette remplit la case, juste adoucie (reconnaissable)
+          <motion.div
+            key={game.id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.8 }}
+            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+            className={`absolute inset-[-8%] blur-[5px] saturate-[1.15] ${reduced ? "" : "ibox-kenburns"}`}
+          >
+            {cover && <img src={cover} alt="" draggable={false} className="h-full w-full object-cover object-[center_25%]" />}
+          </motion.div>
         )}
         <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${deep} 35%, transparent) 0%, color-mix(in oklab, ${deep} 92%, transparent) 72%)` }} />
       </div>
 
-      <div className="text-[0.75rem] font-extrabold tracking-[0.16em] text-white/80 uppercase">{label}</div>
+      <div className="text-[0.75rem] font-extrabold tracking-[0.16em] text-[#ffffffd9] uppercase">{label}</div>
 
       <div className="mt-3 flex min-h-0 flex-1 items-end gap-4">
         <motion.div
@@ -389,12 +404,12 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
         </motion.div>
         <div className="min-w-0 pb-1">
           <h2 className="line-clamp-3 font-display text-[1.25rem] leading-tight font-semibold">{game.title}</h2>
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[0.75rem] font-bold text-white/90">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 backdrop-blur-sm">
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[0.75rem] font-bold text-[#ffffffd9]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ffffff26] px-2.5 py-0.5 backdrop-blur-sm">
               <PlatformGlyph glyph={platform.glyph} size={14} strokeWidth={3} />
               {platform.shortName}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#ffffff26] px-2.5 py-0.5 backdrop-blur-sm">
               <Icon name="clock" size="1em" />
               {game.lastPlayedAt ? `Joué ${relativeDay(game.lastPlayedAt)}` : `Ajouté ${relativeDay(game.addedAt)}`}
             </span>

@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.83",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Des boutons aux couleurs de votre thème", text: "Boutons et icônes de toute l’app prennent maintenant les couleurs du thème choisi, tout en douceur ; les thèmes volontairement vifs, comme Bonbon et Agrume, gardent leur éclat." },
+      { icon: "grid", title: "iBox Platforms en verre", text: "La tuile « iBox Platforms » de l’accueil devient une plaque de verre dépoli, translucide et plus douce, teintée par votre thème." },
+      { icon: "front", title: "Un fond d’accueil plus doux", text: "Le grand fond de l’accueil est légèrement flouté pour laisser respirer les cases. Et « Votre dernière aventure » affiche toujours l’image du jeu, même sans grande illustration." },
+    ],
+  },
+  {
     version: "0.1.82",
     date: "2026-11-18",
     highlights: [

@@ -12,7 +12,12 @@ export interface AppTheme {
   vars: Record<string, string>;
 }
 
-const v = (cream: string, creamDeep: string, sky: string, lavender: string, mint: string, peach: string, dark: string, darkDeep: string, accent: string) => ({
+const v = (cream: string, creamDeep: string, sky: string, lavender: string, mint: string, peach: string, dark: string, darkDeep: string, accent: string, vivid = false) => ({
+  // boutons et icônes prennent la couleur du thème : doucement, sauf thème volontairement vif
+  "--theme-blend": vivid ? "34%" : "40%",
+  "--theme-blend-soft": vivid ? "16%" : "20%",
+  "--theme-veil": vivid ? "6%" : "26%",
+  "--theme-deep": vivid ? `color-mix(in srgb, ${accent} 84%, #000000)` : `color-mix(in srgb, ${accent} 72%, #334155)`,
   "--ibox-cream": `light-dark(${cream}, ${dark})`,
   "--ibox-cream-deep": `light-dark(${creamDeep}, ${darkDeep})`,
   "--ibox-sky": sky,
@@ -47,9 +52,9 @@ export const APP_THEMES: AppTheme[] = [
   { id: "foret", name: "Forêt", note: "Vert sapin, mousse et sable", colors: ["#E4EFDF", "#3FAF6A", "#8CC152", "#2FBF8F", "#E8B25A"], vars: v("#E4EFDF", "#D2E3CA", "#3FAF6A", "#8CC152", "#2FBF8F", "#E8B25A", "#122019", "#1A2E23", "#2E9A58") },
   { id: "sakura", name: "Sakura", note: "Rose cerisier éclatant", colors: ["#FFE6EF", "#FF6FA0", "#D98CF2", "#7FD69A", "#FFA78A"], vars: v("#FFE6EF", "#FFD2E2", "#FF6FA0", "#D98CF2", "#7FD69A", "#FFA78A", "#2A1420", "#3A1C2D", "#F0508A") },
   { id: "ocean", name: "Océan", note: "Bleu profond et écume", colors: ["#DDEBFA", "#2F86E8", "#5B6CF0", "#2EC4C4", "#FF9F6E"], vars: v("#DDEBFA", "#C8DDF5", "#2F86E8", "#5B6CF0", "#2EC4C4", "#FF9F6E", "#0D1A2C", "#14263F", "#1F72D6") },
-  { id: "agrume", name: "Agrume", note: "Citron, mandarine et menthe", colors: ["#FFF4D2", "#FFC21A", "#FF8A2A", "#7ED957", "#FF5E5B"], vars: v("#FFF4D2", "#FFE8A8", "#FFC21A", "#FF8A2A", "#7ED957", "#FF5E5B", "#261E0C", "#362B12", "#F08A0C") },
+  { id: "agrume", name: "Agrume", note: "Citron, mandarine et menthe", colors: ["#FFF4D2", "#FFC21A", "#FF8A2A", "#7ED957", "#FF5E5B"], vars: v("#FFF4D2", "#FFE8A8", "#FFC21A", "#FF8A2A", "#7ED957", "#FF5E5B", "#261E0C", "#362B12", "#F08A0C", true) },
   { id: "brume", name: "Brume", note: "Gris bleutés, sobre mais présent", colors: ["#E6EAF0", "#7F98B8", "#9A92C8", "#88B8AA", "#D6A48C"], vars: v("#E6EAF0", "#D6DCE6", "#7F98B8", "#9A92C8", "#88B8AA", "#D6A48C", "#161B23", "#202733", "#5E7BA0") },
-  { id: "bonbon", name: "Bonbon", note: "Couleurs acidulées, très joueuses", colors: ["#FFE8F7", "#29C2FF", "#C35CFF", "#33E39A", "#FF5FA2"], vars: v("#FFE8F7", "#FCD3EE", "#29C2FF", "#C35CFF", "#33E39A", "#FF5FA2", "#25132A", "#341B3B", "#E040A0") },
+  { id: "bonbon", name: "Bonbon", note: "Couleurs acidulées, très joueuses", colors: ["#FFE8F7", "#29C2FF", "#C35CFF", "#33E39A", "#FF5FA2"], vars: v("#FFE8F7", "#FCD3EE", "#29C2FF", "#C35CFF", "#33E39A", "#FF5FA2", "#25132A", "#341B3B", "#E040A0", true) },
   { id: "sable", name: "Sable", note: "Désert doré et terre cuite", colors: ["#F6E9D2", "#E0A852", "#C98A6B", "#A8B866", "#D9694A"], vars: v("#F6E9D2", "#EDDAB8", "#E0A852", "#C98A6B", "#A8B866", "#D9694A", "#241B10", "#33271A", "#C8862E") },
   { id: "aurore", name: "Aurore", note: "Rose, orange et ciel du matin", colors: ["#FFE7E4", "#FF7E9D", "#6FB6FF", "#FFB55C", "#FF8066"], vars: v("#FFE7E4", "#FFD5CF", "#6FB6FF", "#FF7E9D", "#FFB55C", "#FF8066", "#2A1618", "#3A2023", "#F2607F") },
 ];

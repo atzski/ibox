@@ -314,10 +314,10 @@ function ListView({ connected, incoming, onAdd, onRequests, onActivity, onProfil
 
       {/* raccourcis, façon menu de console : grands boutons ronds */}
       <div data-nav-group="friends-actions" className={`mx-4 mt-3 grid gap-1 rounded-[1.4rem] bg-cream-deep/60 px-2 py-2.5 ${["grid-cols-2", "grid-cols-3", "grid-cols-4"][(social.socialSupported ? 1 : 0) + (groupsSupported ? 1 : 0)]}`}>
-        <BigAction icon="plus" label="Ajouter" tint="#3FA578" onClick={onAdd} autoFocus />
-        <BigAction icon="sparkle" label="Invitations" tint="#E5735F" badge={incoming} onClick={onRequests} />
-        {social.socialSupported && <BigAction icon="clock" label="Activité" tint="#8A72D8" onClick={onActivity} />}
-        {groupsSupported && <BigAction icon="chat" label="Groupe" tint="#4A9BD8" onClick={onNewGroup} />}
+        <BigAction icon="plus" label="Ajouter" tint="var(--tone-green)" onClick={onAdd} autoFocus />
+        <BigAction icon="sparkle" label="Invitations" tint="var(--tone-orange)" badge={incoming} onClick={onRequests} />
+        {social.socialSupported && <BigAction icon="clock" label="Activité" tint="var(--tone-purple)" onClick={onActivity} />}
+        {groupsSupported && <BigAction icon="chat" label="Groupe" tint="var(--tone-blue)" onClick={onNewGroup} />}
       </div>
 
       {social.gameInvites.length > 0 && <GameInvites invites={social.gameInvites} />}
@@ -704,7 +704,7 @@ function Group({ label, count }: { label: string; count: number }) {
   );
 }
 
-function BigAction({ icon, label, onClick, badge = 0, autoFocus, tint = "#88CBF5" }: { icon: IconName; label: string; onClick: () => void; badge?: number; autoFocus?: boolean; tint?: string }) {
+function BigAction({ icon, label, onClick, badge = 0, autoFocus, tint = "var(--accent)" }: { icon: IconName; label: string; onClick: () => void; badge?: number; autoFocus?: boolean; tint?: string }) {
   return (
     <button
       data-focusable
@@ -713,7 +713,7 @@ function BigAction({ icon, label, onClick, badge = 0, autoFocus, tint = "#88CBF5
       className="group ibox-focusable relative flex flex-col items-center gap-1.5 rounded-2xl py-1 text-[0.8rem] font-bold text-ink [--ring-radius:1rem]"
     >
       <span className="relative grid size-[3.1rem] place-items-center rounded-full text-white shadow-[0_6px_14px_-6px_rgba(30,40,70,0.55)] ring-[3px] ring-white transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
-        style={{ background: `radial-gradient(circle at 30% 25%, color-mix(in oklab, ${tint} 70%, white), ${tint} 70%)` }}>
+        style={{ background: `radial-gradient(circle at 30% 25%, color-mix(in oklab, ${tint} 55%, white), color-mix(in oklab, ${tint} 82%, white) 70%)` }}>
         <Icon name={icon} size="1.35rem" />
         {badge > 0 && (
           <span className="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#E5735F] px-1 text-[0.7rem] font-extrabold text-white ring-2 ring-white">{badge}</span>

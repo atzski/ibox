@@ -187,7 +187,7 @@ export function UpdateChip() {
       disabled={installing}
       title={`iBox ${available} : cliquez pour installer`}
       onClick={() => { sound.play("open"); openLink({ kind: "update" }); }}
-      className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full bg-[linear-gradient(140deg,#DDF0FF,#88CBF5)] px-4 font-bold text-[#1F5C8F] shadow-sm [--ring-radius:999px]"
+      className="ibox-focusable ibox-lift relative flex h-12 items-center gap-2 rounded-full bg-[linear-gradient(140deg,var(--accent-soft),color-mix(in_srgb,var(--accent)_75%,white))] px-4 font-bold text-[color-mix(in_srgb,var(--accent)_40%,black)] shadow-sm [--ring-radius:999px]"
     >
       <Icon name="download" className={installing ? "animate-bounce" : ""} />
       {installing ? (percent !== undefined ? `${percent} %` : "Installation…") : `iBox ${available}`}

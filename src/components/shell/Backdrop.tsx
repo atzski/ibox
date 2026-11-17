@@ -114,9 +114,9 @@ export function Backdrop({ home = false }: { home?: boolean }) {
       <motion.div className="absolute -inset-[3%]" style={{ x: sx, y: sy }}>
         <AnimatePresence initial={false}>
           {preset ? null : fixedImage ? (
-            <GameBackdrop key={`p|${fixedImage}`} src={fixedImage} hero stage={stage || onHome} dark={dark} reduced={reduced} vivid={onHome} />
+            <GameBackdrop key={`p|${fixedImage}`} src={fixedImage} hero stage={stage || onHome} dark={dark} reduced={reduced} vivid={onHome} soft={home} />
           ) : (
-            shownGame && layer && <GameBackdrop key={layer.key} src={layer.src} hero={layer.hero} stage={stage} dark={dark} reduced={reduced} />
+            shownGame && layer && <GameBackdrop key={layer.key} src={layer.src} hero={layer.hero} stage={stage} dark={dark} reduced={reduced} soft={home} />
           )}
         </AnimatePresence>
       </motion.div>
@@ -226,10 +226,11 @@ function PresetBackdrop({ preset, reduced, dark }: { preset: HomePreset; reduced
   );
 }
 
-function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean; vivid?: boolean }) {
+function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false, soft = false }: { src: string; hero: boolean; stage: boolean; dark: boolean; reduced: boolean; vivid?: boolean; soft?: boolean }) {
   // Fond large : net sur la fiche, adouci ailleurs. Jaquette : simple halo coloré.
   // Fond choisi pour l'accueil : bien visible, presque sans voile.
-  const blur = hero ? (stage ? 0 : 10) : 60;
+  // accueil : le grand fond reste légèrement flouté pour laisser respirer les cases
+  const blur = Math.max(hero ? (stage ? 0 : 10) : 60, soft ? 7 : 0);
   const opacity = (vivid ? 0.82 : hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
 
   return (
@@ -240,7 +241,7 @@ function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false }: { src:
       exit={{ opacity: 0 }}
       transition={{ duration: reduced ? 0 : 0.65, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="h-full w-full" style={{ transform: hero ? undefined : "scale(1.25)" }}>
+      <div className="h-full w-full" style={{ transform: hero ? (blur ? "scale(1.04)" : undefined) : "scale(1.25)" }}>
         <img
           src={src}
           alt=""

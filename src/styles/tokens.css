@@ -60,22 +60,34 @@
    * orange = réglages, corriger · rouge = supprimer, quitter · violet = collections, personnaliser
    * rose = images, médias · turquoise = versions, sauvegardes, système
    */
-  --tone-blue: #1e6fd9;
-  --tone-blue-ink: light-dark(#1b5fb8, #8cc0ff);
-  --tone-green: #1b7f47;
-  --tone-green-ink: light-dark(#1a7444, #7fdca6);
-  --tone-yellow: #f2b200;
-  --tone-yellow-ink: light-dark(#8a5a00, #ffd36b);
-  --tone-orange: #c2540a;
-  --tone-orange-ink: light-dark(#a84a0a, #ffb27a);
-  --tone-red: #d63a3a;
-  --tone-red-ink: light-dark(#b42a2a, #ff9a94);
-  --tone-pink: #d13a82;
-  --tone-pink-ink: light-dark(#a82466, #ff9ccb);
-  --tone-purple: #7a4bdb;
-  --tone-purple-ink: light-dark(#6236c4, #c4a8ff);
-  --tone-teal: #0c7c81;
-  --tone-teal-ink: light-dark(#0b6e72, #74dcdc);
+  /*
+   * Les couleurs d'action se fondent dans la palette choisie (thèmes d'iBox) :
+   * --theme-blend dose le mélange avec l'accent du thème (doux par défaut,
+   * plus marqué pour les thèmes volontairement vifs) ; rouge, vert et jaune
+   * gardent leur sens et ne se mélangent qu'à moitié (--theme-blend-soft).
+   */
+  --theme-blend: 26%;
+  --theme-blend-soft: 12%;
+  /* voile clair des tuiles en verre (tuile iBox Platforms) */
+  --theme-veil: 24%;
+  --theme-deep: var(--accent-deep);
+  --theme-light: color-mix(in srgb, var(--accent) 65%, #ffffff);
+  --tone-blue: color-mix(in oklch, #1e6fd9, var(--theme-deep) var(--theme-blend));
+  --tone-blue-ink: light-dark(color-mix(in oklch, #1b5fb8, var(--theme-deep) var(--theme-blend)), color-mix(in oklch, #8cc0ff, var(--theme-light) var(--theme-blend)));
+  --tone-green: color-mix(in oklch, #1b7f47, var(--theme-deep) var(--theme-blend-soft));
+  --tone-green-ink: light-dark(color-mix(in oklch, #1a7444, var(--theme-deep) var(--theme-blend-soft)), color-mix(in oklch, #7fdca6, var(--theme-light) var(--theme-blend-soft)));
+  --tone-yellow: color-mix(in oklch, #f2b200, var(--theme-light) var(--theme-blend-soft));
+  --tone-yellow-ink: light-dark(color-mix(in oklch, #8a5a00, var(--theme-deep) var(--theme-blend-soft)), color-mix(in oklch, #ffd36b, var(--theme-light) var(--theme-blend-soft)));
+  --tone-orange: color-mix(in oklch, #c2540a, var(--theme-deep) var(--theme-blend));
+  --tone-orange-ink: light-dark(color-mix(in oklch, #a84a0a, var(--theme-deep) var(--theme-blend)), color-mix(in oklch, #ffb27a, var(--theme-light) var(--theme-blend)));
+  --tone-red: color-mix(in oklch, #d63a3a, var(--theme-deep) var(--theme-blend-soft));
+  --tone-red-ink: light-dark(color-mix(in oklch, #b42a2a, var(--theme-deep) var(--theme-blend-soft)), color-mix(in oklch, #ff9a94, var(--theme-light) var(--theme-blend-soft)));
+  --tone-pink: color-mix(in oklch, #d13a82, var(--theme-deep) var(--theme-blend));
+  --tone-pink-ink: light-dark(color-mix(in oklch, #a82466, var(--theme-deep) var(--theme-blend)), color-mix(in oklch, #ff9ccb, var(--theme-light) var(--theme-blend)));
+  --tone-purple: color-mix(in oklch, #7a4bdb, var(--theme-deep) var(--theme-blend));
+  --tone-purple-ink: light-dark(color-mix(in oklch, #6236c4, var(--theme-deep) var(--theme-blend)), color-mix(in oklch, #c4a8ff, var(--theme-light) var(--theme-blend)));
+  --tone-teal: color-mix(in oklch, #0c7c81, var(--theme-deep) var(--theme-blend));
+  --tone-teal-ink: light-dark(color-mix(in oklch, #0b6e72, var(--theme-deep) var(--theme-blend)), color-mix(in oklch, #74dcdc, var(--theme-light) var(--theme-blend)));
 
   /* décor de couleurs derrière l'interface (chaque palette a le sien) */
   --ibox-backdrop: radial-gradient(60% 55% at 0% 0%, color-mix(in srgb, var(--ibox-sky) 38%, transparent), transparent 70%),
