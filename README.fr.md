@@ -41,7 +41,7 @@ C’est le cœur d’iBox. Chaque jeu a son vrai boîtier en 3D, à la taille de
 
 À la souris (glisser, molette pour zoomer), au clavier ou au stick droit de la manette.
 
-## iBox Platforms
+<h2><img src="docs/media/branding/ibox-platforms.png" height="64" alt="iBox Platforms"></h2>
 
 Un petit musée de 29 consoles, de l’Atari 2600 à la Switch 2, en vraies photographies sur une frise chronologique. Chaque console a sa page : son histoire, son matériel et vos jeux.
 
@@ -54,6 +54,10 @@ Quand une console a besoin d’un émulateur, sa page propose d’installer celu
 <p align="center">
   <img src="docs/media/screenshots/platform-emulator.webp" width="100%" alt="La page PlayStation Portable dans iBox Platforms, avec PPSSPP recommandé et prêt à jouer">
 </p>
+
+<h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
+
+**En préparation.** SmartConfig examine le matériel de votre PC et règle chaque émulateur en conséquence, pour qu’un jeu tourne bien dès le premier lancement, sans fouiller dans les menus de réglages.
 
 ## Pensé pour le canapé
 
@@ -83,8 +87,11 @@ iBox garde la trace de vos parties : temps par jeu et par console, sessions, sé
 
 Avec un compte **iNetbox** facultatif, ajoutez des amis, voyez à quoi ils jouent, discutez et invitez-les à une partie.
 
-- **Communauté :** en pleine partie, <kbd>Alt</kbd>+<kbd>E</kbd> garde une capture d’écran ou un clip des 12 dernières secondes, à partager avec vos amis, qui peuvent réagir, répondre et se mentionner.
-- **Remote Play** (expérimental, désactivé par défaut) : recevez jusqu’à cinq amis dans votre partie, par internet et d’un PC à l’autre. Chaque invité joue avec sa propre manette, et vous décidez qui regarde, qui joue et qui peut utiliser le clavier et la souris. Détails dans [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md).
+**Communauté :** en pleine partie, <kbd>Alt</kbd>+<kbd>E</kbd> garde une capture d’écran ou un clip des 12 dernières secondes, à partager avec vos amis, qui peuvent réagir, répondre et se mentionner.
+
+<h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
+
+**Expérimental, désactivé par défaut.** Recevez jusqu’à cinq amis dans votre partie, par internet et d’un PC à l’autre. Chaque invité joue avec sa propre manette, et vous décidez qui regarde, qui joue et qui peut utiliser le clavier et la souris. Détails dans [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md).
 
 ## Plateformes prises en charge
 

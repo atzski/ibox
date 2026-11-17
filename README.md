@@ -41,7 +41,7 @@ This is the part we care about most. Every game has a proper case in 3D, sized f
 
 Works with a mouse (drag, scroll to zoom), the keyboard or a controller's right stick.
 
-## iBox Platforms
+<h2><img src="docs/media/branding/ibox-platforms.png" height="64" alt="iBox Platforms"></h2>
 
 A small museum of 29 consoles, from the Atari 2600 to the Switch 2, photographed and laid out on a timeline. Each console has its own page with its history, its hardware and your games for it.
 
@@ -54,6 +54,10 @@ When a console needs an emulator, its page offers to install the recommended one
 <p align="center">
   <img src="docs/media/screenshots/platform-emulator.webp" width="100%" alt="The PlayStation Portable page in iBox Platforms, with PPSSPP recommended and ready to play">
 </p>
+
+<h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
+
+**In development.** SmartConfig looks at your PC's hardware and sets up each emulator to match, so a game runs well the first time without digging through settings menus.
 
 ## Made for the sofa
 
@@ -83,8 +87,11 @@ iBox keeps track of what you play: time per game and per console, sessions, stre
 
 With an optional **iNetbox** account you can add friends, see what they are playing, chat, and invite them to a game.
 
-- **Community:** press <kbd>Alt</kbd>+<kbd>E</kbd> during a game to save a screenshot or a clip of the last 12 seconds, then share it with friends, who can react, reply and mention each other.
-- **Remote Play** (experimental, off by default): host a game for up to five friends over the internet, PC to PC. Each guest plays with their own controller, and you decide who can only watch, who can play and who can use the keyboard and mouse. More in [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
+**Community:** press <kbd>Alt</kbd>+<kbd>E</kbd> during a game to save a screenshot or a clip of the last 12 seconds, then share it with friends, who can react, reply and mention each other.
+
+<h2><img src="docs/media/branding/ibox-remote-play.png" height="64" alt="iBox Remote Play"></h2>
+
+**Experimental, off by default.** Host a game for up to five friends over the internet, PC to PC. Each guest plays with their own controller, and you decide who can only watch, who can play and who can use the keyboard and mouse. More in [docs/REMOTE-PLAY.md](docs/REMOTE-PLAY.md) (in French).
 
 ## Supported platforms
 
