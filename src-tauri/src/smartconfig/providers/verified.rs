@@ -100,7 +100,7 @@ fn check(e: &Entry) -> Result<(), String> {
     if !adapter.platforms().contains(&e.platform.as_str()) {
         return Err("console non couverte par l'émulateur".into());
     }
-    if !super::community::valid_serial(&e.serial) {
+    if !valid_serial(&e.serial) {
         return Err("numéro de série invalide".into());
     }
     if !text_ok(&e.title, 160) {
@@ -310,4 +310,9 @@ mod tests {
         assert!(matching(&entries, &game(Some("GMSP01")), "dolphin").is_empty());
         assert!(matching(&entries, &game(Some("GMSE01")), "pcsx2").is_empty());
     }
+}
+
+/// Numéro de série de jeu accepté (`GMSE01`, `SLUS-20312`).
+pub fn valid_serial(s: &str) -> bool {
+    (4..=16).contains(&s.len()) && s.bytes().enumerate().all(|(i, b)| b.is_ascii_uppercase() || b.is_ascii_digit() || (i > 0 && (b == b'-' || b == b'_')))
 }

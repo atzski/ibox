@@ -25,6 +25,8 @@ export interface EmulatorPackage {
   requires: string | null;
   /** Installation automatique possible (sinon : parcours assisté vers le site officiel). */
   automatic: boolean;
+  /** Version spécialisée pour ces jeux (identifiants de titre) : proposée sur leur fiche. */
+  games: string[];
 }
 
 export interface InstalledPackage {
@@ -246,3 +248,10 @@ export function formatBytes(n: number): string {
 
 /** État d'une console pour l'interface. */
 export type ConsoleStatus = "ready" | "setup" | "missing-bios" | "missing-prereq" | "not-installed" | "installing" | "error" | "discovery" | "manual";
+
+/** Versions spécialisées pour ce jeu (identifiant de titre lu par le scanner). */
+export function packagesForGame(overview: Overview | null, platformId: string, serial: string | null | undefined): EmulatorPackage[] {
+  const id = serial?.trim().toUpperCase();
+  if (!id) return [];
+  return overview?.packages.filter((p) => p.automatic && p.platforms.includes(platformId) && p.games.includes(id)) ?? [];
+}

@@ -1,10 +1,9 @@
 //! Fournisseurs de profils. Chacun renvoie des `Profile` normalisés ; aucun
-//! n'est indispensable (désactivable, panne tolérée). EmuReady (phase 2),
-//! iBox SmartConfig Community sur iNetbox (phase 5), profils « Vérifié par
+//! n'est indispensable (désactivable, panne tolérée). EmuReady (phase 2) est la
+//! seule source externe : iNetbox ne stocke aucun profil. Profils « Vérifié par
 //! iBox » livrés avec l'application (phase 6). Réservé : recommandations
 //! officielles des émulateurs.
 
-pub mod community;
 pub mod emuready;
 pub mod verified;
 
@@ -91,7 +90,7 @@ pub struct ProviderInfo {
 }
 
 pub fn infos() -> Vec<ProviderInfo> {
-    vec![verified::INFO, emuready::INFO, community::INFO]
+    vec![verified::INFO, emuready::INFO]
 }
 
 #[cfg(test)]

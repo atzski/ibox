@@ -121,7 +121,8 @@ fn register(app: &AppHandle, p: &Package, inst: &Installed) -> Res<i64> {
     lib.with(|c| {
         let emu = match p.source {
             Source::LibretroCore { file } => repo::register_core(c, "retroarch", file, p.platforms),
-            _ => repo::register_managed(c, &inst.exe, p.id, &inst.version, p.platforms),
+            // version spécialisée pour des jeux : proposée sur leur fiche, jamais émulateur de la console
+            _ => repo::register_managed(c, &inst.exe, p.id, p.name, &inst.version, if p.games.is_empty() { p.platforms } else { &[] }),
         };
         emu.map(|e| e.id).map_err(|e| crate::library::LibraryError::Media(e.to_string()))
     })

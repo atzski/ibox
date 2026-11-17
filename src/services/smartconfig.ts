@@ -16,7 +16,7 @@ import { useSettings } from "./settings";
 // ——— Types (miroir exact des structures Rust, sérialisées en camelCase) ———
 
 export type ScMode = "performance" | "balanced" | "quality" | "manual";
-export type SourceId = "emuReady" | "community" | "verified" | "official";
+export type SourceId = "emuReady" | "verified" | "official";
 export type MatchKind = "exact" | "similarHardware" | "generic" | "experimental" | "insufficient" | "incompatible";
 export type Risk = "low" | "medium" | "high";
 export type Tier = "unknown" | "entry" | "mid" | "high";
@@ -272,7 +272,7 @@ export const LOCAL_HINT: Record<LocalVerdict, string> = {
 };
 export const RISK_LABEL: Record<Risk, string> = { low: "Risque faible", medium: "Risque moyen", high: "Risque élevé" };
 export const TIER_LABEL: Record<Tier, string> = { unknown: "Inconnu", entry: "Modeste", mid: "Intermédiaire", high: "Puissant" };
-export const SOURCE_LABEL: Record<string, string> = { emuReady: "EmuReady", emuready: "EmuReady", community: "Communauté iBox", verified: "Vérifié par iBox", official: "Recommandation officielle" };
+export const SOURCE_LABEL: Record<string, string> = { emuReady: "EmuReady", emuready: "EmuReady", verified: "Vérifié par iBox", official: "Recommandation officielle" };
 export const sourceName = (id: string) => SOURCE_LABEL[id] ?? id;
 export const usable = (k: MatchKind) => k === "exact" || k === "similarHardware" || k === "generic";
 

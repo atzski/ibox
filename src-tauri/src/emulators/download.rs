@@ -83,9 +83,10 @@ pub fn net_message(e: &reqwest::Error) -> String {
 }
 
 /// Choisit le fichier d'une release GitHub (JSON de l'API `releases/latest`).
-pub fn pick_github_asset(release: &serde_json::Value, asset: &catalog::AssetMatch) -> Result<Resolved, String> {
+/// `prerelease` : le projet ne publie que des préversions, elles sont acceptées.
+pub fn pick_github_asset(release: &serde_json::Value, asset: &catalog::AssetMatch, prerelease: bool) -> Result<Resolved, String> {
     let tag = release["tag_name"].as_str().ok_or("release sans version")?;
-    if release["prerelease"].as_bool() == Some(true) || release["draft"].as_bool() == Some(true) {
+    if release["draft"].as_bool() == Some(true) || (!prerelease && release["prerelease"].as_bool() == Some(true)) {
         return Err("seules les versions stables sont proposées".into());
     }
     let found = release["assets"]
@@ -108,6 +109,9 @@ pub fn pick_github_asset(release: &serde_json::Value, asset: &catalog::AssetMatc
         clean(tag)
     } else if starts_digit(&name) && name.len() <= 32 {
         name
+    } else if let Some(tail) = tag.rsplit_once('-').map(|(_, t)| clean(t)).filter(|t| starts_digit(t) && t.len() <= 32) {
+        // « fritchii-v5.8.4 » → 5.8.4 ; « build-316 » → 316
+        tail
     } else {
         release["published_at"].as_str().map(|d| d.chars().take(10).collect()).unwrap_or_else(|| clean(tag))
     };
@@ -118,6 +122,16 @@ pub fn pick_github_asset(release: &serde_json::Value, asset: &catalog::AssetMatc
         size: found["size"].as_u64(),
         sha256,
     })
+}
+
+/// Plus récente release publiée (préversion comprise) qui contient le fichier Windows.
+pub fn pick_newest_release(list: &serde_json::Value, asset: &catalog::AssetMatch) -> Result<Resolved, String> {
+    let releases = list.as_array().ok_or("liste des versions illisible")?;
+    releases
+        .iter()
+        .filter(|r| r["draft"].as_bool() != Some(true))
+        .find_map(|r| pick_github_asset(r, asset, true).ok())
+        .ok_or_else(|| "aucun fichier Windows dans les dernières versions officielles".into())
 }
 
 /// Version courante de Dolphin d'après son API officielle.
@@ -161,9 +175,14 @@ pub fn pick_retroarch(listing: &str) -> Result<Resolved, String> {
 
 pub fn resolve(http: &reqwest::blocking::Client, pkg: &Package) -> Result<Resolved, String> {
     match pkg.source {
-        Source::GitHub { repo, asset } => {
+        Source::GitHub { repo, asset, prerelease: false } => {
             let json = get_json(http, &format!("https://api.github.com/repos/{repo}/releases/latest"))?;
-            pick_github_asset(&json, &asset)
+            pick_github_asset(&json, &asset, false)
+        }
+        // `releases/latest` ignore les préversions : la liste (plus récente d'abord) les donne
+        Source::GitHub { repo, asset, prerelease: true } => {
+            let json = get_json(http, &format!("https://api.github.com/repos/{repo}/releases?per_page=10"))?;
+            pick_newest_release(&json, &asset)
         }
         Source::Dolphin => pick_dolphin(&get_json(http, "https://dolphin-emu.org/update/latest/beta/")?),
         Source::RetroArch => pick_retroarch(&get_text(http, "https://buildbot.libretro.com/stable/")?),
@@ -311,13 +330,38 @@ mod tests {
             ]
         });
         let Source::GitHub { asset, .. } = catalog::package("ppsspp").unwrap().source else { panic!() };
-        let r = pick_github_asset(&rel, &asset).unwrap();
+        let r = pick_github_asset(&rel, &asset, false).unwrap();
         assert_eq!(r.version, "1.20.4");
         assert_eq!(r.url, "https://github.com/x/x64.zip");
         assert_eq!(r.sha256.as_deref(), Some("fbc9cd2f5131b159a92424e5c458c35ce43ba603cdded64dfc98e4bd4f17ff93"));
         let mut pre = rel.clone();
         pre["prerelease"] = json!(true);
-        assert!(pick_github_asset(&pre, &asset).is_err());
+        assert!(pick_github_asset(&pre, &asset, false).is_err());
+        assert!(pick_github_asset(&pre, &asset, true).is_ok());
+    }
+
+    #[test]
+    fn preversions_la_plus_recente_avec_fichier_windows() {
+        let Source::GitHub { asset, prerelease, .. } = catalog::package("fritchii").unwrap().source else { panic!() };
+        assert!(prerelease);
+        let list = json!([
+            {"tag_name": "fritchii-v5.9", "prerelease": true, "draft": true, "assets": [
+                {"name": "Fritchii-v5.9-Windows-x64.zip", "browser_download_url": "https://github.com/x/draft.zip"}]},
+            {"tag_name": "fritchii-v5.8.5", "prerelease": true, "draft": false, "assets": [
+                {"name": "Fritchii-v5.8.5-debug-symbols-not-needed-to-play.zip", "browser_download_url": "https://github.com/x/sym.zip"}]},
+            {"tag_name": "fritchii-v5.8.4", "name": "Fritchii v5.8.4", "prerelease": true, "draft": false, "assets": [
+                {"name": "Fritchii-v5.8.4-debug-symbols-not-needed-to-play.zip", "browser_download_url": "https://github.com/x/sym.zip"},
+                {"name": "Fritchii-v5.8.4-Windows-x64.zip", "browser_download_url": "https://github.com/x/win.zip", "size": 72564448,
+                 "digest": "sha256:8fbe37d69665e8264bf9e92fe40846961923cff29dc165f8fdafe193605d10da"}]}
+        ]);
+        let r = pick_newest_release(&list, &asset).unwrap();
+        assert_eq!((r.version.as_str(), r.url.as_str()), ("5.8.4", "https://github.com/x/win.zip"));
+        assert!(r.sha256.is_some());
+        // Lichii : « build-316 » donne une version lisible
+        let lichii = json!({"tag_name": "build-316", "name": "Lichii nx2 build 316 (5a66c89)", "prerelease": false, "draft": false,
+            "assets": [{"name": "lichii-windows-x86_64.zip", "browser_download_url": "https://github.com/x/l.zip"}]});
+        let Source::GitHub { asset, .. } = catalog::package("lichii").unwrap().source else { panic!() };
+        assert_eq!(pick_github_asset(&lichii, &asset, false).unwrap().version, "316");
     }
 
     #[test]

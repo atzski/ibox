@@ -12,7 +12,7 @@ SmartConfig recommande puis applique, jeu par jeu, des réglages d'émulateur ad
 | 2 — Recommandations externes | **faite** | client EmuReady (testé en réel), correspondance des jeux, normalisation, moteur, cache, quotas, hors ligne |
 | 3 — Application réelle | **faite** | adaptateurs **Dolphin**, **PCSX2** (CRC de l'ELF calculé depuis l'image), **DuckStation**, **PPSSPP**, **RPCS3**, **Azahar** (identifiant lu dans l'en-tête NCCH), **RetroArch** (surcharges par jeu, cœurs vérifiés) : aperçu, application par jeu, vérification, restauration. Émulateurs sans adaptateur et pourquoi : §6.8 |
 | 4 — Interface | à faire | commandes Tauri prêtes, aucun écran |
-| 5 — Communauté | **faite localement, non déployée** | serveur iNetbox (migration v14, `smartconfig.ts`, tests), fournisseur `community`, commandes de contribution, service TS ; aucun écran ; profils sous CC0 (§13) |
+| 5 — Communauté | **retirée (0.1.76)** | décision du 2026-11-17 : les réglages partagés par les joueurs viennent **uniquement d'EmuReady** ; iNetbox ne stocke aucun profil (§13) |
 | 6 — Extension | **faite (préparation)** | détection Linux/SteamOS/Steam Deck (analyseurs testés), point d'extension `locate_unix`, Android documenté (§16) ; profils « Vérifié par iBox » (fichier embarqué, vide, §17) ; retours locaux exploités par le moteur (§5) ; fondations d'AutoTune sans collecte (§18) |
 
 Aucun réglage n'a encore été validé **en jeu** : seuls les tests automatisés et la lecture du code source de chaque émulateur garantissent le format (liste des points à vérifier : §10).
@@ -42,10 +42,9 @@ src-tauri/src/smartconfig/
   model.rs        format interne commun (Profile, Setting typé, Mode, MatchKind)
   hardware/       détection locale (win.rs ; linux.rs préparé) + classification explicable (mod.rs)
   platform.rs     système hôte : localisation Windows / Linux (XDG, Flatpak) préparée
-  providers/      trait Provider + Cache ; emuready.rs ; community.rs (iNetbox) ; verified.rs (profils vérifiés iBox)
+  providers/      trait Provider + Cache ; emuready.rs ; verified.rs (profils vérifiés iBox)
   verified/       profiles.json : profils « Vérifié par iBox » embarqués (vide)
   autotune.rs     fondations d'AutoTune : types de mesures, trait de collecteur (aucune collecte)
-  contribute.rs   contribution à la communauté (aperçu exact, publication, votes, signalements)
   validation.rs   liste blanche, types, plages, contrôles matériels
   recommend.rs    moteur déterministe
   adapters/       trait Adapter ; common.rs (trait Doc, INI, bases YAML) ; dolphin.rs, pcsx2.rs, duckstation.rs,
@@ -143,7 +142,7 @@ Normalisation (libellé EmuReady exact → valeur typée ; toute chaîne inatten
 
 ### 4.2 Fournisseurs prévus
 
-`SourceId::Community` : iBox SmartConfig Community, voir §13. `SourceId::Verified` : profils « Vérifié par iBox » livrés avec l'application, voir §17. Réservé : `Official` (recommandations des émulateurs). Ajouter un fournisseur : §12.
+`SourceId::Verified` : profils « Vérifié par iBox » livrés avec l'application, voir §17. Réservés : `Community` (inutilisé depuis le retrait de la communauté iBox, §13) et `Official` (recommandations des émulateurs). Ajouter un fournisseur : §12.
 
 ## 5. Moteur de recommandation
 
@@ -387,15 +386,6 @@ Table `sc_applications` (migration 015, additive) : jeu, adaptateur, version de 
 | `smartconfig_history(gameId?)` | historique |
 | `smartconfig_cache_clear()` | vider le cache |
 | `smartconfig_feedback(…)` | retour après session (local) |
-| `smartconfig_community_preview(gameId, draft)` | aperçu exact d'une contribution (corps JSON + empreinte), rien n'est envoyé |
-| `smartconfig_community_publish(gameId, draft, digest)` | publie si l'empreinte est celle de l'aperçu |
-| `smartconfig_community_profile(profileId)` / `_player(accountId)` | lecture publique (versions, votes, badge) |
-| `smartconfig_community_mine()` | mes profils, masqués compris |
-| `smartconfig_community_vote(versionId, vote)` / `_unvote` | confirmation + notes 1–5, un vote par compte et par version |
-| `smartconfig_community_report(profileId, reason, versionId?, comment?)` | signalement |
-| `smartconfig_community_withdraw(profileId)` | retrait (effacement) |
-
-Côté interface : `src/services/smartconfigCommunity.ts` (types et appels, aucun écran).
 
 Le questionnaire après session : au plus une fois par optimisation et une fois par semaine et par jeu (`storage::should_ask_feedback`).
 
@@ -406,7 +396,7 @@ Le questionnaire après session : au plus une fois par optimisation et une fois 
 - **PPSSPP** : nécessite une configuration de jeu créée au préalable dans PPSSPP (voir §6.4) ; homebrew sans `DISC_ID` (identifiant fictif généré par PPSSPP) → non pris en charge.
 - **Non vérifié en jeu** (format confirmé par le code source seulement) : CRC PCSX2 sur une vraie image (à comparer au nom du fichier créé par PCSX2 pour le même jeu), prise en compte de `Renderer` par jeu dans PCSX2 et DuckStation, `upscale_multiplier` écrit en entier (`3` au lieu de `3.000000`), surcadençage DuckStation sur une valeur non ronde (ex. 150 % → 3/2), fichier PPSSPP modifié rechargé sans perte des commandes, jeux à plusieurs disques DuckStation.
 - **Identification par titre** pour EmuReady (l'API n'expose pas les numéros de série) : jamais d'application automatique de ces profils.
-- La majorité des rapports EmuReady avec réglages Dolphin viennent d'appareils Android (souvent des forks) : sur PC Windows, ils sortent généralement en `Experimental`. Les rapports PC n'ont pas de réglages. Il est donc probable que peu de jeux obtiennent une recommandation « fiable » tant que les profils communautaires/vérifiés iBox n'existent pas.
+- La majorité des rapports EmuReady avec réglages Dolphin viennent d'appareils Android (souvent des forks) : sur PC Windows, ils sortent généralement en `Experimental`. Les rapports PC n'ont pas de réglages. Il est donc probable que peu de jeux obtiennent une recommandation « fiable » tant que les profils vérifiés iBox n'existent pas et que les rapports PC d'EmuReady n'ont pas de réglages.
 - `GFXBackend` par jeu : chargé par la couche de jeu de Dolphin d'après le code, **non vérifié en jeu**.
 - `smartconfig_status` renvoie maintenant `reason` (pourquoi l'identifiant manque) et tourne hors du fil principal (PCSX2 peut lire l'image du jeu).
 - **RPCS3** : identifiant seulement s'il figure dans le nom du fichier (`(BLUS-30443)`), le scanner ne lisant pas `PARAM.SFO` des images PS3 ; un jeu présent dans la base de configurations de RPCS3 exige que la configuration personnalisée soit d'abord créée dans RPCS3 ; chemin `m_path` de RPCS3 pour une image ISO non vérifié (seul `<fichier du jeu>.yml` est contrôlé).
@@ -431,59 +421,20 @@ Le questionnaire après session : au plus une fois par optimisation et une fois 
 3. Ajouter un `SourceId` et une `ProviderInfo` (Paramètres › Sources de données).
 4. Tests avec des fixtures réelles **nettoyées** (auteurs, e-mails, notes remplacées).
 
-## 13. Communauté iBox SmartConfig (phase 5)
+## 13. Pas de communauté iBox : EmuReady seulement
 
-**État : code et tests faits localement (serveur PGlite), rien de déployé.** Conditions de contribution : `docs/SMARTCONFIG-CONTRIBUTIONS.md` (profils publiés sous **CC0 1.0**, décidé le 2026-11-17).
+Décision du 2026-11-17 : SmartConfig **ne stocke aucun profil de joueur sur iNetbox**. Les réglages partagés par la communauté viennent **uniquement d'EmuReady**, qui en compte déjà beaucoup ; pour contribuer, les joueurs publient sur https://www.emuready.com. Raisons : ne pas inonder notre serveur (Neon gratuit limité), ne pas doubler une base qui existe, pas de modération à assurer.
 
-### 13.1 Serveur iNetbox (`services/inetbox/src/smartconfig.ts`, migration **v14** additive)
-
-| Table | Contenu |
-|---|---|
-| `sc_profiles` | auteur (compte iNetbox), console, **numéro de série du jeu**, titre, émulateur, statut `published`/`hidden` (+ raison `reports`/`moderation`), version vérifiée, dates ; un profil par compte, jeu et émulateur |
-| `sc_versions` | n° de version, version de l'émulateur, résumé matériel (OS, architecture, CPU/GPU en texte, RAM en Go, type d'appareil), mode, réglages (JSON canonique trié), performance (`perfect`…`unplayable`), stabilité, problèmes (500 car.), description (1 000 car.) |
-| `sc_votes` | un vote par compte **et par version** (clé primaire) : fonctionne oui/non + notes 1–5 stabilité/qualité/performances ; renvoyer remplace |
-| `sc_reports` | un signalement par compte et par profil, motif fermé, commentaire 300 car. |
-| `sc_moderators` | comptes modérateurs, ajoutés **en SQL uniquement** (aucune route ne l'accorde) |
-| `sc_moderation_log` | journal des actions de modération |
-
-Routes (`/v1/smartconfig/…`) : `GET profiles?platform&serial[&emulator]`, `GET profiles/:id`, `GET players/:id/profiles` **sans compte** (60/min par adresse) ; avec compte : `GET mine`, `POST profiles`, `POST profiles/:id/versions` (auteur), `DELETE profiles/:id` (auteur, effacement physique), `PUT|DELETE versions/:id/vote` (pas sur son propre profil), `POST profiles/:id/report` ; modérateurs : `GET moderation/reports`, `GET moderation/profiles/:id`, `POST moderation/profiles/:id` (`hide`, `restore`, `verify`, `unverify`) — 404 pour les autres comptes.
-
-Garde-fous :
-
-- **Même liste blanche typée que les adaptateurs** : `smartconfigSettings.ts` est généré depuis `adapters::all()` (`community::server_whitelist_ts`) ; le test Rust `liste_blanche_serveur_a_jour` échoue s'il diverge (ajouter les clés PCSX2 = régénérer ce fichier). Une seule valeur hors liste, hors type, hors plage, en double ou d'un autre émulateur refuse **toute** la publication (`INVALID_SETTINGS`) ; console non couverte par l'émulateur → `UNSUPPORTED_EMULATOR`.
-- **Aucune donnée identifiante** : tout texte (titre, CPU, GPU, problèmes, description, commentaire) contenant chemin, variable d'environnement, e-mail, lien, clé/jeton, JWT, longue suite aléatoire, clé de produit, « Serial: »/« S/N »/HWID, adresse MAC ou IP, UUID, balise HTML ou caractère de contrôle/bidirectionnel est refusé (`UNSAFE_TEXT`). Version d'émulateur : `[A-Za-z0-9 ._+-]`, 40 car.
-- **Tailles bornées** : corps 8 Ko (limite globale du service), 64 réglages, textes bornés, RAM entière 1–1 024.
-- **Limitation** : lecture publique 60/min/adresse ; écritures 30/min/compte/route (règle existante) ; signalements 10/min ; 20 publications par compte et par 24 h (`DAILY_LIMIT` + `Retry-After`) ; 100 profils par compte, 30 versions par profil.
-- **Modération** : masquage automatique au 3ᵉ signalement ouvert (en attente d'examen) ; `hide` résout les signalements, `restore` les classe sans suite ; un profil masqué n'est ni lisible publiquement ni votable ; l'identité des signaleurs n'est jamais renvoyée.
-- **Badge « Vérifié par iBox »** : seulement par l'action `verify` d'un modérateur, sur une version précise d'un profil publié ; jamais par les votes ; une nouvelle version ne l'hérite pas ; `hide` le retire.
-- Suppression du compte → profils, votes et signalements effacés (cascade).
-
-Tests : `services/inetbox/test/smartconfig.test.ts` (permissions, votes multiples, validation, contenus malveillants, modération, quotas, retrait).
-
-### 13.2 Client
-
-- **Fournisseur** `providers/community.rs` : lecture publique via `inetbox::smartconfig_call` (aucun jeton), seulement si le jeu a un **numéro de série** valide (sinon aucune requête). Cache `Cache` 1 h (profils normalisés), cache expiré servi hors ligne (`stale`). Ancien serveur sans la route → erreur claire, les autres sources continuent. `source_ref` = identifiant de **version**. Performance : échelle à 5 paliers, `unplayable` = rapport d'échec (barrière du moteur). Branché dans `providers::infos()` et `smartconfig_recommend` (source `community`).
-- **Moteur** : un profil qui porte le numéro de série exact du jeu est relié par `GameMatch::Serial` (par profil, même si le contexte global est `Title` pour EmuReady) : il peut être `Exact` et, s'il remplit les autres conditions (§5), applicable automatiquement.
-- **Contribution** (`contribute.rs`) : `build` produit le corps exact — `PublicSummary` (sans version d'OS, pilote, modèle de carte mère, VRAM), réglages **revalidés** par l'adaptateur et le matériel (les refusés sont listés), observations ; aperçu + empreinte SHA-256 ; la publication reconstruit le corps et refuse s'il diffère de l'aperçu. Erreurs serveur traduites en messages fixes (`inetbox.rs`).
-- Le badge et les versions s'affichent via `smartconfig_community_profile` (le modèle `Profile` n'a pas de champ « vérifié par iBox » : `verified_by_developer` reste réservé aux développeurs d'émulateurs).
-
-### 13.3 Ce qui exige un déploiement et l'accord du responsable
-
-1. ~~Licence~~ : CC0 1.0 retenu le 2026-11-17 ; relire `SMARTCONFIG-CONTRIBUTIONS.md` avant l'ouverture.
-2. Déployer iNetbox avec la **migration v14** sur Neon (additive, appliquée automatiquement au démarrage) et `smartconfig.ts` ; synchroniser le dépôt privé iNetbox.
-3. Désigner les modérateurs (`INSERT INTO sc_moderators` en SQL).
-4. Publier une version d'iBox contenant le fournisseur, les commandes et l'interface (phase 4), puis activer la source `community` par défaut ou non.
-5. Surveiller le transfert Neon (lecture publique sans compte : limitée à 60/min/adresse, cache client 1 h).
-
-Les profils EmuReady ne sont jamais republiés dans la base iBox. Aucune communauté n'est simulée : sans serveur, la source renvoie une erreur et rien d'autre.
+- iNetbox 0.16.1 : aucune route de publication, de vote ni de signalement (404). Seule `GET /v1/smartconfig/profiles` répond `{ items: [] }`, pour qu'iBox 0.1.74–0.1.75 (qui l'interroge encore) affiche « aucun profil » au lieu d'une erreur. Les tables du schéma v14 restent en place, vides et inutilisées.
+- iBox 0.1.76 : fournisseur `community`, commandes `smartconfig_community_*`, `contribute.rs`, `smartconfigCommunity.ts` et la liste blanche générée pour le serveur sont supprimés.
+- Contribution directe à EmuReady depuis iBox : seulement si leur API, leur authentification et leurs conditions le permettent un jour (jamais via les comptes iNetbox).
 
 ## 14. Confidentialité
 
-Aucune télémétrie. Détection matérielle locale. Profils vérifiés iBox : inclus dans l'application, aucun envoi. Retours après session : locaux, utilisés seulement pour classer. Seul le titre du jeu consulté part vers EmuReady, à la demande. Vers la communauté iBox, à la demande : console, numéro de série du jeu et émulateur (lecture, sans compte ni jeton). Retours d'expérience stockés localement. Aucune contribution publiée sans action explicite, après un aperçu exact du corps envoyé (empreinte vérifiée) ; seul `PublicSummary` du matériel part (jamais version d'OS, pilote, modèle de carte mère, numéros de série matériels, chemins). Votes publiés seulement en totaux ; signaleurs jamais exposés ; retrait = effacement.
+Aucune télémétrie. Détection matérielle locale. Profils vérifiés iBox : inclus dans l'application, aucun envoi. Retours après session : locaux, utilisés seulement pour classer. Seul le titre du jeu consulté part vers EmuReady, à la demande. Rien n'est envoyé à iNetbox pour SmartConfig.
 
 ## 15. Points à valider avant toute distribution publique
 
-- **Communauté iBox** : licence CC0 retenue ; relecture des conditions de contribution (`SMARTCONFIG-CONTRIBUTIONS.md`) ; déploiement serveur (§13.3) ; choix des modérateurs ; liens `docs`/`terms` de `community::INFO` à confirmer (dépôt public).
 
 - **Conditions EmuReady** : les conditions publiées (https://www.emuready.com/terms) ne mentionnent ni l'API, ni la licence des rapports, ni d'exigence d'attribution ; elles interdisent un usage commercial non autorisé (iBox n'est pas commercial). **Recommandé : prévenir l'équipe EmuReady (GitHub `Producdevity/EmuReady`) avant de publier l'intégration**, et demander une clé d'attribution si elle le souhaite.
 - **Constat signalé** : la réponse publique de `pcListings.get` contient l'adresse e-mail des auteurs. iBox ne la lit ni ne la conserve ; il serait correct de le signaler à EmuReady.
@@ -566,7 +517,7 @@ Fournisseur `providers/verified.rs` (`SourceId::Verified`), fichier **embarqué*
 }
 ```
 
-Validation au chargement, **tout ou rien** (une entrée invalide rend le fichier inutilisable et la source signale une erreur) : champs inconnus refusés ; `id` `[a-z0-9-]` ≤ 64, unique ; émulateur avec adaptateur et console couverte ; numéro de série au format de la communauté ; version `[A-Za-z0-9 ._+-]` ≤ 40 ; réglages non vides, **même liste blanche typée que les adaptateurs** (`validation::validate_format` : clé, type, plage, option ; les contrôles matériels sont refaits au moment de recommander) ; `performance` parmi trois valeurs ; système, architecture, CPU, GPU, type d'appareil renseignés ; dates `AAAA-MM-JJ`, relecture ≥ essai ; ≥ 30 min ; 1–10 points vérifiés.
+Validation au chargement, **tout ou rien** (une entrée invalide rend le fichier inutilisable et la source signale une erreur) : champs inconnus refusés ; `id` `[a-z0-9-]` ≤ 64, unique ; émulateur avec adaptateur et console couverte ; numéro de série valide ; version `[A-Za-z0-9 ._+-]` ≤ 40 ; réglages non vides, **même liste blanche typée que les adaptateurs** (`validation::validate_format` : clé, type, plage, option ; les contrôles matériels sont refaits au moment de recommander) ; `performance` parmi trois valeurs ; système, architecture, CPU, GPU, type d'appareil renseignés ; dates `AAAA-MM-JJ`, relecture ≥ essai ; ≥ 30 min ; 1–10 points vérifiés.
 
 Moteur : profil relié par **numéro de série** (`GameMatch::Serial`, donc `Exact` possible), +12 « Vérifié par iBox : essayé en jeu puis relu » ; les notes affichent la date et la durée de l'essai. Interface : pastille « Vérifié par iBox » sur la carte et dans le détail.
 

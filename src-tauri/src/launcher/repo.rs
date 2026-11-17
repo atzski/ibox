@@ -148,9 +148,14 @@ pub fn set_origin(conn: &Connection, id: i64, origin: &str) -> Result<Emulator> 
 
 /// Enregistre (ou met à jour) un émulateur installé par iBox. Les consoles sans
 /// émulateur lui sont associées ; une association choisie par l'utilisateur n'est jamais remplacée.
-pub fn register_managed(conn: &Connection, exe_path: &str, package_id: &str, version: &str, platforms: &[&str]) -> Result<Emulator> {
+/// `name` : nom du paquet (deux paquets peuvent partager un profil, comme Lichii et Fritchii).
+/// `platforms` : consoles à associer si elles n'ont pas encore d'émulateur.
+pub fn register_managed(conn: &Connection, exe_path: &str, package_id: &str, name: &str, version: &str, platforms: &[&str]) -> Result<Emulator> {
     let emu = add(conn, exe_path)?;
-    conn.execute("UPDATE emulators SET origin = 'managed', package_id = ?2, version = ?3 WHERE id = ?1", params![emu.id, package_id, version])?;
+    conn.execute(
+        "UPDATE emulators SET origin = 'managed', package_id = ?2, version = ?3, name = ?4 WHERE id = ?1",
+        params![emu.id, package_id, version, name],
+    )?;
     if !emu.needs_core {
         for p in platforms {
             conn.execute("INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id) VALUES (?1, ?2)", params![p, emu.id])?;

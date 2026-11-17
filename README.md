@@ -77,7 +77,7 @@ Emulators have dozens of settings, and the right ones depend on the game *and* o
 **Where the settings come from**
 
 - Public reports from the [EmuReady](https://www.emuready.com) community, fetched only when you open SmartConfig for a game: only the game's title is sent.
-- **SmartConfig Community**: share a configuration that works for you with your iNetbox account, after an exact preview, and confirm or report other players' ones. Shared profiles are public domain (CC0 1.0). Browsing needs no account.
+- Want to share your own settings? Post them on [EmuReady](https://www.emuready.com): iBox keeps no player configurations on its servers.
 - No telemetry: your hardware stays on your PC, and every source can be turned off in Settings › SmartConfig.
 
 ## Made for the sofa

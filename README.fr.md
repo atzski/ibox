@@ -77,7 +77,7 @@ Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *e
 **D’où viennent les réglages**
 
 - Les rapports publics de la communauté [EmuReady](https://www.emuready.com), consultés seulement quand vous ouvrez SmartConfig pour un jeu : seul le titre du jeu est envoyé.
-- **SmartConfig Community** : partagez une configuration qui marche chez vous avec votre compte iNetbox, après un aperçu exact, et confirmez ou signalez celles des autres. Les profils partagés sont dans le domaine public (CC0 1.0). Consulter ne demande aucun compte.
+- Envie de partager vos réglages ? Publiez-les sur [EmuReady](https://www.emuready.com) : iBox ne garde aucune configuration de joueur sur ses serveurs.
 - Aucune télémétrie : votre matériel reste sur votre PC, et chaque source se désactive dans Paramètres › SmartConfig.
 
 ## Pensé pour le canapé

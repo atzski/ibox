@@ -6,7 +6,6 @@ use super::adapters::{self, Install, Plan};
 use super::backup::{self, Entry};
 use super::hardware::{self, HardwareClass, HardwareInfo};
 use super::model::{GameQuery, Mode, Profile, SourceId};
-use super::providers::community::{Community, InetboxTransport};
 use super::providers::emuready::{EmuReady, HttpTransport};
 use super::providers::verified::Verified;
 use super::providers::{Cache, Fetched, Provider, ProviderError, ProviderInfo};
@@ -25,14 +24,9 @@ type Res<T> = Result<T, String>;
 pub struct SmartConfigState {
     hardware: Mutex<Option<HardwareInfo>>,
     emuready: OnceLock<Result<EmuReady, String>>,
-    community: OnceLock<Community>,
 }
 
 impl SmartConfigState {
-    fn community(&self) -> &Community {
-        self.community.get_or_init(|| Community::new(Box::new(InetboxTransport)))
-    }
-
     fn emuready(&self) -> Result<&EmuReady, String> {
         self.emuready.get_or_init(|| HttpTransport::new().map(|t| EmuReady::new(Box::new(t)))).as_ref().map_err(|e| e.clone())
     }
@@ -62,11 +56,6 @@ fn hardware_of(app: &AppHandle) -> HardwareInfo {
     let state = app.state::<SmartConfigState>();
     let mut cached = state.hardware.lock().unwrap_or_else(|e| e.into_inner());
     cached.get_or_insert_with(hardware::detect).clone()
-}
-
-/// Matériel détecté (mis en mémoire pour la session) — aperçu de contribution.
-pub(crate) fn hardware_snapshot(app: &AppHandle) -> HardwareInfo {
-    hardware_of(app)
 }
 
 #[derive(Serialize)]
@@ -190,10 +179,6 @@ pub async fn smartconfig_recommend(app: AppHandle, game_id: i64, mode: Mode, sou
         if sources.contains(&SourceId::EmuReady) {
             run(state.emuready()?);
         }
-        // communauté iBox (iNetbox) : lecture publique, jeu identifié par numéro de série ;
-        // le moteur relie ces profils (et les profils vérifiés) par numéro de série
-        // (`GameMatch::Serial`) quand il est identique
-        run(state.community());
         // vos retours après session : profils déjà essayés exclus ou rétrogradés
         let local = lib.with(|c| Ok(storage::local_feedback(c, game_id, adapter.id())?))?;
         let today = crate::library::now_iso();

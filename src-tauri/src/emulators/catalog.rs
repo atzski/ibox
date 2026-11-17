@@ -35,8 +35,9 @@ impl AssetMatch {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Source {
-    /// Dernière release stable (non « prerelease ») d'un dépôt GitHub officiel.
-    GitHub { repo: &'static str, asset: AssetMatch },
+    /// Dernière release d'un dépôt GitHub officiel : stable seulement, sauf
+    /// `prerelease` (projet qui ne publie que des préversions, comme Fritchii).
+    GitHub { repo: &'static str, asset: AssetMatch, prerelease: bool },
     /// API de mise à jour officielle (dolphin-emu.org/update/latest/beta/).
     Dolphin,
     /// Dernière version stable sur buildbot.libretro.com.
@@ -88,12 +89,20 @@ pub struct Package {
     pub requires: Option<&'static str>,
     /// Installation automatique possible.
     pub automatic: bool,
+    /// Version spécialisée pour certains jeux (identifiants de titre) : proposée
+    /// sur leur fiche, jamais associée d'office à la console.
+    pub games: &'static [&'static str],
 }
 
 const MB: u64 = 1024 * 1024;
 
 const fn gh(repo: &'static str, starts: &'static str, ends: &'static str, excludes: &'static [&'static str]) -> Source {
-    Source::GitHub { repo, asset: AssetMatch { starts, ends, excludes } }
+    Source::GitHub { repo, asset: AssetMatch { starts, ends, excludes }, prerelease: false }
+}
+
+/// Dépôt qui ne publie que des préversions : la plus récente est retenue.
+const fn gh_pre(repo: &'static str, starts: &'static str, ends: &'static str, excludes: &'static [&'static str]) -> Source {
+    Source::GitHub { repo, asset: AssetMatch { starts, ends, excludes }, prerelease: true }
 }
 
 pub const PACKAGES: &[Package] = &[
@@ -115,6 +124,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &["installed.txt"],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "duckstation",
@@ -133,6 +143,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "pcsx2",
@@ -151,6 +162,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "dolphin",
@@ -169,6 +181,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "cemu",
@@ -187,6 +200,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "melonds",
@@ -205,6 +219,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "azahar",
@@ -223,6 +238,50 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
+    },
+    Package {
+        id: "lichii",
+        name: "Lichii",
+        profile_id: "lichii",
+        // builds publiés à chaque changement ; « -pgo » est une variante d'optimisation
+        source: gh("zortos293/Lichii", "lichii-windows-x86_64", ".zip", &["pgo"]),
+        archive: Archive::Zip,
+        exe: &["lichii.exe"],
+        platforms: &["switch2", "switch"],
+        homepage: "https://github.com/zortos293/Lichii",
+        docs: "https://github.com/zortos293/Lichii#readme",
+        compatibility: None,
+        license: "GPL-3.0",
+        maturity: Maturity::Experimental,
+        max_download: 300 * MB,
+        markers: &[],
+        requires: None,
+        automatic: true,
+        games: &[],
+    },
+    Package {
+        id: "fritchii",
+        name: "Fritchii",
+        // version de Lichii (même programme lichii.exe, mêmes options de lancement)
+        profile_id: "lichii",
+        // préversions seulement ; « debug-symbols » n'est pas nécessaire pour jouer
+        source: gh_pre("Frizti/Fritchii", "Fritchii-", "-Windows-x64.zip", &["debug-symbols"]),
+        archive: Archive::Zip,
+        exe: &["lichii.exe"],
+        platforms: &["switch2"],
+        homepage: "https://github.com/Frizti/Fritchii",
+        docs: "https://github.com/Frizti/Fritchii/releases",
+        compatibility: None,
+        license: "GPL-3.0",
+        maturity: Maturity::Good,
+        max_download: 300 * MB,
+        markers: &[],
+        requires: None,
+        automatic: true,
+        // The Legend of Zelda: Ocarina of Time (Switch 2), OotProgramId de Fritchii
+        // (src/core/hle/kernel/svc/svc_nx2_oot_poll.cpp)
+        games: &["0400486024DEC000"],
     },
     Package {
         id: "mgba",
@@ -241,6 +300,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "sameboy",
@@ -259,6 +319,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "mesen",
@@ -277,6 +338,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "rmg",
@@ -295,6 +357,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "rpcs3",
@@ -313,6 +376,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "xemu",
@@ -331,6 +395,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "xenia",
@@ -349,6 +414,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "vita3k",
@@ -367,6 +433,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "shadps4",
@@ -385,6 +452,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "flycast",
@@ -403,6 +471,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "stella",
@@ -421,6 +490,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "retroarch",
@@ -439,6 +509,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: true,
+        games: &[],
     },
     Package {
         id: "core-genesis-plus-gx",
@@ -457,6 +528,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     Package {
         id: "core-beetle-saturn",
@@ -475,6 +547,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     Package {
         id: "core-fbneo",
@@ -493,6 +566,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     // Cœurs sans BIOS (0.1.72) : le BIOS de la console est remplacé par une
     // réimplémentation libre (HLE), rien à extraire d'une console.
@@ -513,6 +587,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     Package {
         id: "core-pcsx-rearmed",
@@ -531,6 +606,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     Package {
         id: "core-yabause",
@@ -549,6 +625,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: Some("retroarch"),
         automatic: true,
+        games: &[],
     },
     Package {
         id: "bigpemu",
@@ -567,6 +644,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: false,
+        games: &[],
     },
     Package {
         id: "mame",
@@ -585,6 +663,7 @@ pub const PACKAGES: &[Package] = &[
         markers: &[],
         requires: None,
         automatic: false,
+        games: &[],
     },
 ];
 
@@ -647,6 +726,25 @@ mod tests {
         assert!(pick("melonds").matches("melonDS-1.1-windows-x86_64.zip"));
         assert!(pick("vita3k").matches("windows-latest.zip"));
         assert!(!pick("vita3k").matches("windows-arm64-latest.zip"));
+        assert!(pick("lichii").matches("lichii-windows-x86_64.zip"));
+        assert!(!pick("lichii").matches("lichii-windows-x86_64-pgo.zip"));
+        assert!(!pick("lichii").matches("lichii-linux-x86_64.tar.gz"));
+        assert!(pick("fritchii").matches("Fritchii-v5.8.4-Windows-x64.zip"));
+        assert!(!pick("fritchii").matches("Fritchii-v5.8.4-debug-symbols-not-needed-to-play.zip"));
+    }
+
+    #[test]
+    fn versions_specialisees_pour_des_jeux() {
+        // seules les préversions de Fritchii sont acceptées ; les autres restent stables
+        for p in PACKAGES {
+            if let Source::GitHub { prerelease, .. } = p.source {
+                assert_eq!(prerelease, p.id == "fritchii", "{}", p.id);
+            }
+            for g in p.games {
+                assert!(g.len() == 16 && g.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()), "{g}");
+            }
+        }
+        assert_eq!(package("fritchii").unwrap().games, &["0400486024DEC000"]);
     }
 
     #[test]

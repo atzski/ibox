@@ -169,7 +169,7 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Résolution", value: "720p en portable, 1080p sur la télévision" },
       { label: "Support", value: "Carte de jeu" },
     ],
-    recommended: null, alternatives: [],
+    recommended: "lichii", alternatives: [],
   }),
   c({
     id: "switch2", name: "Nintendo Switch 2", manufacturer: "Nintendo", year: 2025, generation: 9, kind: "hybrid", support: "full",
@@ -184,7 +184,8 @@ export const CONSOLES: ConsoleInfo[] = [
       { label: "Résolution", value: "1080p en portable, jusqu'à 4K sur la télévision" },
       { label: "Support", value: "Carte de jeu" },
     ],
-    recommended: null, alternatives: [],
+    // Fritchii : version de Lichii pour Ocarina of Time, aussi proposée sur la fiche de ce jeu
+    recommended: "lichii", alternatives: ["fritchii"],
   }),
   c({
     id: "gb", name: "Game Boy", manufacturer: "Nintendo", year: 1989, generation: 4, kind: "handheld", support: "full",

@@ -142,6 +142,8 @@ pub fn for_platform(platform: &str, retroarch_dir: Option<&Path>) -> Vec<Require
         "xbox" => vec![info("xbox-files", "bios", true, "https://xemu.app/docs/required-files/")],
         "xbox360" => vec![Requirement { id: "vc-runtime", kind: "runtime", state: vc_runtime_installed(), required: true, folder: None, importable: false, link: Some(VC_LINK) }],
         "wiiu" => vec![info("wiiu-keys", "keys", true, "https://cemu.cfw.guide/")],
+        // Lichii et Fritchii demandent les clés et le micrologiciel de votre console au premier démarrage
+        "switch" | "switch2" => vec![info("switch-keys", "keys", true, "https://github.com/zortos293/Lichii")],
         "3ds" => vec![info("3ds-decrypted", "setup", true, "https://azahar-emu.org/pages/faq/")],
         "dreamcast" => vec![info("dreamcast-bios", "bios", false, "https://github.com/flyinghead/flycast/wiki")],
         "nes" | "snes" => vec![Requirement { id: "dotnet8", kind: "runtime", state: dotnet8_desktop(), required: true, folder: None, importable: false, link: Some("https://dotnet.microsoft.com/download/dotnet/8.0") }],

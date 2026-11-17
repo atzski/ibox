@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.76",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "globe", title: "SmartConfig s’appuie sur EmuReady", text: "Les réglages partagés par les joueurs viennent désormais uniquement d’EmuReady, qui en rassemble déjà beaucoup : pour proposer les vôtres, publiez-les sur emuready.com. iBox ne garde aucune configuration de joueur sur ses serveurs." },
+    ],
+  },
+  {
     version: "0.1.75",
     date: "2026-11-17",
     highlights: [

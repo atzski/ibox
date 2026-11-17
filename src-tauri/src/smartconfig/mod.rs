@@ -14,7 +14,6 @@
 //! - `backup`      : écritures sûres, sauvegardes, journal, reprise ;
 //! - `storage`     : accès SQLite (contexte du jeu, cache, retours) ;
 //! - `commands`    : commandes Tauri ;
-//! - `contribute`  : contribution à la communauté iBox SmartConfig (iNetbox) ;
 //! - `platform`    : système hôte (localisation Windows / Linux préparée) ;
 //! - `autotune`    : fondations d'iBox AutoTune (types de mesures, aucune collecte).
 //!
@@ -28,7 +27,6 @@ pub mod autotune;
 pub mod backup;
 pub mod cfg;
 pub mod commands;
-pub mod contribute;
 pub mod disc;
 pub mod hardware;
 pub mod ini;
