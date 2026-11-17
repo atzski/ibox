@@ -10,7 +10,8 @@ import { useEmulators } from "@/services/emulators";
 import { useSettings } from "@/services/settings";
 import { sound } from "@/services/sound";
 import { Icon } from "@/components/ui/Icon";
-import { AmbienceHalo, ConsolePhoto } from "@/components/platforms/ConsoleStage";
+import { AmbienceHalo } from "@/components/platforms/ConsoleStage";
+import { ConsoleShelf } from "@/components/platforms/ConsoleShelf";
 import { StatusPill } from "@/components/platforms/StatusPill";
 import { consoleStatus } from "@/components/platforms/status";
 
@@ -149,9 +150,6 @@ export function PlatformsScreen() {
   ];
   const same = (a: Filter, b: Filter) => JSON.stringify(a) === JSON.stringify(b);
 
-  const index = active ? list.indexOf(active) : -1;
-  const prev = index > 0 ? list[index - 1] : null;
-  const next = index >= 0 && index < list.length - 1 ? list[index + 1] : null;
   const count = active ? (counts.get(active.id) ?? 0) : 0;
 
   return (
@@ -199,26 +197,19 @@ export function PlatformsScreen() {
       <div className="relative flex min-h-0 flex-1 items-stretch justify-center px-[3rem]">
         {active ? (
           <>
-            <SideConsole info={prev} side="left" onClick={() => step(-1)} reduced={reduced} />
-            <div className="relative flex min-w-0 flex-[0_1_56rem] flex-col items-center justify-end pb-2">
-              {/* fondu enchaîné sur place : la console ne glisse pas, elle flotte en continu */}
-              <div className="relative h-[min(36vh,22rem)] w-full max-w-[40rem]">
-                <AnimatePresence initial={false}>
-                  <motion.button
-                    key={active.id}
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => open(active)}
-                    aria-label={`Découvrir ${active.name}`}
-                    className="group absolute inset-0 cursor-pointer"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: reduced ? 0.12 : 0.4, ease: "easeInOut" }}
-                  >
-                    <ConsolePhoto info={active} reduced={reduced} priority className="h-full w-full transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover:scale-[1.02]" />
-                  </motion.button>
-                </AnimatePresence>
+            <div className="relative flex min-w-0 flex-1 flex-col items-center justify-end pb-2">
+              {/* étagère de présentation : les consoles défilent ensemble, la choisie au centre */}
+              <div className="relative h-[min(40vh,25rem)] w-full">
+                <ConsoleShelf
+                  list={list}
+                  activeId={active.id}
+                  reduced={reduced}
+                  onSelect={(c) => {
+                    select(c);
+                    document.querySelector<HTMLElement>(`[data-focus-id="console:${c.id}"]`)?.focus();
+                  }}
+                  onOpen={open}
+                />
               </div>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -245,7 +236,6 @@ export function PlatformsScreen() {
                 </motion.div>
               </AnimatePresence>
             </div>
-            <SideConsole info={next} side="right" onClick={() => step(1)} reduced={reduced} />
           </>
         ) : (
           <div className="grid flex-1 place-items-center text-center">
@@ -314,34 +304,4 @@ export function PlatformsScreen() {
 function shortName(c: ConsoleInfo): string {
   const extra: Record<string, string> = { ps4: "PS4", vita: "PS Vita", arcade: "Arcade" };
   return getPlatform(c.id)?.shortName ?? extra[c.id] ?? c.name;
-}
-
-/** Console voisine, en retrait sur le côté (souris ; la manette passe par la frise). */
-function SideConsole({ info, onClick, reduced }: { info: ConsoleInfo | null; side: "left" | "right"; onClick: () => void; reduced: boolean }) {
-  return (
-    <div className="relative hidden w-[18%] max-w-[15rem] shrink-0 items-center md:flex">
-      {/* fondu sur place, sans glissement latéral */}
-      <div className="relative h-[min(18vh,10rem)] w-full">
-        <AnimatePresence initial={false}>
-          {info && (
-            <motion.button
-              key={info.id}
-              type="button"
-              tabIndex={-1}
-              onClick={onClick}
-              aria-label={info.name}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.42 }}
-              exit={{ opacity: 0 }}
-              whileHover={{ opacity: 0.75 }}
-              transition={{ duration: reduced ? 0.12 : 0.4, ease: "easeInOut" }}
-              className="absolute inset-0 cursor-pointer blur-[0.4px] grayscale-[30%]"
-            >
-              <ConsolePhoto info={info} reduced={reduced} float={false} className="h-full w-full" />
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
 }

@@ -92,19 +92,23 @@ const PROFILES: { id: GuestProfile; label: string; note: string }[] = [
   { id: "collaborator", label: "Collaborateur", note: "Clavier et souris sur l'écran partagé (pas sur une fenêtre de jeu)." },
 ];
 
-/** Formulaire d'invitation (droits, source partagée) pour un ami donné. */
+/** « Léa », « Léa et Tom », « Léa, Tom et Sam ». */
+function namesList(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} et ${names[names.length - 1]}`;
+}
+
+/** Formulaire d'invitation (droits, source partagée) pour un ou plusieurs amis. */
 function InviteForm({
   config,
-  friendId,
-  friendName,
+  friends,
   defaultProfile = "spectator",
   gameTitle,
   onSent,
   onCancel,
 }: {
   config: RemotePlayConfig;
-  friendId: string;
-  friendName: string;
+  /** Amis invités ensemble, avec les mêmes droits et la même source. */
+  friends: { id: string; name: string }[];
   defaultProfile?: GuestProfile;
   /** Invitation lancée depuis la fiche d'un jeu : propose de le lancer s'il ne tourne pas. */
   gameTitle?: string;
@@ -118,6 +122,10 @@ function InviteForm({
   const [launchAfter, setLaunchAfter] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Résultat par ami quand certaines invitations ont échoué. */
+  const [results, setResults] = useState<{ name: string; error: string | null }[] | null>(null);
+  const many = friends.length > 1;
+  const who = namesList(friends.map((f) => f.name));
 
   useEffect(() => {
     onlineApi.sources().then((s) => {
@@ -134,22 +142,63 @@ function InviteForm({
   const gameRunning = sources?.game !== null && sources?.game !== undefined;
   const offerLaunch = !!gameTitle && !!sources && !gameRunning;
 
-  const send = () => {
+  // une invitation après l'autre : la première crée la partie, les suivantes la rejoignent
+  const send = async () => {
     setBusy(true);
     setError(null);
-    onlineApi.invite(friendId, friendName, profile, choice(), confirmed).then(
-      () => onSent(offerLaunch && launchAfter),
-      (e) => {
-        setError(errText(e));
-        setBusy(false);
-      },
-    );
+    const out: { name: string; error: string | null }[] = [];
+    for (const f of friends) {
+      try {
+        await onlineApi.invite(f.id, f.name, profile, choice(), confirmed);
+        out.push({ name: f.name, error: null });
+      } catch (e) {
+        out.push({ name: f.name, error: errText(e) });
+      }
+    }
+    const sent = out.filter((r) => !r.error).length;
+    if (sent === out.length) {
+      onSent(offerLaunch && launchAfter);
+      return;
+    }
+    if (sent === 0 && !many) {
+      setError(out[0].error);
+      setBusy(false);
+      return;
+    }
+    // envoi partiel : le détail reste affiché, la partie continue avec ceux qui sont invités
+    setResults(out);
+    setBusy(false);
   };
+
+  if (results) {
+    return (
+      <div className="space-y-3">
+        <ul className="space-y-1.5">
+          {results.map((r) => (
+            <li key={r.name} className="flex items-start gap-2 rounded-xl bg-cream-deep px-3 py-2 text-[0.88rem]">
+              <span className={`mt-0.5 font-extrabold ${r.error ? "text-peach-deep" : "text-mint-deep"}`}>{r.error ? "×" : "✓"}</span>
+              <span className="min-w-0">
+                <span data-no-i18n className="font-bold text-ink">
+                  {r.name}
+                </span>
+                <span className="block text-[0.8rem] font-semibold text-ink-soft">{r.error ?? "Invitation envoyée"}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex justify-end">
+          <Button variant="primary" autoFocus onClick={() => onSent(offerLaunch && launchAfter && results.some((r) => !r.error))}>
+            {offerLaunch && launchAfter && results.some((r) => !r.error) ? `Lancer ${gameTitle}` : "Fermer"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Droits de votre ami</p>
+        <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">{many ? "Droits de vos amis" : "Droits de votre ami"}</p>
         <div className="flex flex-wrap gap-2">
           {PROFILES.map((p) => (
             <Button key={p.id} aria-pressed={profile === p.id} variant={profile === p.id ? "primary" : "soft"} onClick={() => setProfile(p.id)} autoFocus={p.id === defaultProfile}>
@@ -159,12 +208,20 @@ function InviteForm({
         </div>
         <p className="text-[0.85rem] text-ink-soft">{PROFILES.find((p) => p.id === profile)?.note}</p>
         {profile !== "spectator" && (
-          <p className="text-[0.8rem] text-ink-soft">Sa manette apparaît sur ce PC comme une manette Xbox de plus : P2 si vous jouez déjà avec la vôtre.</p>
+          <p className="text-[0.8rem] text-ink-soft">
+            {many
+              ? "Chaque manette invitée apparaît sur ce PC comme une manette Xbox de plus, à la suite de la vôtre."
+              : "Sa manette apparaît sur ce PC comme une manette Xbox de plus : P2 si vous jouez déjà avec la vôtre."}
+          </p>
         )}
         {needsConfirmation(profile) && (
           <label className="flex items-start gap-2 rounded-xl bg-peach-soft/60 p-3 text-[0.85rem] font-semibold text-ink">
             <input type="checkbox" className="mt-1" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-            <span>{`Je confirme : ${friendName} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}</span>
+            <span>
+              {many
+                ? `Je confirme : ${who} pourront utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`
+                : `Je confirme : ${who} pourra utiliser le clavier et la souris de ce PC sur l'écran partagé. Raccourci d'arrêt d'urgence : ${config.stopHotkey}.`}
+            </span>
           </label>
         )}
         {profile === "collaborator" && windowShare && (
@@ -191,18 +248,24 @@ function InviteForm({
         {offerLaunch && (
           <label className="flex items-start gap-2 rounded-xl bg-cream-deep p-3 text-[0.85rem] font-semibold text-ink">
             <input type="checkbox" className="mt-1" checked={launchAfter} onChange={(e) => setLaunchAfter(e.target.checked)} />
-            <span>{`Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : votre ami voit le jeu dès qu'il démarre)`}</span>
+            <span>
+              {many
+                ? `Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : vos amis voient le jeu dès qu'il démarre)`
+                : `Lancer ${gameTitle} après l'envoi (l'écran principal est partagé : votre ami voit le jeu dès qu'il démarre)`}
+            </span>
           </label>
         )}
       </div>
       <p className="text-[0.8rem] text-ink-soft">
-        {`${friendName} a 2 minutes pour accepter. Pendant le partage, un indicateur reste affiché en haut de l'écran ; verrouiller Windows coupe la session.`}
+        {many
+          ? `${who} ont chacun 2 minutes pour accepter. Pendant le partage, un indicateur reste affiché en haut de l'écran ; verrouiller Windows coupe la session.`
+          : `${who} a 2 minutes pour accepter. Pendant le partage, un indicateur reste affiché en haut de l'écran ; verrouiller Windows coupe la session.`}
       </p>
       {error && <p role="alert" className="text-[0.85rem] font-semibold text-peach-deep">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button onClick={onCancel}>Annuler</Button>
-        <Button variant="primary" icon="play" disabled={busy || (needsConfirmation(profile) && !confirmed)} onClick={send}>
-          {busy ? "Envoi…" : "Inviter"}
+        <Button variant="primary" icon="play" disabled={busy || (needsConfirmation(profile) && !confirmed)} onClick={() => void send()}>
+          {busy ? "Envoi…" : many ? `Inviter les ${friends.length}` : "Inviter"}
         </Button>
       </div>
     </div>
@@ -246,7 +309,7 @@ export function InviteDialog({ friendId, friendName, onClose }: { friendId: stri
   return (
     <Modal title={`Inviter ${friendName} à jouer`} subtitle="Remote Play · expérimental" onClose={onClose}>
       {isReady(config) ? (
-        <InviteForm config={config} friendId={friendId} friendName={friendName} onSent={onClose} onCancel={onClose} />
+        <InviteForm config={config} friends={[{ id: friendId, name: friendName }]} onSent={onClose} onCancel={onClose} />
       ) : (
         <Gate config={config} setConfig={setConfig} onClose={onClose} />
       )}
@@ -262,8 +325,20 @@ export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTit
   const [config, setConfig] = useConfig();
   const user = useInetbox((s) => s.user);
   const friends = useInetbox((s) => s.friends);
-  const [friend, setFriend] = useState<InetFriend | null>(null);
-  const sorted = [...friends].sort((a, b) => statusRank(a) - statusRank(b) || a.displayName.localeCompare(b.displayName));
+  const hostStatus = useRemotePlayOnline((s) => (s.status?.role === "host" ? s.status : null));
+  // amis cochés, puis formulaire commun (droits, source) pour tous
+  const [picked, setPicked] = useState<InetFriend[]>([]);
+  const [ready, setReady] = useState(false);
+  // partie déjà lancée : ses invités comptent dans la limite et ne sont plus proposés
+  // (le natif refuse de toute façon un ami déjà présent ou une partie complète)
+  const others = (hostStatus?.players ?? []).filter((p) => p.stage !== "ended" && p.stage !== "failed");
+  const inPartyNames = new Set(others.map((p) => p.peerName));
+  const room = MAX_PARTY_GUESTS - (hostStatus ? 1 + others.length : 0);
+  const sorted = [...friends]
+    .filter((f) => f.id !== hostStatus?.peerId && !inPartyNames.has(f.displayName))
+    .sort((a, b) => statusRank(a) - statusRank(b) || a.displayName.localeCompare(b.displayName));
+  const toggle = (f: InetFriend) =>
+    setPicked((p) => (p.some((x) => x.id === f.id) ? p.filter((x) => x.id !== f.id) : p.length >= room ? p : [...p, f]));
 
   return (
     <Modal title="Remote Play" subtitle={`${gameTitle} · expérimental`} onClose={onClose}>
@@ -284,21 +359,28 @@ export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTit
             Ouvrir les paramètres
           </Button>
         </div>
-      ) : friend ? (
+      ) : ready && picked.length > 0 ? (
         <div className="space-y-4">
           <button
             data-focusable
-            onClick={() => setFriend(null)}
-            className="ibox-focusable flex items-center gap-2 rounded-full bg-cream-deep py-1 pr-3 pl-1 text-[0.85rem] font-bold text-ink [--ring-radius:999px]"
+            onClick={() => setReady(false)}
+            className="ibox-focusable flex max-w-full items-center gap-2 rounded-full bg-cream-deep py-1 pr-3 pl-1 text-[0.85rem] font-bold text-ink [--ring-radius:999px]"
           >
-            <Avatar size={28} choice={friend.avatar ?? null} name={friend.displayName} />
-            <span data-no-i18n>{friend.displayName}</span>
-            <span className="text-ink-soft">· Changer</span>
+            <span className="flex shrink-0 -space-x-2">
+              {picked.slice(0, 5).map((f) => (
+                <span key={f.id} className="rounded-full ring-2 ring-cream-deep">
+                  <Avatar size={28} choice={f.avatar ?? null} name={f.displayName} />
+                </span>
+              ))}
+            </span>
+            <span data-no-i18n className="min-w-0 truncate">
+              {namesList(picked.map((f) => f.displayName))}
+            </span>
+            <span className="shrink-0 text-ink-soft">· Changer</span>
           </button>
           <InviteForm
             config={config}
-            friendId={friend.id}
-            friendName={friend.displayName}
+            friends={picked.map((f) => ({ id: f.id, name: f.displayName }))}
             defaultProfile="player"
             gameTitle={onLaunch ? gameTitle : undefined}
             onCancel={onClose}
@@ -311,24 +393,56 @@ export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTit
       ) : sorted.length === 0 ? (
         <p className="text-[0.9rem] text-ink-soft">Ajoutez d'abord un ami sur iNetbox pour jouer ensemble à distance.</p>
       ) : (
-        <div className="space-y-2">
-          <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Inviter un ami</p>
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[0.8rem] font-extrabold tracking-wide text-ink-soft uppercase">Inviter des amis</p>
+            <p className="text-[0.78rem] font-semibold text-ink-soft">
+              {room > 1 ? `Jusqu'à ${room} amis à la fois` : room === 1 ? "Encore 1 place dans la partie" : "La partie est complète"}
+            </p>
+          </div>
           <div className="grid max-h-[50vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-            {sorted.map((f, i) => (
-              <button
-                key={f.id}
-                data-focusable
-                autoFocus={i === 0}
-                onClick={() => setFriend(f)}
-                className="ibox-focusable flex items-center gap-3 rounded-2xl bg-cream-deep p-2.5 text-left hover:bg-white"
-              >
-                <Avatar size={40} choice={f.avatar ?? null} name={f.displayName} />
-                <span className="min-w-0">
-                  <span data-no-i18n className="block truncate font-bold text-ink">{f.displayName}</span>
-                  <span className={`block text-[0.78rem] font-semibold ${f.status === "online" ? "text-mint-deep" : "text-ink-soft"}`}>{STATUS_TEXT[f.status]}</span>
-                </span>
-              </button>
-            ))}
+            {sorted.map((f, i) => {
+              const on = picked.some((x) => x.id === f.id);
+              const full = !on && picked.length >= room;
+              return (
+                <button
+                  key={f.id}
+                  data-focusable
+                  autoFocus={i === 0}
+                  role="checkbox"
+                  aria-checked={on}
+                  disabled={full}
+                  onClick={() => toggle(f)}
+                  className={`ibox-focusable flex items-center gap-3 rounded-2xl p-2.5 text-left transition-colors disabled:opacity-45 ${
+                    on ? "bg-accent-soft ring-2 ring-accent" : "bg-cream-deep hover:bg-white"
+                  }`}
+                >
+                  <Avatar size={40} choice={f.avatar ?? null} name={f.displayName} />
+                  <span className="min-w-0 flex-1">
+                    <span data-no-i18n className="block truncate font-bold text-ink">{f.displayName}</span>
+                    <span className={`block text-[0.78rem] font-semibold ${f.status === "online" ? "text-mint-deep" : "text-ink-soft"}`}>{STATUS_TEXT[f.status]}</span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`grid size-6 shrink-0 place-items-center rounded-full text-[0.8rem] font-extrabold transition-colors ${
+                      on ? "bg-accent text-on-accent" : "bg-white/70 text-transparent ring-1 ring-ink/15"
+                    }`}
+                  >
+                    ✓
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            {picked.length > 0 && (
+              <Button variant="ghost" onClick={() => setPicked([])}>
+                Tout décocher
+              </Button>
+            )}
+            <Button variant="primary" icon="chevronRight" disabled={picked.length === 0} onClick={() => setReady(true)}>
+              {picked.length === 0 ? "Choisissez des amis" : picked.length === 1 ? "Continuer avec 1 ami" : `Continuer avec ${picked.length} amis`}
+            </Button>
           </div>
         </div>
       )}

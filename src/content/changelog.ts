@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.63",
+    date: "2026-11-17",
+    highlights: [
+      { icon: "gamepad", title: "Plusieurs amis invités d’un coup", text: "Dans Remote Play, cochez plusieurs amis puis invitez-les tous ensemble, avec les mêmes droits et le même écran partagé (jusqu’à 6 joueurs avec vous). Si une invitation échoue, iBox vous dit laquelle." },
+      { icon: "sparkle", title: "Une étagère qui défile", text: "Dans iBox Platforms, les consoles sont posées côte à côte sur une étagère vitrée et défilent ensemble : la console choisie avance au centre, ses voisines restent visibles de part et d’autre." },
+    ],
+  },
+  {
     version: "0.1.62",
     date: "2026-11-17",
     highlights: [

@@ -18,12 +18,15 @@ export function ConsolePhoto({
   float = true,
   reduced,
   priority,
+  align = "center",
 }: {
   info: ConsoleInfo;
   className?: string;
   float?: boolean;
   reduced: boolean;
   priority?: boolean;
+  /** « bottom » : posée sur une étagère (photo calée en bas). */
+  align?: "center" | "bottom";
 }) {
   const bob = float && !reduced;
   // phase commune à toutes les consoles : délai négatif pris sur l'horloge
@@ -34,7 +37,7 @@ export function ConsolePhoto({
       <span
         aria-hidden
         style={phase}
-        className={`absolute bottom-[3%] left-1/2 h-[8%] w-[64%] -translate-x-1/2 rounded-[50%] bg-[rgba(8,12,22,0.32)] blur-[18px] ${bob ? "ibox-float-shadow" : ""}`}
+        className={`absolute left-1/2 h-[8%] w-[64%] -translate-x-1/2 rounded-[50%] bg-[rgba(8,12,22,0.32)] blur-[18px] ${align === "bottom" ? "-bottom-[3%]" : "bottom-[3%]"} ${bob ? "ibox-float-shadow" : ""}`}
       />
       <img
         src={info.photo}
@@ -43,7 +46,7 @@ export function ConsolePhoto({
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
         style={phase}
-        className={`absolute inset-0 z-[1] h-full w-full object-contain drop-shadow-[0_22px_26px_rgba(10,14,24,0.26)] select-none ${bob ? "ibox-float" : ""}`}
+        className={`absolute inset-0 z-[1] h-full w-full object-contain drop-shadow-[0_22px_26px_rgba(10,14,24,0.26)] select-none ${align === "bottom" ? "object-bottom" : ""} ${bob ? "ibox-float" : ""}`}
       />
     </div>
   );
