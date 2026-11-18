@@ -14,6 +14,7 @@ export const CHANGELOG: Release[] = [
     date: "2026-11-18",
     highlights: [
       { icon: "grid", title: "Des collections sans jaquettes", text: "Un nouveau style de carte, « Sans jaquettes », masque les boîtes de jeux pour ne garder que votre fond, votre logo et votre nom." },
+      { icon: "sparkle", title: "Plus de place pour les stickers", text: "Dès qu’une recherche de stickers est lancée, les suggestions (Kirby, Mario…) s’effacent pour laisser toute la place aux résultats ; videz le champ pour les retrouver." },
     ],
   },
   {

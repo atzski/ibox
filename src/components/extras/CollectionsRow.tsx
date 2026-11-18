@@ -1217,7 +1217,11 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
         <input
           data-focusable
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            // champ vidé : on retrouve les suggestions
+            if (!e.target.value.trim()) { asked.current = ""; setFound(null); setNext(null); }
+          }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); search(q); } }}
           placeholder="Personnage ou jeu (ex. Kirby, Sonic, Pac-Man)"
           aria-label="Chercher un sticker"
@@ -1225,9 +1229,9 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
         />
         <Button type="button" icon="search" disabled={busy || !q.trim()} onClick={() => search(q)}>Chercher</Button>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {!found && <div className="flex flex-wrap gap-1.5">
         {GIPHY_IDEAS.map((idea) => <Chip key={idea} active={q === idea} onClick={() => search(idea)}><span data-no-i18n>{idea}</span></Chip>)}
-      </div>
+      </div>}
       {busy && <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>}
       {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}</p>}
       {found && (found.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucun sticker trouvé.</p> : (

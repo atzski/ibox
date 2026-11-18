@@ -3413,4 +3413,6 @@ export const EN: Record<string, string> = {
   // ——— 0.1.100 : collections sans jaquettes ———
   "Des collections sans jaquettes": "Collections without covers",
   "Un nouveau style de carte, « Sans jaquettes », masque les boîtes de jeux pour ne garder que votre fond, votre logo et votre nom.": "A new card style, “No covers”, hides the game boxes and keeps only your background, logo and name.",
+  "Plus de place pour les stickers": "More room for stickers",
+  "Dès qu’une recherche de stickers est lancée, les suggestions (Kirby, Mario…) s’effacent pour laisser toute la place aux résultats ; videz le champ pour les retrouver.": "As soon as you search for stickers, the suggestions (Kirby, Mario…) step aside to give the results all the room; clear the field to bring them back.",
 };
