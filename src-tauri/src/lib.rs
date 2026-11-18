@@ -6,6 +6,10 @@
 //!
 //! - `metadata` (phase 3) et `launcher` (phase 4) : jaquettes, informations, émulateurs.
 
+// Linux (Steam Deck) : les fonctions propres à Windows (capture, clips, hôte Remote Play…)
+// restent compilées mais ne sont jamais appelées. Voir docs/STEAMDECK.md.
+#![cfg_attr(not(windows), allow(dead_code))]
+
 pub mod assets;
 pub mod db;
 pub mod emulators;
@@ -13,7 +17,10 @@ pub mod launcher;
 pub mod library;
 pub mod manuals;
 pub mod metadata;
+pub mod paths;
 pub mod pc;
+pub mod platform;
+pub mod power;
 pub mod scanner;
 pub mod shell;
 pub mod wallpaper;
@@ -61,6 +68,7 @@ fn app_quit(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    platform::prepare_webview();
     tauri::Builder::default()
         // une seule instance : relancer iBox réaffiche la fenêtre existante
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| shell::show_main(app)))
@@ -99,6 +107,7 @@ pub fn run() {
             }
             // démarrage avec Windows : iBox attend discrètement dans la zone de notification
             shell::startup(app.handle());
+            platform::apply_preview(app.handle());
             profile::load(app.handle());
             inetbox::start(app.handle().clone());
             capture::start(app.handle().clone());
@@ -106,6 +115,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            platform::platform_info,
+            power::power_status,
+            pc::steam_shortcut::steam_add_ibox,
             manuals::commands::manual_list,
             manuals::commands::manual_read,
             manuals::commands::manual_cover,
@@ -177,6 +189,16 @@ pub fn run() {
             remote_play::remote_play_host_start,
             remote_play::remote_play_host_answer,
             remote_play::remote_play_host_stats,
+            remote_play::guest::remote_play_native_guest_start,
+            remote_play::guest::remote_play_native_guest_send,
+            remote_play::guest::remote_play_native_guest_keyframe,
+            remote_play::guest::remote_play_native_guest_candidate,
+            remote_play::guest::remote_play_native_guest_stats,
+            remote_play::guest::remote_play_native_guest_stop,
+            remote_play::guest::remote_play_webcodecs_report,
+            remote_play::guest::remote_play_native_guest_dev_offer,
+            remote_play::guest::remote_play_native_guest_dev_answer,
+            remote_play::guest::remote_play_native_guest_dev_sample,
             remote_play::remote_play_host_stop,
             remote_play::online::remote_play_invite,
             remote_play::online::remote_play_online_stop,

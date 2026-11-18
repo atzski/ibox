@@ -11,6 +11,8 @@ import { useCaseTextures } from "../useCaseTextures";
 import { createGlareMaterial } from "./flowGlare";
 import { tuneRenderer } from "../rendererTuning";
 import { sound } from "@/services/sound";
+import { useScenePause } from "@/services/scenePause";
+import { usePower } from "@/services/power";
 import { markShelfHandoff, returnFlightPending, setFlightTarget, setViewerReady, startFlight, takeViewerPose, type ScreenPose } from "../handoff";
 import { focusAmbientGame } from "@/app/shellState";
 import { input } from "@/input/InputController";
@@ -499,6 +501,10 @@ export function ShelfView({
   dark?: boolean;
   onOpen: (game: Game) => void;
 }) {
+  // session Remote Play d'invité : la scène s'arrête pour laisser le fil principal au décodage
+  const scenePaused = useScenePause((s) => s.paused);
+  // sur batterie (Steam Deck) : rendu à la définition de l'écran, sans suréchantillonnage
+  const onBattery = usePower((s) => s.onBattery);
   const shelves = useMemo(() => buildShelves(games, mixed), [games, mixed]);
   const [returnAt] = useState(() => {
     for (let r = 0; r < shelves.length; r++) {
@@ -739,7 +745,8 @@ export function ShelfView({
       >
         <Canvas
           flat
-          dpr={[1, 1.5]}
+          frameloop={scenePaused ? "never" : "always"}
+          dpr={onBattery ? 1 : [1, 1.5]}
           camera={{ fov: 32, position: [0, 0, PERSPECTIVE * ref.width], near: 0.1, far: 60 }}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           style={{ borderRadius: "inherit" }}

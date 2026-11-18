@@ -9,7 +9,7 @@
 
 pub mod api;
 pub mod sides;
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod e2e_tests;
 
 use std::collections::HashSet;
@@ -23,14 +23,19 @@ use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use self::api::{Api, ApiError, Incoming};
-use self::sides::{Event, GuestSide, HostSide, TrustView};
-use super::permissions::{Mode, Profile};
+use self::sides::{Event, GuestSide, TrustView};
+#[cfg(windows)]
+use self::sides::HostSide;
+#[cfg(windows)]
+use super::permissions::Mode;
+use super::permissions::Profile;
 use super::signaling::identity::DeviceKey;
 use super::signaling::pinning::Pins;
 use super::signaling::SignalError;
 use super::sources::{self, Choice};
-use super::transport::host::{Host, HostOptions, Network};
-use super::RemotePlay;
+#[cfg(windows)]
+use super::transport::host::{HostOptions, Network};
+use super::{HostHandle as Host, RemotePlay};
 
 /// Évènement envoyé à toutes les fenêtres à chaque changement d'état.
 pub const STATUS_EVENT: &str = "remote-play-online";
@@ -163,7 +168,12 @@ fn context(app: &AppHandle) -> Result<Ctx, String> {
         Some((account, id)) if account == me => id,
         _ => {
             let name = state.config.lock().map(|c| c.computer_name.clone()).unwrap_or_default();
-            let name = if name.is_empty() { std::env::var("COMPUTERNAME").unwrap_or_else(|_| "iBox".into()) } else { name };
+            // nom par défaut : celui du PC (Windows), le modèle de Steam Deck, sinon « iBox »
+            let name = if name.is_empty() {
+                std::env::var("COMPUTERNAME").ok().or_else(|| crate::platform::current().steam_deck.map(str::to_string)).unwrap_or_else(|| "iBox".into())
+            } else {
+                name
+            };
             let id = api.register_device(&key, &me, &name).map_err(|e| e.message)?;
             state.online.lock().map_err(|_| "état indisponible")?.device = Some((me.clone(), id.clone()));
             id
@@ -367,6 +377,7 @@ fn hide_indicator_if_idle(app: &AppHandle) {
     }
 }
 
+#[cfg(windows)]
 struct HostPlan {
     friend: String,
     friend_name: String,
@@ -376,6 +387,7 @@ struct HostPlan {
     source: String,
 }
 
+#[cfg(windows)]
 fn host_thread(app: AppHandle, ctx: Ctx, invite: api::Invite, plan: HostPlan, cancel: Arc<AtomicBool>, extra: bool) {
     let slot_id = invite.id.clone();
     let slot = extra.then_some(slot_id.as_str());
@@ -577,6 +589,14 @@ fn guests_in_party(state: &RemotePlay) -> u32 {
 }
 
 /// Invite un ami à regarder ou à jouer sur ce PC.
+/// Steam Deck : invité seulement (docs/STEAMDECK.md §6.1).
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn remote_play_invite(_app: AppHandle, _args: InviteArgs) -> Result<Status, String> {
+    Err("Sur Steam Deck, iBox rejoint une partie mais n'en héberge pas.".into())
+}
+
+#[cfg(windows)]
 #[tauri::command]
 pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Status, String> {
     let state = rp(&app);

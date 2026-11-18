@@ -28,6 +28,7 @@ use super::{Adapter, Change, Install, KeyContext, Location};
 use crate::smartconfig::ini::Ini;
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::PathBuf;
 
 pub struct DuckStation;
@@ -187,6 +188,20 @@ fn builtin_for(gamedb: &str, serial: &str) -> Vec<String> {
     out.into_iter().map(String::from).collect()
 }
 
+/// Dossier de DuckStation vérifié (même règle sous Windows et Linux).
+fn checked(root: PathBuf, portable: bool, install: &Install) -> Result<Location, String> {
+    let settings = root.join("settings.ini");
+    if !settings.is_file() {
+        return Err("dossier de configuration de DuckStation introuvable : lancez DuckStation une fois, puis réessayez".into());
+    }
+    if let Some(dir) = std::fs::read(&settings).ok().and_then(|b| Ini::parse(&b).ok()).and_then(|i| i.get("Folders", "GameSettings")) {
+        if !dir.eq_ignore_ascii_case("gamesettings") {
+            return Err("dossier des réglages par jeu personnalisé dans DuckStation : non pris en charge".into());
+        }
+    }
+    Ok(Location { config_root: root, portable, version: install.version.clone() })
+}
+
 impl Adapter for DuckStation {
     fn id(&self) -> &'static str {
         "duckstation"
@@ -214,16 +229,7 @@ impl Adapter for DuckStation {
                 (PathBuf::from(local).join("DuckStation"), false)
             }
         };
-        let settings = root.join("settings.ini");
-        if !settings.is_file() {
-            return Err("dossier de configuration de DuckStation introuvable : lancez DuckStation une fois, puis réessayez".into());
-        }
-        if let Some(dir) = std::fs::read(&settings).ok().and_then(|b| Ini::parse(&b).ok()).and_then(|i| i.get("Folders", "GameSettings")) {
-            if !dir.eq_ignore_ascii_case("gamesettings") {
-                return Err("dossier des réglages par jeu personnalisé dans DuckStation : non pris en charge".into());
-            }
-        }
-        Ok(Location { config_root: root, portable, version: install.version.clone() })
+        checked(root, portable, install)
     }
 
     fn game_key(&self, game: &GameQuery, ctx: &KeyContext) -> Result<String, String> {
@@ -254,6 +260,21 @@ impl Adapter for DuckStation {
         Ok(if separate { serial } else { first })
     }
 
+    /// src/core/core.cpp (`SetDataDirectory`) : `portable.txt` ou `settings.ini` à côté du programme
+    /// (de l'AppImage elle-même), sinon `$XDG_CONFIG_HOME/duckstation` si la variable est définie,
+    /// sinon `~/.local/share/duckstation`.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement de DuckStation invalide")?;
+        let flatpak = platform::flatpak_id(&install.exe).is_some();
+        let (root, portable) = if !flatpak && (exe_dir.join("portable.txt").is_file() || exe_dir.join("settings.ini").is_file()) {
+            (exe_dir.to_path_buf(), true)
+        } else {
+            let d = dirs.for_exe(&install.exe);
+            let root = if d.config_home_set { d.config_home.join("duckstation") } else { d.home.join(".local/share/duckstation") };
+            (root, false)
+        };
+        checked(root, portable, install)
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("gamesettings");
         let file = dir.join(format!("{key}.ini"));

@@ -28,6 +28,7 @@ use super::{Adapter, Change, Install, KeyContext, Location};
 use crate::smartconfig::cfg::Cfg;
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::{Path, PathBuf};
 
 pub struct RetroArch;
@@ -78,8 +79,13 @@ fn writes(s: &Setting) -> Option<Vec<Write>> {
     })
 }
 
+/// Le même cœur s'appelle `…_libretro.dll` sous Windows et `…_libretro.so` sous Linux.
 fn library_name(core: &str) -> Option<&'static str> {
-    CORES.iter().find(|(f, _)| f.eq_ignore_ascii_case(core)).map(|(_, n)| *n)
+    let stem = |f: &str| -> String {
+        let l = f.to_ascii_lowercase();
+        l.strip_suffix(".dll").or_else(|| l.strip_suffix(".so")).map(str::to_string).unwrap_or(l)
+    };
+    CORES.iter().find(|(f, _)| stem(f) == stem(core)).map(|(_, n)| *n)
 }
 
 /// Élément de nom de fichier sûr sous Windows (le nom d'un jeu peut contenir
@@ -159,6 +165,29 @@ impl Adapter for RetroArch {
         key.split_once('/').is_some_and(|(lib, stem)| CORES.iter().any(|(_, n)| *n == lib) && safe_component(stem))
     }
 
+    /// frontend/drivers/platform_unix.c : `$XDG_CONFIG_HOME/retroarch` ou `~/.config/retroarch`
+    /// (`retroarch.cfg`) ; surcharges dans `rgui_config_directory`, par défaut `<base>/config`,
+    /// enregistré avec `~/`. Un dossier hors de `<base>` n'est pas pris en charge.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let d = dirs.for_exe(&install.exe);
+        let base = d.config_home.join("retroarch");
+        let bytes = std::fs::read(base.join("retroarch.cfg")).map_err(|_| "configuration de RetroArch introuvable : lancez RetroArch une fois, puis réessayez")?;
+        let cfg = Cfg::parse(&bytes)?;
+        let dir = match cfg.get("rgui_config_directory").filter(|v| !v.is_empty() && v != "default") {
+            None => base.join("config"),
+            Some(v) => {
+                let p = platform::expand_home(&v, &d.home);
+                if !p.is_absolute() || !p.starts_with(&base) || p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+                    return Err("dossier de configuration de RetroArch personnalisé (rgui_config_directory) non pris en charge".into());
+                }
+                p
+            }
+        };
+        if !dir.is_dir() {
+            return Err("dossier de configuration de RetroArch introuvable : lancez RetroArch une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: dir, portable: false, version: install.version.clone() })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let (lib, stem) = key.split_once('/').unwrap_or(("", key));
         let dir = loc.config_root.join(lib);
@@ -275,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn surcharge_creee_puis_modifiee_sans_rien_perdre() {
         let (t, inst) = portable(Some("genesis_plus_gx_libretro.dll"));
         let rom = t.path().join("Sonic (USA).md");

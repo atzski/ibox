@@ -15,6 +15,7 @@ import { wallpaperApi } from "@/services/wallpaper";
 import { ArtworkPicker } from "@/components/assets/ArtworkPicker";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { matchesQuery } from "@/domain/text";
+import { isLinux } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
 
 // ——— Apparence ———
@@ -50,7 +51,7 @@ export function DisplayPage() {
         <div data-nav-group="settings-mode" className="grid grid-cols-3 gap-3 border-none py-1">
           {(
             [
-              { value: "system", label: "Système", note: "Suit Windows" },
+              { value: "system", label: "Système", note: isLinux() ? "Suit le système" : "Suit Windows" },
               { value: "light", label: "Clair", note: "Pastels lumineux" },
               { value: "dark", label: "Sombre", note: "Doux pour le soir" },
             ] as { value: ThemePreference; label: string; note: string }[]

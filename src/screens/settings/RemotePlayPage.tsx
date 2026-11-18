@@ -6,6 +6,7 @@ import { RemotePlaySession } from "@/components/remoteplay/RemotePlaySession";
 import { ExperimentalBadge } from "@/components/remoteplay/RemotePlayOnline";
 import { onlineApi } from "@/services/remotePlayOnline";
 import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostReport, type NetworkReport, type RemotePlayConfig } from "@/services/remotePlay";
+import { usePlatform } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
 
 // ——— Remote Play ———
@@ -14,6 +15,78 @@ import { Group, Row, Toggle } from "./ui";
 const DEFAULT_STUN = ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"];
 
 export function RemotePlayPage() {
+  const linux = usePlatform((p) => p.os === "linux");
+  return linux ? <RemotePlayDeckPage /> : <RemotePlayHostPage />;
+}
+
+/**
+ * Steam Deck : invité seulement (docs/STEAMDECK.md §6). Rejoindre une partie d'un PC iBox sous
+ * Windows ; réception native (str0m) et décodage WebCodecs, vérifié ici.
+ */
+function RemotePlayDeckPage() {
+  const [config, setConfig] = useState<RemotePlayConfig | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [decoding, setDecoding] = useState<"checking" | "ok" | "missing">("checking");
+
+  useEffect(() => {
+    remotePlayApi.config().then(setConfig, () => setConfig(null));
+    void import("@/services/nativeGuest").then(({ probeWebCodecs }) =>
+      probeWebCodecs().then(
+        (p) => setDecoding(Object.values(p.codecs).some((c) => c.software || c.hardware) ? "ok" : "missing"),
+        () => setDecoding("missing"),
+      ),
+    );
+  }, []);
+
+  const toggle = (enabled: boolean) => {
+    if (!config) return;
+    remotePlayApi.setConfig({ ...config, enabled }).then(setConfig, (e) => setError(String(e)));
+  };
+  const setAccept = (accept: boolean) => {
+    if (!config) return;
+    setError(null);
+    onlineApi.setAccept(accept).then(
+      (acceptRequests) => setConfig({ ...config, acceptRequests }),
+      (e) => setError(typeof e === "string" ? e : String((e as { message?: string })?.message ?? e)),
+    );
+  };
+
+  return (
+    <Group
+      title="Remote Play"
+      icon="gamepad"
+      note="Fonction expérimentale. Rejoignez la partie d'un ami qui joue sur un PC iBox sous Windows : le jeu tourne chez lui, vous jouez avec la manette du Steam Deck. Le Steam Deck rejoint des parties mais n'en partage pas."
+    >
+      <Row label="Activer Remote Play" note={error ?? "Expérimental, désactivé par défaut. Désactivé, aucune recherche d'invitations ne tourne."}>
+        <span className="flex items-center gap-3">
+          <ExperimentalBadge />
+          <Toggle checked={!!config?.enabled} onChange={toggle} label="Activer Remote Play" />
+        </span>
+      </Row>
+      {config?.enabled && (
+        <Row label="Accepter les demandes Remote Play de mes amis" note="Activé, vos amis iNetbox peuvent vous inviter ; vous acceptez ou refusez chaque invitation.">
+          <Toggle checked={!!config?.acceptRequests} onChange={setAccept} label="Accepter les demandes Remote Play de mes amis" />
+        </Row>
+      )}
+      <Row
+        label="Décodage vidéo"
+        note={
+          decoding === "ok"
+            ? "Disponible : l'image de l'hôte est décodée par ce Steam Deck."
+            : decoding === "missing"
+              ? "Indisponible : cette version d'iBox ne sait pas décoder l'image H.264 de l'hôte."
+              : "Vérification…"
+        }
+      >
+        <span className={`text-[0.9rem] font-black ${decoding === "ok" ? "text-[#2FA36B]" : decoding === "missing" ? "text-[#D14B4B]" : "text-ink-soft"}`}>
+          {decoding === "ok" ? "Disponible" : decoding === "missing" ? "Indisponible" : "…"}
+        </span>
+      </Row>
+    </Group>
+  );
+}
+
+function RemotePlayHostPage() {
   const [config, setConfig] = useState<RemotePlayConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);

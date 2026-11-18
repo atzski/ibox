@@ -73,7 +73,22 @@ const BROAD: &[&str] = &[
     "steamlibrary", "steamapps", "common", "epic games", "gog games", "gog galaxy", "xboxgames",
     "desktop", "bureau", "documents", "downloads", "téléchargements", "appdata", "local", "roaming",
     "onedrive", "temp", "roms", "emulation", "emulators",
+    // Linux (Steam Deck)
+    "home", "run", "media", "mnt", "usr", "opt", "var", "etc", "tmp", ".local", "share", ".var", "app",
+    "applications", "steam", ".steam", "flatpak",
 ];
+
+/// Linux : racine d'un support amovible (`/run/media/<utilisateur>/<carte>`, `/media/<…>/<…>`,
+/// `/mnt/<…>`) — la carte microSD du Steam Deck entière n'est jamais « le dossier d'un jeu ».
+fn mount_root(p: &str) -> bool {
+    let parts: Vec<&str> = p.split('\\').filter(|s| !s.is_empty()).collect();
+    match parts.first().copied() {
+        Some("run") => parts.get(1) == Some(&"media") && parts.len() <= 4,
+        Some("media") => parts.len() <= 3,
+        Some("mnt") => parts.len() <= 2,
+        _ => false,
+    }
+}
 
 /// Profondeur sous la racine du lecteur (`C:\A\B` → 2).
 fn depth(p: &str) -> usize {
@@ -89,7 +104,7 @@ fn broad(p: &str) -> bool {
 /// large, système ou parent d'un dossier protégé (données d'iBox, autres jeux…).
 pub fn safe_to_trash(dir: &str, protected: &[String]) -> bool {
     let d = norm(dir);
-    if d.len() < 4 || !Path::new(&d).is_absolute() || broad(&d) {
+    if d.len() < 4 || !Path::new(dir.trim().trim_matches('"')).is_absolute() || broad(&d) || (!cfg!(windows) && mount_root(&d)) {
         return false;
     }
     !protected.iter().any(|p| !p.trim().is_empty() && is_within(p, &d))
@@ -97,6 +112,17 @@ pub fn safe_to_trash(dir: &str, protected: &[String]) -> bool {
 
 /// Dossiers système et personnels qu'aucune désinstallation ne doit englober.
 fn system_dirs() -> Vec<String> {
+    #[cfg(not(windows))]
+    {
+        let mut out: Vec<String> = ["/usr", "/etc", "/opt", "/var", "/run/media", "/media", "/mnt"].iter().map(|s| s.to_string()).collect();
+        if let Some(home) = crate::paths::home() {
+            for sub in ["", "Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos", ".local/share", ".config", ".var/app", ".steam", "Emulation", "Applications"] {
+                out.push(home.join(sub).to_string_lossy().into_owned());
+            }
+        }
+        return out;
+    }
+    #[allow(unreachable_code)]
     let mut out: Vec<String> = ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "USERPROFILE", "APPDATA", "LOCALAPPDATA"]
         .iter()
         .filter_map(|v| std::env::var(v).ok())
@@ -206,8 +232,8 @@ fn size_of(p: &Path) -> u64 {
         .sum()
 }
 
-fn steam_exe() -> Option<String> {
-    pc::steam::root().map(|r| r.join("steam.exe").to_string_lossy().to_string())
+fn steam_exe() -> Option<(String, Vec<String>)> {
+    pc::steam::executable()
 }
 
 /// Chemins des autres jeux de la bibliothèque (jamais englobés par une suppression).
@@ -241,9 +267,10 @@ pub fn plan_pc(conn: &Connection, install_id: i64, protected_extra: &[String]) -
 
     // Steam désinstalle lui-même, avec sa fenêtre de confirmation
     if inst.source == "steam" && !inst.external_id.is_empty() && inst.external_id.chars().all(|c| c.is_ascii_digit()) {
-        let exe = steam_exe().ok_or("Steam est introuvable sur cet ordinateur.")?;
+        let (exe, mut args) = steam_exe().ok_or("Steam est introuvable sur cet ordinateur.")?;
+        args.push(format!("steam://uninstall/{}", inst.external_id));
         return Ok(Prepared {
-            run: Some(Run::Exe(exe, vec![format!("steam://uninstall/{}", inst.external_id)])),
+            run: Some(Run::Exe(exe, args)),
             ..base(UninstallPlan::Store { by: "Steam".into(), hint: Some("Steam demande une dernière confirmation, puis supprime les fichiers du jeu.".into()) })
         });
     }
@@ -372,9 +399,24 @@ pub fn to_recycle_bin(paths: &[PathBuf]) -> Result<(), String> {
     Ok(())
 }
 
+/// Linux (Steam Deck) : Corbeille standard (freedesktop) par `gio trash`, fourni par GLib.
+/// `gio` gère aussi la carte microSD (Corbeille `.Trash-<uid>` du support) ; jamais d'effacement définitif.
 #[cfg(not(windows))]
-pub fn to_recycle_bin(_paths: &[PathBuf]) -> Result<(), String> {
-    Err("La Corbeille n'est disponible que sous Windows.".into())
+pub fn to_recycle_bin(paths: &[PathBuf]) -> Result<(), String> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let out = std::process::Command::new("gio")
+        .arg("trash")
+        .arg("--")
+        .args(paths)
+        .output()
+        .map_err(|e| format!("La Corbeille est indisponible sur ce système (gio : {e})."))?;
+    if !out.status.success() {
+        let why = String::from_utf8_lossy(&out.stderr);
+        return Err(format!("Le jeu n'a pas pu aller à la Corbeille : {}", why.trim()));
+    }
+    Ok(())
 }
 
 fn spawn(run: &Run) -> Result<(), String> {
@@ -510,6 +552,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn trash_refuses_broad_or_protected_folders() {
         let protected = vec![r"D:\Jeux\Autre\autre.exe".to_string(), r"C:\Users\x\AppData\Roaming\app.ibox".to_string()];
         assert!(!safe_to_trash(r"C:\", &protected));
@@ -519,6 +562,23 @@ mod tests {
         assert!(!safe_to_trash(r"D:\Jeux\Autre", &protected));
         assert!(safe_to_trash(r"D:\Jeux\Celeste", &protected));
         assert!(safe_to_trash(r"D:\Celeste\", &protected));
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn corbeille_linux_refuse_les_dossiers_larges_et_les_cartes() {
+        let protected = vec!["/home/deck/Games/Autre/autre.sh".to_string(), "/home/deck/.local/share/app.ibox.desktop".to_string()];
+        assert!(!safe_to_trash("/", &protected));
+        assert!(!safe_to_trash("/home", &protected));
+        assert!(!safe_to_trash("/home/deck/Games", &protected));
+        assert!(!safe_to_trash("/home/deck/.local/share", &protected));
+        assert!(!safe_to_trash("/home/deck/Games/Autre", &protected));
+        // carte microSD entière, ou son dossier de bibliothèque Steam
+        assert!(!safe_to_trash("/run/media/deck/SD", &protected));
+        assert!(!safe_to_trash("/run/media/deck/SD/steamapps", &protected));
+        assert!(!safe_to_trash("relatif/Celeste", &protected));
+        assert!(safe_to_trash("/home/deck/Games/Celeste", &protected));
+        assert!(safe_to_trash("/run/media/deck/SD/Jeux/Celeste", &protected));
     }
 
     #[test]

@@ -699,6 +699,56 @@ pub fn package(id: &str) -> Option<&'static Package> {
     PACKAGES.iter().find(|p| p.id == id)
 }
 
+/// Linux (Steam Deck) : AppImage x86_64 publiée telle quelle dans la release officielle.
+/// Relevé le 2026-11-18 sur la dernière release de chaque dépôt (noms exacts dans le test
+/// `appimages_linux_officielles`). Les autres paquets (archives contenant l'AppImage, Flatpak
+/// seulement, pas de version Linux) restent à installer à la main : Discover, EmuDeck.
+pub const LINUX: &[(&str, Source)] = &[
+    ("ppsspp", gh("hrydgard/ppsspp", "PPSSPP-", "-anylinux-x86_64.AppImage", &[])),
+    ("duckstation", gh("stenzek/duckstation", "DuckStation-x64.AppImage", "DuckStation-x64.AppImage", &[])),
+    ("pcsx2", gh("PCSX2/pcsx2", "pcsx2-", "-linux-appimage-x64-Qt.AppImage", &[])),
+    ("cemu", gh("cemu-project/Cemu", "Cemu-", "-x86_64.AppImage", &[])),
+    ("azahar", gh("azahar-emu/azahar", "azahar.AppImage", "azahar.AppImage", &[])),
+    (
+        "eden",
+        // version optimisée pour le Steam Deck publiée par Eden
+        Source::Forgejo {
+            base: "https://git.eden-emu.dev",
+            repo: "eden-emu/eden",
+            asset: AssetMatch { starts: "Eden-Linux-", ends: "-steamdeck-gcc-standard.AppImage", excludes: &[] },
+        },
+    ),
+    ("lichii", gh("zortos293/Lichii", "lichii-linux-x86_64", ".AppImage", &["pgo"])),
+    ("fritchii", gh_pre("Frizti/Fritchii", "Fritchii-", "-Linux-x86_64.AppImage", &[])),
+    ("mgba", gh("mgba-emu/mgba", "mGBA-", "-appimage-x64.appimage", &[])),
+    ("rmg", gh("Rosalie241/RMG", "RMG-Portable-Linux64-", ".AppImage", &[])),
+    ("rpcs3", gh("RPCS3/rpcs3-binaries-linux", "rpcs3-", "_linux64.AppImage", &[".sha256"])),
+    ("xemu", gh("xemu-project/xemu", "xemu-", "-x86_64.AppImage", &["dbg"])),
+    ("vita3k", gh("Vita3K/Vita3K", "Vita3K-x86_64.AppImage", "Vita3K-x86_64.AppImage", &[])),
+    ("flycast", gh("flyinghead/flycast", "flycast-x86_64-", ".AppImage", &[])),
+];
+
+/// Source Linux d'un paquet (AppImage officielle), s'il en a une.
+pub fn linux_source(id: &str) -> Option<Source> {
+    LINUX.iter().find(|(p, _)| *p == id).map(|(_, s)| *s)
+}
+
+/// Le paquet tel qu'il s'installe sur ce système : sous Linux, source AppImage et
+/// installation automatique seulement s'il en a une.
+pub fn for_this_system(pkg: &Package) -> Package {
+    let mut p = *pkg;
+    if !cfg!(windows) {
+        match linux_source(p.id) {
+            Some(src) => p.source = src,
+            None => {
+                p.source = Source::Manual;
+                p.automatic = false;
+            }
+        }
+    }
+    p
+}
+
 /// Hôtes officiels autorisés (téléchargement et redirections).
 pub const ALLOWED_HOSTS: &[&str] = &[
     "api.github.com",
@@ -788,5 +838,42 @@ mod tests {
         assert!(!host_allowed(&"http://github.com/a/b".parse().unwrap()));
         assert!(!host_allowed(&"https://github.com.evil.io/a".parse().unwrap()));
         assert!(!host_allowed(&"https://example.com/x.zip".parse().unwrap()));
+    }
+
+    /// Noms relevés le 2026-11-18 dans la dernière release de chaque dépôt : (paquet, retenu,
+    /// fichiers voisins à écarter).
+    #[test]
+    fn appimages_linux_officielles() {
+        let cases: &[(&str, &str, &[&str])] = &[
+            ("ppsspp", "PPSSPP-v1.20.4-anylinux-x86_64.AppImage", &["PPSSPP-v1.20.4-anylinux-aarch64.AppImage", "PPSSPP-v1.20.4-anylinux-x86_64.AppImage.zsync"]),
+            ("duckstation", "DuckStation-x64.AppImage", &["DuckStation-x64-SSE2.AppImage", "DuckStation-arm64.AppImage"]),
+            ("pcsx2", "pcsx2-v2.8.2-linux-appimage-x64-Qt.AppImage", &["pcsx2-v2.8.2-linux-flatpak-x64-Qt.flatpak", "pcsx2-v2.8.2-windows-x64-Qt.7z"]),
+            ("cemu", "Cemu-2.6-x86_64.AppImage", &["cemu-2.6-windows-x64.zip"]),
+            ("azahar", "azahar.AppImage", &["azahar-libretro-linux-x86_64-2126.2.zip"]),
+            ("eden", "Eden-Linux-v0.2.1-steamdeck-gcc-standard.AppImage", &["Eden-Linux-v0.2.1-steamdeck-clang-pgo.AppImage", "Eden-Linux-steamdeck-gcc-standard.AppImage.zsync", "Eden-Linux-v0.2.1-amd64-gcc-standard.AppImage"]),
+            ("lichii", "lichii-linux-x86_64.AppImage", &["lichii-linux-x86_64-pgo.AppImage", "lichii-linux-aarch64.AppImage", "lichii-linux-x86_64.tar.gz"]),
+            ("fritchii", "Fritchii-v6.1-Linux-x86_64.AppImage", &["Fritchii-v6.1-Linux-x86_64.tar.gz"]),
+            ("mgba", "mGBA-0.10.5-appimage-x64.appimage", &["mGBA-0.10.5-appimage-arm64.appimage"]),
+            ("rmg", "RMG-Portable-Linux64-v0.9.1.AppImage", &["RMG-Portable-Windows64-v0.9.1.zip"]),
+            ("rpcs3", "rpcs3-v0.0.43-20623-0ebb6369_linux64.AppImage", &["rpcs3-v0.0.43-20623-0ebb6369_linux64.AppImage.sha256"]),
+            ("xemu", "xemu-0.8.139-x86_64.AppImage", &["xemu-0.8.139-dbg-x86_64.AppImage", "xemu-0.8.139-aarch64.AppImage"]),
+            ("vita3k", "Vita3K-x86_64.AppImage", &["Vita3K-x86_64.AppImage.zsync", "Vita3K-aarch64.AppImage"]),
+            ("flycast", "flycast-x86_64-2.7.AppImage", &["flycast-win64-2.7.zip"]),
+        ];
+        assert_eq!(cases.len(), LINUX.len());
+        for (id, good, bad) in cases {
+            assert!(package(id).is_some(), "{id} absent du catalogue");
+            let asset = match linux_source(id).unwrap() {
+                Source::GitHub { asset, .. } | Source::Forgejo { asset, .. } => asset,
+                _ => unreachable!(),
+            };
+            assert!(asset.matches(good), "{id} : {good}");
+            for b in *bad {
+                assert!(!asset.matches(b), "{id} : {b}");
+            }
+        }
+        // sous Linux, un paquet sans AppImage officielle n'est jamais installé automatiquement
+        let dolphin = for_this_system(package("dolphin").unwrap());
+        assert_eq!(dolphin.automatic, cfg!(windows));
     }
 }

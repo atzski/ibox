@@ -1,4 +1,5 @@
 import { InetboxPanel } from "@/components/social/InetboxPanel";
+import { isLinux } from "@/services/platform";
 import { useEffect, useRef, useState } from "react";
 import { input } from "@/input/InputController";
 import { motion } from "motion/react";
@@ -217,7 +218,7 @@ function PageHeader({ category }: { category: Category }) {
       </span>
       <div className="relative">
         <h1 className="text-[1.9rem] leading-tight font-semibold text-ink">{category.label}</h1>
-        <p className="mt-0.5 text-[0.95rem] font-semibold text-ink-soft">{category.hint}</p>
+        <p className="mt-0.5 text-[0.95rem] font-semibold text-ink-soft">{category.id === "remoteplay" && isLinux() ? "Rejoindre la partie d'un ami sur un PC iBox" : category.hint}</p>
       </div>
     </div>
   );

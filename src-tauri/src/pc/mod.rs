@@ -8,8 +8,10 @@
 pub mod connectors;
 pub mod epic;
 pub mod gog;
+pub mod heroic;
 pub mod running;
 pub mod steam;
+pub mod steam_shortcut;
 mod shortcuts;
 mod xbox;
 pub mod vdf;
@@ -245,7 +247,11 @@ pub struct PcLaunch {
 /// l'application que Windows lui associe : gestionnaire de liens de Windows
 /// (`rundll32 url.dll,FileProtocolHandler`), sans ligne de commande shell.
 /// (L'Explorateur ne comprend pas ces liens et ouvrait le dossier Documents.)
+/// Linux (Steam Deck) : `xdg-open`, qui confie le lien au programme qui l'a déclaré (Heroic…).
 pub(crate) fn url_handler(uri: &str) -> (String, Vec<String>) {
+    if !cfg!(windows) {
+        return ("xdg-open".into(), vec![uri.to_string()]);
+    }
     let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
     let exe = Path::new(&root).join("System32").join("rundll32.exe").to_string_lossy().to_string();
     (exe, vec!["url.dll,FileProtocolHandler".into(), uri.to_string()])
@@ -287,6 +293,11 @@ pub fn launch_target(conn: &Connection, game_id: i64) -> std::result::Result<PcL
             let (exe, args) = url_handler(uri);
             Ok(PcLaunch { exe, args, by: inst.source_name.to_string(), detached: true })
         }
+        ("protocol", Some(uri)) if inst.source == "heroic" => {
+            let uri = heroic::checked_uri(uri).ok_or("Lien Heroic invalide.")?;
+            let (exe, args) = url_handler(uri);
+            Ok(PcLaunch { exe, args, by: "Heroic".into(), detached: true })
+        }
         ("protocol", Some(uri)) if inst.source == "epic" => {
             let uri = epic::checked_uri(uri).ok_or("Lien Epic invalide.")?;
             let (exe, args) = url_handler(uri);
@@ -305,10 +316,11 @@ pub fn launch_target(conn: &Connection, game_id: i64) -> std::result::Result<PcL
             if !inst.external_id.chars().all(|c| c.is_ascii_digit()) {
                 return Err("Identifiant Steam invalide.".into());
             }
-            let root = steam::root().ok_or("Steam est introuvable sur cet ordinateur : installez-le ou relancez-le.")?;
+            let (exe, mut args) = steam::executable().ok_or("Steam est introuvable sur cet ordinateur : installez-le ou relancez-le.")?;
+            args.extend(["-applaunch".into(), inst.external_id.clone()]);
             Ok(PcLaunch {
-                exe: root.join("steam.exe").to_string_lossy().to_string(),
-                args: vec!["-applaunch".into(), inst.external_id.clone()],
+                exe,
+                args,
                 by: "Steam".into(),
                 detached: true,
             })
@@ -330,10 +342,11 @@ pub fn install_target(conn: &Connection, install_id: i64) -> std::result::Result
         .ok_or("Version introuvable.")?;
     match source.as_str() {
         "steam" if digits(&inst.external_id) => {
-            let root = steam::root().ok_or("Steam est introuvable sur cet ordinateur.")?;
+            let (exe, mut args) = steam::executable().ok_or("Steam est introuvable sur cet ordinateur.")?;
+            args.push(format!("steam://install/{}", inst.external_id));
             Ok(PcLaunch {
-                exe: root.join("steam.exe").to_string_lossy().to_string(),
-                args: vec![format!("steam://install/{}", inst.external_id)],
+                exe,
+                args,
                 by: "Steam".into(),
                 detached: true,
             })
@@ -679,6 +692,28 @@ pub fn epic_entries() -> Option<Vec<SourceEntry>> {
     )
 }
 
+/// Jeux Epic, GOG et Amazon installés par Heroic (Linux). `None` si Heroic est absent.
+pub fn heroic_entries() -> Option<Vec<SourceEntry>> {
+    let config = heroic::config_dir()?;
+    let home = crate::paths::home();
+    Some(
+        heroic::scan(&config, home.as_deref())
+            .into_iter()
+            .map(|g| SourceEntry {
+                external_id: g.external_id(),
+                launch_target: g.launch_uri(),
+                installed: Path::new(&g.install_dir).is_dir(),
+                title: g.title,
+                install_dir: Some(g.install_dir),
+                shortcut_args: None,
+                last_played: None,
+                playtime_minutes: None,
+                family: None,
+            })
+            .collect(),
+    )
+}
+
 /// Masque (ou réaffiche) une installation : un outil ou un logiciel qui n'est pas un jeu.
 pub fn set_hidden(conn: &Connection, install_id: i64, hidden: bool) -> Result<()> {
     let n = conn.execute("UPDATE pc_installs SET hidden = ?2 WHERE id = ?1", params![install_id, hidden])?;
@@ -758,6 +793,11 @@ pub mod commands {
             if on("epic") {
                 if let Some(entries) = epic_entries() {
                     out.push(state.with(|c| sync_source(c, "epic", &entries))?);
+                }
+            }
+            if on("heroic") {
+                if let Some(entries) = heroic_entries() {
+                    out.push(state.with(|c| sync_source(c, "heroic", &entries))?);
                 }
             }
             if on("gog") {
@@ -1032,16 +1072,41 @@ mod tests {
         sync_source(&mut conn, "epic", &[e.clone()]).unwrap();
         let rl = repo::list_games(&conn).unwrap().into_iter().find(|g| g.title == "Rocket League").unwrap();
         let l = launch_target(&conn, rl.id).unwrap();
-        assert!(l.detached && l.exe.to_lowercase().ends_with("rundll32.exe"));
-        assert_eq!(l.args, ["url.dll,FileProtocolHandler", uri]);
+        assert!(l.detached);
+        assert_eq!(l.args.last().unwrap(), uri);
+        // Windows : gestionnaire de liens de Windows ; Linux : xdg-open
+        assert_eq!(l.exe.to_lowercase().ends_with("rundll32.exe"), cfg!(windows));
         let inst = installs(&conn, rl.id).unwrap()[0].id;
-        assert_eq!(install_target(&conn, inst).unwrap().args[1], "com.epicgames.launcher://apps/ns%3Aitem%3ASugar?action=install");
+        assert_eq!(install_target(&conn, inst).unwrap().args.last().unwrap(), "com.epicgames.launcher://apps/ns%3Aitem%3ASugar?action=install");
 
         // GOG : identifiant numérique obligatoire
         let g = SourceEntry { external_id: "12; calc".into(), launch_target: String::new(), ..e };
         sync_source(&mut conn, "gog", &[g]).unwrap();
         let bad = installs(&conn, rl.id + 1).unwrap()[0].id;
         assert!(install_target(&conn, bad).is_err());
+    }
+
+    #[test]
+    fn heroic_lancement_par_lien_verifie() {
+        let mut conn = db::open_in_memory().unwrap();
+        let e = SourceEntry {
+            external_id: "gog/1207658924".into(),
+            title: "Unreal Tournament 2004".into(),
+            install_dir: Some("/home/deck/Games/Heroic/UT2004".into()),
+            installed: true,
+            launch_target: "heroic://launch/gog/1207658924".into(),
+            ..Default::default()
+        };
+        sync_source(&mut conn, "heroic", &[e.clone()]).unwrap();
+        let ut = repo::list_games(&conn).unwrap().into_iter().find(|g| g.title == "Unreal Tournament 2004").unwrap();
+        let l = launch_target(&conn, ut.id).unwrap();
+        assert!(l.detached && l.by == "Heroic");
+        assert_eq!(l.args.last().unwrap(), "heroic://launch/gog/1207658924");
+        // lien altéré : refusé
+        let bad = SourceEntry { external_id: "gog/x".into(), title: "Autre".into(), launch_target: "heroic://launch/gog/1;rm".into(), ..e };
+        sync_source(&mut conn, "heroic", &[bad]).unwrap();
+        let other = repo::list_games(&conn).unwrap().into_iter().find(|g| g.title == "Autre").unwrap();
+        assert!(launch_target(&conn, other.id).is_err());
     }
 
     #[test]

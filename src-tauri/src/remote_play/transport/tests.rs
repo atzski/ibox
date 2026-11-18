@@ -19,9 +19,9 @@ use crate::remote_play::input::{Area, Engine, InjectError, Injector, LocalActivi
 use crate::remote_play::permissions::{Mode, Profile, Session};
 use crate::remote_play::protocol::{decode, encode, Message, MAX_INPUT_LEN};
 
-type Sent = Arc<Mutex<Vec<OsInput>>>;
+pub(crate) type Sent = Arc<Mutex<Vec<OsInput>>>;
 
-struct Recorder(Sent);
+pub(crate) struct Recorder(Sent);
 impl Sink for Recorder {
     fn send(&mut self, inputs: &[OsInput]) -> Result<(), InjectError> {
         self.0.lock().unwrap().extend_from_slice(inputs);
@@ -29,7 +29,7 @@ impl Sink for Recorder {
     }
 }
 
-struct FakeScreen;
+pub(crate) struct FakeScreen;
 impl Screen for FakeScreen {
     fn desktop(&self) -> Rect {
         Rect::new(0, 0, 1920, 1080)
@@ -39,9 +39,9 @@ impl Screen for FakeScreen {
     }
 }
 
-type TestEngine = Arc<Mutex<Engine<Recorder, FakeScreen, NoPads>>>;
+pub(crate) type TestEngine = Arc<Mutex<Engine<Recorder, FakeScreen, NoPads>>>;
 
-fn engine(profile: Profile) -> (TestEngine, Sent) {
+pub(crate) fn engine(profile: Profile) -> (TestEngine, Sent) {
     let sent: Sent = Arc::default();
     let mut session = Session::new(Mode::DesktopShare, Vec::<String>::new());
     session.join(GUEST, "ami").unwrap();
@@ -141,7 +141,7 @@ impl Pair {
     }
 }
 
-fn annexb(nals: &[&[u8]]) -> Vec<u8> {
+pub(crate) fn annexb(nals: &[&[u8]]) -> Vec<u8> {
     nals.iter().flat_map(|n| [&[0, 0, 0, 1][..], n].concat()).collect()
 }
 

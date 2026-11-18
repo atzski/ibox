@@ -47,7 +47,7 @@ pub struct SteamApp {
     pub owner: Option<String>,
 }
 
-/// Dossier d'installation de Steam (celui qui contient steam.exe).
+/// Dossier d'installation de Steam (celui qui contient steam.exe ; sous Linux, `steamapps`).
 pub fn root() -> Option<PathBuf> {
     if let Some(path) = MANUAL_ROOT.lock().ok().and_then(|root| root.clone()).filter(|p| valid_root(p)) {
         return Some(path);
@@ -56,17 +56,61 @@ pub fn root() -> Option<PathBuf> {
     if let Some(root) = registered_roots().find(|p| p.join("steam.exe").is_file()) {
         return Some(root);
     }
-    ["ProgramFiles(x86)", "ProgramFiles"]
+    #[cfg(windows)]
+    let found = ["ProgramFiles(x86)", "ProgramFiles"]
         .into_iter()
         .filter_map(std::env::var_os)
         .map(|base| PathBuf::from(base).join("Steam"))
-        .find(|p| p.join("steam.exe").is_file())
+        .find(|p| p.join("steam.exe").is_file());
+    #[cfg(not(windows))]
+    let found = crate::paths::home().and_then(|home| linux_roots(&home).into_iter().find(|p| valid_root(p)));
+    found
+}
+
+/// Emplacements de Steam sous Linux (Steam Deck : `~/.local/share/Steam`), dans l'ordre :
+/// installation native, liens historiques `~/.steam`, puis Steam en Flatpak.
+pub fn linux_roots(home: &Path) -> Vec<PathBuf> {
+    vec![
+        home.join(".local/share/Steam"),
+        home.join(".steam/steam"),
+        home.join(".steam/root"),
+        home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
+    ]
+}
+
+/// Steam en Flatpak (lancé par `flatpak run`, pas par la commande `steam`).
+fn is_flatpak_root(root: &Path) -> bool {
+    root.components().any(|c| c.as_os_str() == "com.valvesoftware.Steam")
+}
+
+/// Programme à lancer pour parler à Steam, avec ses arguments de tête :
+/// Windows `steam.exe` ; Linux la commande `steam` (SteamOS), sinon `steam.sh` du dossier,
+/// ou `flatpak run com.valvesoftware.Steam`.
+pub fn executable() -> Option<(String, Vec<String>)> {
+    let root = root()?;
+    if cfg!(windows) {
+        return Some((root.join("steam.exe").to_string_lossy().into_owned(), Vec::new()));
+    }
+    if is_flatpak_root(&root) {
+        return Some(("flatpak".into(), vec!["run".into(), "com.valvesoftware.Steam".into()]));
+    }
+    let in_path = std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+        .map(|d| d.join("steam"))
+        .find(|p| p.is_file());
+    let exe = in_path.or_else(|| Some(root.join("steam.sh")).filter(|p| p.is_file()))?;
+    Some((exe.to_string_lossy().into_owned(), Vec::new()))
 }
 
 static MANUAL_ROOT: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
 
 fn valid_root(path: &Path) -> bool {
-    path.is_absolute() && path.join("steam.exe").is_file()
+    if cfg!(windows) {
+        path.is_absolute() && path.join("steam.exe").is_file()
+    } else {
+        path.is_absolute() && path.join("steamapps").is_dir()
+    }
 }
 
 pub fn load_manual_root(file: &Path) {
@@ -79,7 +123,7 @@ pub fn load_manual_root(file: &Path) {
 
 pub fn set_manual_root(file: &Path, path: PathBuf) -> Result<(), String> {
     if !valid_root(&path) {
-        return Err("Choisissez le dossier qui contient steam.exe.".into());
+        return Err(if cfg!(windows) { "Choisissez le dossier qui contient steam.exe." } else { "Choisissez le dossier de Steam (celui qui contient steamapps)." }.into());
     }
     let path_text = path.to_str().ok_or("Ce chemin Steam est illisible.")?;
     let mut root = MANUAL_ROOT.lock().map_err(|e| e.to_string())?;
@@ -430,9 +474,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
         std::fs::create_dir_all(root.join("steamapps")).unwrap();
+        // deuxième bibliothèque : autre disque (Windows) ou carte microSD du Steam Deck
+        let other = if cfg!(windows) { "G:\\\\SteamLibrary" } else { "/run/media/deck/SD/SteamLibrary" };
         std::fs::write(
             root.join("steamapps").join("libraryfolders.vdf"),
-            format!("\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" }} \"1\" {{ \"path\" \"G:\\\\SteamLibrary\" }} }}", root.display().to_string().replace('\\', "\\\\")),
+            format!("\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" }} \"1\" {{ \"path\" \"{other}\" }} }}", root.display().to_string().replace('\\', "\\\\")),
         )
         .unwrap();
         let libs = libraries(root);
@@ -449,5 +495,24 @@ mod tests {
         let times = playtimes(root, "76561198988343648");
         assert_eq!(times.get("1966720"), Some(&754));
         assert!(!times.contains_key("10"));
+    }
+
+    #[test]
+    fn emplacements_linux_de_steam() {
+        let home = Path::new("/home/deck");
+        let roots = linux_roots(home);
+        assert_eq!(roots[0], home.join(".local/share/Steam"));
+        assert!(roots.iter().any(|r| is_flatpak_root(r)));
+        assert!(!is_flatpak_root(&roots[0]));
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn racine_linux_reconnue_par_steamapps() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!valid_root(tmp.path()));
+        std::fs::create_dir_all(tmp.path().join("steamapps")).unwrap();
+        assert!(valid_root(tmp.path()));
+        assert!(!valid_root(Path::new("relatif/Steam")));
     }
 }

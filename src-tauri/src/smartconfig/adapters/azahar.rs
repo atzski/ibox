@@ -32,6 +32,7 @@ use super::{Adapter, Change, Install, KeyContext, Location};
 use crate::smartconfig::ini::Ini;
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
@@ -161,6 +162,21 @@ impl Adapter for Azahar {
         key.len() == 16 && key.bytes().all(|b| b.is_ascii_digit() || (b'A'..=b'F').contains(&b))
     }
 
+    /// src/common/file_util.cpp (`SetUserPath`) : dossier `user` du dossier courant (iBox lance
+    /// l'émulateur depuis son propre dossier), sinon `$XDG_CONFIG_HOME/azahar-emu` ou `~/.config/azahar-emu`.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement d'Azahar invalide")?;
+        let local = exe_dir.join("user");
+        let (config, portable) = if platform::flatpak_id(&install.exe).is_none() && local.is_dir() {
+            (local.join("config"), true)
+        } else {
+            (dirs.for_exe(&install.exe).config_home.join("azahar-emu"), false)
+        };
+        if !config.join("qt-config.ini").is_file() {
+            return Err("dossier de configuration d'Azahar introuvable : lancez Azahar une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: config, portable, version: install.version.clone() })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("custom");
         let file = dir.join(format!("{key}.ini"));

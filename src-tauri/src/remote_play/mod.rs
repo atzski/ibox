@@ -14,14 +14,55 @@ pub mod config;
 pub mod diagnostics;
 pub mod encode;
 pub mod input;
-#[cfg(windows)]
+/// Signalisation iNetbox : hôte (Windows) et invité (Windows et Steam Deck, docs/STEAMDECK.md D4).
 pub mod online;
+
+/// Session d'hôte. Sous Linux, type vide qu'on ne peut pas construire : l'état commun (invités,
+/// arrêts) compile, mais aucune session d'hôte n'existe jamais.
+#[cfg(windows)]
+pub(crate) type HostHandle = transport::host::Host;
+#[cfg(not(windows))]
+pub(crate) enum HostHandle {}
+#[cfg(not(windows))]
+impl HostHandle {
+    pub fn stop(&self) -> transport::stats::TransportStats {
+        match *self {}
+    }
+}
+
+// Hôte Remote Play : Windows seulement (le Steam Deck sera invité, docs/STEAMDECK.md §6).
+#[cfg(not(windows))]
+const HOST_UNAVAILABLE: &str = "L'hôte Remote Play n'existe que sous Windows.";
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn remote_play_host_start() -> Result<serde_json::Value, String> {
+    Err(HOST_UNAVAILABLE.into())
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn remote_play_host_answer() -> Result<String, String> {
+    Err(HOST_UNAVAILABLE.into())
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub fn remote_play_host_stats() -> Option<serde_json::Value> {
+    None
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+pub async fn remote_play_host_stop() -> Result<Option<serde_json::Value>, String> {
+    Ok(None)
+}
 pub mod pad_driver;
 pub mod permissions;
 pub mod protocol;
 pub mod signaling;
 pub mod sources;
-#[cfg(windows)]
+pub mod guest;
 pub mod transport;
 
 use std::path::PathBuf;
@@ -48,9 +89,7 @@ use config::Config;
 pub struct RemotePlay {
     path: Option<PathBuf>,
     config: Mutex<Config>,
-    #[cfg(windows)]
-    host: Mutex<Option<std::sync::Arc<transport::host::Host>>>,
-    #[cfg(windows)]
+    host: Mutex<Option<std::sync::Arc<HostHandle>>>,
     online: Mutex<online::OnlineState>,
 }
 
@@ -61,9 +100,7 @@ impl RemotePlay {
         RemotePlay {
             path,
             config: Mutex::new(config),
-            #[cfg(windows)]
             host: Mutex::new(None),
-            #[cfg(windows)]
             online: Mutex::new(online::OnlineState::default()),
         }
     }
@@ -97,7 +134,6 @@ pub fn remote_play_set_config(app: AppHandle, state: State<'_, RemotePlay>, mut 
     // l'avertissement sur l'adresse IP, une fois lu, le reste
     config.ip_warning_seen |= before.ip_warning_seen;
     let saved = state.save(config)?;
-    #[cfg(windows)]
     if saved.enabled != before.enabled {
         online::on_enabled_changed(&app, saved.enabled, saved.accept_requests);
     }
@@ -124,7 +160,6 @@ pub async fn remote_play_install_pad_driver() -> Result<pad_driver::PadDriver, S
 /// Bandeau de l'hôte réduit en pastille (`true`) ou affiché en entier.
 #[tauri::command]
 pub async fn remote_play_indicator_compact(app: AppHandle, compact: bool) -> Result<(), String> {
-    #[cfg(windows)]
     online::set_indicator_compact(&app, compact);
     let _ = (&app, compact);
     Ok(())

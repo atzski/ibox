@@ -240,8 +240,7 @@ pub fn find_saves(rom: &Path, platform: &str, serial: Option<&str>, emulator_pro
         }
     }
     let exe_dir = emulator_exe.and_then(Path::parent);
-    let home = std::env::var("USERPROFILE").ok().map(PathBuf::from);
-    let docs = home.as_ref().map(|h| h.join("Documents"));
+    let docs = crate::paths::documents();
     match emulator_profile {
         Some("retroarch") => {
             if let Some(d) = exe_dir {
@@ -439,15 +438,15 @@ pub fn saves_reveal(app: AppHandle, state: State<LibraryState>, game_id: i64, pa
             if !items.iter().any(|s| s.path == p) {
                 return Err("Emplacement inconnu.".into());
             }
-            format!("/select,{p}")
+            return crate::shell::reveal(Path::new(&p));
         }
         None => {
             let d = backup_root(&app, game_id)?;
             std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
-            d.display().to_string()
+            d
         }
     };
-    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::shell::open_target(target)
 }
 
 #[cfg(test)]

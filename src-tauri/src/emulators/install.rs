@@ -84,7 +84,7 @@ impl From<String> for InstallError {
 }
 
 pub fn default_root() -> PathBuf {
-    let home = std::env::var("USERPROFILE").map(PathBuf::from).unwrap_or_else(|_| std::env::temp_dir());
+    let home = crate::paths::home().unwrap_or_else(std::env::temp_dir);
     home.join("iBox").join("Emulators")
 }
 
@@ -209,6 +209,40 @@ pub fn find_exe(dir: &Path, names: &[&str]) -> Option<PathBuf> {
     found.into_iter().find(|p| is_pe(p))
 }
 
+/// Fichier téléchargé au format AppImage (Linux).
+pub fn is_appimage(file_name: &str) -> bool {
+    file_name.to_lowercase().ends_with(".appimage")
+}
+
+/// Vrai programme Linux (en-tête ELF).
+fn is_elf(p: &Path) -> bool {
+    use std::io::Read;
+    let mut head = [0u8; 4];
+    fs::File::open(p).and_then(|mut f| f.read_exact(&mut head)).is_ok() && &head == b"\x7fELF"
+}
+
+/// Place l'AppImage téléchargée dans le dossier de préparation et la rend exécutable.
+fn place_appimage(downloaded: &Path, staging: &Path) -> Result<(), InstallError> {
+    if !is_elf(downloaded) {
+        return Err("le fichier officiel n'est pas un programme Linux".to_string().into());
+    }
+    fs::create_dir_all(staging).map_err(|e| download::disk_message(&e))?;
+    let name = downloaded.file_name().ok_or("nom de fichier invalide".to_string())?;
+    let dest = staging.join(name);
+    fs::copy(downloaded, &dest).map_err(|e| download::disk_message(&e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&dest, fs::Permissions::from_mode(0o755)).map_err(|e| download::disk_message(&e))?;
+    }
+    Ok(())
+}
+
+/// L'AppImage du dossier (installée par `place_appimage`).
+fn find_appimage(dir: &Path) -> Option<PathBuf> {
+    fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| p.is_file() && p.file_name().is_some_and(|n| is_appimage(&n.to_string_lossy())) && is_elf(p))
+}
+
 fn is_pe(p: &Path) -> bool {
     use std::io::Read;
     let mut head = [0u8; 2];
@@ -275,16 +309,22 @@ pub fn install_resolved(
     };
     report(Step::Stage(Stage::Verifying));
     let staging = root.join("_staging").join(format!("{}-{}", pkg.id, stamp()));
+    // Linux (Steam Deck) : AppImage officielle, un seul programme à placer tel quel
+    let appimage = is_appimage(&resolved.file_name);
     let result = (|| -> Result<Installed, InstallError> {
-        report(Step::Stage(Stage::Extracting));
-        let mut last = 0u64;
-        archive::extract(pkg.archive, &archive_path, &staging, cancel, &mut |bytes| {
-            if bytes - last > 4 * 1024 * 1024 {
-                last = bytes;
-                report(Step::Bytes { received: bytes, total: None, speed: 0 });
-            }
-        })
-        .map_err(|e| if e == "annulé" { InstallError::Cancelled } else { InstallError::Failed(e) })?;
+        if appimage {
+            place_appimage(&archive_path, &staging)?;
+        } else {
+            report(Step::Stage(Stage::Extracting));
+            let mut last = 0u64;
+            archive::extract(pkg.archive, &archive_path, &staging, cancel, &mut |bytes| {
+                if bytes - last > 4 * 1024 * 1024 {
+                    last = bytes;
+                    report(Step::Bytes { received: bytes, total: None, speed: 0 });
+                }
+            })
+            .map_err(|e| if e == "annulé" { InstallError::Cancelled } else { InstallError::Failed(e) })?;
+        }
         report(Step::Stage(Stage::Installing));
         let manifest_base = Manifest {
             package_id: pkg.id.into(),
@@ -299,10 +339,15 @@ pub fn install_resolved(
         if let Some((ra, file)) = &core_target {
             return activate_core(&staging, ra, file, manifest_base);
         }
-        let content = content_root(&staging);
-        let exe = find_exe(&content, pkg.exe).ok_or("programme de l'émulateur introuvable dans l'archive officielle".to_string())?;
+        let content = if appimage { staging.clone() } else { content_root(&staging) };
+        let exe = if appimage {
+            find_appimage(&content).ok_or("programme de l'émulateur introuvable".to_string())?
+        } else {
+            find_exe(&content, pkg.exe).ok_or("programme de l'émulateur introuvable dans l'archive officielle".to_string())?
+        };
         let rel_exe = exe.strip_prefix(&content).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
-        for marker in pkg.markers {
+        // marqueurs « portables » : propres aux versions Windows
+        for marker in pkg.markers.iter().filter(|_| !appimage) {
             fs::write(exe.parent().unwrap_or(&content).join(marker), b"").map_err(|e| download::disk_message(&e))?;
         }
         let manifest = Manifest { exe: rel_exe.clone(), files: top_level(&content), ..manifest_base };
@@ -566,6 +611,26 @@ mod tests {
         assert!(find_exe(t.path(), &["ppssppwindows64.exe"]).is_some());
     }
 
+    #[test]
+    fn appimage_placee_et_executable() {
+        let t = tempfile::tempdir().unwrap();
+        let fake = t.path().join("Faux.AppImage");
+        fs::write(&fake, b"pas un programme").unwrap();
+        assert!(place_appimage(&fake, &t.path().join("s1")).is_err());
+        let real = t.path().join("Cemu-2.6-x86_64.AppImage");
+        fs::write(&real, b"\x7fELF\x02\x01\x01").unwrap();
+        let staging = t.path().join("s2");
+        place_appimage(&real, &staging).unwrap();
+        let exe = find_appimage(&staging).unwrap();
+        assert!(exe.ends_with("Cemu-2.6-x86_64.AppImage"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(fs::metadata(&exe).unwrap().permissions().mode() & 0o111, 0o111);
+        }
+        assert!(is_appimage("mGBA-0.10.5-appimage-x64.appimage") && !is_appimage("cemu.zip"));
+    }
+
     /// Essai réel (réseau) : `cargo test --lib emulators::install::tests::vrai -- --ignored --nocapture`
     #[test]
     #[ignore]
@@ -574,10 +639,11 @@ mod tests {
         let root = std::env::var("IBOX_EMU_ROOT").map(PathBuf::from).unwrap_or_else(|_| tempfile::tempdir().unwrap().keep());
         let http = download::client().unwrap();
         for id in ids {
-            let pkg = catalog::package(&id).unwrap();
+            // sous Linux : source AppImage (catalog::LINUX)
+            let pkg = catalog::for_this_system(catalog::package(&id).unwrap());
             let started = std::time::Instant::now();
             let mut last = String::new();
-            let r = install(&http, pkg, &root, &AtomicBool::new(false), &mut |s| {
+            let r = install(&http, &pkg, &root, &AtomicBool::new(false), &mut |s| {
                 if let Step::Version(v) = s {
                     last = v;
                 }

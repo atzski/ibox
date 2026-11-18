@@ -31,6 +31,9 @@ import { useGamepad } from "@/input/gamepad";
 import { useSettings } from "@/services/settings";
 import { setFullscreen } from "@/services/native";
 import { sound } from "@/services/sound";
+import { isLinux } from "@/services/platform";
+import { NativeGuestSession } from "@/services/nativeGuest";
+import { useScenePause } from "@/services/scenePause";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : typeof e === "string" ? e : String((e as { message?: string })?.message ?? e));
 const fmt = (v: number | null | undefined, digits = 1, unit = "") => (v === null || v === undefined || Number.isNaN(v) ? "—" : `${v.toFixed(digits)}${unit}`);
@@ -575,7 +578,10 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
   const [leaving, setLeaving] = useState(false);
   const { family } = useGamepad();
   const side = useSettings((st) => st.gamepadConfirm);
-  const session = useRef<GuestSession | null>(null);
+  // Steam Deck (WebKitGTK, sans WebRTC) : invité natif str0m + WebCodecs dans un canvas
+  const native = isLinux();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const session = useRef<GuestSession | NativeGuestSession | null>(null);
   const detach = useRef<(() => void) | null>(null);
   const [stats, setStats] = useState<GuestStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -586,27 +592,58 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
   const play = join.mode === "play";
 
   useEffect(() => {
-    const s = new GuestSession(video.current!, rumble, join.stunServers);
-    session.current = s;
-    let connected = false;
-    s.pc.addEventListener("connectionstatechange", () => {
-      const now = s.pc.connectionState === "connected";
-      if (now !== connected) {
-        connected = now;
+    // la scène 3D s'arrête pendant la session : le fil principal reste au décodage
+    useScenePause.setState({ paused: true });
+    let s: GuestSession | NativeGuestSession;
+    let unmute: (() => void) | null = null;
+    if (native) {
+      const n = new NativeGuestSession(canvas.current!, rumble, join.stunServers);
+      // aucune image 20 s après la réponse : la connexion directe n'a pas abouti
+      const failTimer = window.setTimeout(() => {
+        if (!n.connected) setError("Connexion impossible : un pare-feu ou le routeur de l'un de vous bloque la connexion directe (iBox n'utilise aucun relais).");
+      }, 20_000);
+      n.onConnection = (now) => {
+        if (now) window.clearTimeout(failTimer);
         void onlineApi.guestState(now).catch(() => undefined);
-      }
-      if (s.pc.connectionState === "failed") setError("Connexion impossible : un pare-feu ou le routeur de l'un de vous bloque la connexion directe (iBox n'utilise aucun relais).");
-    });
-    void s
-      .accept(join.offer, 2500, (c) => void onlineApi.candidates([c]).catch(() => undefined))
-      .then((answer) => onlineApi.answer(answer))
-      .catch((e) => setError(errText(e)));
+      };
+      // le son démarre au premier geste (lecture sonore bloquée sans geste)
+      unmute = () => n.unmute();
+      window.addEventListener("pointerdown", unmute, true);
+      window.addEventListener("keydown", unmute, true);
+      void n
+        .accept(join.offer)
+        .then((answer) => onlineApi.answer(answer))
+        .catch((e) => setError(errText(e)));
+      s = n;
+    } else {
+      const w = new GuestSession(video.current!, rumble, join.stunServers);
+      let connected = false;
+      w.pc.addEventListener("connectionstatechange", () => {
+        const now = w.pc.connectionState === "connected";
+        if (now !== connected) {
+          connected = now;
+          void onlineApi.guestState(now).catch(() => undefined);
+        }
+        if (w.pc.connectionState === "failed") setError("Connexion impossible : un pare-feu ou le routeur de l'un de vous bloque la connexion directe (iBox n'utilise aucun relais).");
+      });
+      void w
+        .accept(join.offer, 2500, (c) => void onlineApi.candidates([c]).catch(() => undefined))
+        .then((answer) => onlineApi.answer(answer))
+        .catch((e) => setError(errText(e)));
+      s = w;
+    }
+    session.current = s;
     const timer = window.setInterval(() => void s.stats().then(setStats, () => undefined), 1000);
     // en mode Joueur, la manette de l'invité est envoyée d'office, dès qu'elle apparaît
     const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a), paused: () => menuRef.current }) : null;
     // la souris aussi, sur l'image seulement (l'hôte la refuse si le profil ne la donne pas)
-    const detachMouse = join.mode === "play" && video.current ? attachInputs(s, video.current, { pad: false, keyboard: false }) : null;
+    const detachMouse = join.mode === "play" && video.current && s instanceof GuestSession ? attachInputs(s, video.current, { pad: false, keyboard: false }) : null;
     return () => {
+      useScenePause.setState({ paused: false });
+      if (unmute) {
+        window.removeEventListener("pointerdown", unmute, true);
+        window.removeEventListener("keydown", unmute, true);
+      }
       window.clearInterval(timer);
       detachPad?.();
       detachMouse?.();
@@ -624,7 +661,8 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       setControlling(false);
       return;
     }
-    if (!session.current || !video.current) return;
+    // clavier : invité du WebView seulement pour l'instant (Steam Deck : manette)
+    if (!(session.current instanceof GuestSession) || !video.current) return;
     // manette et souris sont déjà envoyées d'office : seul le clavier (capturé) s'ajoute ici
     detach.current = attachInputs(session.current, video.current, { pad: false, mouse: false });
     setControlling(true);
@@ -778,7 +816,14 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
 
   return createPortal(
     <div data-nav-root className="fixed inset-0 z-[80] overflow-hidden bg-black text-[#F4F4F6]">
+      {native && (
+        <canvas
+          ref={canvas}
+          className={`absolute inset-0 h-full w-full bg-black object-contain transition-[filter,transform] duration-300 ${menu || leaving ? "scale-[0.985] blur-[6px] brightness-[0.45]" : ""}`}
+        />
+      )}
       <video
+        hidden={native}
         ref={video}
         className={`absolute inset-0 h-full w-full bg-black object-contain transition-[filter,transform] duration-300 ${menu || leaving ? "scale-[0.985] blur-[6px] brightness-[0.45]" : ""}`}
         autoPlay

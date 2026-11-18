@@ -8,6 +8,7 @@ import { useLibrary } from "@/services/library";
 import { getArtUrl } from "@/art/covers";
 import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
+import { isTauri } from "@/services/native";
 import { useIsDark } from "@/app/shellState";
 import type { ToastPayload } from "@/services/social";
 
@@ -45,8 +46,11 @@ function useCover(title?: string, platformId?: string, gameId?: string) {
   return url;
 }
 
-/** Fenêtre « toast » : une carte iBox à la fois, en bas à droite de l'écran. */
-export function ToastWindow() {
+/**
+ * Fenêtre « toast » : une carte iBox à la fois, en bas à droite de l'écran.
+ * `inline` : rendue dans la fenêtre principale (Linux / Steam Deck, une seule fenêtre).
+ */
+export function ToastWindow({ inline = false }: { inline?: boolean }) {
   const [queue, setQueue] = useState<(ToastPayload & { key: number })[]>([]);
   const counter = useRef(0);
   const current = queue[0];
@@ -59,24 +63,28 @@ export function ToastWindow() {
   // même thème que la fenêtre principale (réglages partagés)
   const dark = useIsDark();
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-  }, [dark]);
+    if (!inline) document.documentElement.dataset.theme = dark ? "dark" : "light";
+  }, [dark, inline]);
 
   useEffect(() => {
-    document.documentElement.classList.add("ibox-toast-window");
-    void useLibrary.getState().reload().catch(() => undefined);
+    // aperçu navigateur (simulation Steam Deck) : aucune notification native à écouter
+    if (!isTauri()) return;
+    if (!inline) {
+      document.documentElement.classList.add("ibox-toast-window");
+      void useLibrary.getState().reload().catch(() => undefined);
+    }
     void pull();
     const un = listen("toast-push", () => void pull());
     const onVisible = () => document.visibilityState === "visible" && void pull();
     document.addEventListener("visibilitychange", onVisible);
     return () => { void un.then((f) => f()); document.removeEventListener("visibilitychange", onVisible); };
-  }, [pull]);
+  }, [pull, inline]);
 
   const next = useCallback(() => setQueue((q) => q.slice(1)), []);
 
   return (
-    <div className="fixed inset-0 flex items-end justify-end px-5 pt-3 pb-5">
-      <AnimatePresence onExitComplete={() => queue.length === 0 && void invoke("toast_done")}>
+    <div className={inline ? "pointer-events-none fixed right-5 bottom-5 z-[90] flex items-end justify-end [&>*]:pointer-events-auto" : "fixed inset-0 flex items-end justify-end px-5 pt-3 pb-5"}>
+      <AnimatePresence onExitComplete={() => !inline && queue.length === 0 && void invoke("toast_done")}>
         {current && <Toast key={current.key} toast={current} dark={dark} onDone={next} />}
       </AnimatePresence>
     </div>

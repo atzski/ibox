@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { RESUMED } from "./power";
 import { shellApi, type UpdateProgress } from "./shell";
 import { notify } from "./notifications";
 
@@ -80,7 +81,11 @@ export function startUpdateWatch(): () => void {
   };
   window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onFocus);
+  // sortie de veille (Steam Deck) : vérification aussitôt, si la dernière date un peu
+  const onResume = () => Date.now() - lastCheck > ON_FOCUS_MIN_MS && void run();
+  window.addEventListener(RESUMED, onResume);
   return () => {
+    window.removeEventListener(RESUMED, onResume);
     window.clearTimeout(first);
     window.clearInterval(every);
     window.removeEventListener("focus", onFocus);

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { batteryAware, RESUMED } from "./power";
 import { isTauri } from "./native";
 import { useSettings } from "./settings";
 import { notify } from "./notifications";
@@ -367,10 +368,16 @@ export function startRaWatch(isPlaying: () => boolean, onPlayingChange: (fn: (pl
     }
   };
 
+  // toutes les 45 s (90 s sur batterie), et aussitôt à la sortie de veille
   const schedule = () => {
-    window.clearInterval(timer);
-    timer = window.setInterval(() => void tick(), 45_000);
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      void tick();
+      schedule();
+    }, batteryAware(45_000, 90_000));
   };
+  const onResume = () => void tick();
+  window.addEventListener(RESUMED, onResume);
   const off = onPlayingChange((playing) => {
     if (playing) {
       lastPlay = Date.now();
@@ -381,5 +388,5 @@ export function startRaWatch(isPlaying: () => boolean, onPlayingChange: (fn: (pl
     }
   });
   schedule();
-  return () => { window.clearInterval(timer); off(); };
+  return () => { window.clearTimeout(timer); window.removeEventListener(RESUMED, onResume); off(); };
 }

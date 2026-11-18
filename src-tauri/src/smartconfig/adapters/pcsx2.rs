@@ -26,6 +26,7 @@ use crate::smartconfig::disc;
 use crate::smartconfig::ini::Ini;
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::{Path, PathBuf};
 
 pub struct Pcsx2;
@@ -106,6 +107,21 @@ fn decode(key: &str, s: &str) -> Option<Value> {
 }
 
 /// Dossier de données de PCSX2.
+/// Dossier de PCSX2 vérifié (même règle sous Windows et Linux).
+fn checked(root: PathBuf, portable: bool, install: &Install) -> Result<Location, String> {
+    if !root.join("inis").is_dir() {
+        return Err("dossier de configuration de PCSX2 introuvable : lancez PCSX2 une fois, puis réessayez".into());
+    }
+    if let Ok(bytes) = std::fs::read(root.join("inis").join("PCSX2.ini")) {
+        if let Some(dir) = Ini::parse(&bytes).ok().and_then(|i| i.get("Folders", "GameSettings")) {
+            if !dir.eq_ignore_ascii_case("gamesettings") {
+                return Err("dossier des réglages par jeu personnalisé dans PCSX2 : non pris en charge".into());
+            }
+        }
+    }
+    Ok(Location { config_root: root, portable, version: install.version.clone() })
+}
+
 fn data_root(exe_dir: &Path) -> Result<(PathBuf, bool), String> {
     if exe_dir.join("portable.ini").is_file() || exe_dir.join("portable.txt").is_file() {
         let sub = std::fs::read_to_string(exe_dir.join("portable.txt")).unwrap_or_default();
@@ -156,17 +172,7 @@ impl Adapter for Pcsx2 {
     fn locate(&self, install: &Install) -> Result<Location, String> {
         let exe_dir = install.exe.parent().ok_or("emplacement de PCSX2 invalide")?;
         let (root, portable) = data_root(exe_dir)?;
-        if !root.join("inis").is_dir() {
-            return Err("dossier de configuration de PCSX2 introuvable : lancez PCSX2 une fois, puis réessayez".into());
-        }
-        if let Ok(bytes) = std::fs::read(root.join("inis").join("PCSX2.ini")) {
-            if let Some(dir) = Ini::parse(&bytes).ok().and_then(|i| i.get("Folders", "GameSettings")) {
-                if !dir.eq_ignore_ascii_case("gamesettings") {
-                    return Err("dossier des réglages par jeu personnalisé dans PCSX2 : non pris en charge".into());
-                }
-            }
-        }
-        Ok(Location { config_root: root, portable, version: install.version.clone() })
+        checked(root, portable, install)
     }
 
     /// `<SERIAL>_<CRC>` (ou `<CRC>`) calculé depuis l'image ; sinon, le seul
@@ -219,6 +225,19 @@ impl Adapter for Pcsx2 {
         }
     }
 
+    /// pcsx2/Pcsx2Config.cpp (`EmuFolders::SetDataDirectory`) : `portable.ini`/`portable.txt` à côté
+    /// du programme, sinon `$XDG_CONFIG_HOME/PCSX2` ou `~/.config/PCSX2`. Une AppImage tourne depuis
+    /// une image montée : elle n'est jamais portable par ces fichiers.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement de PCSX2 invalide")?;
+        let native = !platform::is_appimage(&install.exe) && platform::flatpak_id(&install.exe).is_none();
+        let (root, portable) = if native && (exe_dir.join("portable.ini").is_file() || exe_dir.join("portable.txt").is_file()) {
+            data_root(exe_dir)?
+        } else {
+            (dirs.for_exe(&install.exe).config_home.join("PCSX2"), false)
+        };
+        checked(root, portable, install)
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("gamesettings");
         let file = dir.join(format!("{key}.ini"));
@@ -234,7 +253,10 @@ impl Adapter for Pcsx2 {
 
     fn builtin_overrides(&self, install: &Install, key: &str) -> Vec<String> {
         let Some(serial) = key.split_once('_').map(|(s, _)| s) else { return Vec::new() };
-        let Some(db) = install.exe.parent().and_then(|d| common::read_db(&d.join("resources").join("GameIndex.yaml"))) else { return Vec::new() };
+        let Some(db) = install.exe.parent().and_then(|d| common::read_db(&d.join("resources").join("GameIndex.yaml"))) else {
+            // Linux (AppImage, Flatpak) : GameIndex.yaml illisible, les réglages qu'il peut fixer sont préservés
+            return if cfg!(windows) { Vec::new() } else { vec!["pcsx2.ee_cyclerate".into(), "pcsx2.deinterlacing".into()] };
+        };
         builtin_for(&db, serial)
     }
 

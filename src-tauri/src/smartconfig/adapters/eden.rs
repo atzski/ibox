@@ -32,6 +32,7 @@ use crate::smartconfig::hardware::HardwareInfo;
 use crate::smartconfig::ini::Ini;
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::PathBuf;
 
 pub struct Eden;
@@ -175,6 +176,21 @@ impl Adapter for Eden {
         valid_title_id(key)
     }
 
+    /// src/common/fs/path_util.cpp : dossier `user` du dossier courant (iBox lance
+    /// l'émulateur depuis son propre dossier), sinon `$XDG_CONFIG_HOME/eden` ou `~/.config/eden`.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement d'Eden invalide")?;
+        let local = exe_dir.join("user");
+        let (config, portable) = if platform::flatpak_id(&install.exe).is_none() && local.is_dir() {
+            (local.join("config"), true)
+        } else {
+            (dirs.for_exe(&install.exe).config_home.join("eden"), false)
+        };
+        if !config.is_dir() {
+            return Err("dossier de configuration d'Eden introuvable : lancez Eden une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: config, portable, version: install.version.clone() })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("custom");
         let file = dir.join(format!("{key}.ini"));

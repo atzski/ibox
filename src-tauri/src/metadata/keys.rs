@@ -6,6 +6,11 @@
 //! itinérants, stratégies de domaine, coffre abîmé). On réessaie alors en
 //! persistance locale, puis, en dernier recours, dans un fichier chiffré par
 //! DPAPI (lisible uniquement par ce compte Windows sur ce PC).
+//!
+//! Linux (Steam Deck) : pas de coffre système fiable en Mode Jeu (le trousseau KWallet n'y est pas
+//! déverrouillé). Les secrets vont dans le dossier de secours, un fichier par clé, **non chiffré**
+//! mais lisible par ce seul utilisateur (droits 0600, dossier 0700), comme Steam et la plupart
+//! des applications Linux. docs/STEAMDECK.md §12 (D4).
 
 use super::{MetaError, Result};
 use std::collections::HashMap;
@@ -18,6 +23,9 @@ static FALLBACK_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 fn init() {
     INIT.call_once(|| {
+        // Linux (Steam Deck) : pas encore de coffre (Secret Service ou fichier chiffré, phase D5
+        // de docs/STEAMDECK.md) ; sans magasin par défaut, l'enregistrement d'une clé échoue proprement.
+        #[cfg(windows)]
         if let Ok(store) = windows_native_keyring_store::Store::new() {
             keyring_core::set_default_store(store);
         }
@@ -102,7 +110,28 @@ mod fallback {
         let path = path(provider).ok_or("dossier de secours inconnu")?;
         let data = dpapi::protect(secret.as_bytes())?;
         if let Some(dir) = path.parent() { std::fs::create_dir_all(dir).map_err(|e| e.to_string())?; }
-        std::fs::write(&path, data).map_err(|e| e.to_string())
+        write_private(&path, &data)
+    }
+
+    /// Écrit le fichier lisible par ce seul utilisateur (Linux : 0600 dès la création, dossier 0700).
+    fn write_private(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+            }
+            let tmp = path.with_extension("tmp");
+            let mut f = std::fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(&tmp).map_err(|e| e.to_string())?;
+            f.write_all(data).map_err(|e| e.to_string())?;
+            f.sync_all().map_err(|e| e.to_string())?;
+            std::fs::rename(&tmp, path).map_err(|e| e.to_string())
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::write(path, data).map_err(|e| e.to_string())
+        }
     }
 
     pub fn read(provider: &str) -> Option<String> {
@@ -141,10 +170,25 @@ mod fallback {
         pub fn unprotect(data: &[u8]) -> Result<Vec<u8>, String> { run(data, false) }
     }
 
+    /// Linux : pas de chiffrement de session comparable à DPAPI ; la protection est celle des
+    /// droits du fichier (`write_private`).
     #[cfg(not(windows))]
     mod dpapi {
-        pub fn protect(_: &[u8]) -> Result<Vec<u8>, String> { Err("indisponible".into()) }
-        pub fn unprotect(_: &[u8]) -> Result<Vec<u8>, String> { Err("indisponible".into()) }
+        pub fn protect(data: &[u8]) -> Result<Vec<u8>, String> { Ok(data.to_vec()) }
+        pub fn unprotect(data: &[u8]) -> Result<Vec<u8>, String> { Ok(data.to_vec()) }
+    }
+
+    #[cfg(all(test, unix))]
+    #[test]
+    fn fichier_prive_sous_linux() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("coffre").join("cle.bin");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        write_private(&path, b"secret").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"secret");
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(std::fs::metadata(path.parent().unwrap()).unwrap().permissions().mode() & 0o777, 0o700);
     }
 
     #[cfg(all(test, windows))]

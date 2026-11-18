@@ -351,12 +351,21 @@ pub async fn inetbox_call(app: AppHandle, action: String, body: Option<Value>, i
 }
 /// Native timer keeps presence alive even when the WebView is minimized.
 pub fn start(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        // toutes les 10 s : messages et activité des amis arrivent vite (présence envoyée au plus toutes les 20 s)
-        std::thread::sleep(Duration::from_secs(10));
-        if ACTIVE.load(Ordering::Relaxed) && now() >= RETRY_AT.load(Ordering::Relaxed) {
-            let _ = perform(&app, "heartbeat", Value::Null, None);
-            pulse(&app);
+    std::thread::spawn(move || {
+        let mut watch = crate::power::SleepWatch::default();
+        loop {
+            // toutes les 10 s (30 s sur batterie) : messages et activité des amis arrivent vite
+            // (présence envoyée au plus toutes les 20 s)
+            let on_battery = crate::power::status().on_battery;
+            std::thread::sleep(crate::power::pulse_interval(on_battery));
+            // sortie de veille (Steam Deck) : l'interface reprend ses veilles, le pouls part aussitôt
+            if watch.check(Duration::from_secs(20)) {
+                let _ = app.emit("system-resumed", ());
+            }
+            if ACTIVE.load(Ordering::Relaxed) && now() >= RETRY_AT.load(Ordering::Relaxed) {
+                let _ = perform(&app, "heartbeat", Value::Null, None);
+                pulse(&app);
+            }
         }
     });
 }
@@ -376,8 +385,8 @@ fn pulse(app: &AppHandle) {
     let Ok(snap) = perform(app, "snapshot", Value::Null, None) else { return };
     let _ = app.emit_to("main", "inetbox-snapshot", &snap);
     for toast in news(&snap) { crate::toast::push(app, toast); }
-    // invitations Remote Play : seulement si la fonction est activée et les demandes acceptées
-    #[cfg(windows)]
+    // invitations Remote Play (aussi sur Steam Deck, invité) : seulement si la fonction est activée
+    // et les demandes acceptées
     crate::remote_play::online::pulse(app);
 }
 fn news(snap: &Value) -> Vec<Value> {

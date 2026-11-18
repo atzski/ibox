@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.104"
+version = "0.1.105"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -29,7 +29,6 @@ crc32fast = "1.5.5"
 imagesize = "0.15.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json", "native-tls", "gzip"] }
 keyring-core = "1.0.1"
-windows-native-keyring-store = "1.1.0"
 tokio = { version = "1", features = ["rt", "time"] }
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
 png = "0.18"
@@ -40,8 +39,13 @@ ed25519-dalek = "3"
 sha2 = "0.11"
 getrandom = "0.3"
 base64 = "0.22"
+# son Remote Play : encodeur Opus en Rust pur (BSD-3-Clause, aucune dépendance, pas de C à compiler)
+opus-rs = "0.1.42"
+# iBox Platforms : archives .7z des émulateurs officiels (Rust pur, Apache-2.0)
+sevenz-rust2 = { version = "0.25", default-features = false, features = ["util"] }
 
 [target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = "1.1.0"
 winreg = "0.56"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Media_MediaFoundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Graphics_Capture", "Foundation", "Graphics", "Graphics_DirectX", "Graphics_DirectX_Direct3D11", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Graphics_Gdi", "Win32_System_Performance", "Win32_System_Variant", "Win32_System_WinRT", "Win32_System_WinRT_Direct3D11", "Win32_System_WinRT_Graphics_Capture", "Win32_UI_WindowsAndMessaging"] }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_Security_Cryptography", "Win32_UI_HiDpi", "Win32_System_RemoteDesktop", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_Networking_WinSock", "Win32_UI_Shell", "Win32_System_Power"] }
@@ -49,12 +53,14 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphic
 vigem-client = { version = "0.1.4", features = ["unstable_xtarget_notification"] }
 # transport P2P Remote Play (MIT/Apache-2.0, sans E/S) ; cryptographie Windows CNG : ni OpenSSL ni AWS-LC à livrer
 str0m = { version = "0.25", default-features = false, features = ["wincrypto"] }
-# son Remote Play : encodeur Opus en Rust pur (BSD-3-Clause, aucune dépendance, pas de C à compiler)
-opus-rs = "0.1.42"
 # `#[implement]` (rappel COM de l'activation du son « sans Discord »), même version que `windows`
 windows-core = "0.62"
-# iBox Platforms : archives .7z des émulateurs officiels (Rust pur, Apache-2.0)
-sevenz-rust2 = { version = "0.25", default-features = false, features = ["util"] }
+
+[target.'cfg(not(windows))'.dependencies]
+# invité Remote Play du Steam Deck : même transport, cryptographie en Rust pur (rien à livrer
+# dans l'AppImage, pas de dépendance à l'OpenSSL du système). docs/STEAMDECK.md §6.3
+str0m = { version = "0.25", default-features = false, features = ["rust-crypto"] }
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1

@@ -48,9 +48,9 @@ pub fn record(line: &str) {
 }
 
 fn mask(text: &str) -> String {
-    match std::env::var("USERPROFILE") {
-        Ok(home) if !home.is_empty() => text.replace(&home, "%USERPROFILE%"),
-        _ => text.to_string(),
+    match crate::paths::home() {
+        Some(home) => text.replace(&*home.to_string_lossy(), if cfg!(windows) { "%USERPROFILE%" } else { "~" }),
+        None => text.to_string(),
     }
 }
 
@@ -79,8 +79,9 @@ mod tests {
 
     #[test]
     fn masque_le_dossier_utilisateur() {
-        if let Ok(home) = std::env::var("USERPROFILE") {
-            assert!(!mask(&format!("{home}\\jeux\\x.iso")).contains(&home));
+        if let Some(home) = crate::paths::home() {
+            let home = home.to_string_lossy().to_string();
+            assert!(!mask(&format!("{home}/jeux/x.iso")).contains(&home));
         }
     }
 }

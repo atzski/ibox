@@ -27,6 +27,7 @@ use super::common::{self, Write};
 use super::{Adapter, Change, Install, KeyContext, Location};
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::UnixDirs;
 use std::path::{Path, PathBuf};
 
 pub struct Ppsspp;
@@ -160,6 +161,15 @@ impl Adapter for Ppsspp {
         disc_id(game.serial.as_deref().unwrap_or_default()).ok_or_else(|| "identifiant PSP (DISC_ID) absent ou dans un format inattendu".into())
     }
 
+    /// Core/Util/PathUtil.cpp (`GetDefaultDesktopMemStickDirectory`) : carte mémoire dans
+    /// `$XDG_CONFIG_HOME/ppsspp` ou `~/.config/ppsspp`.
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let root = dirs.for_exe(&install.exe).config_home.join("ppsspp");
+        if !system_dir(&root).is_dir() {
+            return Err("dossier de configuration de PPSSPP introuvable : lancez PPSSPP une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: root, portable: false, version: install.version.clone() })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = system_dir(&loc.config_root);
         let file = dir.join(format!("{key}_ppsspp.ini"));
@@ -226,6 +236,7 @@ mod tests {
     const EXISTING: &str = "# Game config for ULUS10041 - Jeu\n[CPU]\nFastMemoryAccess = True\n[Graphics]\nInternalResolution = 2\nTextureFiltering = 1\n[ControlMapping]\nCross = 1-52\n";
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn emplacement_et_identifiant() {
         let (_t, inst) = portable();
         let loc = Ppsspp.locate(&inst).unwrap();
@@ -242,6 +253,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn jamais_de_creation_ni_de_manette_touchee() {
         let (_t, inst) = portable();
         let s = [setting("ppsspp.internal_resolution", Value::Int(3))];

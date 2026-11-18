@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.105",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "gamepad", title: "Remote Play plus fluide chez l’invité", text: "Quand vous rejoignez la partie d’un ami, l’étagère 3D d’iBox se met en pause pendant toute la session : l’image de l’hôte a votre ordinateur pour elle seule." },
+      { icon: "power", title: "Plus économe sur batterie", text: "Sur un PC portable débranché, iBox espace ses actualisations (amis, succès, boutiques) et dessine l’étagère 3D sans suréchantillonnage. Tout reprend son rythme dès que vous rebranchez." },
+    ],
+  },
+  {
     version: "0.1.104",
     date: "2026-11-18",
     highlights: [

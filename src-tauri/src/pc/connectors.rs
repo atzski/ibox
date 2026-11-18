@@ -198,11 +198,40 @@ impl Connector for GogConnector {
     }
 }
 
+/// Heroic Games Launcher (Linux, Steam Deck) : jeux Epic, GOG et Amazon installés, lancement par Heroic.
+pub struct HeroicConnector;
+
+impl Connector for HeroicConnector {
+    fn id(&self) -> &'static str {
+        "heroic"
+    }
+    fn name(&self) -> &'static str {
+        "Heroic (Epic, GOG, Amazon)"
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities { detect: true, scan_installed: true, owned_library: false, launch: true }
+    }
+    fn detect(&self) -> (Option<bool>, Option<PathBuf>) {
+        match super::heroic::config_dir() {
+            Some(p) => (Some(true), Some(p)),
+            None => (Some(false), None),
+        }
+    }
+    fn note(&self) -> &'static str {
+        "Jeux Epic, GOG et Amazon installés par Heroic ; lancement par Heroic. Jeux possédés non installés : pas encore lus."
+    }
+}
+
 const SHORTCUTS: &str = "Import des jeux installés disposant d’un raccourci compatible dans le menu Démarrer ou sur le Bureau. Les droits du compte et le catalogue en ligne ne sont pas lus.";
 
 const LATER: &str = "Import des jeux : à étudier (format local à vérifier sur une vraie installation).";
 
 pub fn all() -> Vec<Box<dyn Connector>> {
+    // Linux (Steam Deck) : ajout manuel, Steam et Heroic (Epic, GOG, Amazon) ; les autres
+    // boutiques n'existent que sous Windows (docs/STEAMDECK.md §4.1)
+    if !cfg!(windows) {
+        return vec![Box::new(Manual), Box::new(SteamConnector), Box::new(HeroicConnector)];
+    }
     vec![
         Box::new(Manual),
         Box::new(SteamConnector),
@@ -266,6 +295,7 @@ pub fn source_name(id: &str) -> &'static str {
         "steam" => "Steam",
         "epic" => "Epic Games",
         "gog" => "GOG",
+        "heroic" => "Heroic",
         "ubisoft" => "Ubisoft Connect",
         "ea" => "EA app",
         "xbox" => "Xbox",
@@ -286,12 +316,15 @@ mod tests {
     fn chaque_connecteur_declare_ses_capacites_honnetement() {
         let all = all();
         let ids: Vec<_> = all.iter().map(|c| c.id()).collect();
-        assert!(ids.contains(&"manual") && ids.contains(&"steam") && ids.contains(&"xbox"));
+        assert!(ids.contains(&"manual") && ids.contains(&"steam"));
+        // Windows : toutes les boutiques ; Linux (Steam Deck) : ajout manuel, Steam et Heroic
+        assert_eq!(ids.contains(&"xbox"), cfg!(windows));
+        assert_eq!(ids.contains(&"heroic"), !cfg!(windows));
         for c in &all {
             let caps = c.capabilities();
             if super::super::shortcuts::SOURCES.contains(&c.id()) {
                 assert!(caps.scan_installed && caps.launch && !caps.owned_library);
-            } else if !["manual", "steam", "epic", "gog"].contains(&c.id()) {
+            } else if !["manual", "steam", "epic", "gog", "heroic"].contains(&c.id()) {
                 // tant que l'import n'est pas vérifié, aucune boutique ne prétend lister ou lancer
                 assert!(!caps.scan_installed && !caps.owned_library && !caps.launch, "{}", c.id());
             }

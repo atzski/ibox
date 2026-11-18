@@ -38,6 +38,12 @@ pub fn show_main(app: &AppHandle) {
 
 /// Masque la fenêtre principale (iBox continue dans la zone de notification).
 pub fn hide_main(app: &AppHandle) -> bool {
+    // Mode Jeu : la fenêtre n'est jamais masquée (gamescope met le jeu au premier plan),
+    // mais l'interface se met au repos comme si elle l'était
+    if crate::platform::game_mode() {
+        let _ = app.emit("shell://visibility", false);
+        return true;
+    }
     match app.get_webview_window("main") {
         Some(w) if w.hide().is_ok() => {
             // l'interface se met au repos (musique coupée) tant qu'elle est invisible
@@ -55,6 +61,10 @@ fn show_and_go(app: &AppHandle, place: &str) {
 
 /// Icône de la zone de notification et son menu.
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
+    // Mode Jeu (gamescope) : ni zone de notification, ni fermeture qui masque la fenêtre
+    if crate::platform::game_mode() {
+        return Ok(());
+    }
     let open = MenuItem::with_id(app, "open", "Ouvrir iBox", true, None::<&str>)?;
     let games = MenuItem::with_id(app, "games", "Jeux", true, None::<&str>)?;
     let social = MenuItem::with_id(app, "social", "Social", true, None::<&str>)?;
@@ -150,14 +160,37 @@ pub fn windows_tool(rel: &str) -> std::path::PathBuf {
     root.join(rel)
 }
 
+/// Ouvre une adresse ou un dossier avec l'application par défaut du système
+/// (Explorateur sous Windows, `xdg-open` sous Linux). La cible est passée comme un seul
+/// argument : aucun interpréteur de commandes.
+pub fn open_target(target: impl AsRef<std::ffi::OsStr>) -> Result<(), String> {
+    #[cfg(windows)]
+    let mut cmd = std::process::Command::new(windows_tool("explorer.exe"));
+    #[cfg(not(windows))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Montre un fichier dans le gestionnaire de fichiers (sélectionné sous Windows ;
+/// sous Linux, son dossier est ouvert, faute de sélection standard).
+pub fn reveal(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new(windows_tool("explorer.exe")).arg(format!("/select,{}", path.display())).spawn().map(|_| ()).map_err(|e| e.to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        open_target(path.parent().unwrap_or(path))
+    }
+}
+
 /// Ouvre une page d'aide dans le navigateur par défaut.
 #[tauri::command]
 pub fn open_help_page(url: String) -> Result<(), String> {
     if !HELP_PAGES.contains(&url.as_str()) {
         return Err("Adresse non autorisée.".into());
     }
-    // explorer.exe reçoit l'adresse comme un seul argument (aucun interpréteur de commandes)
-    std::process::Command::new(windows_tool("explorer.exe")).arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    open_target(&url)
 }
 
 // ——— Démarrage avec Windows ———
@@ -225,7 +258,7 @@ pub fn diagnostic_save(app: AppHandle, text: String) -> Result<String, String> {
     let path = dir.join(format!("ibox-diagnostic-{stamp}.txt"));
     std::fs::write(&path, text).map_err(|e| e.to_string())?;
     // chemin construit par iBox (jamais un nom venant de l'extérieur), passé comme un seul argument
-    let _ = std::process::Command::new(windows_tool("explorer.exe")).arg(format!("/select,{}", path.display())).spawn();
+    let _ = reveal(&path);
     Ok(path.display().to_string())
 }
 

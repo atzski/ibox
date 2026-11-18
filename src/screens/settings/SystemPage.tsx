@@ -12,12 +12,15 @@ import { useUpdater } from "@/services/updater";
 import { useLibrary } from "@/services/library";
 import { CLIP_SECONDS_CHOICES } from "@/services/community";
 import { useNotifications } from "@/services/notifications";
+import { usePlatform } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
 
 // ——— Système ———
 
 export function SystemPage() {
   const s = useSettings();
+  const platform = usePlatform();
+  const linux = platform.os === "linux";
   const notifClear = useNotifications((n) => n.clear);
   const notifCount = useNotifications((n) => n.items.length);
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -35,22 +38,32 @@ export function SystemPage() {
           <Toggle checked={s.confirmQuit !== false} onChange={(v) => s.set("confirmQuit", v)} label="Confirmer avant de quitter" />
         </Row>
       </Group>
-      <Group title="Arrière-plan" icon="power">
-        <Row label="S'effacer pendant le jeu" note="La fenêtre se masque au lancement d'un jeu et revient à la fin de la partie">
-          <Toggle checked={s.hideOnLaunch} onChange={(v) => s.set("hideOnLaunch", v)} label="S'effacer pendant le jeu" />
-        </Row>
-        <Row label="Rester en arrière-plan" note="Fermer la fenêtre garde iBox dans la zone de notification (clic droit : Jeux, Social, Quitter)">
-          <Toggle checked={s.keepInTray} onChange={(v) => s.set("keepInTray", v)} label="Rester en arrière-plan" />
-        </Row>
-      </Group>
+      {/* Mode Jeu du Steam Deck : ni zone de notification, ni fenêtre masquée (Steam gère le premier plan) */}
+      {!platform.gameMode && (
+        <Group title="Arrière-plan" icon="power">
+          <Row label="S'effacer pendant le jeu" note="La fenêtre se masque au lancement d'un jeu et revient à la fin de la partie">
+            <Toggle checked={s.hideOnLaunch} onChange={(v) => s.set("hideOnLaunch", v)} label="S'effacer pendant le jeu" />
+          </Row>
+          <Row label="Rester en arrière-plan" note="Fermer la fenêtre garde iBox dans la zone de notification (clic droit : Jeux, Social, Quitter)">
+            <Toggle checked={s.keepInTray} onChange={(v) => s.set("keepInTray", v)} label="Rester en arrière-plan" />
+          </Row>
+        </Group>
+      )}
       <Group title="Démarrage" icon="user">
         <Row label="Demander « Qui joue ? »" note="Choix du profil à chaque ouverture d'iBox">
           <Toggle checked={s.askProfileOnStart} onChange={(v) => s.set("askProfileOnStart", v)} label="Demander qui joue au démarrage" />
         </Row>
-        <Row label="Lancer avec Windows" note="iBox s'allume en arrière-plan à l'ouverture de session, sans fenêtre ni musique, et attend dans la zone de notification">
-          <AutostartToggle />
-        </Row>
-        <Row label="Assistant de configuration" note="Dossiers, émulateurs, clés Steam et SteamGridDB, comportement dans Windows">
+        {!linux && (
+          <Row label="Lancer avec Windows" note="iBox s'allume en arrière-plan à l'ouverture de session, sans fenêtre ni musique, et attend dans la zone de notification">
+            <AutostartToggle />
+          </Row>
+        )}
+        {linux && (
+          <Row label="Ajouter iBox à Steam" note="iBox apparaît dans votre bibliothèque Steam comme jeu non-Steam, avec ses illustrations, lançable depuis le Mode Jeu. Fermez d'abord Steam (Mode Bureau).">
+            <AddToSteamButton />
+          </Row>
+        )}
+        <Row label="Assistant de configuration" note={linux ? "Dossiers, émulateurs, clés Steam et SteamGridDB" : "Dossiers, émulateurs, clés Steam et SteamGridDB, comportement dans Windows"}>
           <Button icon="sparkle" onClick={() => s.set("setupDone", false)}>
             Relancer
           </Button>
@@ -70,7 +83,7 @@ export function SystemPage() {
         <Row label="Notifications" note="Nouveaux jeux, actualisation, images récupérées, erreurs">
           <Toggle checked={s.notificationsEnabled !== false} onChange={(v) => s.set("notificationsEnabled", v)} label="Notifications" />
         </Row>
-        <Row label="Clé RetroAchievements" note="Enregistrez votre clé Web API dans le coffre Windows.">
+        <Row label="Clé RetroAchievements" note={linux ? "Enregistrez votre clé Web API dans le coffre du système." : "Enregistrez votre clé Web API dans le coffre Windows."}>
           <RetroAchievementsKey />
         </Row>
         <Row label="Historique" note={`${notifCount} notification${notifCount > 1 ? "s" : ""} gardée${notifCount > 1 ? "s" : ""}`}>
@@ -79,6 +92,8 @@ export function SystemPage() {
           </Button>
         </Row>
       </Group>
+      {/* Steam Deck : Steam fait déjà captures et enregistrements, et Alt+E n'existe pas sous gamescope */}
+      {!linux && (
       <Group title="Overlay en jeu" icon="gamepad">
         <Row label="Raccourci Alt+E" note="À tout moment, ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie). Désactivez-le si un autre logiciel utilise Alt+E.">
           <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Raccourci Alt+E" />
@@ -117,6 +132,7 @@ export function SystemPage() {
           </>
         )}
       </Group>
+      )}
       <Group title="Sauvegardes de la bibliothèque" icon="database">
         <div className="border-none">
           <BackupsPanel />
@@ -129,7 +145,7 @@ export function SystemPage() {
             <div className="font-display text-[1.4rem] font-semibold text-ink">iBox</div>
             {info && <p className="text-[0.85rem] font-semibold text-ink-soft">{`Version ${info.version}`}</p>}
             <p className="mt-2 text-[0.9rem] text-ink-soft">
-              Retrouvez vos jeux PC et console dans une seule bibliothèque sur Windows.
+              {linux ? "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Steam Deck." : "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Windows."}
             </p>
           </div>
         </div>
@@ -332,4 +348,28 @@ function RetroAchievementsKey() {
     }}>Déconnecter</Button>}
     {result && <span role="status">{result}</span>}
   </div>;
+}
+
+/** Steam Deck : raccourci non-Steam vers l'AppImage d'iBox (`shortcuts.vdf`). */
+function AddToSteamButton() {
+  const [state, setState] = useState<{ busy: boolean; message: string | null; ok: boolean }>({ busy: false, message: null, ok: false });
+  const add = async () => {
+    setState({ busy: true, message: null, ok: false });
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      // illustrations dans la langue d'iBox (sous-titre de la grille et de la capsule)
+      const r = await invoke<{ added: boolean }>("steam_add_ibox", { lang: useSettings.getState().language ?? "fr" });
+      setState({ busy: false, ok: true, message: r.added ? "Ajouté : relancez Steam pour voir iBox dans votre bibliothèque." : "iBox est déjà dans votre bibliothèque Steam : illustrations mises à jour." });
+    } catch (e) {
+      setState({ busy: false, ok: false, message: String(e) });
+    }
+  };
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <Button icon="plus" onClick={() => void add()} disabled={state.busy}>
+        {state.busy ? "Ajout…" : "Ajouter"}
+      </Button>
+      {state.message && <span className={`max-w-[22rem] text-right text-[0.8rem] font-bold ${state.ok ? "text-[#2FA36B]" : "text-[#D14B4B]"}`}>{state.message}</span>}
+    </span>
+  );
 }

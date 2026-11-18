@@ -17,8 +17,15 @@
 # -Publish y dépose donc aussi latest.json seul (il pointe vers l'installeur sur atzski/ibox),
 # pour que ces utilisateurs reçoivent la mise à jour. Les versions suivantes ne lisent que
 # atzski/ibox. -NoBridge désactive ce relais, quand plus personne n'a de version <= 0.1.46.
+#
+# -Linux ajoute la version Steam Deck (AppImage signée, construite dans WSL Ubuntu 22.04 par
+# scripts/linux-build.sh release) et son entrée linux-x86_64 dans le même latest.json.
+# Une fois une version Linux publiée, toutes les suivantes doivent l'inclure : sinon la mise à
+# jour automatique du Deck échoue. Le script refuse donc de construire sans -Linux dans ce cas.
 param(
   [switch]$Publish,
+  [switch]$Linux,
+  [string]$Distro = "Ubuntu-22.04",
   [switch]$NoBridge,
   # saute tsc, vitest et cargo test avant la construction (correctif d'urgence seulement)
   [switch]$SkipTests,
@@ -101,11 +108,46 @@ $updateUrl = "https://github.com/$Repo/releases/latest/download/latest.json"
 $installerUrl = "https://github.com/$Repo/releases/download/$tag/$name"
 $out = Join-Path $root "release\$tag"
 $highlights = Get-Highlights $version
+$linuxName = "iBox_${version}_amd64.AppImage"
+$linuxUrl = "https://github.com/$Repo/releases/download/$tag/$linuxName"
+
+# Construit la version Linux dans WSL ; secrets transmis par l'environnement (WSLENV), jamais
+# en argument. Le script est recopié sans retours chariot (fichier Windows).
+function Build-Linux([string]$dest) {
+  $wsl = (Get-Command wsl.exe -ErrorAction SilentlyContinue).Source
+  if (-not $wsl) { throw "WSL est introuvable : la version Linux se construit dans $Distro (docs/STEAMDECK.md)." }
+  $toWsl = { param($p) "/mnt/" + $p.Substring(0, 1).ToLowerInvariant() + ($p.Substring(2) -replace '\\', '/') }
+  $saved = @{}
+  $vars = "WSLENV", "IBOX_OUT", "IBOX_SRC", "IBOX_SKIP_TESTS", "TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "IBOX_UPDATE_URL", "IBOX_SS_DEVID", "IBOX_SS_DEVPASSWORD"
+  foreach ($var in $vars) { $saved[$var] = [Environment]::GetEnvironmentVariable($var) }
+  try {
+    $env:IBOX_SRC = & $toWsl $root
+    $env:IBOX_OUT = & $toWsl $dest
+    $env:IBOX_SKIP_TESTS = if ($SkipTests) { "1" } else { "0" }
+    $env:TAURI_SIGNING_PRIVATE_KEY = & $toWsl (Resolve-Path -LiteralPath $KeyPath).Path
+    $env:IBOX_UPDATE_URL = $updateUrl
+    $env:WSLENV = "IBOX_SRC/u:IBOX_OUT/u:IBOX_SKIP_TESTS/u:TAURI_SIGNING_PRIVATE_KEY/u:TAURI_SIGNING_PRIVATE_KEY_PASSWORD/u:IBOX_UPDATE_URL/u:IBOX_SS_DEVID/u:IBOX_SS_DEVPASSWORD/u"
+    $script = (& $toWsl "$root\scripts\linux-build.sh")
+    & $wsl -d $Distro -u root -- bash -lc "tr -d '\r' < '$script' > /root/ibox-release.sh && bash /root/ibox-release.sh release"
+    if ($LASTEXITCODE -ne 0) { throw "Échec de la construction Linux (code $LASTEXITCODE). Rien n'est publié." }
+  } finally {
+    foreach ($var in $vars) { [Environment]::SetEnvironmentVariable($var, $saved[$var]) }
+  }
+}
 
 if (-not $Publish) {
   # ——— Construction ———
   if (-not (Test-Path $KeyPath)) { throw "Clé de signature introuvable : $KeyPath" }
   if (git -C $root status --porcelain) { Write-Warning "Des modifications ne sont pas commitées : le code publié sur GitHub doit correspondre à cette version." }
+  if (-not $Linux) {
+    # une version Linux déjà publiée doit être suivie : le Deck lit le même latest.json
+    $current = $null
+    try { $current = Invoke-RestMethod -Uri $updateUrl -Headers @{ "User-Agent" = "ibox-release" } -TimeoutSec 15 }
+    catch { Write-Warning "latest.json en ligne illisible : impossible de vérifier si Linux doit être inclus." }
+    if ($current -and $current.platforms."linux-x86_64") {
+      throw "La version $($current.version) publiée inclut Linux : ajoutez -Linux, sinon la mise à jour du Steam Deck échouera."
+    }
+  }
 
   # ——— Vérifications : une version dont un contrôle échoue n'est jamais construite ———
   if ($SkipTests) {
@@ -181,25 +223,42 @@ if (-not $Publish) {
   if (Test-Path $out) { Remove-Item -LiteralPath $out -Recurse -Force }
   New-Item -ItemType Directory -Force $out | Out-Null
   Copy-Item -LiteralPath $installer, "$installer.sig" -Destination $out
+  $platforms = [ordered]@{ "windows-x86_64" = [ordered]@{ signature = $signature; url = $installerUrl } }
+  $sums = @("$((Get-FileHash -LiteralPath "$out\$name" -Algorithm SHA256).Hash.ToLowerInvariant())  $name")
+  if ($Linux) {
+    Build-Linux $out
+    $appimage = Join-Path $out $linuxName
+    $linuxSig = (Get-Content -LiteralPath "$appimage.sig" -Raw).Trim()
+    if (-not $linuxSig) { throw "La signature de l'AppImage est vide." }
+    Assert-NoLeak @($appimage, "$appimage.sig")
+    $platforms["linux-x86_64"] = [ordered]@{ signature = $linuxSig; url = $linuxUrl }
+    $sums += "$((Get-FileHash -LiteralPath $appimage -Algorithm SHA256).Hash.ToLowerInvariant())  $linuxName"
+  }
 
   $plain = ($highlights | ForEach-Object { "$($_.Title) : $($_.Text)" }) -join "`n"
   $manifest = [ordered]@{
     version = $version
     notes = $plain
     pub_date = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-    platforms = @{ "windows-x86_64" = [ordered]@{ signature = $signature; url = $installerUrl } }
+    platforms = $platforms
   }
   $utf8 = [Text.UTF8Encoding]::new($false)
   [IO.File]::WriteAllText("$out\latest.json", ($manifest | ConvertTo-Json -Depth 5), $utf8)
 
-  $hash = (Get-FileHash -LiteralPath "$out\$name" -Algorithm SHA256).Hash.ToLowerInvariant()
-  [IO.File]::WriteAllText("$out\SHA256SUMS.txt", "$hash  $name`n", $utf8)
+  $hash = $sums[0].Split(" ")[0]
+  [IO.File]::WriteAllText("$out\SHA256SUMS.txt", (($sums -join "`n") + "`n"), $utf8)
 
   $notes = @("## Nouveautés", "") + ($highlights | ForEach-Object { "- **$($_.Title)** : $($_.Text)" }) + @(
     "", "## Installation", "",
     "Téléchargez **$name** ci-dessous (Windows 10 et 11, 64 bits).",
-    "Si iBox est déjà installé, la mise à jour est proposée automatiquement.",
-    "", "Empreinte SHA-256 : ``$hash``")
+    "Si iBox est déjà installé, la mise à jour est proposée automatiquement.")
+  if ($Linux) {
+    # notes de la version Steam Deck : docs/STEAMDECK-NOTES.md (à relire à chaque version Linux)
+    $deckNotes = Get-Content -Raw -Encoding UTF8 "$root\docs\STEAMDECK-NOTES.md"
+    if (-not $deckNotes.Contains("VERSION")) { throw "docs/STEAMDECK-NOTES.md doit citer le fichier iBox_VERSION_amd64.AppImage." }
+    $notes += @("", $deckNotes.Replace("iBox_VERSION_amd64.AppImage", $linuxName).TrimEnd())
+  }
+  $notes += @("", "Empreintes SHA-256 : voir SHA256SUMS.txt (Windows : ``$hash``).")
   [IO.File]::WriteAllText("$out\NOTES.md", ($notes -join "`n"), $utf8)
 
   Assert-NoLeak @(Get-ChildItem -LiteralPath $out -File | ForEach-Object FullName)
@@ -211,6 +270,8 @@ if (-not $Publish) {
 
 # ——— Publication ———
 $files = @("$out\$name", "$out\$name.sig", "$out\latest.json", "$out\SHA256SUMS.txt")
+$withLinux = Test-Path -LiteralPath "$out\$linuxName"
+if ($withLinux) { $files += @("$out\$linuxName", "$out\$linuxName.sig") }
 foreach ($file in $files + "$out\NOTES.md") {
   if (-not (Test-Path -LiteralPath $file)) { throw "Fichier manquant : $file. Lancez d'abord .\scripts\release.ps1" }
 }
@@ -218,8 +279,12 @@ $manifest = Get-Content -Raw -LiteralPath "$out\latest.json" | ConvertFrom-Json
 if ($manifest.version -ne $version -or $manifest.platforms."windows-x86_64".url -ne $installerUrl) {
   throw "latest.json ne correspond pas à la version $version sur $Repo."
 }
-$hash = (Get-FileHash -LiteralPath "$out\$name" -Algorithm SHA256).Hash.ToLowerInvariant()
-if ((Get-Content -Raw "$out\SHA256SUMS.txt") -notmatch "^$hash ") { throw "L'installeur a changé depuis la construction." }
+if ($withLinux -and $manifest.platforms."linux-x86_64".url -ne $linuxUrl) { throw "latest.json n'annonce pas l'AppImage $linuxName." }
+$sumsText = Get-Content -Raw "$out\SHA256SUMS.txt"
+foreach ($file in @($name) + @(if ($withLinux) { $linuxName })) {
+  $hash = (Get-FileHash -LiteralPath "$out\$file" -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($sumsText -notmatch "(?m)^$hash  $([regex]::Escape($file))$") { throw "$file a changé depuis la construction." }
+}
 Assert-NoLeak ($files + "$out\NOTES.md")
 
 $gh = Find-Gh

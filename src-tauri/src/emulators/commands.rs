@@ -84,7 +84,7 @@ pub fn emulators_overview(app: AppHandle, state: State<EmulatorsState>) -> Overv
     Overview {
         root: rs[0].to_string_lossy().to_string(),
         default_root: install::default_root().to_string_lossy().to_string(),
-        packages: catalog::PACKAGES.to_vec(),
+        packages: catalog::PACKAGES.iter().map(catalog::for_this_system).collect(),
         installed: rs.iter().flat_map(|r| install::installed(r)).collect(),
         backups: rs.iter().flat_map(|r| install::backups(r)).collect(),
         jobs: state.jobs.lock().map(|j| j.keys().cloned().collect()).unwrap_or_default(),
@@ -128,12 +128,16 @@ fn register(app: &AppHandle, p: &Package, inst: &Installed) -> Res<i64> {
     })
 }
 
+/// Message de l'installation automatique hors Windows.
+pub const LINUX_INSTALL: &str = "Pas d’installation automatique sur Steam Deck pour cet émulateur. Installez-le avec Discover (Flatpak), EmuDeck ou son AppImage officielle, puis utilisez « Rechercher les émulateurs installés » (Paramètres › PC et émulateurs).";
+
 /// Lance l'installation (ou la mise à jour) en arrière-plan ; la progression arrive par événements.
 #[tauri::command]
 pub async fn emulator_install(app: AppHandle, package_id: String) -> Res<()> {
-    let p = pkg(&package_id)?;
+    // Linux (Steam Deck) : AppImage officielle, quand le dépôt en publie une (catalog::LINUX)
+    let p = catalog::for_this_system(pkg(&package_id)?);
     if !p.automatic {
-        return Err("Cet émulateur s'installe depuis son site officiel.".into());
+        return Err(if cfg!(windows) { "Cet émulateur s'installe depuis son site officiel." } else { LINUX_INSTALL }.into());
     }
     let cancel = Arc::new(AtomicBool::new(false));
     {
@@ -157,7 +161,7 @@ pub async fn emulator_install(app: AppHandle, package_id: String) -> Res<()> {
         let mut version: Option<String> = None;
         let mut stage = Stage::Resolving;
         let result = super::download::client().map_err(InstallError::Failed).and_then(|http| {
-            install::install(&http, p, &root, &cancel, &mut |step| match step {
+            install::install(&http, &p, &root, &cancel, &mut |step| match step {
                 Step::Stage(s) => {
                     stage = s;
                     emit(Progress { version: version.clone(), ..base(stage_name(s)) });
@@ -167,7 +171,7 @@ pub async fn emulator_install(app: AppHandle, package_id: String) -> Res<()> {
             })
         });
         let final_progress = match result {
-            Ok(inst) => match register(&app2, p, &inst) {
+            Ok(inst) => match register(&app2, &p, &inst) {
                 Ok(id) => Progress { version: Some(inst.version.clone()), emulator_id: Some(id), ..base("done") },
                 Err(e) => Progress { message: Some(format!("installé, mais l'enregistrement a échoué : {e}")), ..base("error") },
             },
@@ -191,10 +195,10 @@ pub fn emulator_install_cancel(state: State<EmulatorsState>, package_id: String)
 /// Dernière version officielle (sans rien installer).
 #[tauri::command]
 pub async fn emulator_latest(package_id: String) -> Res<String> {
-    let p = pkg(&package_id)?;
+    let p = catalog::for_this_system(pkg(&package_id)?);
     tauri::async_runtime::spawn_blocking(move || {
         let http = super::download::client()?;
-        super::download::resolve(&http, p).map(|r| r.version)
+        super::download::resolve(&http, &p).map(|r| r.version)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -283,7 +287,7 @@ fn open_in_explorer(dir: &Path) -> Res<()> {
     if !dir.is_dir() {
         return Err("dossier introuvable".into());
     }
-    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(dir).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::shell::open_target(dir)
 }
 
 /// Ouvre un dossier connu : `root`, `backups`, ou celui d'un paquet installé.
@@ -316,7 +320,7 @@ pub fn emulators_open_url(url: String) -> Res<()> {
     if !known || !url.starts_with("https://") {
         return Err("adresse non autorisée".into());
     }
-    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    crate::shell::open_target(&url)
 }
 
 /// Ouvre l'émulateur lui-même (réglages, micrologiciel), sans jeu.

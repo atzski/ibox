@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { usePower } from "./power";
 import type { Game, PlatformId } from "@/domain/types";
 import { DEMO_GAMES } from "@/domain/demoLibrary";
 import { PC_DEMO_GAMES } from "@/domain/pcDemo";
@@ -338,7 +339,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
 });
 
 /** Boutiques dont iBox sait lire les jeux. */
-export const PC_SYNC_SOURCES = ["steam", "epic", "gog", "riot", "rsi", "ea", "battlenet", "rockstar", "ubisoft", "xbox"];
+export const PC_SYNC_SOURCES = ["steam", "epic", "gog", "heroic", "riot", "rsi", "ea", "battlenet", "rockstar", "ubisoft", "xbox"];
 
 // Retour dans iBox (après une installation dans une boutique…) : les boutiques sont relues
 if (typeof window !== "undefined") {
@@ -357,7 +358,10 @@ if (typeof window !== "undefined") {
   // manifestes sont relus toutes les 4 s, et la synchronisation relancée dès qu'un jeu change
   // d'état — « Installer » devient « Jouer » sans rien faire.
   let steamState: string | null = null;
+  let steamTick = 0;
   window.setInterval(() => {
+    // sur batterie (Steam Deck) : toutes les 12 s seulement
+    if (usePower.getState().onBattery && steamTick++ % 3 !== 0) return;
     const s = useLibrary.getState();
     // synchronisation déjà en cours : on réessaie au tour suivant (sinon le changement serait perdu)
     if (!s.native || s.status !== "ready" || s.pcSync.running || useSettings.getState().pcConnectors.steam === false) return;

@@ -81,10 +81,10 @@ pub trait Adapter: Send + Sync {
     /// Liste blanche des paramètres modifiables.
     fn specs(&self) -> &'static [SettingSpec];
     fn locate(&self, install: &Install) -> Result<Location, String>;
-    /// Localisation sous Linux / SteamOS (appelée par `platform::locate`).
-    /// Portage préparé, non implémenté : chaque adaptateur l'écrira d'après le
-    /// code source de son émulateur (installation native, Flatpak, AppImage,
-    /// portable), comme `locate` l'a été pour Windows. Jamais de chemin deviné.
+    /// Localisation sous Linux / SteamOS (appelée par `platform::locate`), écrite
+    /// d'après le code source de chaque émulateur (installation native, Flatpak,
+    /// AppImage, portable), comme `locate` l'a été pour Windows. Jamais de chemin
+    /// deviné : un émulateur sans règle vérifiée refuse.
     fn locate_unix(&self, _install: &Install, _dirs: &super::platform::UnixDirs) -> Result<Location, String> {
         Err(format!("{} : réglages par jeu pas encore pris en charge sous Linux", self.name()))
     }

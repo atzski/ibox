@@ -18,6 +18,7 @@ use crate::smartconfig::hardware::HardwareInfo;
 use crate::smartconfig::ini::Ini;
 use crate::smartconfig::model::{GameQuery, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::{Path, PathBuf};
 
 pub struct Dolphin;
@@ -141,6 +142,21 @@ impl Dolphin {
     }
 }
 
+/// `Sys/GameSettings` livré avec Dolphin (correctifs par jeu) : à côté du programme, ou
+/// sous Linux dans `share/dolphin-emu/Sys` (CMakeLists.txt, `datadir`), Flatpak compris.
+fn sys_game_settings(install: &Install) -> Option<PathBuf> {
+    let exe_dir = install.exe.parent()?;
+    if cfg!(windows) {
+        return Some(exe_dir.join("Sys").join("GameSettings"));
+    }
+    let mut dirs = vec![exe_dir.join("Sys")];
+    if let (Some(id), Some(u)) = (platform::flatpak_id(&install.exe), UnixDirs::from_env(|k| std::env::var(k).ok())) {
+        dirs.extend(u.flatpak_files(&id).into_iter().map(|f| f.join("share/dolphin-emu/Sys")));
+    }
+    dirs.extend([PathBuf::from("/usr/share/dolphin-emu/Sys"), PathBuf::from("/usr/local/share/dolphin-emu/Sys")]);
+    dirs.into_iter().find(|d| d.is_dir()).map(|d| d.join("GameSettings"))
+}
+
 impl Adapter for Dolphin {
     fn id(&self) -> &'static str {
         "dolphin"
@@ -186,6 +202,27 @@ impl Adapter for Dolphin {
         }
     }
 
+    /// Source/Core/UICommon/UICommon.cpp (`SetUserDirectory`) : `portable.txt` à côté du
+    /// programme (dossier `User`), `$DOLPHIN_EMU_USERPATH`, `~/.dolphin-emu` s'il existe (hors
+    /// Flatpak), sinon `$XDG_DATA_HOME/dolphin-emu` (où se trouve `GameSettings`).
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement de Dolphin invalide")?;
+        let version = install.version.clone();
+        let flatpak = platform::flatpak_id(&install.exe).is_some();
+        if !flatpak && exe_dir.join("portable.txt").is_file() {
+            return Ok(Location { config_root: exe_dir.join("User"), portable: true, version });
+        }
+        if !flatpak && std::env::var_os("DOLPHIN_EMU_USERPATH").is_some() {
+            return Err("dossier de Dolphin personnalisé (DOLPHIN_EMU_USERPATH) non pris en charge".into());
+        }
+        let d = dirs.for_exe(&install.exe);
+        let legacy = d.home.join(".dolphin-emu");
+        let root = if !flatpak && legacy.is_dir() { legacy } else { d.data_home.join("dolphin-emu") };
+        if !root.is_dir() {
+            return Err("dossier de configuration de Dolphin introuvable : lancez Dolphin une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: root, portable: false, version })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("GameSettings");
         let file = dir.join(format!("{key}.ini"));
@@ -206,7 +243,10 @@ impl Adapter for Dolphin {
     }
 
     fn builtin_overrides(&self, install: &Install, key: &str) -> Vec<String> {
-        let Some(sys) = install.exe.parent().map(|d| d.join("Sys").join("GameSettings")) else { return Vec::new() };
+        let Some(sys) = sys_game_settings(install) else {
+            // Linux : base des correctifs introuvable, tous les paramètres qu'elle peut fixer sont préservés
+            return if cfg!(windows) { Vec::new() } else { SPECS.iter().filter(|s| slot(s.key).is_some()).map(|s| s.key.to_string()).collect() };
+        };
         let mut names = vec![format!("{key}.ini")];
         if key.len() >= 3 {
             names.insert(0, format!("{}.ini", &key[..3]));

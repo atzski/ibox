@@ -1,4 +1,5 @@
 import { attachAutoJingles } from "@/services/jingles";
+import { attachPower } from "@/services/power";
 import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
 import { attachSocial } from "@/services/social";
 import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
@@ -43,6 +44,7 @@ import { GameScreen } from "@/screens/GameScreen";
 import { SmartConfigFeedback } from "@/components/smartconfig/SmartConfigFeedback";
 import { captures } from "@/services/community";
 import { isTauri } from "@/services/native";
+import { isLinux, usePlatform } from "@/services/platform";
 
 // Écrans secondaires chargés à la demande (préchargés pendant un temps mort, voir
 // `preloadScreens`) : le démarrage ne lit que l'accueil, la bibliothèque et la fiche.
@@ -58,6 +60,9 @@ const SmartConfigScreen = lazy(() => loadSmartConfig().then((m) => ({ default: m
 const PlatformsScreen = lazy(() => loadPlatforms().then((m) => ({ default: m.PlatformsScreen })));
 const PlatformSheet = lazy(() => loadPlatformSheet().then((m) => ({ default: m.PlatformSheet })));
 const AchievementsScreen = lazy(() => loadAchievements().then((m) => ({ default: m.AchievementsScreen })));
+// Linux (Steam Deck) : notifications dans la fenêtre principale, pas dans une fenêtre à part
+const NativeGuestBench = lazy(() => import("@/components/remoteplay/NativeGuestBench").then((m) => ({ default: m.NativeGuestBench })));
+const InlineToasts = lazy(() => import("@/components/social/ToastWindow").then((m) => ({ default: () => <m.ToastWindow inline /> })));
 
 function preloadScreens(): void {
   const run = () => void Promise.all([loadSettings(), loadPlatforms(), loadPlatformSheet(), loadAchievements(), loadCommunity(), loadSmartConfig()]).catch(() => undefined);
@@ -130,6 +135,7 @@ const screenVariants = {
 };
 
 export function App() {
+  const singleWindow = usePlatform((p) => p.os === "linux");
   useEffect(() => attachInetbox(), []);
   useEffect(() => attachSocial(), []);
   useEffect(() => attachRemotePlayOnline(), []);
@@ -154,7 +160,8 @@ export function App() {
     let alive = true;
     void shellApi.visible().then((v) => music.setBackground(v === false), () => undefined);
     void shellApi.onVisibility((v) => music.setBackground(!v)).then((f) => (alive ? (off = f) : f()));
-    if (!import.meta.env.DEV && !useSettings.getState().autostartOffered) {
+    // Linux (Steam Deck) : jamais de démarrage automatique (il lancerait iBox à chaque Mode Bureau)
+    if (!import.meta.env.DEV && !isLinux() && !useSettings.getState().autostartOffered) {
       void shellApi.autostartSet(true).then(() => useSettings.getState().set("autostartOffered", true), () => undefined);
     }
     return () => {
@@ -164,6 +171,8 @@ export function App() {
   }, []);
   // nouvelle version d'iBox : annoncée par une notification (installation dans Paramètres › Système)
   useEffect(() => startUpdateWatch(), []);
+  // batterie et sortie de veille (Steam Deck) : veilles espacées, reprise au réveil
+  useEffect(() => attachPower(), []);
   // succès RetroAchievements débloqués pendant une partie : annoncés en direct
   useEffect(() => startRaWatch(
     () => useLauncher.getState().phase === "running",
@@ -272,7 +281,9 @@ export function App() {
 
   // Plein écran : appliqué au démarrage et à chaque changement ; F11 bascule
   const fullscreen = useSettings((s) => s.fullscreen);
-  useEffect(() => void setFullscreen(fullscreen), [fullscreen]);
+  // aperçu Steam Deck sur PC : fenêtre 1280×800, jamais plein écran
+  const preview = usePlatform((p) => p.preview);
+  useEffect(() => void (preview ? undefined : setFullscreen(fullscreen)), [fullscreen, preview]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "F11") return;
@@ -329,6 +340,16 @@ export function App() {
       <SmartConfigFeedback />
       <RemotePlayLayer />
       <FlightLayer />
+      {singleWindow && (
+        <Suspense fallback={null}>
+          <InlineToasts />
+        </Suspense>
+      )}
+      {preview && (
+        <Suspense fallback={null}>
+          <NativeGuestBench />
+        </Suspense>
+      )}
     </MotionConfig>
   );
 }

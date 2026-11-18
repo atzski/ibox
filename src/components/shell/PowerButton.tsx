@@ -11,6 +11,7 @@ import { sound } from "@/services/sound";
 import { isTauri, quitApp } from "@/services/native";
 import { useSettings } from "@/services/settings";
 import { shellApi } from "@/services/shell";
+import { usePlatform } from "@/services/platform";
 
 /**
  * Bouton « OFF » : éteint iBox après confirmation, avec un court fondu
@@ -93,7 +94,9 @@ const MINIMIZE_FADE_MS = 280;
 export function MinimizeButton() {
   const [phase, setPhase] = useState<"idle" | "out" | "in">("idle");
   const reduced = useReducedMotion();
-  if (!isTauri()) return null;
+  // Mode Jeu du Steam Deck : réduire laisserait iBox invisible (c'est Steam qui gère le premier plan)
+  const gameMode = usePlatform((p) => p.gameMode);
+  if (!isTauri() || gameMode) return null;
 
   const minimize = () => {
     sound.play("back");

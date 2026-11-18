@@ -7,6 +7,7 @@ import { useSettings } from "./services/settings";
 import { defaultLang, startTranslation } from "./i18n";
 import { restorePortableSettings } from "./services/portableBackup";
 import { attachCrashLog } from "./services/crashLog";
+import { loadPlatform } from "./services/platform";
 import { ErrorBoundary, RootFallback } from "./components/shell/ErrorBoundary";
 
 // erreurs non rattrapées de cette fenêtre : notées dans logs/crash.log
@@ -32,6 +33,7 @@ const isIndicator = windowLabel === "remote-play-indicator";
 if (isToast || isOverlay || isIndicator) document.documentElement.classList.add("ibox-transparent-window");
 const root = createRoot(document.getElementById("root")!);
 const initialize = async () => {
+  await loadPlatform();
   if (!isToast && !isOverlay && !isIndicator) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
   const settings = useSettings.getState();
   if (!settings.language) settings.set("language", defaultLang());
@@ -44,7 +46,17 @@ if (isIndicator) {
 } else if (isToast) {
   void initialize().then(() => import("./components/social/ToastWindow")).then(({ ToastWindow }) => root.render(<ToastWindow />));
 } else {
-  void initialize().then(() => Promise.all([import("./app/App"), import("./services/tvMode")])).then(([{ App }]) =>
+  void initialize().then(async () => {
+    const { usePlatform } = await import("./services/platform");
+    if (!usePlatform.getState().bench) return renderApp();
+    // banc d'essai Remote Play de l'aperçu Steam Deck : mesures sans la scène 3D derrière
+    const { NativeGuestBench } = await import("./components/remoteplay/NativeGuestBench");
+    root.render(<NativeGuestBench />);
+  });
+}
+
+function renderApp() {
+  void Promise.all([import("./app/App"), import("./services/tvMode")]).then(([{ App }]) =>
     root.render(
       <StrictMode>
         <ErrorBoundary where="application" fallback={() => <RootFallback />}>

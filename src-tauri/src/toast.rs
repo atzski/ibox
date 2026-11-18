@@ -88,6 +88,11 @@ pub fn push(app: &AppHandle, payload: Value) {
         if q.len() >= 6 { q.pop_front(); }
         q.push_back(payload);
     }
+    if crate::platform::SINGLE_WINDOW {
+        // Linux : la fenêtre principale affiche elle-même les notifications (InlineToasts)
+        let _ = app.emit_to("main", "toast-push", ());
+        return;
+    }
     let app = app.clone();
     // La fenêtre est créée par la boucle d'événements, jamais pendant une commande en cours sur le
     // fil principal : appelé depuis ce fil, run_on_main_thread exécute la tâche sur-le-champ, et

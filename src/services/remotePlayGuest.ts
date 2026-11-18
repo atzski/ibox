@@ -522,8 +522,11 @@ function firstPad(): Gamepad | undefined {
  * dès qu'elle apparaît (branchée en cours de session comprise). `onPad` reçoit son nom, ou `null`
  * tant qu'aucune n'est visible ; `onPadCapture` dit si iBox doit cesser de naviguer avec.
  */
+/** Ce qu'il faut à `attachPad` : la session du WebView ou celle de l'invité natif (Steam Deck). */
+export type InputSink = Pick<GuestSession, "send" | "nextSeq">;
+
 export function attachPad(
-  session: GuestSession,
+  session: InputSink,
   opts: { onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void; paused?: () => boolean } = {},
 ): () => void {
   // lue toutes les 4 ms (fréquence d'échantillonnage de Chromium) et non à chaque image affichée :

@@ -34,10 +34,16 @@ pub fn default_roots(game_folders: &[String]) -> Vec<(PathBuf, usize)> {
     if let Ok(p) = std::env::var("APPDATA") {
         roots.push((PathBuf::from(p), 2));
     }
-    if let Ok(home) = std::env::var("USERPROFILE") {
-        for sub in ["Desktop", "Downloads", "Documents", "Emulation", "Emulators"] {
-            roots.push((PathBuf::from(&home).join(sub), 3));
+    if let Some(home) = crate::paths::home() {
+        for sub in ["Desktop", "Downloads", "Documents", "Emulation", "Emulators", "Applications"] {
+            roots.push((home.join(sub), 3));
         }
+        // Linux : lanceurs des Flatpak installés pour l'utilisateur (Discover, EmuDeck)
+        roots.push((home.join(".local/share/flatpak/exports/bin"), 1));
+    }
+    // Linux : lanceurs des Flatpak installés pour tout le système (Steam Deck : Discover)
+    if !cfg!(windows) {
+        roots.push((PathBuf::from("/var/lib/flatpak/exports/bin"), 1));
     }
     for f in game_folders {
         let p = Path::new(f);
@@ -67,14 +73,15 @@ pub fn scan(roots: &[(PathBuf, usize)], known: &[String]) -> Vec<Suggestion> {
             if started.elapsed() > BUDGET {
                 return found.into_values().collect();
             }
-            if !entry.file_type().is_file() {
+            // lanceurs Flatpak : liens symboliques vers le programme exporté
+            if !entry.file_type().is_file() && !(entry.path_is_symlink() && entry.path().is_file()) {
                 continue;
             }
             let name = entry.file_name().to_string_lossy().to_string();
-            if !name.to_lowercase().ends_with(".exe") {
+            let Some(key_name) = program_name(entry.path(), &name) else {
                 continue;
-            }
-            let profile: &'static Profile = profiles::detect_profile(&name);
+            };
+            let profile: &'static Profile = profiles::detect_profile(key_name);
             if profile.id == "custom" || is_helper(&name) {
                 continue;
             }
@@ -87,6 +94,25 @@ pub fn scan(roots: &[(PathBuf, usize)], known: &[String]) -> Vec<Suggestion> {
         }
     }
     found.into_values().collect()
+}
+
+/// Nom qui sert à reconnaître l'émulateur, ou `None` si le fichier n'est pas un programme :
+/// - Windows : `*.exe` ;
+/// - Linux : `*.AppImage` (« PCSX2-v2.2.AppImage »), ou lanceur Flatpak de `exports/bin`,
+///   reconnu par le dernier segment de son identifiant (« org.DolphinEmu.dolphin-emu » → « dolphin-emu »).
+fn program_name<'a>(path: &Path, name: &'a str) -> Option<&'a str> {
+    let lower = name.to_lowercase();
+    if lower.ends_with(".exe") {
+        return Some(name);
+    }
+    if cfg!(windows) {
+        return None;
+    }
+    if lower.ends_with(".appimage") {
+        return Some(name);
+    }
+    let flatpak = path.parent().is_some_and(|d| d.ends_with("exports/bin"));
+    (flatpak && name.matches('.').count() >= 2).then(|| name.rsplit('.').next().unwrap_or(name))
 }
 
 /// Exécutables annexes qui ne sont pas l'émulateur lui-même.
@@ -114,5 +140,40 @@ mod tests {
         let ids: Vec<&str> = found.iter().map(|s| s.profile_id).collect();
         assert_eq!(ids.len(), 2, "{found:?}");
         assert!(ids.contains(&"dolphin") && ids.contains(&"ppsspp"));
+    }
+
+    #[test]
+    fn noms_de_programme_selon_le_systeme() {
+        let bin = Path::new("/var/lib/flatpak/exports/bin");
+        assert_eq!(program_name(&bin.join("x.exe"), "Dolphin.exe"), Some("Dolphin.exe"));
+        if cfg!(windows) {
+            assert_eq!(program_name(&bin.join("PCSX2.AppImage"), "PCSX2.AppImage"), None);
+        } else {
+            assert_eq!(program_name(Path::new("/home/deck/Applications/PCSX2-v2.2.AppImage"), "PCSX2-v2.2.AppImage"), Some("PCSX2-v2.2.AppImage"));
+            assert_eq!(program_name(&bin.join("org.DolphinEmu.dolphin-emu"), "org.DolphinEmu.dolphin-emu"), Some("dolphin-emu"));
+            assert_eq!(program_name(&bin.join("net.pcsx2.PCSX2"), "net.pcsx2.PCSX2"), Some("PCSX2"));
+            // hors exports/bin, un fichier sans extension n'est pas un émulateur
+            assert_eq!(program_name(Path::new("/home/deck/Games/net.pcsx2.PCSX2"), "net.pcsx2.PCSX2"), None);
+            assert_eq!(program_name(&bin.join("steam"), "steam"), None);
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn trouve_appimage_et_flatpak_sous_linux() {
+        let tmp = tempfile::tempdir().unwrap();
+        let r = tmp.path();
+        let apps = r.join("Applications");
+        let bin = r.join("flatpak/exports/bin");
+        let target = r.join("flatpak/app/net.pcsx2.PCSX2/bin/pcsx2");
+        for d in [&apps, &bin, &target.parent().unwrap().to_path_buf()] {
+            fs::create_dir_all(d).unwrap();
+        }
+        fs::write(apps.join("DuckStation-x64.AppImage"), b"\x7fELF").unwrap();
+        fs::write(&target, b"#!/bin/sh").unwrap();
+        std::os::unix::fs::symlink(&target, bin.join("net.pcsx2.PCSX2")).unwrap();
+        let found = scan(&[(apps, 3), (bin, 1)], &[]);
+        let ids: Vec<&str> = found.iter().map(|s| s.profile_id).collect();
+        assert!(ids.contains(&"duckstation") && ids.contains(&"pcsx2"), "{found:?}");
     }
 }

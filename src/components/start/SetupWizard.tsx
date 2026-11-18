@@ -16,9 +16,10 @@ import { metadataApi } from "@/services/metadata";
 import { HELP, shellApi } from "@/services/shell";
 import { isTauri } from "@/services/native";
 import { sound } from "@/services/sound";
+import { usePlatform } from "@/services/platform";
 
 type StepId = "welcome" | "profile" | "games" | "emulators" | "pc" | "background" | "done";
-const STEPS: { id: StepId; label: string }[] = [
+const ALL_STEPS: { id: StepId; label: string }[] = [
   { id: "welcome", label: "Bienvenue" },
   { id: "profile", label: "Profil" },
   { id: "games", label: "Jeux" },
@@ -35,6 +36,9 @@ const STEPS: { id: StepId; label: string }[] = [
  * ensuite dans les Paramètres ; chaque étape peut être passée.
  */
 export function SetupWizard() {
+  // Linux (Steam Deck) : pas d'étape « iBox et Windows » (ni zone de notification, ni démarrage automatique)
+  const linux = usePlatform((p) => p.os === "linux");
+  const STEPS = linux ? ALL_STEPS.filter((s) => s.id !== "background") : ALL_STEPS;
   const [i, setI] = useState(0);
   const [dir, setDir] = useState(1);
   const step = STEPS[i];
@@ -324,11 +328,16 @@ function KeyCard({
 import { artApi } from "@/services/platformArt";
 
 function PcStep() {
+  const linux = usePlatform((p) => p.os === "linux");
   return (
     <Step
       icon="gamepad"
       title="Vos jeux PC"
-      lead="Les jeux installés de Steam, Epic, GOG, EA, Ubisoft, Xbox et Riot sont trouvés tout seuls. Des clés gratuites ajoutent plus — elles restent dans le coffre de Windows, jamais en clair."
+      lead={
+        linux
+          ? "Les jeux Steam installés sont trouvés tout seuls. Des clés gratuites ajoutent plus."
+          : "Les jeux installés de Steam, Epic, GOG, EA, Ubisoft, Xbox et Riot sont trouvés tout seuls. Des clés gratuites ajoutent plus — elles restent dans le coffre de Windows, jamais en clair."
+      }
     >
       <div className="flex flex-col gap-4">
         <KeyCard

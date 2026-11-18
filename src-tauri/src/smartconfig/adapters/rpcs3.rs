@@ -36,6 +36,7 @@ use super::{Adapter, Change, Install, KeyContext, Location};
 use crate::smartconfig::model::{GameQuery, Mode, Setting, Value};
 use crate::smartconfig::validation::{Kind, Risk, SettingSpec};
 use crate::smartconfig::yaml::Yaml;
+use crate::smartconfig::platform::{self, UnixDirs};
 use std::path::{Path, PathBuf};
 
 pub struct Rpcs3;
@@ -161,6 +162,23 @@ impl Adapter for Rpcs3 {
         title_id(game.serial.as_deref().unwrap_or_default()).ok_or_else(|| "identifiant PS3 (TITLE_ID) absent ou dans un format inattendu : il peut figurer dans le nom du fichier, ex. « (BLUS-30443) »".into())
     }
 
+    /// Utilities/File.cpp (`fs::get_config_dir`) : `<programme>/portable/`, sinon
+    /// `$XDG_CONFIG_HOME/rpcs3` ou `~/.config/rpcs3` ; sous Linux sans sous-dossier `config`
+    /// (`custom_configs`, `GuiConfigs` et `config.yml` à la racine).
+    fn locate_unix(&self, install: &Install, dirs: &UnixDirs) -> Result<Location, String> {
+        let exe_dir = install.exe.parent().ok_or("emplacement de RPCS3 invalide")?;
+        let portable_dir = exe_dir.join("portable");
+        let native = !platform::is_appimage(&install.exe) && platform::flatpak_id(&install.exe).is_none();
+        let (base, portable) = if native && portable_dir.is_dir() {
+            (portable_dir, true)
+        } else {
+            (dirs.for_exe(&install.exe).config_home.join("rpcs3"), false)
+        };
+        if !base.join("config.yml").is_file() {
+            return Err("dossier de configuration de RPCS3 introuvable : lancez RPCS3 une fois, puis réessayez".into());
+        }
+        Ok(Location { config_root: base, portable, version: install.version.clone() })
+    }
     fn target(&self, loc: &Location, key: &str) -> (PathBuf, PathBuf, PathBuf) {
         let dir = loc.config_root.join("custom_configs");
         let file = dir.join(format!("config_{key}.yml"));
@@ -177,7 +195,8 @@ impl Adapter for Rpcs3 {
             }
         }
         if !existed {
-            let base = loc.config_root.parent().ok_or("emplacement de RPCS3 invalide")?;
+            // Windows : `<base>/config` ; Linux : la configuration est à la racine de `<base>`
+            let base = if cfg!(windows) { loc.config_root.parent().ok_or("emplacement de RPCS3 invalide")? } else { loc.config_root.as_path() };
             if in_database(base, key)? {
                 return Err("RPCS3 applique pour ce jeu une configuration de sa propre base ; créer une configuration personnalisée la désactiverait. Créez d'abord la configuration du jeu dans RPCS3 (clic droit › Créer une configuration personnalisée), puis réessayez.".into());
             }
@@ -276,6 +295,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn creation_application_et_lecture() {
         let (_t, inst) = install(true);
         let settings = vec![
@@ -308,6 +328,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn fichier_complet_existant_modifie_sans_rien_perdre() {
         let (_t, inst) = install(true);
         let loc = Rpcs3.locate(&inst).unwrap();
@@ -323,6 +344,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(windows), ignore = "disposition portable propre à Windows ; Linux : smartconfig::platform::tests")]
     fn base_de_configurations_et_fichier_prioritaire_preserves() {
         let (t, inst) = install(true);
         let base = inst.exe.parent().unwrap().join("portable");

@@ -14,6 +14,7 @@ import { relativeDay } from "@/domain/text";
 import { captures, community, formatBytes, useCaptureUrl, type LocalCapture, type ReactionKey, type SharedCapture } from "@/services/community";
 import { useInetbox } from "@/services/inetbox";
 import { isTauri } from "@/services/native";
+import { isLinux } from "@/services/platform";
 import { sound } from "@/services/sound";
 
 type Tab = "feed" | "mine";
@@ -232,7 +233,7 @@ function Mine() {
         <Button icon="folder" onClick={() => void captures.folder()}>Ouvrir le dossier</Button>
       </div>
       {items.length === 0 ? (
-        <Empty icon="front" title="Aucune capture pour l’instant" body="Appuyez sur Alt+E au bon moment, en jeu ou non." />
+        <Empty icon="front" title="Aucune capture pour l’instant" body={isLinux() ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : "Appuyez sur Alt+E au bon moment, en jeu ou non."} />
       ) : (
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4" data-nav-group="community-mine">
           {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); picked.current = new Map(); }} />)}
