@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.100",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Des collections sans jaquettes", text: "Un nouveau style de carte, « Sans jaquettes », masque les boîtes de jeux pour ne garder que votre fond, votre logo et votre nom." },
+    ],
+  },
+  {
     version: "0.1.99",
     date: "2026-11-18",
     highlights: [

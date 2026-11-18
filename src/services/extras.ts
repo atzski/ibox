@@ -60,7 +60,7 @@ export interface CollectionStyle {
   gameOrder?: number[];
   logoGameId?: number;
   heroGameId?: number;
-  look?: "fan" | "hero" | "grid";
+  look?: "fan" | "hero" | "grid" | "plain";
   /** Image choisie dans une recherche iiDB / SteamGridDB (date d'enregistrement). */
   logoStamp?: number;
   /** Icône de licence iiDB : la carte n'affiche plus qu'elle. */

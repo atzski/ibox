@@ -1140,6 +1140,7 @@ export const EN: Record<string, string> = {
   "Éventail": "Fan",
   "Grande image": "Big picture",
   "Mosaïque": "Mosaic",
+  "Sans jaquettes": "No covers",
   "Image de fond": "Background image",
   "Automatique": "Automatic",
   "Couleur libre": "Custom color",
@@ -3409,4 +3410,7 @@ export const EN: Record<string, string> = {
   // ——— 0.1.99 : stickers GIPHY en continu ———
   "Bien plus de stickers": "Many more stickers",
   "La recherche de stickers affiche maintenant des dizaines de résultats d’un coup dans des cases compactes, et en charge d’autres à mesure que vous faites défiler.": "Sticker search now shows dozens of results at once in compact tiles, and loads more as you scroll.",
+  // ——— 0.1.100 : collections sans jaquettes ———
+  "Des collections sans jaquettes": "Collections without covers",
+  "Un nouveau style de carte, « Sans jaquettes », masque les boîtes de jeux pour ne garder que votre fond, votre logo et votre nom.": "A new card style, “No covers”, hides the game boxes and keeps only your background, logo and name.",
 };

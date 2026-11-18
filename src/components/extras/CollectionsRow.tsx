@@ -402,7 +402,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
         {heroUrl ? (
           // fond choisi : toujours affiché, quel que soit le style de carte
           <img src={heroUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-        ) : look !== "grid" && (hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
+        ) : look !== "grid" && look !== "plain" && (hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
         <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
@@ -566,9 +566,9 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
         {!style.iconStamp && !images.icon && (
           <>
             <EditorSection label="Style de la carte">
-              {(["fan", "hero", "grid"] as const).map((k) => (
+              {(["fan", "hero", "grid", "plain"] as const).map((k) => (
                 <Chip key={k} active={(style.look ?? "fan") === k} onClick={() => setLocalStyle({ ...style, look: k })}>
-                  {k === "fan" ? "Éventail" : k === "hero" ? "Grande image" : "Mosaïque"}
+                  {k === "fan" ? "Éventail" : k === "hero" ? "Grande image" : k === "grid" ? "Mosaïque" : "Sans jaquettes"}
                 </Chip>
               ))}
             </EditorSection>
