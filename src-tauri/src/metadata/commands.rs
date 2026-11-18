@@ -362,17 +362,39 @@ pub fn metadata_status(lib: State<LibraryState>, meta: State<MetadataState>) -> 
 #[tauri::command]
 pub async fn provider_key_set(app: AppHandle, provider: String, key: String) -> Res<()> {
     let key = key.trim().to_string();
-    if provider != steamgriddb::PROVIDER {
-        return Err(format!("Source inconnue : {provider}"));
-    }
+    let name = match provider.as_str() {
+        steamgriddb::PROVIDER => "SteamGridDB",
+        super::giphy::PROVIDER => "GIPHY",
+        _ => return Err(format!("Source inconnue : {provider}")),
+    };
     if key.len() < 16 || key.len() > 128 || !key.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return Err("Cette clé ne ressemble pas à une clé SteamGridDB.".into());
+        return Err(format!("Cette clé ne ressemble pas à une clé {name}."));
     }
     blocking(&app, move |_, st| {
-        steamgriddb::verify(&st.http, &key)?;
-        keys::set(steamgriddb::PROVIDER, &key)
+        if provider == super::giphy::PROVIDER {
+            super::giphy::verify(&st.http, &key)?;
+            keys::set(super::giphy::PROVIDER, &key)
+        } else {
+            steamgriddb::verify(&st.http, &key)?;
+            keys::set(steamgriddb::PROVIDER, &key)
+        }
     })
     .await
+}
+
+/// Une clé GIPHY est-elle enregistrée ? (la clé elle-même n'est jamais renvoyée)
+#[tauri::command]
+pub fn giphy_key_status() -> bool {
+    keys::has(super::giphy::PROVIDER)
+}
+
+/// Stickers GIPHY (GIF animés détourés) pour une décoration de l'accueil.
+#[tauri::command]
+pub async fn decor_giphy_search(app: AppHandle, q: String) -> Res<Vec<super::giphy::Sticker>> {
+    if q.trim().is_empty() || q.len() > 80 {
+        return Ok(Vec::new());
+    }
+    blocking(&app, move |_, st| super::giphy::search(&st.http, &q)).await
 }
 
 #[tauri::command]

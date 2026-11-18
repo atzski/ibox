@@ -11,6 +11,7 @@
 
 pub mod commands;
 pub mod gametdb;
+pub mod giphy;
 pub mod http;
 pub mod job;
 pub mod keys;

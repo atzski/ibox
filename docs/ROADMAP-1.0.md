@@ -9,10 +9,10 @@ quotidien, avec un vrai réseau d'amis. Quatre phases, chacune livrable seule.
 |---|---|---|
 | Démarrage avec Windows | Option (désactivée par défaut) : iBox démarre discrètement dans la zone de notification. | Fait |
 | Rapport de problème | Paramètres › Système : un fichier de diagnostic (version, Windows, bibliothèque, émulateurs, erreurs récentes) créé localement, jamais envoyé tout seul ; aucune clé ni mot de passe dedans. | Fait |
-| Mises à jour | Vérification au démarrage et à la demande, téléchargement et installation signés (clé de signature hors du projet). Activées dès qu'une adresse de publication existe. | Fait (en attente de l'adresse) |
+| Mises à jour | Vérification au démarrage et à la demande, téléchargement et installation signés (clé de signature hors du projet). Activées dès qu'une adresse de publication existe. | Fait (GitHub Releases, atzski/ibox) |
 | Stabilité | Bibliothèque vide, hors connexion, gros volumes, PC sans émulateurs ni Steam. | Fait (18/11/2026, voir « Audit avant 1.0 ») |
 | Signature du programme | Certificat de signature de code (SmartScreen « éditeur inconnu »). | **Décision : achat d'un certificat** |
-| Hébergement des mises à jour | GitHub Releases (gratuit) ou serveur iBox. | **Décision : où publier** |
+| Hébergement des mises à jour | GitHub Releases (gratuit) ou serveur iBox. | Fait : GitHub Releases, relais `latest.json` sur atzski/inbox-releases |
 
 ## Phase 2 — Le quotidien (faite)
 
@@ -42,8 +42,11 @@ déployées (serveur 0.2 en ligne le 13/11/2026).
 Fait : mentions légales et confidentialité (Paramètres › Système › À propos, et `site/confidentialite.html`
 généré par `node scripts/build-site-legal.mjs`), « Quoi de neuf » (`src/content/changelog.ts`, à compléter
 à chaque version), page de téléchargement `site/` (lien à renseigner à la publication).
-Reste : traduction anglaise complète (chantier dédié : toute l'interface, puis choix de langue) ;
-hébergement du site (GitHub Pages, par exemple).
+Fait aussi : traduction anglaise complète (0.1.92) ; site refait le 18/11/2026 (`site/` : français `index.html`, anglais
+`en.html`, captures réelles, bouton vers le dernier installeur, `confidentialite.html` / `privacy.html` générés depuis
+`src/content/legal.ts`, mentions légales mises à jour : iNetbox, Remote Play, manuels, SmartConfig, Platforms).
+Site en ligne depuis le 18/11/2026 : https://atzski.github.io/ibox/ (GitHub Pages, branche `gh-pages` de atzski/ibox,
+qui ne contient que `site/`).
 
 - Page de téléchargement (captures, consoles prises en charge).
 - Anglais en plus du français.

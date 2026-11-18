@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.98",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Des stickers de jeux mignons", text: "Les décorations puisent maintenant dans les stickers animés de GIPHY : Kirby, Sonic, Pac-Man, Yoshi… détourés et tout public. Une clé GIPHY gratuite suffit, collée une seule fois." },
+      { icon: "grid", title: "Des décorations bien dosées", text: "Une décoration n’occupe plus toute sa case : elle reste une petite incrustation, et sa taille se règle (petite, moyenne ou grande)." },
+    ],
+  },
+  {
     version: "0.1.97",
     date: "2026-11-18",
     highlights: [

@@ -1029,8 +1029,14 @@ function GamesEditor({ collection, onClose }: { collection: Collection; onClose:
 }
 
 /** Décoration de l'accueil : une image ou un GIF seul, détouré, sans cadre. */
-function DecorCard({ collection: c, onEdit, preview, fill }: { collection: Collection; onEdit?: () => void; preview?: string | null; fill?: boolean }) {
+/** Place occupée par l'image dans sa case : une incrustation discrète, jamais envahissante. */
+const DECOR_SCALE = { s: 0.5, m: 0.68, l: 0.86 } as const;
+type DecorSize = keyof typeof DECOR_SCALE;
+
+function DecorCard({ collection: c, onEdit, preview, fill, size }: { collection: Collection; onEdit?: () => void; preview?: string | null; fill?: boolean; size?: DecorSize }) {
   const stamp = useCollectionStyles((st) => st.styles[c.id]?.iconStamp);
+  const savedSize = useCollectionStyles((st) => st.styles[c.id]?.decorSize);
+  const scale = `${DECOR_SCALE[size ?? savedSize ?? "m"] * 100}%`;
   const saved = useCollectionArt(c.id, "icon", preview === undefined ? stamp : undefined);
   const url = preview === undefined ? saved : preview;
   const [pixel, setPixel] = useState(false);
@@ -1046,7 +1052,7 @@ function DecorCard({ collection: c, onEdit, preview, fill }: { collection: Colle
         whileTap={{ scale: 0.9, rotate: -4 }}
         onClick={() => live && sound.play("select")}
         onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
-        className={`group ibox-focusable relative grid ${fill ? "size-full" : "size-[12.5rem]"} place-items-center [--ring-radius:1.6rem]`}
+        className={`group ibox-focusable relative flex ${fill ? "size-full" : "size-[12.5rem]"} items-center justify-center [--ring-radius:1.6rem]`}
       >
         {url ? (
           <img
@@ -1055,8 +1061,8 @@ function DecorCard({ collection: c, onEdit, preview, fill }: { collection: Colle
             draggable={false}
             // petit sprite (pixel art) : agrandi net, sans flou
             onLoad={(e) => setPixel(Math.max(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) <= 160)}
-            style={pixel ? { imageRendering: "pixelated" } : undefined}
-            className={`object-contain drop-shadow-[0_10px_14px_rgba(10,20,40,0.3)] transition-transform duration-500 group-hover:scale-105 ${pixel ? "size-[78%]" : "size-full"}`}
+            style={{ width: scale, height: scale, imageRendering: pixel ? "pixelated" : undefined }}
+            className="object-contain drop-shadow-[0_8px_12px_rgba(10,20,40,0.28)] transition-[scale] duration-300 group-hover:scale-105"
           />
         ) : (
           <span className="grid size-full place-items-center rounded-[1.6rem] border-2 border-dashed border-ink/20 text-ink-soft"><Icon name="sparkle" size="2.4rem" /></span>
@@ -1133,26 +1139,54 @@ function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
   );
 }
 
-/** Icônes et logos transparents de n'importe quel jeu (SteamGridDB, animés compris). */
-function GameArtPicker({ onPicked }: { onPicked: (url: string, thumb: string) => void }) {
+/** Recherches proposées : des personnages de jeux qui rendent bien en sticker. */
+const GIPHY_IDEAS = ["Kirby", "Mario", "Yoshi", "Sonic", "Pac-Man", "Link Zelda", "Pikachu", "Donkey Kong", "Mega Man", "Minecraft", "Among Us", "Pixel art"];
+
+/** Stickers GIPHY : GIF animés détourés, tout public, avec la clé gratuite du joueur. */
+function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [key, setKey] = useState("");
   const [q, setQ] = useState("");
-  const [found, setFound] = useState<{ id: number; name: string }[] | null>(null);
-  const [pics, setPics] = useState<Pic[] | null>(null);
+  const [found, setFound] = useState<{ url: string; thumb: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { invoke<boolean>("giphy_key_status").then(setHasKey, () => setHasKey(false)); }, []);
   const run = async (f: () => Promise<void>) => {
     setBusy(true);
     setError(null);
     try { await f(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
   };
-  const search = () => {
-    if (busy || q.trim().length < 2) return;
-    void run(async () => {
-      setPics(null);
-      setFound(await invoke<{ id: number; name: string }[]>("avatar_steam_search", { query: q }));
-    });
+  const search = (text: string) => {
+    if (busy || !text.trim()) return;
+    setQ(text);
+    void run(async () => setFound(await invoke<{ url: string; thumb: string }[]>("decor_giphy_search", { q: text })));
   };
-  const open = (id: number) => run(async () => setPics(await invoke<Pic[]>("collection_sgdb_images", { id, kind: "decor" })));
+  const saveKey = () => run(async () => {
+    await invoke("provider_key_set", { provider: "giphy", key });
+    setKey("");
+    setHasKey(true);
+    sound.play("select");
+  });
+  if (hasKey === null) return <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>;
+  if (!hasKey) return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.85rem] font-semibold text-ink">Une clé GIPHY gratuite suffit, une seule fois.</p>
+      <p className="text-[0.8rem] text-ink-soft">Sur developers.giphy.com : connectez-vous, « Create an API Key », choisissez « API », puis collez la clé ici.</p>
+      <div className="flex gap-2">
+        <input
+          data-focusable
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveKey(); } }}
+          placeholder="Clé API GIPHY"
+          aria-label="Clé API GIPHY"
+          className="ibox-focusable h-10 min-w-0 flex-1 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]"
+        />
+        <Button type="button" icon="key" disabled={busy || key.trim().length < 16} onClick={() => void saveKey()}>Enregistrer</Button>
+      </div>
+      {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}</p>}
+    </div>
+  );
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
@@ -1160,37 +1194,29 @@ function GameArtPicker({ onPicked }: { onPicked: (url: string, thumb: string) =>
           data-focusable
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); search(); } }}
-          placeholder="Jeu (ex. Kirby, Hollow Knight, Sonic)"
-          aria-label="Chercher un jeu"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); search(q); } }}
+          placeholder="Personnage ou jeu (ex. Kirby, Sonic, Pac-Man)"
+          aria-label="Chercher un sticker"
           className="ibox-focusable h-10 min-w-0 flex-1 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]"
         />
-        <Button type="button" icon="search" disabled={busy || q.trim().length < 2} onClick={search}>Chercher</Button>
+        <Button type="button" icon="search" disabled={busy || !q.trim()} onClick={() => search(q)}>Chercher</Button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {GIPHY_IDEAS.map((idea) => <Chip key={idea} active={q === idea} onClick={() => search(idea)}><span data-no-i18n>{idea}</span></Chip>)}
       </div>
       {busy && <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>}
-      {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}{" "}<span>Clé SteamGridDB : Paramètres › Images et données.</span></p>}
-      {found && !pics && (
-        <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
-          {found.length === 0 && <p className="text-[0.85rem] text-ink-soft">Aucun résultat.</p>}
-          {found.map((f) => <Chip key={f.id} active={false} onClick={() => void open(f.id)}><span data-no-i18n>{f.name}</span></Chip>)}
+      {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}</p>}
+      {found && (found.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucun sticker trouvé.</p> : (
+        <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto p-0.5">
+          {found.map((st) => (
+            <button key={st.url} type="button" data-focusable aria-label="Utiliser ce sticker" onClick={() => { sound.play("select"); onPicked(st.url); }}
+              className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-[#2b3445] p-1.5 [--ring-radius:0.75rem]">
+              <img src={st.thumb} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+            </button>
+          ))}
         </div>
-      )}
-      {pics && (
-        <div>
-          <button type="button" data-focusable onClick={() => setPics(null)} className="ibox-focusable mb-1.5 text-[0.8rem] font-bold text-accent-text">← Résultats</button>
-          {pics.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucune icône ni aucun logo pour ce jeu.</p> : (
-            <div className="grid max-h-60 grid-cols-4 gap-2 overflow-y-auto p-0.5">
-              {pics.map((p) => (
-                <button key={p.url} type="button" data-focusable aria-label="Utiliser cette image" onClick={() => { sound.play("select"); onPicked(p.url, p.thumb); }}
-                  className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-[#2b3445] p-2 [--ring-radius:0.75rem]">
-                  <img src={p.thumb} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <p className="text-[0.75rem] text-ink-soft">Icônes de personnages et logos transparents de SteamGridDB, animés compris.</p>
+      ))}
+      <p className="text-right text-[0.72rem] font-extrabold tracking-wide text-ink-soft" data-no-i18n>Powered by GIPHY</p>
     </div>
   );
 }
@@ -1201,7 +1227,8 @@ type DecorPick = { kind: "url"; url: string; thumb: string } | { kind: "file"; f
 function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: () => void }) {
   const { create, remove, list } = useCollections();
   const setStyle = useCollectionStyles((s) => s.setStyle);
-  const [source, setSource] = useState<"pokemon" | "games" | "iidb" | "file">("pokemon");
+  const [source, setSource] = useState<"pokemon" | "giphy" | "iidb" | "file">("pokemon");
+  const [size, setSize] = useState<DecorSize>((decor && useCollectionStyles.getState().styles[decor.id]?.decorSize) || "m");
   const [pick, setPick] = useState<DecorPick | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1210,7 +1237,11 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
   useEffect(() => () => { if (pick?.kind === "file") URL.revokeObjectURL(pick.thumb); }, [pick]);
   const preview = pick?.thumb ?? (decor ? undefined : null);
   const save = async () => {
-    if (!pick && decor) return onClose();
+    if (!pick && decor) {
+      setStyle(decor.id, { ...useCollectionStyles.getState().styles[decor.id], decorSize: size });
+      sound.play("select");
+      return onClose();
+    }
     if (!pick) return;
     setSaving(true);
     setError(null);
@@ -1219,7 +1250,7 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
       const id = decor?.id ?? (created = await create("Décoration", COLLECTION_COLORS[list.length % COLLECTION_COLORS.length]));
       if (pick.kind === "url") await invoke("collection_art_set", { id, kind: "icon", url: pick.url });
       else await invoke("collection_art_import", new Uint8Array(await pick.file.arrayBuffer()), { headers: { "x-id": String(id), "x-kind": "icon" } });
-      setStyle(id, { ...useCollectionStyles.getState().styles[id], decor: true, iconStamp: Date.now() });
+      setStyle(id, { ...useCollectionStyles.getState().styles[id], decor: true, iconStamp: Date.now(), decorSize: size });
       sound.play("select");
       onClose();
     } catch (err) {
@@ -1233,17 +1264,23 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
       <div className="flex flex-col gap-4">
         <div className="grid justify-items-center rounded-2xl bg-cream-deep p-3">
           <div inert className="group/collection relative">
-            <DecorCard collection={decor ?? { id: 0, name: "Décoration", color: COLLECTION_COLORS[0], gameIds: [] }} preview={preview} />
+            <DecorCard collection={decor ?? { id: 0, name: "Décoration", color: COLLECTION_COLORS[0], gameIds: [] }} preview={preview} size={size} />
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[0.72rem] font-bold tracking-[0.12em] text-ink-soft uppercase">Taille</span>
+          {(["s", "m", "l"] as const).map((k) => (
+            <Chip key={k} active={size === k} onClick={() => setSize(k)}>{k === "s" ? "Petite" : k === "m" ? "Moyenne" : "Grande"}</Chip>
+          ))}
+        </div>
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Source de l'image">
-          {([["pokemon", "Pokémon"], ["games", "Jeux vidéo (SteamGridDB)"], ["iidb", "Icônes iiDB"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
+          {([["pokemon", "Pokémon"], ["giphy", "Stickers de jeux (GIPHY)"], ["iidb", "Icônes iiDB"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
             <Chip key={k} active={source === k} onClick={() => setSource(k)}>{label}</Chip>
           ))}
         </div>
         {source === "iidb" && <IconSearch onPicked={(p) => setPick({ kind: "url", url: p.url, thumb: p.thumb })} />}
         {source === "pokemon" && <div className="rounded-2xl bg-cream-deep/60 p-3"><PokemonPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
-        {source === "games" && <div className="rounded-2xl bg-cream-deep/60 p-3"><GameArtPicker onPicked={(url, thumb) => setPick({ kind: "url", url, thumb })} /></div>}
+        {source === "giphy" && <div className="rounded-2xl bg-cream-deep/60 p-3"><GiphyPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
         {source === "file" && (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-cream-deep/60 p-3">
             <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {

@@ -70,6 +70,8 @@ export interface CollectionStyle {
   shade?: "light" | "medium" | "strong";
   /** Décoration : une image ou un GIF seul (icône iiDB, Pokémon animé, fichier du PC), sans jeux. */
   decor?: boolean;
+  /** Taille de l'image d'une décoration dans sa case (moyenne par défaut). */
+  decorSize?: "s" | "m" | "l";
   /** Case choisie dans la grille de l'accueil (lecture de gauche à droite, ligne après ligne). */
   slot?: number;
 }

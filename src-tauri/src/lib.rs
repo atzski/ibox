@@ -282,6 +282,8 @@ pub fn run() {
             assets::commands::collection_sgdb_images,
             assets::commands::collection_art_set,
             assets::commands::collection_art_import,
+            metadata::commands::giphy_key_status,
+            metadata::commands::decor_giphy_search,
             assets::commands::collection_art_get,
             assets::commands::image_fetch,
             assets::commands::collection_art_clear,

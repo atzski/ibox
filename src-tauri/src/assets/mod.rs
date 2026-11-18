@@ -725,7 +725,7 @@ pub mod commands {
         // rendus Pokémon HOME et illustrations officielles (dépôt PokeAPI/sprites) : seulement ce dossier
         let pokeapi = reqwest::Url::parse(&url).ok()
             .is_some_and(|u| u.host_str() == Some("raw.githubusercontent.com") && u.path().starts_with("/PokeAPI/sprites/"));
-        if !host_ok && !pokeapi { return Err("Adresse d'image refusée.".into()); }
+        if !host_ok && !pokeapi && !crate::metadata::giphy::giphy_host(&url) { return Err("Adresse d'image refusée.".into()); }
         let http = app.state::<MetadataState>().http.clone();
         run(move || {
             let u = crate::metadata::commands::check_image_link(&url).map_err(|e| e.to_string())?;

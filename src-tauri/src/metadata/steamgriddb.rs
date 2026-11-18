@@ -215,22 +215,6 @@ pub fn avatar_images(http: &Http, id: u64) -> Result<Vec<Image>> {
 /// Fonds (« heroes ») et logos d'un jeu SteamGridDB, pour personnaliser une collection.
 pub fn collection_images(http: &Http, id: u64, kind: &str) -> Result<Vec<Image>> {
     let key = key()?;
-    if kind == "decor" {
-        // décorations : icônes (souvent un personnage) puis logos, transparents, animés compris
-        let mut out = Vec::new();
-        for path in [
-            format!("/icons/game/{id}?types=static,animated&nsfw=false&humor=false"),
-            format!("/logos/game/{id}?types=static,animated&nsfw=false&humor=false"),
-        ] {
-            match call::<Vec<Image>>(http, &key, &path) {
-                Ok(images) => out.extend(images.into_iter().filter(|i| avatar_host(&i.url) && avatar_host(&i.thumb) && decor_format(&i.url))),
-                Err(MetaError::Http { status: 404, .. }) => {}
-                Err(e) => return Err(e),
-            }
-        }
-        out.truncate(48);
-        return Ok(out);
-    }
     let path = match kind {
         "logo" => format!("/logos/game/{id}?types=static&nsfw=false&humor=false"),
         _ => format!("/heroes/game/{id}?types=static&nsfw=false&humor=false"),
@@ -240,12 +224,6 @@ pub fn collection_images(http: &Http, id: u64, kind: &str) -> Result<Vec<Image>>
         Err(MetaError::Http { status: 404, .. }) => Ok(Vec::new()),
         Err(e) => Err(e),
     }
-}
-
-/// Formats affichables tels quels (les icônes .ico sont écartées).
-fn decor_format(url: &str) -> bool {
-    let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
-    [".png", ".webp", ".gif"].iter().any(|ext| path.ends_with(ext))
 }
 
 pub fn avatar_host(url: &str) -> bool {
@@ -272,13 +250,6 @@ mod tests {
         assert_eq!(parse_game_ref(" 5532594 "), Some(5532594));
         assert_eq!(parse_game_ref("Mario Kart World"), None);
         assert_eq!(parse_game_ref("https://www.steamgriddb.com/game/"), None);
-    }
-
-    #[test]
-    fn decorations_sans_ico() {
-        assert!(decor_format("https://cdn2.steamgriddb.com/icon/abc.png"));
-        assert!(decor_format("https://cdn2.steamgriddb.com/logo/abc.webp?x=1"));
-        assert!(!decor_format("https://cdn2.steamgriddb.com/icon/abc.ico"));
     }
 
     #[test]
