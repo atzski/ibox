@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.102",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Un éditeur de collection repensé", text: "Tout est rangé en trois onglets, Apparence, Contenu et Icône, avec des sections colorées. L’aperçu de la carte reste visible pendant vos réglages, et les recherches de logos ou de fonds ne s’ouvrent que si vous les demandez." },
+    ],
+  },
+  {
     version: "0.1.101",
     date: "2026-11-18",
     highlights: [

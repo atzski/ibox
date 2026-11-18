@@ -3418,4 +3418,15 @@ export const EN: Record<string, string> = {
   // ——— 0.1.101 : cartes sans dégradé ———
   "Des cartes sans voile coloré": "Cards without the color veil",
   "« Assombrir le fond » propose maintenant « Aucun » : le dégradé de couleur en bas des cartes de collection disparaît et l’image reste intacte.": "“Darken background” now offers “None”: the color gradient at the bottom of collection cards disappears and the picture stays untouched.",
+  // ——— 0.1.102 : éditeur de collection repensé ———
+  "Sections de la collection": "Collection sections",
+  "Contenu": "Contents",
+  "Style": "Style",
+  "Dégradé": "Gradient",
+  "À la main": "Hand-picked",
+  "Fermer la recherche": "Close search",
+  "Retirer l’icône": "Remove icon",
+  "Icône de licence": "Franchise icon",
+  "Un éditeur de collection repensé": "A redesigned collection editor",
+  "Tout est rangé en trois onglets, Apparence, Contenu et Icône, avec des sections colorées. L’aperçu de la carte reste visible pendant vos réglages, et les recherches de logos ou de fonds ne s’ouvrent que si vous les demandez.": "Everything is sorted into three tabs, Appearance, Contents and Icon, with colorful sections. The card preview stays in view while you adjust it, and logo or background searches only open when you ask for them.",
 };

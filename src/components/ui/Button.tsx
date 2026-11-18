@@ -86,6 +86,7 @@ export function Segmented<T extends string>({
         return (
           <button
             key={o.value}
+            type="button"
             role="radio"
             aria-checked={active}
             data-focusable

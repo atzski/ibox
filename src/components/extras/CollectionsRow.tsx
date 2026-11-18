@@ -6,9 +6,9 @@ import type { Game } from "@/domain/types";
 import { ShelfView } from "@/three/lazy";
 import { ShelfRow } from "@/components/ui/Section";
 import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
+import { Button, Segmented } from "@/components/ui/Button";
 import { IconBar, IconBarButton } from "@/components/ui/IconBar";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { CoverImage } from "@/components/game/CoverImage";
 import { useLibrary } from "@/services/library";
 import { COLLECTION_COLORS, useCollections, useCollectionStyles, matchesSmartRule, type SmartRule, type Collection, type CollectionStyle } from "@/services/extras";
@@ -463,6 +463,8 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"look" | "content" | "icon">(style.iconStamp ? "icon" : "look");
+  const [searching, setSearching] = useState<"logo" | "hero" | null>(null);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (confirm || deleting || submitting.current) return;
@@ -493,118 +495,175 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
       setError(err instanceof Error ? err.message : String(err));
     } finally { submitting.current = false; setSaving(false); }
   };
+  const iconMode = Boolean(style.iconStamp || images.icon);
+  const clearIcon = () => { setImages((old) => ({ ...old, icon: null })); setLocalStyle({ ...style, iconStamp: undefined }); };
+  const hasLogo = Boolean(style.logoGameId || style.logoStamp || images.logo);
+  const rules: { kind: SmartRule["kind"] | ""; label: string; icon: IconName }[] = [
+    { kind: "", label: "À la main", icon: "gamepad" },
+    { kind: "unplayed", label: "Jamais lancés", icon: "play" },
+    { kind: "multiplayer", label: "Multijoueur", icon: "user" },
+    { kind: "genre", label: "Par genre", icon: "tune" },
+    { kind: "platform", label: "Par console", icon: "disc" },
+  ];
   return (
     <Modal title={collection ? "Modifier la collection" : "Nouvelle collection"} onClose={() => { if (!saving) onClose(); }} width="38rem">
-      <form onSubmit={save} className="flex flex-col gap-4">
+      <form onSubmit={save} className="flex flex-col gap-3">
         <div className="flex gap-2">
-        <input
-          data-focusable
-          data-autofocus
-          value={name}
-          maxLength={40}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom (ex. À finir)"
-          aria-label="Nom de la collection"
-          className="ibox-focusable h-12 min-w-0 flex-1 rounded-full bg-cream-deep px-5 font-bold text-ink [--ring-radius:999px]"
-        />
-        <button type="button" data-focusable aria-pressed={!style.hideName} aria-label={style.hideName ? "Afficher le nom" : "Masquer le nom"} title={style.hideName ? "Afficher le nom" : "Masquer le nom"} onClick={() => setLocalStyle({ ...style, hideName: !style.hideName })} className="ibox-focusable grid size-12 place-items-center rounded-full bg-cream-deep text-ink [--ring-radius:999px]">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{style.hideName && <path d="M3 3l18 18"/>}</svg>
-        </button>
+          <input
+            data-focusable
+            data-autofocus
+            value={name}
+            maxLength={40}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nom (ex. À finir)"
+            aria-label="Nom de la collection"
+            className="ibox-focusable h-12 min-w-0 flex-1 rounded-full bg-cream-deep px-5 font-bold text-ink [--ring-radius:999px]"
+          />
+          <button type="button" data-focusable aria-pressed={!style.hideName} aria-label={style.hideName ? "Afficher le nom" : "Masquer le nom"} title={style.hideName ? "Afficher le nom" : "Masquer le nom"} onClick={() => setLocalStyle({ ...style, hideName: !style.hideName })} className="ibox-focusable grid size-12 place-items-center rounded-full bg-cream-deep text-ink [--ring-radius:999px]">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{style.hideName && <path d="M3 3l18 18"/>}</svg>
+          </button>
         </div>
-        <div className="grid justify-items-center gap-2 rounded-2xl bg-cream-deep p-4">
-          <span className="text-sm font-bold text-ink-soft">Aperçu de la collection</span>
+        {/* aperçu toujours visible pendant les réglages */}
+        <div className="sticky top-0 z-20 -mx-1 grid justify-items-center gap-2.5 rounded-2xl bg-cream-deep px-1 pt-3 pb-2.5 shadow-md">
           <div inert className="group/collection relative max-w-full">
             <CollectionCard collection={{ id: collection?.id ?? 0, name: name || "Nouvelle collection", color, gameIds: [] }} items={displayedGames} draft={style} images={images} />
           </div>
-        </div>
-        <EditorSection label="Contenu de la collection">
-          <select data-focusable aria-label="Contenu de la collection" className="ibox-focusable rounded-xl bg-white px-3 py-2 text-ink"
-            value={style.rule?.kind ?? ""} onChange={(event) => {
-              const kind = event.target.value as SmartRule["kind"] | "";
-              setLocalStyle({ ...style, rule: kind ? { kind, value: "" } : undefined });
-            }}>
-            <option value="">Sélection manuelle</option><option value="unplayed">Jamais lancés</option>
-            <option value="multiplayer">Multijoueur</option><option value="genre">Par genre</option><option value="platform">Par console ou boutique</option>
-          </select>
-          {style.rule?.kind === "genre" && <input data-focusable aria-label="Genre" placeholder="Ex. RPG" className="ibox-focusable rounded-xl bg-white px-3 py-2" value={style.rule.value}
-            onChange={(event) => setLocalStyle({ ...style, rule: { ...style.rule, kind: "genre", value: event.target.value } })} />}
-          {style.rule?.kind === "genre" && <select data-focusable aria-label="Boutique du genre" className="ibox-focusable rounded-xl bg-white px-3 py-2"
-            value={style.rule.source ?? ""} onChange={(event) => setLocalStyle({ ...style, rule: { ...style.rule!, source: event.target.value } })}>
-            <option value="">Toutes les boutiques</option><option value="steam">Steam</option>
-          </select>}
-          {style.rule?.kind === "platform" && <select data-focusable aria-label="Console ou boutique" className="ibox-focusable rounded-xl bg-white px-3 py-2" value={style.rule.value}
-            onChange={(event) => setLocalStyle({ ...style, rule: { kind: "platform", value: event.target.value } })}>
-            <option value="">Choisir…</option><option value="steam">Steam</option>
-            {PLATFORMS.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
-          </select>}
-        </EditorSection>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Couleur">
-          {COLLECTION_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              data-focusable
-              role="radio"
-              aria-checked={c === color}
-              aria-label={c}
-              onClick={() => setColor(c)}
-              className={`ibox-focusable size-9 rounded-full [--ring-radius:999px] ${c === color ? "ring-4 ring-ink/25" : ""}`}
-              style={{ background: c }}
+          <div className="flex justify-center">
+            <Segmented
+              label="Sections de la collection"
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: "look", label: "Apparence", icon: "sparkle" },
+                { value: "content", label: "Contenu", icon: "gamepad" },
+                { value: "icon", label: "Icône", icon: "star" },
+              ]}
             />
-          ))}
-          <label className="ibox-focusable relative grid size-9 cursor-pointer place-items-center rounded-full bg-[conic-gradient(red,yellow,lime,cyan,blue,magenta,red)] [--ring-radius:999px]" title="Couleur libre">
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Couleur libre" className="absolute inset-0 cursor-pointer opacity-0" />
-          </label>
+          </div>
         </div>
-        {(collection || images.icon) && (
-          <EditorSection label="Icône de licence (iiDB)" note="Choisie, la carte n'affiche plus que l'icône : pratique pour reconnaître une licence (Mario, Zelda…).">
-            <Chip active={!style.iconStamp && !images.icon} onClick={() => { setImages((old) => ({ ...old, icon: null })); setLocalStyle({ ...style, iconStamp: undefined }); }}>Aucune</Chip>
-            {collection && style.iconStamp && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="icon" stamp={style.iconStamp} /></Chip>}
+
+        {tab === "content" && (
+          <EditorSection icon="gamepad" tone="#98ddb6" label="Jeux">
+            <ChipRow>
+              {rules.map((r) => (
+                <Chip key={r.kind} active={(style.rule?.kind ?? "") === r.kind} onClick={() => setLocalStyle({ ...style, rule: r.kind ? { kind: r.kind, value: "" } : undefined })}>
+                  <Icon name={r.icon} size={16} /><span className="ml-1.5">{r.label}</span>
+                </Chip>
+              ))}
+            </ChipRow>
+            {style.rule?.kind === "genre" && (
+              <div className="flex flex-wrap gap-2">
+                <input data-focusable aria-label="Genre" placeholder="Ex. RPG" className="ibox-focusable h-10 min-w-0 flex-1 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]" value={style.rule.value}
+                  onChange={(event) => setLocalStyle({ ...style, rule: { ...style.rule, kind: "genre", value: event.target.value } })} />
+                <select data-focusable aria-label="Boutique du genre" className="ibox-focusable h-10 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]"
+                  value={style.rule.source ?? ""} onChange={(event) => setLocalStyle({ ...style, rule: { ...style.rule!, source: event.target.value } })}>
+                  <option value="">Toutes les boutiques</option><option value="steam">Steam</option>
+                </select>
+              </div>
+            )}
+            {style.rule?.kind === "platform" && (
+              <select data-focusable aria-label="Console ou boutique" className="ibox-focusable h-10 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]" value={style.rule.value}
+                onChange={(event) => setLocalStyle({ ...style, rule: { kind: "platform", value: event.target.value } })}>
+                <option value="">Choisir…</option><option value="steam">Steam</option>
+                {PLATFORMS.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
+              </select>
+            )}
           </EditorSection>
         )}
-        <IconSearch onPicked={(image) => setImages((old) => ({ ...old, icon: image }))} />
-        {!style.iconStamp && !images.icon && (
+
+        {tab === "look" && iconMode && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-cream-deep/60 p-3.5">
+            <span className="flex items-center gap-2 font-bold text-ink"><ToneDot icon="star" tone="#f5d27a" />Icône de licence</span>
+            <Button type="button" icon="x" onClick={clearIcon}>Retirer l’icône</Button>
+          </div>
+        )}
+
+        {tab === "look" && !iconMode && (
           <>
-            <EditorSection label="Style de la carte">
-              {(["fan", "hero", "grid", "plain"] as const).map((k) => (
-                <Chip key={k} active={(style.look ?? "fan") === k} onClick={() => setLocalStyle({ ...style, look: k })}>
-                  {k === "fan" ? "Éventail" : k === "hero" ? "Grande image" : k === "grid" ? "Mosaïque" : "Sans jaquettes"}
-                </Chip>
-              ))}
+            <EditorSection icon="shelf" tone="#8ecdf0" label="Style">
+              <ChipRow>
+                {(["fan", "hero", "grid", "plain"] as const).map((k) => (
+                  <Chip key={k} active={(style.look ?? "fan") === k} onClick={() => setLocalStyle({ ...style, look: k })}>
+                    {k === "fan" ? "Éventail" : k === "hero" ? "Grande image" : k === "grid" ? "Mosaïque" : "Sans jaquettes"}
+                  </Chip>
+                ))}
+              </ChipRow>
             </EditorSection>
-            <EditorSection label="Logo">
-              <Chip active={!style.logoGameId && !style.logoStamp} onClick={() => { setImages((old) => ({ ...old, logo: null })); setLocalStyle({ ...style, logoGameId: undefined, logoStamp: undefined }); }}>Aucun</Chip>
-              {collection && style.logoStamp && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="logo" stamp={style.logoStamp} /></Chip>}
-              {logos.map((g) => (
-                <Chip key={g.id} active={!style.logoStamp && !images.logo && style.logoGameId === g.dbId} onClick={() => { setImages((old) => ({ ...old, logo: null })); setLocalStyle({ ...style, logoGameId: g.dbId, logoStamp: undefined }); }} title={g.title}>
-                  <span className="block h-9 w-24 rounded-md bg-[#2b3445] p-1"><GameLogo game={g} className="h-full w-full" /></span>
-                </Chip>
-              ))}
+            <EditorSection icon="sparkle" tone="#f3a5c8" label="Couleur">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Couleur">
+                {COLLECTION_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    data-focusable
+                    role="radio"
+                    aria-checked={c === color}
+                    aria-label={c}
+                    onClick={() => setColor(c)}
+                    className={`ibox-focusable size-8 rounded-full transition-transform [--ring-radius:999px] ${c === color ? "scale-110 ring-[3px] ring-white" : ""}`}
+                    style={{ background: c }}
+                  />
+                ))}
+                <label className="ibox-focusable relative grid size-8 cursor-pointer place-items-center rounded-full bg-[conic-gradient(red,yellow,lime,cyan,blue,magenta,red)] [--ring-radius:999px]" title="Couleur libre">
+                  <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Couleur libre" className="absolute inset-0 cursor-pointer opacity-0" />
+                </label>
+              </div>
             </EditorSection>
-            <ArtSearch kind="logo" onPicked={(image) => setImages((old) => ({ ...old, logo: image }))} />
-            <EditorSection label="Taille du logo">
-              {(["s", "m", "l"] as const).map((k) => (
-                <Chip key={k} active={(style.logoSize ?? "m") === k} onClick={() => setLocalStyle({ ...style, logoSize: k })}>{k === "s" ? "Petit" : k === "m" ? "Moyen" : "Grand"}</Chip>
-              ))}
+            <EditorSection icon="star" tone="#f5d27a" label="Logo">
+              <ChipRow>
+                <Chip active={!hasLogo} onClick={() => { setImages((old) => ({ ...old, logo: null })); setLocalStyle({ ...style, logoGameId: undefined, logoStamp: undefined }); }}>Aucun</Chip>
+                {collection && style.logoStamp && !images.logo && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="logo" stamp={style.logoStamp} /></Chip>}
+                {images.logo && <Chip active onClick={() => undefined}><span className="block h-9 w-24 rounded-md bg-[#2b3445] p-1"><img src={images.logo.thumb} alt="" className="h-full w-full object-contain" /></span></Chip>}
+                {logos.map((g) => (
+                  <Chip key={g.id} active={!style.logoStamp && !images.logo && style.logoGameId === g.dbId} onClick={() => { setImages((old) => ({ ...old, logo: null })); setLocalStyle({ ...style, logoGameId: g.dbId, logoStamp: undefined }); }} title={g.title}>
+                    <span className="block h-9 w-24 rounded-md bg-[#2b3445] p-1"><GameLogo game={g} className="h-full w-full" /></span>
+                  </Chip>
+                ))}
+                <SearchChip open={searching === "logo"} onClick={() => setSearching(searching === "logo" ? null : "logo")} />
+              </ChipRow>
+              {searching === "logo" && <ArtSearch kind="logo" onPicked={(image) => { setImages((old) => ({ ...old, logo: image })); setSearching(null); }} />}
+              {hasLogo && (
+                <SubRow label="Taille">
+                  {(["s", "m", "l"] as const).map((k) => (
+                    <Chip key={k} active={(style.logoSize ?? "m") === k} onClick={() => setLocalStyle({ ...style, logoSize: k })}>{k === "s" ? "Petit" : k === "m" ? "Moyen" : "Grand"}</Chip>
+                  ))}
+                </SubRow>
+              )}
             </EditorSection>
-            <EditorSection label="Image de fond">
-                <Chip active={!style.heroGameId && !style.heroStamp} onClick={() => { setImages((old) => ({ ...old, hero: null })); setLocalStyle({ ...style, heroGameId: undefined, heroStamp: undefined }); }}>Automatique</Chip>
-                {collection && style.heroStamp && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="hero" stamp={style.heroStamp} /></Chip>}
+            <EditorSection icon="front" tone="#bba6ec" label="Fond">
+              <ChipRow>
+                <Chip active={!style.heroGameId && !style.heroStamp && !images.hero} onClick={() => { setImages((old) => ({ ...old, hero: null })); setLocalStyle({ ...style, heroGameId: undefined, heroStamp: undefined }); }}>Automatique</Chip>
+                {collection && style.heroStamp && !images.hero && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="hero" stamp={style.heroStamp} /></Chip>}
+                {images.hero && <Chip active onClick={() => undefined}><span className="block h-9 w-20 overflow-hidden rounded-md"><img src={images.hero.thumb} alt="" className="h-full w-full object-cover" /></span></Chip>}
                 {heroes.map((g) => (
                   <Chip key={g.id} active={!style.heroStamp && !images.hero && style.heroGameId === g.dbId} onClick={() => { setImages((old) => ({ ...old, hero: null })); setLocalStyle({ ...style, heroGameId: g.dbId, heroStamp: undefined }); }} title={g.title}>
                     <span className="block h-9 w-20 overflow-hidden rounded-md"><GameHero game={g} className="h-full w-full" /></span>
                   </Chip>
                 ))}
-            </EditorSection>
-            <ArtSearch kind="hero" onPicked={(image) => setImages((old) => ({ ...old, hero: image }))} />
-            <EditorSection label="Assombrir le fond">
-              {(["none", "light", "medium", "strong"] as const).map((k) => (
-                <Chip key={k} active={(style.shade ?? "medium") === k} onClick={() => setLocalStyle({ ...style, shade: k })}>{k === "none" ? "Aucun" : k === "light" ? "Léger" : k === "medium" ? "Moyen" : "Fort"}</Chip>
-              ))}
+                <SearchChip open={searching === "hero"} onClick={() => setSearching(searching === "hero" ? null : "hero")} />
+              </ChipRow>
+              {searching === "hero" && <ArtSearch kind="hero" onPicked={(image) => { setImages((old) => ({ ...old, hero: image })); setSearching(null); }} />}
+              <SubRow label="Dégradé">
+                {(["none", "light", "medium", "strong"] as const).map((k) => (
+                  <Chip key={k} active={(style.shade ?? "medium") === k} onClick={() => setLocalStyle({ ...style, shade: k })}>{k === "none" ? "Aucun" : k === "light" ? "Léger" : k === "medium" ? "Moyen" : "Fort"}</Chip>
+                ))}
+              </SubRow>
             </EditorSection>
           </>
         )}
-        <div className="flex flex-wrap justify-between gap-2">
+
+        {tab === "icon" && (
+          <EditorSection icon="star" tone="#f5d27a" label="Icône de licence">
+            <ChipRow>
+              <Chip active={!iconMode} onClick={clearIcon}>Aucune</Chip>
+              {collection && style.iconStamp && !images.icon && <Chip active onClick={() => undefined}><CustomPreview id={collection.id} kind="icon" stamp={style.iconStamp} /></Chip>}
+              {images.icon && <Chip active onClick={() => undefined}><span className="block size-9"><img src={images.icon.thumb} alt="" className="h-full w-full object-contain" /></span></Chip>}
+            </ChipRow>
+            <IconSearch onPicked={(image) => setImages((old) => ({ ...old, icon: image }))} />
+          </EditorSection>
+        )}
+
+        <div className="mt-1 flex flex-wrap justify-between gap-2">
           {collection ? (
             confirm ? (
               <Button
@@ -627,7 +686,7 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
                 Confirmer (les jeux restent)
               </Button>
             ) : (
-              <Button type="button" icon="x" cue="back" onClick={() => setConfirm(true)}>
+              <Button type="button" icon="trash" cue="back" onClick={() => setConfirm(true)}>
                 Supprimer
               </Button>
             )
@@ -644,13 +703,34 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
   );
 }
 
-function EditorSection({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
+/** Pastille colorée qui identifie une section. */
+function ToneDot({ icon, tone }: { icon: IconName; tone: string }) {
+  return <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full text-[#1b2030]" style={{ background: tone }}><Icon name={icon} size={15} /></span>;
+}
+function EditorSection({ icon, tone, label, children }: { icon: IconName; tone: string; label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <p className="mb-1.5 text-[0.72rem] font-bold tracking-[0.12em] text-ink-soft uppercase">{label}</p>
-      <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-0.5">{children}</div>
-      {note && <p className="mt-1 text-[0.8rem] text-ink-soft">{note}</p>}
+    <section className="flex flex-col gap-2.5 rounded-2xl bg-cream-deep/60 p-3.5" style={{ boxShadow: `inset 3px 0 0 ${tone}` }}>
+      <h3 className="flex items-center gap-2 text-[0.95rem] font-extrabold text-ink"><ToneDot icon={icon} tone={tone} />{label}</h3>
+      {children}
+    </section>
+  );
+}
+function ChipRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-0.5">{children}</div>;
+}
+function SubRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="mr-1 text-[0.72rem] font-bold tracking-[0.12em] text-ink-soft uppercase">{label}</span>
+      {children}
     </div>
+  );
+}
+function SearchChip({ open, onClick }: { open: boolean; onClick: () => void }) {
+  return (
+    <Chip active={open} onClick={onClick} title={open ? "Fermer la recherche" : "Chercher en ligne"}>
+      <Icon name={open ? "x" : "search"} size={16} /><span className="ml-1.5">{open ? "Fermer la recherche" : "Chercher en ligne"}</span>
+    </Chip>
   );
 }
 function Chip({ active, onClick, title, children }: { active: boolean; onClick: () => void; title?: string; children: React.ReactNode }) {
@@ -793,12 +873,13 @@ function ArtSearch({ kind, onPicked }: { kind: "logo" | "hero"; onPicked: (image
   });
   return (
     <div className="rounded-2xl bg-cream-deep/60 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <p className="flex-1 text-[0.72rem] font-bold tracking-[0.12em] text-ink-soft uppercase">{kind === "logo" ? "Chercher un logo" : "Chercher un fond"}</p>
-        {kind === "logo" && (["iidb", "sgdb"] as const).map((k) => (
-          <Chip key={k} active={source === k} onClick={() => { setSource(k); setFound(null); setPics(null); }}>{k === "iidb" ? "iiDB" : "SteamGridDB"}</Chip>
-        ))}
-      </div>
+      {kind === "logo" && (
+        <div className="mb-2 flex gap-2">
+          {(["iidb", "sgdb"] as const).map((k) => (
+            <Chip key={k} active={source === k} onClick={() => { setSource(k); setFound(null); setPics(null); }}>{k === "iidb" ? "iiDB" : "SteamGridDB"}</Chip>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2">
         <input
           data-focusable
