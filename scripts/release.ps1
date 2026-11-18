@@ -105,7 +105,7 @@ if (-not $Publish) {
   if (git -C $root status --porcelain) { Write-Warning "Des modifications ne sont pas commitées : le code publié sur GitHub doit correspondre à cette version." }
 
   $saved = @{}
-  foreach ($var in "TAURI_SIGNING_PRIVATE_KEY", "IBOX_UPDATE_URL", "CARGO_ENCODED_RUSTFLAGS", "CARGO_TARGET_DIR") {
+  foreach ($var in "TAURI_SIGNING_PRIVATE_KEY", "IBOX_UPDATE_URL", "CARGO_ENCODED_RUSTFLAGS", "CARGO_TARGET_DIR", "IBOX_SS_DEVID", "IBOX_SS_DEVPASSWORD") {
     $saved[$var] = [Environment]::GetEnvironmentVariable($var)
   }
   $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
@@ -124,6 +124,17 @@ if (-not $Publish) {
     $env:IBOX_UPDATE_URL = $updateUrl
     $env:CARGO_ENCODED_RUSTFLAGS = $remaps -join [char]0x1f
     $env:CARGO_TARGET_DIR = $target   # dossier séparé : n'oblige pas à tout recompiler en développement
+    # Identifiants développeur ScreenScraper (manuels) : fichier hors du projet, deux lignes
+    # (devid puis devpassword). Brouillés dans l'exécutable par build.rs, jamais dans les sources.
+    $ssFile = Join-Path (Split-Path -Parent $KeyPath) "screenscraper.txt"
+    if (Test-Path -LiteralPath $ssFile) {
+      $ss = @(Get-Content -LiteralPath $ssFile | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith("#") })
+      if ($ss.Count -ge 2) {
+        $env:IBOX_SS_DEVID = $ss[0].Trim()
+        $env:IBOX_SS_DEVPASSWORD = $ss[1].Trim()
+        Write-Host "ScreenScraper : identifiants développeur fournis."
+      } else { Write-Warning "$ssFile doit contenir deux lignes (devid, devpassword) : ScreenScraper indisponible dans cette version." }
+    } else { Write-Warning "Pas d'identifiants ScreenScraper ($ssFile) : source indisponible dans cette version." }
 
     npx tauri build --bundles nsis
     if ($LASTEXITCODE -ne 0) { throw "Échec de la compilation Tauri (code $LASTEXITCODE)." }

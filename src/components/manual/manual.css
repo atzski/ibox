@@ -1,0 +1,17 @@
+/* Lecteur de manuels : page en cours de rendu, ombre d'une page qui tourne. */
+.ibox-page-loading {
+  background: linear-gradient(100deg, rgba(0, 0, 0, 0) 30%, rgba(255, 255, 255, 0.28) 50%, rgba(0, 0, 0, 0) 70%) #ebe5d6;
+  background-size: 220% 100%;
+  animation: ibox-page-loading 1.4s ease-in-out infinite;
+}
+@keyframes ibox-page-loading {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+@keyframes ibox-page-shade {
+  50% { filter: brightness(0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ibox-page-loading { animation: none; }
+}
+html[data-motion="reduced"] .ibox-page-loading { animation: none; }

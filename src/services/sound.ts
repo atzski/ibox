@@ -25,7 +25,11 @@ export type SoundCue =
   | "mediaOut"
   | "mediaIn"
   | "view"
-  | "pull";
+  | "pull"
+  // carnets (manuels) : page tournée, carnet ouvert / refermé
+  | "page"
+  | "bookOpen"
+  | "bookClose";
 
 interface Note {
   freq: number;
@@ -120,6 +124,24 @@ const VOICES: Record<SoundCue, Voice[]> = {
     click(0, 0.32, 3200),
     whoosh(0.01, 0.2, 700, 1800, 0.09),
     { freq: 1046.5, slideTo: 1568, at: 0.12, dur: 0.14, type: "triangle", gain: 0.09 },
+  ],
+  // Page de papier tournée : froissement bref, plus aigu en fin de geste
+  page: [
+    { noise: true, at: 0, dur: 0.16, gain: 0.13, filter: "bandpass", freq: 1800, slideTo: 4200, q: 0.8, attack: 0.04 },
+    { noise: true, at: 0.12, dur: 0.05, gain: 0.07, filter: "highpass", freq: 5000 },
+  ],
+  // Carnet tiré de ses clips puis ouvert
+  bookOpen: [
+    click(0, 0.22, 2400),
+    whoosh(0.03, 0.3, 600, 2600, 0.1),
+    { noise: true, at: 0.24, dur: 0.14, gain: 0.1, filter: "bandpass", freq: 2200, slideTo: 3800, q: 0.9, attack: 0.03 },
+    { freq: 880, at: 0.2, dur: 0.18, type: "sine", gain: 0.05 },
+  ],
+  // Carnet refermé : papier, puis petit claquement de couverture
+  bookClose: [
+    { noise: true, at: 0, dur: 0.14, gain: 0.1, filter: "bandpass", freq: 3200, slideTo: 1600, q: 0.9 },
+    thump(0.12, 0.2, 160, 90),
+    click(0.12, 0.18, 2000),
   ],
   // Support rangé : souffle puis encliquetage
   mediaIn: [whoosh(0, 0.16, 1800, 700, 0.09), click(0.14, 0.4, 3000), thump(0.14, 0.18, 170, 110)],

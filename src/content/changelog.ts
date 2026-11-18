@@ -5,10 +5,19 @@
 export interface Release {
   version: string;
   date: string;
-  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe" | "trophy" | "copy" | "download" | "key"; title: string; text: string }[];
+  highlights: { icon: "shelf" | "front" | "user" | "power" | "clock" | "grid" | "disc" | "gamepad" | "sparkle" | "globe" | "trophy" | "copy" | "download" | "key" | "manual"; title: string; text: string }[];
 }
 
 export const CHANGELOG: Release[] = [
+  {
+    version: "0.1.86",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "manual", title: "Les manuels entrent dans les boîtes", text: "Ouvrez la boîte d’un jeu : son manuel est glissé sous les clips, comme un vrai carnet. Cliquez dessus pour le feuilleter en double page, avec les vignettes, le zoom, le clavier ou la manette." },
+      { icon: "globe", title: "Des manuels trouvés pour vous", text: "À l’ouverture d’une fiche, iBox cherche le manuel du jeu et ne l’ajoute que lorsqu’il est sûr de lui ; sinon, le bouton « Manuel » vous propose les versions trouvées. Sources et options dans Paramètres › Manuels." },
+      { icon: "download", title: "Vos propres carnets", text: "Un scan de votre boîte ou un manuel numérique ? Importez n’importe quel PDF depuis le bouton « Manuel » de la fiche : il prend aussitôt place dans la boîte." },
+    ],
+  },
   {
     version: "0.1.85",
     date: "2026-11-18",

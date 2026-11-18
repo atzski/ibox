@@ -25,6 +25,14 @@ pub fn name_key(name: &str) -> String {
     words.join(" ")
 }
 
+/// Texte libre réduit à ses mots : minuscules, sans accents ni ponctuation
+/// (sans retirer les étiquettes entre parenthèses, contrairement à `name_key`).
+pub fn name_key_raw(text: &str) -> String {
+    let folded = fold(text).replace('&', " and ");
+    let cleaned: String = folded.chars().map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect();
+    cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Préférence de variante : région souhaitée, puis « World », puis le reste ;
 /// les démos, prototypes et bêtas en dernier.
 fn variant_rank(name: &str, pref: Region) -> i32 {

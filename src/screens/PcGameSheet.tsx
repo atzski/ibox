@@ -19,6 +19,7 @@ import { trimStyle, useImageInfo } from "@/art/imageTone";
 import { caseFor, mediaLabel } from "@/three/cases/caseSpecs";
 import { InspectController, type CaseView, type ShownSide } from "@/three/inspectController";
 import { InspectViewer } from "@/three/lazy";
+import { useGameManual } from "@/components/manual/useGameManual";
 import { flightPending } from "@/three/handoff";
 import { useGamepad } from "@/input/gamepad";
 import { input } from "@/input/InputController";
@@ -315,6 +316,7 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
   const padActive = useGamepad((g) => g.active);
   const media = mediaLabel(spec);
   const [view, setView] = useState<ShownSide>("front");
+  const manual = useGameManual(game);
 
   const toggleOpen = () => {
     if (open) {
@@ -385,7 +387,19 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
         boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16), inset 0 1px 0 0 rgba(255,255,255,0.28), 0 18px 40px -28px rgba(10,14,28,0.5)",
       }}
     >
-      <InspectViewer game={game} spec={spec} controller={controller} open={open} discOut={discOut} reduced={reduced} tint={accent} dark={dark} onToggleOpen={toggleOpen} />
+      <InspectViewer
+        game={game}
+        spec={spec}
+        controller={controller}
+        open={open}
+        discOut={discOut}
+        reduced={reduced}
+        tint={accent}
+        dark={dark}
+        onToggleOpen={toggleOpen}
+        manualOut={manual.reading}
+        onOpenManual={manual.read}
+      />
       <div className="pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.72rem] font-bold whitespace-nowrap text-ink-soft">
         <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner" : "Glisser pour tourner"}
       </div>
@@ -397,6 +411,7 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
         <DockButton compact icon="spine" label="Tranche" active={view === "spine"} onClick={() => show("spine")} />
         <DockDivider />
         <DockButton compact icon="disc" label={discOut ? media.out : media.noun} active={discOut} onClick={toggleDisc} />
+        {manual.available && <DockButton compact icon="manual" label="Manuel" active={manual.reading} onClick={manual.open} />}
         <DockButton
           compact
           icon="reset"
@@ -407,6 +422,7 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
           }}
         />
       </Dock>
+      {manual.view}
     </section>
   );
 }

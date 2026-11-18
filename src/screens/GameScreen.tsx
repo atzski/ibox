@@ -31,6 +31,7 @@ import { SavesModal } from "@/components/extras/SavesModal";
 import { PlayControls } from "@/components/library/PlayControls";
 import { GameEmulatorOffer } from "@/components/library/GameEmulatorOffer";
 import { GameSmartConfig } from "@/components/smartconfig/GameSmartConfig";
+import { useGameManual } from "@/components/manual/useGameManual";
 import { formatPlayTime } from "@/services/launcher";
 import { relativeDay } from "@/domain/text";
 import { PlatformPicker } from "@/components/platform/PlatformPicker";
@@ -76,6 +77,7 @@ function GameSheet({ game }: { game: Game }) {
   const [versioning, setVersioning] = useState(false);
   const [versionId, setVersionId] = useState<string>();
   const version = familyOf(game).find((v) => v.id === versionId) ?? preferredVersion(game);
+  const manual = useGameManual(game);
 
   const [, soft, accent] = useArtPalette(game);
   const facts = [game.year, game.genre, game.publisher, game.players ? `${game.players}` : undefined]
@@ -315,6 +317,7 @@ function GameSheet({ game }: { game: Game }) {
         {saving && <SavesModal game={game} onClose={() => setSaving(false)} />}
         {versioning && <VersionsModal game={game} onClose={() => setVersioning(false)} />}
         {uninstalling && <UninstallModal game={version} onClose={() => setUninstalling(false)} />}
+        {manual.view}
       </motion.aside>
 
       {/* ——— Boîtier 3D ——— */}
@@ -340,6 +343,8 @@ function GameSheet({ game }: { game: Game }) {
               tint={accent}
               dark={dark}
               onToggleOpen={toggleOpen}
+              manualOut={manual.reading}
+              onOpenManual={manual.read}
             />
             <div className="absolute top-4 left-5 z-20">
               <Achievements key={game.id} game={game} compact />
@@ -355,6 +360,7 @@ function GameSheet({ game }: { game: Game }) {
               <DockButton icon="spine" label="Tranche" active={view === "spine"} onClick={() => show("spine")} />
               <DockDivider />
               <DockButton icon="disc" label={discOut ? media.out : media.noun} active={discOut} onClick={toggleDisc} />
+              {manual.available && <DockButton icon="manual" label="Manuel" active={manual.reading} onClick={manual.open} />}
               <DockButton
                 icon="reset"
                 label="Recentrer"

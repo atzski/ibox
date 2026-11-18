@@ -30,6 +30,7 @@ import { useUpdater } from "@/services/updater";
 import { DEFAULT_JINGLE_VOLUME } from "@/services/jingles";
 import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
 import { MetadataPanel } from "@/components/library/MetadataPanel";
+import { ManualSettings } from "@/components/manual/ManualSettings";
 import { EmulatorsPanel } from "@/components/library/EmulatorsPanel";
 import { PcSettingsPanel } from "@/components/pc/PcSettingsPanel";
 import { IidbPanel } from "@/components/assets/IidbPanel";
@@ -57,7 +58,7 @@ import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostR
 import { BLOCK_INFO, DEFAULT_BLOCKS, normalizeBlocks } from "@/services/homeLayout";
 import { SmartConfigSettings } from "@/components/smartconfig/SmartConfigSettings";
 
-type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "sound" | "controls" | "remoteplay" | "system";
+type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "manuals" | "sound" | "controls" | "remoteplay" | "system";
 
 interface Category {
   id: CategoryId;
@@ -81,6 +82,7 @@ const CATEGORIES: Category[] = [
   { id: "pc", label: "PC et émulateurs", hint: "Boutiques PC et émulateurs des consoles", icon: "disc", tone: ["#C3E9EC", "#E4F6F7"], hue: "teal", group: "Jeux" },
   { id: "smartconfig", label: "SmartConfig", hint: "Réglages d'émulateurs adaptés à votre PC, sources de données", icon: "tune", tone: ["#FFDDC4", "#FFF0E3"], hue: "orange", group: "Jeux" },
   { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], hue: "blue", group: "Jeux" },
+  { id: "manuals", label: "Manuels", hint: "Carnets des jeux, sources et compte ScreenScraper", icon: "manual", tone: ["#F6E3C3", "#FCF1DE"], hue: "yellow", group: "Jeux" },
   { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], hue: "pink", group: "Système" },
   { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], hue: "green", group: "Système" },
   { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], hue: "blue", group: "Système" },
@@ -332,6 +334,8 @@ function CategoryPage({ id }: { id: CategoryId }) {
       return <SmartConfigSettings ui={{ Group, Row, Toggle }} />;
     case "images":
       return <ImagesPage />;
+    case "manuals":
+      return <ManualSettings ui={{ Group, Row, Toggle }} />;
     case "sound":
       return <SoundPage />;
     case "controls":

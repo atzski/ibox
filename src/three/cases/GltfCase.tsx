@@ -1,11 +1,13 @@
 import { Component, Suspense, useMemo, useRef, type MutableRefObject, type ReactNode } from "react";
-import { useFrame } from "@react-three/fiber";
+import { createPortal, useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { Color, MeshPhysicalMaterial, MeshStandardMaterial, type Group, type Material, type Mesh, type Object3D, type Texture } from "three";
 import type { KeepCaseSpec } from "./caseSpecs";
 import type { CaseTextures } from "../useCaseTextures";
 import { createCaseAnim, type KeepCaseAnim } from "./KeepCase";
 import { stepSpring } from "../springs";
+import { ManualBooklet } from "./ManualBooklet";
+import type { CaseManual } from "./CaseModel";
 
 /**
  * Boîtier physique modélisé dans Blender (3d-assets/), exporté en GLB.
@@ -30,7 +32,30 @@ type Props = {
   lite?: boolean;
   reduced?: boolean;
   anim?: MutableRefObject<KeepCaseAnim>;
+  manual?: CaseManual | null;
 };
+
+/**
+ * Place du carnet sur la face avant, d'après les deux clips du modèle
+ * (Manual_Clip_T / _B, enfants de « Front ») : centré entre eux, bords pris
+ * sous les clips, posé contre l'intérieur de la face. Sans clips (boîtier
+ * cristal PS1) : pas de carnet en 3D, le lecteur reste accessible par le dock.
+ */
+function bookletLayout(front: Object3D | null) {
+  const top = front?.getObjectByName("Manual_Clip_T");
+  const bottom = front?.getObjectByName("Manual_Clip_B");
+  if (!top || !bottom) return null;
+  const cx = (top.position.x + bottom.position.x) / 2;
+  const height = top.position.y - bottom.position.y + 0.002;
+  const thickness = 0.0016;
+  return {
+    width: Math.abs(cx) * 2 * 0.88,
+    height,
+    thickness,
+    // contre l'intérieur de la face (z = -0,0012), sous les clips
+    position: [cx, (top.position.y + bottom.position.y) / 2, -0.0012 - thickness / 2 - 0.0001] as [number, number, number],
+  };
+}
 
 /** Matériaux partagés par tous les boîtiers d'un même modèle (par niveau de détail). */
 const sharedCache = new Map<string, Map<string, Material>>();
@@ -104,7 +129,7 @@ function artMaterial(map: Texture | undefined, name: string): Material {
   return m;
 }
 
-function GltfCaseModel({ spec, textures, open = false, discOut = false, lite = false, reduced = false, anim }: Props) {
+function GltfCaseModel({ spec, textures, open = false, discOut = false, lite = false, reduced = false, anim, manual }: Props) {
   const gltf = useGLTF(spec.glb);
   const localAnim = useRef<KeepCaseAnim>(createCaseAnim());
   const a = anim ?? localAnim;
@@ -134,6 +159,7 @@ function GltfCaseModel({ spec, textures, open = false, discOut = false, lite = f
   }, [gltf.scene, spec.glb, lite, textures]);
 
   const group = useRef<Group>(null);
+  const booklet = useMemo(() => (lite ? null : bookletLayout(front)), [front, lite]);
 
   useFrame((state, dt) => {
     const st = a.current;
@@ -178,6 +204,23 @@ function GltfCaseModel({ spec, textures, open = false, discOut = false, lite = f
   return (
     <group ref={group} scale={SCALE}>
       <primitive object={root} position={[0, -spec.height / SCALE / 2, 0]} />
+      {manual && booklet && front &&
+        createPortal(
+          <ManualBooklet
+            texture={manual.texture}
+            width={booklet.width}
+            height={booklet.height}
+            thickness={booklet.thickness}
+            position={booklet.position}
+            facing={-1}
+            active={open}
+            out={manual.out}
+            lift={0.0028}
+            reduced={reduced}
+            onPress={manual.onPress}
+          />,
+          front,
+        )}
     </group>
   );
 }

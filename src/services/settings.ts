@@ -148,6 +148,10 @@ export interface SettingsState {
   metadataProviders: Record<"libretro" | "steamgriddb" | "gametdb" | "libretro-db" | "launchbox", boolean>;
   /** Récupérer jaquettes et infos des nouveaux jeux après chaque actualisation. */
   autoFetchMetadata: boolean;
+  /** Sources des manuels de jeu (absentes = actives). */
+  manualSources?: Partial<Record<"steam" | "screenscraper" | "archive", boolean>>;
+  /** Chercher le manuel d'un jeu à l'ouverture de sa fiche (correspondances sûres seulement). */
+  manualAutoFetch?: boolean;
   /** Boutiques PC synchronisées (les autres sont ignorées). */
   emulatorAlternatives?: Record<string, number[]>;
   pcConnectors: Record<string, boolean>;

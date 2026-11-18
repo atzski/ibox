@@ -6,6 +6,8 @@ import type { BoxSpec, CartridgeSpec } from "./caseSpecs";
 import type { CaseTextures } from "../useCaseTextures";
 import { stepSpring } from "../springs";
 import { createCaseAnim, type KeepCaseAnim } from "./KeepCase";
+import { ManualBooklet } from "./ManualBooklet";
+import type { CaseManual } from "./CaseModel";
 
 /** Course du plateau qui sort de la boîte (fraction de la largeur). */
 export const TRAY_TRAVEL = 1.02;
@@ -25,7 +27,9 @@ export function RetroBox({
   lite = false,
   reduced = false,
   anim,
+  manual,
 }: {
+  manual?: CaseManual | null;
   spec: BoxSpec;
   textures: CaseTextures | null;
   open?: boolean;
@@ -101,7 +105,8 @@ export function RetroBox({
     if (tray.current) tray.current.position.x = W * TRAY_TRAVEL * Math.max(0, (o - 0.3) / 0.7);
     if (cartGroup.current) {
       const k = st.disc.x;
-      cartGroup.current.position.set(0, 0, -trayD / 2 + wall + cart.depth / 2 + k * (D + 0.5));
+      // posée sur le manuel quand il y en a un
+      cartGroup.current.position.set(0, 0, -trayD / 2 + wall + cart.depth / 2 + (manual ? 0.016 : 0) + k * (D + 0.5));
       cartGroup.current.rotation.x = -k * 0.15;
       cartGroup.current.rotation.y = reduced ? 0 : Math.sin(state.clock.elapsedTime * 1.1) * 0.35 * k;
       cartGroup.current.scale.setScalar(1 + k * 0.25);
@@ -149,6 +154,23 @@ export function RetroBox({
               <boxGeometry args={[wall, trayH, trayD]} />
             </mesh>
           ))}
+          {/* manuel couché au fond du plateau, sous la cartouche, un coin dépassant */}
+          {manual && (
+            <ManualBooklet
+              texture={manual.texture}
+              width={trayW * 0.8}
+              height={trayH * 0.8}
+              thickness={0.014}
+              position={[-trayW * 0.06, trayH * 0.05, -trayD / 2 + wall + 0.008]}
+              rotationZ={0.05}
+              facing={1}
+              active={open}
+              out={manual.out}
+              lift={0.025}
+              reduced={reduced}
+              onPress={manual.onPress}
+            />
+          )}
           <group ref={cartGroup}>
             <Cartridge spec={cart} mats={mats} />
           </group>

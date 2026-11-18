@@ -11,6 +11,7 @@ pub mod db;
 pub mod emulators;
 pub mod launcher;
 pub mod library;
+pub mod manuals;
 pub mod metadata;
 pub mod pc;
 pub mod scanner;
@@ -78,6 +79,7 @@ pub fn run() {
             }
             app.manage(state);
             app.manage(meta_cmd::MetadataState::open(app.handle())?);
+            app.manage(manuals::commands::ManualState::open(app.handle())?);
             app.manage(launch_cmd::LauncherState::default());
             app.manage(emulators::commands::EmulatorsState::default());
             app.manage(shell::Behavior::default());
@@ -99,6 +101,20 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            manuals::commands::manual_list,
+            manuals::commands::manual_read,
+            manuals::commands::manual_cover,
+            manuals::commands::manual_cover_save,
+            manuals::commands::manual_import,
+            manuals::commands::manual_remove,
+            manuals::commands::manual_search,
+            manuals::commands::manual_apply,
+            manuals::commands::manual_auto,
+            manuals::commands::manual_status,
+            manuals::commands::manual_clear_downloaded,
+            manuals::commands::screenscraper_account_set,
+            manuals::commands::screenscraper_account_info,
+            manuals::commands::screenscraper_account_delete,
             emulators::commands::emulators_overview,
             emulators::commands::emulator_install,
             emulators::commands::emulator_install_cancel,

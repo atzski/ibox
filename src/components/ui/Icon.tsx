@@ -41,6 +41,15 @@ const PATHS = {
   ),
   back: <path d="M14.5 5.5 8 12l6.5 6.5" />,
   chevronRight: <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />,
+  chevronLeft: <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />,
+  // carnet (manuel du jeu) : couverture, tranche de pages, deux lignes de texte
+  manual: (
+    <>
+      <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3H18v15H7.5A1.5 1.5 0 0 0 6 19.5z" />
+      <path d="M6 19.5A1.5 1.5 0 0 0 7.5 21H18v-3" />
+      <path d="M9.5 7.5h5M9.5 10.5h5" />
+    </>
+  ),
   play: <path d="M8 5.5v13l10-6.5z" fill="currentColor" />,
   open: (
     <>

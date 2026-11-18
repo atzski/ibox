@@ -16,6 +16,8 @@ import type { DiscMedia, KeepCaseSpec } from "./caseSpecs";
 import type { CaseTextures } from "../useCaseTextures";
 import { CardHolder, GameCardModel } from "./GameCardModel";
 import { stepSpring, type SpringState } from "../springs";
+import { ManualBooklet } from "./ManualBooklet";
+import type { CaseManual } from "./CaseModel";
 
 /**
  * Écart entre la jaquette et le plastique. Les arrondis des boîtes plastiques
@@ -50,7 +52,9 @@ export function KeepCase({
   lite = false,
   reduced = false,
   anim,
+  manual,
 }: {
+  manual?: CaseManual | null;
   spec: KeepCaseSpec;
   textures: CaseTextures | null;
   open?: boolean;
@@ -306,10 +310,26 @@ export function KeepCase({
         </mesh>
         {!lite && (
           <>
-            {/* manuel tenu par deux languettes */}
-            <mesh position={[Wc / 2 + 0.01, 0, -t / 2 - 0.0045]} material={mats.manual}>
-              <boxGeometry args={[Wc * 0.82, H * 0.86, 0.007]} />
-            </mesh>
+            {/* manuel tenu par deux languettes : le vrai carnet du jeu quand il existe */}
+            {manual ? (
+              <ManualBooklet
+                texture={manual.texture}
+                width={Wc * 0.82}
+                height={H * 0.86}
+                thickness={0.012}
+                position={[Wc / 2 + 0.01, 0, -t / 2 - 0.0075]}
+                facing={-1}
+                active={open}
+                out={manual.out}
+                lift={0.03}
+                reduced={reduced}
+                onPress={manual.onPress}
+              />
+            ) : (
+              <mesh position={[Wc / 2 + 0.01, 0, -t / 2 - 0.0045]} material={mats.manual}>
+                <boxGeometry args={[Wc * 0.82, H * 0.86, 0.007]} />
+              </mesh>
+            )}
             {[1, -1].map((s) => (
               <mesh key={s} position={[Wc / 2 + 0.01, s * (H * 0.43 + 0.006), -t / 2 - 0.006]} material={mats.inner}>
                 <boxGeometry args={[0.16, 0.03, 0.012]} />

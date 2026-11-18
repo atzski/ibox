@@ -10,7 +10,18 @@ licences). Règle : aucun scraping non autorisé, aucune clé dans le code.
 | **GameTDB — bases de titres** | titre localisé, synopsis, éditeur, développeur, année, genre, joueurs (GameCube, Wii, DS, 3DS) | `https://www.gametdb.com/{wiitdb,dstdb,3dstdb}.zip` (XML). L'en-tête du fichier : « *meant as a collaborative database … for anyone to use* » | ✅ intégré, crédit affiché |
 | **libretro-database** (`metadat/`) | éditeur, développeur, genre, année, joueurs (N64, GB, GBC, GBA, SNES, DS, 3DS, PSP…) | fichiers DAT sur GitHub, licence **CC BY-SA 4.0** | ✅ intégré, crédit affiché |
 | GameTDB — visuels | scans complets, dos, tranche, disque | site en 403, liens d'images en 404 : vérification humaine en place | ❌ non intégré (contournement exclu) |
-| ScreenScraper | scans complets, manuels, vidéos | API v2 avec identifiants **développeur** délivrés par l'équipe ScreenScraper + compte utilisateur, quotas par compte | ⏸ « Bientôt » : demande d'identifiants développeur nécessaire |
+| ScreenScraper | manuels (PDF) des jeux de consoles | API v2 `api.screenscraper.fr/api2` : identifiants **développeur** d'iBox fournis à la compilation (`IBOX_SS_DEVID` / `IBOX_SS_DEVPASSWORD`, brouillés par `build.rs`, jamais dans les sources) + compte utilisateur facultatif (coffre Windows), quotas par compte, un fil | ✅ intégré pour les manuels (0.1.86) |
+| Steam (manuels) | manuel officiel des jeux PC | `store.steampowered.com/manual/<appid>/` redirige vers le PDF publié par l'éditeur, sans clé | ✅ intégré (0.1.86) |
+| Internet Archive | scans de manuels (collection « consolemanuals » et sous-collections par console) | `archive.org/advancedsearch.php` puis `archive.org/metadata/<id>`, sans clé | ✅ intégré (0.1.86), correspondance par titre notée : appliquée seule à partir de 0,9 |
+
+## Manuels (0.1.86)
+
+Un PDF par jeu dans `manuals/` (données d'iBox), table `game_manuals` (migration 016). Ordre :
+import local, Steam, ScreenScraper (fichier du jeu : nom, taille, CRC, série ; sinon titre quasi
+identique), Internet Archive. Recherche automatique à l'ouverture d'une fiche (réessai après
+14 jours sans résultat, jamais après un retrait par l'utilisateur). Les manuels ne sont jamais
+redistribués. Lecteur : pdf.js (ressources servies sous `/pdfjs/` par `vite.config.ts`), doubles
+pages scannées coupées en deux. Essai réel : `cargo test --lib manuals::live -- --ignored --nocapture`.
 
 ## Conséquences pour l'interface
 

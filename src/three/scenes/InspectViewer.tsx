@@ -6,6 +6,7 @@ import { createCaseAnim, type KeepCaseAnim } from "../cases/KeepCase";
 import { CaseModel, openShift } from "../cases/CaseModel";
 import { caseExtent, type CaseSpec } from "../cases/caseSpecs";
 import { useCaseTextures } from "../useCaseTextures";
+import { useManualTexture } from "../useManualTexture";
 import { InspectController } from "../inspectController";
 import { InspectStudio } from "./InspectStudio";
 import { cachedRect, tuneRenderer } from "../rendererTuning";
@@ -23,12 +24,33 @@ interface ViewerProps {
   dark?: boolean;
   onToggleOpen: () => void;
   onActivity?: () => void;
+  /** Lecteur du manuel ouvert (le carnet est sorti de ses clips). */
+  manualOut?: boolean;
+  /** Clic sur le carnet du boîtier ouvert. */
+  onOpenManual?: () => void;
 }
 
 const BASE_DISTANCE = 6.4;
 
-function Rig({ game, spec, controller, open, discOut, reduced, tint, dark = false, onCompiled }: Omit<ViewerProps, "onToggleOpen"> & { onCompiled?: () => void }) {
+function Rig({
+  game,
+  spec,
+  controller,
+  open,
+  discOut,
+  reduced,
+  tint,
+  dark = false,
+  onCompiled,
+  manualOut = false,
+  onManualPress,
+}: Omit<ViewerProps, "onToggleOpen" | "onOpenManual"> & { onCompiled?: () => void; onManualPress?: () => void }) {
   const textures = useCaseTextures(game, spec, "inspect");
+  const manualTexture = useManualTexture(game);
+  const manual = useMemo(
+    () => (manualTexture && onManualPress ? { texture: manualTexture, onPress: onManualPress, out: manualOut } : null),
+    [manualTexture, onManualPress, manualOut],
+  );
   const anim = useRef<KeepCaseAnim>(createCaseAnim());
   const outer = useRef<Group>(null);
   const inner = useRef<Group>(null);
@@ -161,7 +183,7 @@ function Rig({ game, spec, controller, open, discOut, reduced, tint, dark = fals
       <InspectStudio tint={tint} dark={dark} reduced={reduced} floorY={-spec.height / 2 - 0.14} subject={outer} />
       <group ref={outer}>
         <group ref={inner}>
-          <CaseModel spec={spec} textures={textures} open={open} mediaOut={discOut} reduced={reduced} anim={anim} />
+          <CaseModel spec={spec} textures={textures} open={open} mediaOut={discOut} reduced={reduced} anim={anim} manual={manual} />
         </group>
       </group>
     </>
@@ -173,8 +195,14 @@ function Rig({ game, spec, controller, open, discOut, reduced, tint, dark = fals
  * pour zoomer, ← → pour pivoter au clavier, Entrée pour ouvrir/fermer.
  */
 export function InspectViewer(props: ViewerProps) {
-  const { controller, onToggleOpen, tint } = props;
+  const { controller, onToggleOpen, tint, onOpenManual } = props;
   const last = useRef<{ x: number; y: number; t: number } | null>(null);
+  // Clic sur le carnet : pressé (signalé par la scène) puis relâché sans glisser
+  const down = useRef<{ x: number; y: number; t: number } | null>(null);
+  const bookletPressedAt = useRef(0);
+  const onManualPress = useCallback(() => {
+    bookletPressedAt.current = performance.now();
+  }, []);
   const [live, setLive] = useState(false);
   const markLive = useCallback(() => setLive(true), []);
 
@@ -204,6 +232,7 @@ export function InspectViewer(props: ViewerProps) {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     last.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+    down.current = { ...last.current };
     controller.dragStart();
     props.onActivity?.();
   };
@@ -216,6 +245,12 @@ export function InspectViewer(props: ViewerProps) {
   const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (!last.current) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
+    const d = down.current;
+    if (d && onOpenManual && Math.abs(bookletPressedAt.current - d.t) < 120 && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 8 && performance.now() - d.t < 700) {
+      bookletPressedAt.current = 0;
+      onOpenManual();
+    }
+    down.current = null;
     // un mouvement arrêté avant le relâchement ne relance pas d'inertie
     if (performance.now() - last.current.t > 90) controller.dragMove(0, 0, 1);
     last.current = null;
@@ -263,7 +298,7 @@ export function InspectViewer(props: ViewerProps) {
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         style={{ borderRadius: "inherit", touchAction: "none" }}
       >
-        <Rig {...props} tint={tint} onCompiled={markLive} />
+        <Rig {...props} tint={tint} onCompiled={markLive} onManualPress={onOpenManual ? onManualPress : undefined} />
       </Canvas>
     </div>
   );

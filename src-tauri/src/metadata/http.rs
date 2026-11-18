@@ -13,6 +13,8 @@ pub const USER_AGENT: &str = "iBox/0.1 (bibliotheque de jeux pour Windows)";
 
 pub struct Http {
     client: reqwest::blocking::Client,
+    /// Sans suivi des redirections : sert à lire la destination d'un lien (manuels Steam).
+    no_redirect: reqwest::blocking::Client,
     last: Mutex<HashMap<String, Instant>>,
 }
 
@@ -22,6 +24,9 @@ fn min_interval(host: &str) -> Duration {
         "www.steamgriddb.com" => 350,
         "www.gametdb.com" => 1500,
         "raw.githubusercontent.com" => 250,
+        // ScreenScraper : un seul fil par compte, on reste très en dessous
+        "api.screenscraper.fr" => 1200,
+        "archive.org" => 400,
         _ => 120,
     })
 }
@@ -34,7 +39,14 @@ impl Http {
             .timeout(Duration::from_secs(90))
             .build()
             .map_err(|e| MetaError::Network(e.to_string()))?;
-        Ok(Self { client, last: Mutex::new(HashMap::new()) })
+        let no_redirect = reqwest::blocking::Client::builder()
+            .user_agent(USER_AGENT)
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| MetaError::Network(e.to_string()))?;
+        Ok(Self { client, no_redirect, last: Mutex::new(HashMap::new()) })
     }
 
     fn throttle(&self, url: &str) {
@@ -64,6 +76,20 @@ impl Http {
             return Err(MetaError::Http { status: status.as_u16(), what: what.to_string() });
         }
         Ok(resp)
+    }
+
+    /// Destination d'une redirection (`None` si l'adresse répond directement).
+    pub fn redirect_target(&self, url: &str, what: &str) -> Result<Option<String>> {
+        self.throttle(url);
+        let resp = self.no_redirect.get(url).send().map_err(|e| MetaError::Network(e.without_url().to_string()))?;
+        let status = resp.status();
+        if status.is_redirection() {
+            return Ok(resp.headers().get(reqwest::header::LOCATION).and_then(|v| v.to_str().ok()).map(str::to_string));
+        }
+        if status.is_success() {
+            return Ok(None);
+        }
+        Err(MetaError::Http { status: status.as_u16(), what: what.to_string() })
     }
 
     /// Gros fichier écrit dans `out` au fil de l'eau (délai long), plafonné à `max` octets.
