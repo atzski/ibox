@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { PLATFORMS, requirePlatform } from "@/domain/platforms";
 import { matchesQuery } from "@/domain/text";
 import type { Game } from "@/domain/types";
-import { useCollections } from "@/services/extras";
+import { isDecor, useCollections } from "@/services/extras";
 
 export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; onClose: () => void; onCollection: (id: number) => void }) {
   const [query, setQuery] = useState("");
@@ -19,7 +19,7 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
       ({ key: game.id, title: game.title, detail: requirePlatform(game.platformId).name, open: () => navigate({ name: "game", gameId: game.id }) })) },
     { label: "Consoles", icon: "grid", items: PLATFORMS.filter((p) => matchesQuery(p.name, query)).slice(0, 8).map((platform) =>
       ({ key: platform.id, title: platform.name, open: () => navigate({ name: "library", platformId: platform.id }) })) },
-    { label: "Collections", icon: "shelf", items: list.filter((c) => matchesQuery(c.name, query)).slice(0, 8).map((collection) =>
+    { label: "Collections", icon: "shelf", items: list.filter((c) => !isDecor(c.id) && matchesQuery(c.name, query)).slice(0, 8).map((collection) =>
       ({ key: collection.id, title: collection.name, open: () => onCollection(collection.id) })) },
   ];
   return (

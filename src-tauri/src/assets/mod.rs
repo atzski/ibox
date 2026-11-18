@@ -721,7 +721,7 @@ pub mod commands {
     pub async fn collection_art_set(app: AppHandle, id: i64, kind: String, url: String) -> Result<()> {
         let path = collection_file(&app, id, &kind)?;
         let host_ok = reqwest::Url::parse(&url).ok().and_then(|u| u.host_str().map(str::to_ascii_lowercase))
-            .is_some_and(|h| h.ends_with(".iisu.network") || h == "cdn2.steamgriddb.com" || h == "cdn.steamgriddb.com");
+            .is_some_and(|h| h.ends_with(".iisu.network") || h == "cdn2.steamgriddb.com" || h == "cdn.steamgriddb.com" || h == "play.pokemonshowdown.com");
         if !host_ok { return Err("Adresse d'image refusée.".into()); }
         let http = app.state::<MetadataState>().http.clone();
         run(move || {
@@ -731,6 +731,20 @@ pub mod commands {
             std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
             std::fs::write(&path, &bytes).map_err(|e| e.to_string())
         }).await
+    }
+
+    /// Image ou GIF choisi sur le PC : octets bruts dans le corps, `x-id` et `x-kind` en en-têtes.
+    #[tauri::command]
+    pub fn collection_art_import(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<()> {
+        let header = |name: &str| request.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_owned);
+        let id: i64 = header("x-id").and_then(|v| v.parse().ok()).ok_or("Collection inconnue.")?;
+        let kind = header("x-kind").ok_or("Type invalide.")?;
+        let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("Image manquante.".into()) };
+        if bytes.len() > MAX_IMAGE_BYTES { return Err("Image trop lourde.".into()); }
+        sniff(bytes).ok_or("Format d'image incompatible (PNG, JPG, WebP ou GIF).")?;
+        let path = collection_file(&app, id, &kind)?;
+        std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())
     }
 
     /// Image iiDB / SteamGridDB téléchargée côté natif (redirections et formats gérés).

@@ -68,7 +68,11 @@ export interface CollectionStyle {
   heroStamp?: number;
   logoSize?: "s" | "m" | "l";
   shade?: "light" | "medium" | "strong";
+  /** Décoration : une image ou un GIF seul (icône iiDB, Pokémon animé, fichier du PC), sans jeux. */
+  decor?: boolean;
 }
+/** Les vraies collections (sans les décorations de l'accueil). */
+export const isDecor = (id: number) => !!useCollectionStyles.getState().styles[id]?.decor;
 export const useCollectionStyles = create<{ styles: Record<number, CollectionStyle>; setStyle: (id: number, s: CollectionStyle) => void }>()(
   persist((set) => ({ styles: {}, setStyle: (id, s) => set((st) => ({ styles: { ...st.styles, [id]: s } })) }), { name: "ibox.collectionStyles" }),
 );

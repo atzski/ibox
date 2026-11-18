@@ -38,7 +38,7 @@ export function CollectionsModal({ game, onClose }: { game: Game; onClose: () =>
   return (
     <Modal title="Collections" subtitle={game.title} onClose={onClose} width="30rem">
       <div className="flex flex-col gap-2" data-nav-group="collections">
-        {list.map((c) => {
+        {list.filter((c) => !styles[c.id]?.decor).map((c) => {
           const rule = styles[c.id]?.rule;
           const member = rule ? !!matchesSmartRule(rule, game) : c.gameIds.includes(dbId);
           return (
@@ -63,7 +63,7 @@ export function CollectionsModal({ game, onClose }: { game: Game; onClose: () =>
             </button>
           );
         })}
-        {list.length === 0 && <p className="text-[0.9rem] font-semibold text-ink-soft">Créez votre première collection : « À finir », « Coop », « Jeux d'enfance »…</p>}
+        {list.every((c) => styles[c.id]?.decor) && <p className="text-[0.9rem] font-semibold text-ink-soft">Créez votre première collection : « À finir », « Coop », « Jeux d'enfance »…</p>}
       </div>
       <form onSubmit={add} className="mt-4 flex gap-2">
         <input

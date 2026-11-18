@@ -14,11 +14,14 @@ export function ShelfRow({
   action,
   children,
   group,
+  wrap,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
   group: string;
+  /** Lignes successives au lieu d'une rangée qui défile (rien n'est caché). */
+  wrap?: boolean;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -64,12 +67,14 @@ export function ShelfRow({
           initial="hidden"
           animate="show"
           variants={{ show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } } }}
-          className="no-scrollbar flex gap-5 overflow-x-auto scroll-smooth px-[3rem] pt-5 pb-7 [scroll-padding-inline:3rem]"
+          className={wrap
+            ? "flex flex-wrap gap-x-5 gap-y-7 px-[3rem] pt-5 pb-7"
+            : "no-scrollbar flex gap-5 overflow-x-auto scroll-smooth px-[3rem] pt-5 pb-7 [scroll-padding-inline:3rem]"}
         >
           {children}
         </motion.div>
-        <ScrollArrow side="left" visible={edges.left} onClick={() => scrollBy(-1)} />
-        <ScrollArrow side="right" visible={edges.right} onClick={() => scrollBy(1)} />
+        <ScrollArrow side="left" visible={!wrap && edges.left} onClick={() => scrollBy(-1)} />
+        <ScrollArrow side="right" visible={!wrap && edges.right} onClick={() => scrollBy(1)} />
       </div>
     </section>
   );

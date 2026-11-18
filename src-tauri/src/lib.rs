@@ -281,6 +281,7 @@ pub fn run() {
             assets::commands::collection_iidb_icons,
             assets::commands::collection_sgdb_images,
             assets::commands::collection_art_set,
+            assets::commands::collection_art_import,
             assets::commands::collection_art_get,
             assets::commands::image_fetch,
             assets::commands::collection_art_clear,

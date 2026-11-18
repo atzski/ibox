@@ -8,7 +8,8 @@ import { sound } from "@/services/sound";
 
 /**
  * Petite barre de l'accueil : à gauche le joueur actif (changer d'utilisateur
- * en deux clics), à droite les raccourcis discrets Succès, Fond et Recherche.
+ * en deux clics), à droite les raccourcis discrets Succès, Communauté, Fond et
+ * Recherche, en icônes seules (leur nom s'affiche au survol).
  */
 export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommunity }: {
   onAchievements: () => void;
@@ -18,7 +19,7 @@ export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommuni
 }) {
   return (
     <div className="flex items-center justify-end gap-3 px-[3rem] pt-2">
-      <div className="flex items-center gap-1 rounded-full bg-white/55 p-1 shadow-[0_6px_18px_-12px_rgba(30,40,70,0.5)] ring-1 ring-black/5 backdrop-blur">
+      <div className="flex items-center gap-0.5 rounded-full bg-white/55 p-1 shadow-[0_6px_18px_-12px_rgba(30,40,70,0.5)] ring-1 ring-black/5 backdrop-blur">
         <Chip icon="trophy" label="Succès" onClick={onAchievements} tint="var(--tone-yellow-ink)" />
         <Chip icon="globe" label="Communauté" onClick={onCommunity} tint="var(--tone-green-ink)" />
         <Chip icon="front" label="Fond" title="Changer le fond de l’accueil" onClick={onBackground} tint="var(--tone-pink-ink)" />
@@ -29,18 +30,24 @@ export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommuni
 }
 
 function Chip({ icon, label, onClick, title, tint }: { icon: IconName; label: string; onClick: () => void; title?: string; tint?: string }) {
+  // icône seule : le nom apparaît en bulle au survol ou à la sélection (manette, clavier)
   return (
     <button
       data-focusable
-      title={title ?? label}
+      aria-label={title ?? label}
       onClick={() => {
         sound.play("select");
         onClick();
       }}
-      className="ibox-focusable inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold text-ink transition-colors hover:bg-white [--ring-radius:999px]"
+      className="group/chip ibox-focusable relative grid size-10 place-items-center rounded-full text-ink transition-[background-color,transform] hover:scale-110 hover:bg-white active:scale-95 [--ring-radius:999px]"
     >
-      <Icon name={icon} size="0.95rem" style={tint ? { color: tint } : undefined} />
-      {label}
+      <Icon name={icon} size="1.15rem" style={tint ? { color: tint } : undefined} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-full left-1/2 z-30 mt-2 -translate-x-1/2 translate-y-1 rounded-full bg-ink px-2.5 py-1 text-[0.72rem] font-bold whitespace-nowrap text-white opacity-0 shadow-md transition-[opacity,translate] duration-150 group-hover/chip:translate-y-0 group-hover/chip:opacity-100 group-focus-visible/chip:translate-y-0 group-focus-visible/chip:opacity-100"
+      >
+        {label}
+      </span>
     </button>
   );
 }

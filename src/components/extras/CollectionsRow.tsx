@@ -25,6 +25,7 @@ export function CollectionsRow() {
   const games = useLibrary((s) => s.realGames);
   const [open, setOpen] = useState<Collection | null>(null);
   const [editing, setEditing] = useState<Collection | "new" | null>(null);
+  const [decorating, setDecorating] = useState<Collection | "new" | null>(null);
   useEffect(() => void load().catch(() => undefined), [load]);
   const byDb = useMemo(() => new Map(games.map((g) => [g.dbId, g])), [games]);
   const styles = useCollectionStyles((s) => s.styles);
@@ -45,12 +46,17 @@ export function CollectionsRow() {
     return () => window.removeEventListener("ibox:open-collection", listener);
   }, []);
 
-  // Mode « Organiser » : ordre provisoire pendant le glisser-déposer, enregistré à chaque dépôt
+  // Mode « Organiser » : on attrape une carte à la souris (clic maintenu), elle suit le
+  // pointeur et les autres s'écartent ; le nouvel ordre est enregistré au relâchement.
   const reorder = useCollections((s) => s.reorder);
   const [organizing, setOrganizing] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
   const [draft, setDraft] = useState<number[] | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number; w: number } | null>(null);
   const shown = draft ? draft.map((id) => list.find((c) => c.id === id)).filter((c): c is Collection => !!c) : list;
+  const order = useRef<number[]>([]);
+  order.current = shown.map((c) => c.id);
+  const grab = useRef<{ id: number; sx: number; sy: number; dx: number; dy: number; w: number; started: boolean; last: number | null } | null>(null);
   const save = (ids: number[]) => void reorder(ids).catch(() => sound.play("error"));
   const move = (id: number, delta: -1 | 1) => {
     const ids = shown.map((c) => c.id);
@@ -61,23 +67,52 @@ export function CollectionsRow() {
     sound.play("move");
     save(ids);
   };
-  const dragOver = (overId: number) => {
-    if (dragId === null || dragId === overId) return;
-    const ids = (draft ?? list.map((c) => c.id)).filter((id) => id !== dragId);
-    ids.splice(ids.indexOf(overId) + (shown.findIndex((c) => c.id === dragId) < shown.findIndex((c) => c.id === overId) ? 1 : 0), 0, dragId);
-    setDraft(ids);
+  const pointerDown = (e: React.PointerEvent<HTMLDivElement>, id: number) => {
+    if (!organizing || e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    grab.current = { id, sx: e.clientX, sy: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, started: false, last: null };
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
-  const drop = () => {
-    if (draft) save(draft);
+  const pointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = grab.current;
+    if (!g) return;
+    if (!g.started) {
+      if (Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 6) return;
+      g.started = true;
+      setDragId(g.id);
+      sound.play("open");
+    }
+    setGhost({ x: e.clientX - g.dx, y: e.clientY - g.dy, w: g.w });
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-collection-id]");
+    const overId = over ? Number(over.dataset.collectionId) : null;
+    // une seule permutation par carte survolée : pas de va-et-vient pendant l'animation
+    if (overId === null || overId === g.id) { g.last = null; return; }
+    if (overId === g.last) return;
+    g.last = overId;
+    const ids = order.current.filter((x) => x !== g.id);
+    const after = order.current.indexOf(g.id) < order.current.indexOf(overId);
+    ids.splice(ids.indexOf(overId) + (after ? 1 : 0), 0, g.id);
+    setDraft(ids);
     sound.play("move");
+  };
+  const pointerUp = () => {
+    const g = grab.current;
+    grab.current = null;
+    if (g?.started) {
+      if (order.current.join() !== list.map((c) => c.id).join()) save(order.current);
+      sound.play("select");
+    }
     setDragId(null);
     setDraft(null);
+    setGhost(null);
   };
+  const dragged = dragId !== null ? list.find((c) => c.id === dragId) : undefined;
 
   return (
     <ShelfRow
       title="Mes collections"
       group="home-collections"
+      wrap
       action={
         <div className="flex items-center gap-2">
           {list.length > 1 && (
@@ -86,11 +121,24 @@ export function CollectionsRow() {
               variant={organizing ? "primary" : "soft"}
               icon={organizing ? "check" : "grid"}
               aria-label={organizing ? "Terminé" : "Organiser"}
-              title={organizing ? "Terminé" : "Organiser"}
+              title={organizing ? "Terminé" : "Organiser : maintenez le clic sur une carte pour la déplacer"}
               className="w-11 px-0!"
               onClick={() => {
                 sound.play(organizing ? "back" : "open");
                 setOrganizing((v) => !v);
+              }}
+            />
+          )}
+          {!organizing && (
+            <Button
+              tone="pink"
+              icon="sparkle"
+              aria-label="Ajouter une décoration"
+              title="Ajouter une décoration (image ou GIF)"
+              className="w-11 px-0!"
+              onClick={() => {
+                sound.play("open");
+                setDecorating("new");
               }}
             />
           )}
@@ -106,35 +154,31 @@ export function CollectionsRow() {
       {shown.map((c, i) => (
         <motion.div
           key={c.id}
+          data-collection-id={c.id}
           layout
           transition={{ layout: { type: "spring", stiffness: 420, damping: 34 } }}
           variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-          draggable={organizing}
-          onDragStartCapture={(e: React.DragEvent) => {
-            if (!organizing) return;
-            e.dataTransfer.effectAllowed = "move";
-            setDragId(c.id);
-          }}
-          onDragOverCapture={(e: React.DragEvent) => {
-            if (!organizing || dragId === null) return;
-            e.preventDefault();
-            dragOver(c.id);
-          }}
-          onDropCapture={(e: React.DragEvent) => { if (organizing) { e.preventDefault(); drop(); } }}
-          onDragEndCapture={() => { if (organizing && dragId !== null) drop(); }}
-          className={`group/collection relative shrink-0 ${organizing ? `cursor-grab active:cursor-grabbing ${dragId === c.id ? "opacity-60" : "ibox-organize-wiggle"}` : ""}`}
+          onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => pointerDown(e, c.id)}
+          onPointerMove={pointerMove}
+          onPointerUp={pointerUp}
+          onPointerCancel={pointerUp}
+          className={`group/collection relative shrink-0 ${organizing ? `cursor-grab touch-none select-none active:cursor-grabbing ${dragId === c.id ? "opacity-30" : "ibox-organize-wiggle"}` : ""}`}
           style={organizing ? { ["--wiggle-delay" as string]: `${(i % 4) * -0.17}s` } : undefined}
         >
           <div className={organizing ? "pointer-events-none" : undefined}>
-            <CollectionCard
-              collection={c}
-              items={gamesOf(c)}
-              onOpen={organizing ? undefined : () => {
-                sound.play("select");
-                setOpen(c);
-              }}
-              onEdit={organizing ? undefined : () => setEditing(c)}
-            />
+            {styles[c.id]?.decor ? (
+              <DecorCard collection={c} onEdit={organizing ? undefined : () => setDecorating(c)} />
+            ) : (
+              <CollectionCard
+                collection={c}
+                items={gamesOf(c)}
+                onOpen={organizing ? undefined : () => {
+                  sound.play("select");
+                  setOpen(c);
+                }}
+                onEdit={organizing ? undefined : () => setEditing(c)}
+              />
+            )}
           </div>
           {organizing && (
             // clavier et manette : déplacer d'un cran à gauche ou à droite
@@ -161,7 +205,17 @@ export function CollectionsRow() {
           )}
         </motion.div>
       ))}
+      {dragged && ghost && createPortal(
+        // la carte attrapée suit la souris
+        <div inert aria-hidden className="pointer-events-none fixed top-0 left-0 z-50" style={{ width: ghost.w, transform: `translate(${ghost.x}px, ${ghost.y}px) rotate(-3deg) scale(1.05)` }}>
+          <div className="group/collection relative drop-shadow-[0_24px_30px_rgba(20,30,60,0.35)]">
+            {styles[dragged.id]?.decor ? <DecorCard collection={dragged} /> : <CollectionCard collection={dragged} items={gamesOf(dragged)} draft={styles[dragged.id] ?? {}} />}
+          </div>
+        </div>,
+        document.body,
+      )}
       {editing && <CollectionEditor collection={editing === "new" ? null : editing} games={editing === "new" ? [] : gamesOf(editing)} onClose={() => setEditing(null)} />}
+      {decorating && <DecorEditor decor={decorating === "new" ? null : decorating} onClose={() => setDecorating(null)} />}
       <AnimatePresence>{open && <CollectionShelf key={open.id} collection={list.find((x) => x.id === open.id) ?? open} games={gamesOf(list.find((x) => x.id === open.id) ?? open)} onClose={() => setOpen(null)} />}</AnimatePresence>
     </ShelfRow>
   );
@@ -895,6 +949,197 @@ function GamesEditor({ collection, onClose }: { collection: Collection; onClose:
         <div className="flex justify-end">
           <Button variant="primary" icon="check" onClick={onClose}>Terminé</Button>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Décoration de l'accueil : une image ou un GIF seul, détouré, sans cadre. */
+function DecorCard({ collection: c, onEdit, preview }: { collection: Collection; onEdit?: () => void; preview?: string | null }) {
+  const stamp = useCollectionStyles((st) => st.styles[c.id]?.iconStamp);
+  const saved = useCollectionArt(c.id, "icon", preview === undefined ? stamp : undefined);
+  const url = preview === undefined ? saved : preview;
+  const [pixel, setPixel] = useState(false);
+  const live = !!onEdit;
+  return (
+    <>
+      <motion.button
+        type="button"
+        data-focusable={live ? true : undefined}
+        tabIndex={live ? undefined : -1}
+        aria-label={c.name}
+        title={live ? c.name : undefined}
+        whileTap={{ scale: 0.9, rotate: -4 }}
+        onClick={() => live && sound.play("select")}
+        onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
+        className="group ibox-focusable relative grid size-[12.5rem] place-items-center [--ring-radius:1.6rem]"
+      >
+        {url ? (
+          <img
+            src={url}
+            alt=""
+            draggable={false}
+            // petit sprite (pixel art) : agrandi net, sans flou
+            onLoad={(e) => setPixel(Math.max(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) <= 160)}
+            style={pixel ? { imageRendering: "pixelated" } : undefined}
+            className={`object-contain drop-shadow-[0_10px_14px_rgba(10,20,40,0.3)] transition-transform duration-500 group-hover:scale-105 ${pixel ? "size-[78%]" : "size-full"}`}
+          />
+        ) : (
+          <span className="grid size-full place-items-center rounded-[1.6rem] border-2 border-dashed border-ink/20 text-ink-soft"><Icon name="sparkle" size="2.4rem" /></span>
+        )}
+      </motion.button>
+      {onEdit && (
+        <button
+          data-focusable
+          aria-label={`Modifier ${c.name}`}
+          onClick={onEdit}
+          className={`${editReveal} ibox-focusable absolute top-2.5 left-2.5 z-10 grid size-8 place-items-center rounded-full bg-white text-ink shadow-sm ring-2 ring-white/70 [--ring-radius:999px]`}
+        >
+          <Icon name="gear" size={15} />
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Sprites animés de Pokémon Showdown (GIF transparents). Noms français → identifiants anglais. */
+const POKEMON: [string, string][] = [
+  ["Pikachu", "pikachu"], ["Évoli", "eevee"], ["Salamèche", "charmander"], ["Bulbizarre", "bulbasaur"], ["Carapuce", "squirtle"],
+  ["Rondoudou", "jigglypuff"], ["Mew", "mew"], ["Ronflex", "snorlax"], ["Psykokwak", "psyduck"], ["Ectoplasma", "gengar"],
+  ["Lucario", "lucario"], ["Mimiqui", "mimikyu"], ["Goupix", "vulpix"], ["Togepi", "togepi"], ["Dracaufeu", "charizard"],
+  ["Magicarpe", "magikarp"], ["Rayquaza", "rayquaza"], ["Mewtwo", "mewtwo"], ["Pichu", "pichu"], ["Lokhlass", "lapras"],
+];
+const SHOWDOWN = "https://play.pokemonshowdown.com/sprites";
+const pokemonId = (name: string) => {
+  const raw = name.trim().toLowerCase();
+  const known = POKEMON.find(([fr, en]) => fr.toLowerCase() === raw || en === raw);
+  return known ? known[1] : raw.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\s.'’:]/g, "");
+};
+
+function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
+  const [q, setQ] = useState("");
+  const [id, setId] = useState<string | null>(null);
+  const [missing, setMissing] = useState<string[]>([]);
+  const choose = (value: string) => { setMissing([]); setId(pokemonId(value)); };
+  const variants = id ? (["ani", "ani-shiny", "gen5ani", "gen5ani-shiny"] as const).map((dir) => `${SHOWDOWN}/${dir}/${id}.gif`) : [];
+  const visible = variants.filter((u) => !missing.includes(u));
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <input
+          data-focusable
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) { e.preventDefault(); choose(q); } }}
+          placeholder="Pokémon (ex. Pikachu, Évoli, Lucario)"
+          aria-label="Chercher un Pokémon"
+          className="ibox-focusable h-10 min-w-0 flex-1 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]"
+        />
+        <Button type="button" icon="search" disabled={!q.trim()} onClick={() => choose(q)}>Chercher</Button>
+      </div>
+      {id ? (
+        <div>
+          <button type="button" data-focusable onClick={() => setId(null)} className="ibox-focusable mb-1.5 text-[0.8rem] font-bold text-accent-text">← Populaires</button>
+          {visible.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucun sprite animé pour « {q || id} ». Essayez son nom anglais.</p> : (
+            <div className="grid grid-cols-4 gap-2">
+              {visible.map((u) => (
+                <button key={u} type="button" data-focusable aria-label={u.includes("shiny") ? "Version chromatique" : "Version normale"} onClick={() => { sound.play("select"); onPicked(u); }}
+                  className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-white p-2 [--ring-radius:0.75rem]">
+                  <img src={u} alt="" loading="lazy" onError={() => setMissing((m) => [...m, u])} className="max-h-24 max-w-full object-contain [image-rendering:pixelated]" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid max-h-52 grid-cols-5 gap-2 overflow-y-auto p-0.5">
+          {POKEMON.map(([fr, en]) => (
+            <button key={en} type="button" data-focusable title={fr} onClick={() => { setQ(fr); choose(en); }}
+              className="ibox-focusable flex flex-col items-center gap-0.5 rounded-xl bg-white p-1.5 [--ring-radius:0.75rem]">
+              <span className="grid h-14 w-full place-items-center overflow-hidden"><img src={`${SHOWDOWN}/gen5ani/${en}.gif`} alt="" loading="lazy" className="max-h-14 max-w-full object-contain [image-rendering:pixelated]" /></span>
+              <span data-no-i18n className="w-full truncate text-center text-[0.7rem] font-bold text-ink">{fr}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="text-[0.75rem] text-ink-soft">Sprites animés de Pokémon Showdown, transparents.</p>
+    </div>
+  );
+}
+
+type DecorPick = { kind: "url"; url: string; thumb: string } | { kind: "file"; file: File; thumb: string };
+
+/** Ajouter ou modifier une décoration : icône iiDB, Pokémon animé ou image / GIF du PC. */
+function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: () => void }) {
+  const { create, remove, list } = useCollections();
+  const setStyle = useCollectionStyles((s) => s.setStyle);
+  const [source, setSource] = useState<"iidb" | "pokemon" | "file">("iidb");
+  const [pick, setPick] = useState<DecorPick | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (pick?.kind === "file") URL.revokeObjectURL(pick.thumb); }, [pick]);
+  const preview = pick?.thumb ?? (decor ? undefined : null);
+  const save = async () => {
+    if (!pick && decor) return onClose();
+    if (!pick) return;
+    setSaving(true);
+    setError(null);
+    let created: number | undefined;
+    try {
+      const id = decor?.id ?? (created = await create("Décoration", COLLECTION_COLORS[list.length % COLLECTION_COLORS.length]));
+      if (pick.kind === "url") await invoke("collection_art_set", { id, kind: "icon", url: pick.url });
+      else await invoke("collection_art_import", new Uint8Array(await pick.file.arrayBuffer()), { headers: { "x-id": String(id), "x-kind": "icon" } });
+      setStyle(id, { ...useCollectionStyles.getState().styles[id], decor: true, iconStamp: Date.now() });
+      sound.play("select");
+      onClose();
+    } catch (err) {
+      if (created !== undefined) await remove(created).catch(() => undefined);
+      setError(err instanceof Error ? err.message : String(err));
+      sound.play("error");
+    } finally { setSaving(false); }
+  };
+  return (
+    <Modal title={decor ? "Modifier la décoration" : "Ajouter une décoration"} subtitle="Une image ou un GIF pour embellir vos collections" onClose={() => { if (!saving) onClose(); }} width="38rem">
+      <div className="flex flex-col gap-4">
+        <div className="grid justify-items-center rounded-2xl bg-cream-deep p-3">
+          <div inert className="group/collection relative">
+            <DecorCard collection={decor ?? { id: 0, name: "Décoration", color: COLLECTION_COLORS[0], gameIds: [] }} preview={preview} />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Source de l'image">
+          {([["iidb", "Icônes iiDB"], ["pokemon", "Pokémon animés"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
+            <Chip key={k} active={source === k} onClick={() => setSource(k)}>{label}</Chip>
+          ))}
+        </div>
+        {source === "iidb" && <IconSearch onPicked={(p) => setPick({ kind: "url", url: p.url, thumb: p.thumb })} />}
+        {source === "pokemon" && <div className="rounded-2xl bg-cream-deep/60 p-3"><PokemonPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
+        {source === "file" && (
+          <div className="flex flex-col items-start gap-2 rounded-2xl bg-cream-deep/60 p-3">
+            <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) setPick({ kind: "file", file, thumb: URL.createObjectURL(file) });
+            }} />
+            <Button type="button" icon="folder" onClick={() => fileInput.current?.click()}>Choisir une image ou un GIF…</Button>
+            <p className="text-[0.8rem] text-ink-soft">PNG ou WebP transparents et GIF animés rendent le mieux.</p>
+          </div>
+        )}
+        <div className="flex flex-wrap justify-between gap-2">
+          {decor ? (
+            confirm ? (
+              <Button type="button" icon="trash" cue="back" disabled={saving} onClick={async () => {
+                setSaving(true);
+                try { await remove(decor.id); onClose(); } catch (err) { setError(String(err)); setSaving(false); }
+              }}>Confirmer la suppression</Button>
+            ) : <Button type="button" icon="trash" cue="back" onClick={() => setConfirm(true)}>Retirer</Button>
+          ) : <span />}
+          <Button variant="primary" type="button" icon="check" disabled={saving || (!pick && !decor)} onClick={() => void save()}>
+            {decor ? "Enregistrer" : "Ajouter"}
+          </Button>
+        </div>
+        {error && <p role="alert" className="text-[0.85rem] font-bold text-peach-deep">{error}</p>}
       </div>
     </Modal>
   );

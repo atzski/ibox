@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.91",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Toutes vos collections d’un coup d’œil", text: "Quand elles ne tiennent plus sur une ligne, vos collections passent à la ligne suivante au lieu de disparaître sur le côté : tout reste visible sur l’accueil." },
+      { icon: "shelf", title: "Rangez à la souris", text: "Avec le bouton Organiser, maintenez le clic sur une collection et faites-la glisser où vous voulez : les autres s’écartent pour lui faire place. Les flèches restent là pour le clavier et la manette." },
+      { icon: "sparkle", title: "Des décorations pour vos collections", text: "Le nouveau bouton étincelle ajoute une image ou un GIF seul, détouré comme les icônes : une icône iiDB, un Pokémon animé qui vous salue, ou votre propre image depuis le PC." },
+      { icon: "front", title: "Un accueil plus sobre", text: "La barre de raccourcis de l’accueil ne garde que ses icônes. Leur nom s’affiche dès que vous les survolez ou les sélectionnez à la manette." },
+    ],
+  },
+  {
     version: "0.1.90",
     date: "2026-11-18",
     highlights: [
