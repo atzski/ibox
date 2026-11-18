@@ -10,6 +10,8 @@ iBox gathers your PC games and your console collection in one place and gives ev
 
 Windows 10 and 11 (64-bit) · Free and open source
 
+<sub>Also on <a href="#also-on-steam-deck"><strong>Steam Deck</strong></a> (preview)</sub>
+
 <sub>English · <a href="README.fr.md">Français</a></sub>
 
 <br>
@@ -110,6 +112,22 @@ Make it yours: twelve colour palettes in light or dark mode, a home background p
   <img src="docs/media/screenshots/themes.webp" width="49%" alt="Appearance settings in dark mode: system, light and dark modes and the colour palettes">
 </p>
 
+## Also on Steam Deck
+
+The same library, in your hands. A Linux version of iBox made for the Steam Deck's Game Mode is released alongside the Windows version, which stays the main one. It is a preview: it works, and your feedback will shape it.
+
+<p align="center">
+  <img src="docs/media/screenshots/steam-deck.webp" width="85%" alt="A Steam Deck showing the iBox home screen: the collection on the 3D shelf, the last adventure and the collections">
+</p>
+
+- **Game Mode**: one full-screen window, the Deck's controls, and iBox in your Steam library with its own artwork.
+- **Your games**: Steam, Epic, GOG and Amazon games installed with Heroic, and your Lutris games.
+- **Every emulator in one click**, just like on Windows, from its official release or from Flathub; SmartConfig tunes each game for the Deck.
+- **Remote Play**: join a friend's game running on a Windows PC with iBox, with the Deck's controls, trackpads and keyboard.
+- **Built for the battery**: a Steam Deck graphics profile, a power-saving one on battery, and everything picks up again after sleep.
+
+Hosting a Remote Play game, the in-game overlay and stores without a Linux version stay on Windows. Licences of the components bundled with the Linux version are listed in [THIRD-PARTY-LINUX.md](docs/THIRD-PARTY-LINUX.md).
+
 ## Your journey
 
 iBox keeps track of what you play: time per game and per console, sessions, streaks and the last two weeks at a glance. Steam achievements and RetroAchievements meet in one trophy room, with rarity, next goals and a leaderboard with your friends. A RetroAchievements unlock shows up right away, over the game.
@@ -172,6 +190,8 @@ iBox launches console games through the emulator of your choice. For most consol
 1. Download the `-setup.exe` installer from the [latest release](https://github.com/atzski/ibox/releases/latest) and run it.
 2. Follow the setup wizard: choose your game folders and, if you like, connect Steam and the artwork services.
 3. Open your library and pick a game.
+
+**On Steam Deck:** in Desktop Mode, download the `.AppImage` from the [latest release](https://github.com/atzski/ibox/releases/latest), make it executable (right-click › Properties › Permissions), open it, then quit Steam and use Settings › System › **Add iBox to Steam**. In Game Mode, iBox is waiting in your library.
 
 API keys for Steam, SteamGridDB, iiDB and RetroAchievements are optional: they add features, and the [user guide](docs/GUIDE.md) shows how to get each one in a couple of minutes. iBox updates itself and offers new versions with one click.
 
