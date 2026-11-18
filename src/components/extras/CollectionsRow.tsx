@@ -323,7 +323,7 @@ function useCollectionArt(id: number, kind: "logo" | "hero" | "icon", stamp?: nu
   return url;
 }
 const LOGO_H = { s: "h-10", m: "h-14", l: "h-20" } as const;
-const SHADE = { light: 25, medium: 45, strong: 70 } as const;
+const SHADE = { none: 0, light: 25, medium: 45, strong: 70 } as const;
 
 /** Texte lisible sur la couleur d'une collection. */
 function inkOn(hex: string) {
@@ -403,7 +403,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
           // fond choisi : toujours affiché, quel que soit le style de carte
           <img src={heroUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : look !== "grid" && look !== "plain" && (hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
-        <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />
+        {shade > 0 && <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />}
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
             {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-white/50"><CoverImage game={g} /></span>)}
@@ -598,8 +598,8 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
             </EditorSection>
             <ArtSearch kind="hero" onPicked={(image) => setImages((old) => ({ ...old, hero: image }))} />
             <EditorSection label="Assombrir le fond">
-              {(["light", "medium", "strong"] as const).map((k) => (
-                <Chip key={k} active={(style.shade ?? "medium") === k} onClick={() => setLocalStyle({ ...style, shade: k })}>{k === "light" ? "Léger" : k === "medium" ? "Moyen" : "Fort"}</Chip>
+              {(["none", "light", "medium", "strong"] as const).map((k) => (
+                <Chip key={k} active={(style.shade ?? "medium") === k} onClick={() => setLocalStyle({ ...style, shade: k })}>{k === "none" ? "Aucun" : k === "light" ? "Léger" : k === "medium" ? "Moyen" : "Fort"}</Chip>
               ))}
             </EditorSection>
           </>

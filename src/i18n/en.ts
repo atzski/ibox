@@ -3415,4 +3415,7 @@ export const EN: Record<string, string> = {
   "Un nouveau style de carte, « Sans jaquettes », masque les boîtes de jeux pour ne garder que votre fond, votre logo et votre nom.": "A new card style, “No covers”, hides the game boxes and keeps only your background, logo and name.",
   "Plus de place pour les stickers": "More room for stickers",
   "Dès qu’une recherche de stickers est lancée, les suggestions (Kirby, Mario…) s’effacent pour laisser toute la place aux résultats ; videz le champ pour les retrouver.": "As soon as you search for stickers, the suggestions (Kirby, Mario…) step aside to give the results all the room; clear the field to bring them back.",
+  // ——— 0.1.101 : cartes sans dégradé ———
+  "Des cartes sans voile coloré": "Cards without the color veil",
+  "« Assombrir le fond » propose maintenant « Aucun » : le dégradé de couleur en bas des cartes de collection disparaît et l’image reste intacte.": "“Darken background” now offers “None”: the color gradient at the bottom of collection cards disappears and the picture stays untouched.",
 };

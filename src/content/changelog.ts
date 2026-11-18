@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.101",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Des cartes sans voile coloré", text: "« Assombrir le fond » propose maintenant « Aucun » : le dégradé de couleur en bas des cartes de collection disparaît et l’image reste intacte." },
+    ],
+  },
+  {
     version: "0.1.100",
     date: "2026-11-18",
     highlights: [

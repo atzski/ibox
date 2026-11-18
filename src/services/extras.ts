@@ -67,7 +67,7 @@ export interface CollectionStyle {
   iconStamp?: number;
   heroStamp?: number;
   logoSize?: "s" | "m" | "l";
-  shade?: "light" | "medium" | "strong";
+  shade?: "none" | "light" | "medium" | "strong";
   /** Décoration : une image ou un GIF seul (icône iiDB, Pokémon animé, fichier du PC), sans jeux. */
   decor?: boolean;
   /** Taille de l'image d'une décoration dans sa case (moyenne par défaut). */
