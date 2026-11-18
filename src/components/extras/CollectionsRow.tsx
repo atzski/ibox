@@ -1148,6 +1148,9 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
   const [key, setKey] = useState("");
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ url: string; thumb: string }[] | null>(null);
+  const [next, setNext] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
+  const asked = useRef("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { invoke<boolean>("giphy_key_status").then(setHasKey, () => setHasKey(false)); }, []);
@@ -1156,10 +1159,31 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
     setError(null);
     try { await f(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
   };
+  type GiphyPage = { stickers: { url: string; thumb: string }[]; next: number | null };
   const search = (text: string) => {
     if (busy || !text.trim()) return;
     setQ(text);
-    void run(async () => setFound(await invoke<{ url: string; thumb: string }[]>("decor_giphy_search", { q: text })));
+    asked.current = text;
+    void run(async () => {
+      const page = await invoke<GiphyPage>("decor_giphy_search", { q: text, offset: 0 });
+      setFound(page.stickers);
+      setNext(page.next);
+    });
+  };
+  /** Page suivante quand on approche du bas de la grille. */
+  const loadMore = async () => {
+    if (more || busy || next === null || !found) return;
+    const text = asked.current;
+    setMore(true);
+    try {
+      const page = await invoke<GiphyPage>("decor_giphy_search", { q: text, offset: next });
+      if (asked.current !== text) return;
+      setFound((cur) => {
+        const seen = new Set(cur?.map((st) => st.url));
+        return [...(cur ?? []), ...page.stickers.filter((st) => !seen.has(st.url))];
+      });
+      setNext(page.next);
+    } catch { setNext(null); } finally { setMore(false); }
   };
   const saveKey = () => run(async () => {
     await invoke("provider_key_set", { provider: "giphy", key });
@@ -1207,16 +1231,19 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
       {busy && <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>}
       {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}</p>}
       {found && (found.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucun sticker trouvé.</p> : (
-        <div className="grid max-h-64 grid-cols-4 gap-2 overflow-y-auto p-0.5">
+        <div
+          className="grid max-h-[22rem] grid-cols-6 content-start gap-2 overflow-y-auto p-0.5"
+          onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop - el.clientHeight < 240) void loadMore(); }}
+        >
           {found.map((st) => (
             <button key={st.url} type="button" data-focusable aria-label="Utiliser ce sticker" onClick={() => { sound.play("select"); onPicked(st.url); }}
-              className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-[#2b3445] p-1.5 [--ring-radius:0.75rem]">
-              <img src={st.thumb} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+              className="ibox-focusable h-20 overflow-hidden rounded-xl bg-[#2b3445] p-1.5 [--ring-radius:0.75rem]">
+              <img src={st.thumb} alt="" loading="lazy" className="size-full object-contain" />
             </button>
           ))}
+          {more && <p role="status" className="col-span-full py-2 text-center text-[0.8rem] text-ink-soft">Chargement…</p>}
         </div>
       ))}
-      <p className="text-right text-[0.72rem] font-extrabold tracking-wide text-ink-soft" data-no-i18n>Powered by GIPHY</p>
     </div>
   );
 }

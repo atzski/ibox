@@ -3406,4 +3406,7 @@ export const EN: Record<string, string> = {
   "Les décorations puisent maintenant dans les stickers animés de GIPHY : Kirby, Sonic, Pac-Man, Yoshi… détourés et tout public. Une clé GIPHY gratuite suffit, collée une seule fois.": "Decorations now draw on GIPHY’s animated stickers: Kirby, Sonic, Pac-Man, Yoshi… cut out and family-friendly. A free GIPHY key, pasted once, is all it takes.",
   "Des décorations bien dosées": "Decorations just the right size",
   "Une décoration n’occupe plus toute sa case : elle reste une petite incrustation, et sa taille se règle (petite, moyenne ou grande).": "A decoration no longer fills its whole slot: it stays a small touch, and its size can be set (small, medium or large).",
+  // ——— 0.1.99 : stickers GIPHY en continu ———
+  "Bien plus de stickers": "Many more stickers",
+  "La recherche de stickers affiche maintenant des dizaines de résultats d’un coup dans des cases compactes, et en charge d’autres à mesure que vous faites défiler.": "Sticker search now shows dozens of results at once in compact tiles, and loads more as you scroll.",
 };

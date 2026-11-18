@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.99",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Bien plus de stickers", text: "La recherche de stickers affiche maintenant des dizaines de résultats d’un coup dans des cases compactes, et en charge d’autres à mesure que vous faites défiler." },
+    ],
+  },
+  {
     version: "0.1.98",
     date: "2026-11-18",
     highlights: [

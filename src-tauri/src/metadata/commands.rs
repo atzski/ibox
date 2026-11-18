@@ -390,11 +390,11 @@ pub fn giphy_key_status() -> bool {
 
 /// Stickers GIPHY (GIF animés détourés) pour une décoration de l'accueil.
 #[tauri::command]
-pub async fn decor_giphy_search(app: AppHandle, q: String) -> Res<Vec<super::giphy::Sticker>> {
+pub async fn decor_giphy_search(app: AppHandle, q: String, offset: Option<u32>) -> Res<super::giphy::Page> {
     if q.trim().is_empty() || q.len() > 80 {
-        return Ok(Vec::new());
+        return Ok(super::giphy::Page { stickers: Vec::new(), next: None });
     }
-    blocking(&app, move |_, st| super::giphy::search(&st.http, &q)).await
+    blocking(&app, move |_, st| super::giphy::search(&st.http, &q, offset.unwrap_or(0))).await
 }
 
 #[tauri::command]
