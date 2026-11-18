@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFaces, spreadOf } from "./faces";
+import { buildFaces, readerPageSize, spreadOf, warmupPlan } from "./faces";
 
 describe("pages du carnet", () => {
   it("garde les pages en portrait entières", () => {
@@ -31,5 +31,13 @@ describe("pages du carnet", () => {
   it("double page de gauche et de droite selon les feuilles tournées", () => {
     expect(spreadOf(0)).toEqual([-1, 0]);
     expect(spreadOf(1)).toEqual([1, 2]);
+  });
+
+  it("prépare la couverture et la première double page à la taille du lecteur", () => {
+    const plan = warmupPlan([0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7], 1920, 1080, 1);
+    const { w } = readerPageSize(0.7, 1920, 1080);
+    expect(plan[0]).toEqual({ page: 1, px: w });
+    expect(plan.filter((p) => p.px === w).map((p) => p.page)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(readerPageSize(0.7, 1920, 1080).h).toBe(1080 - 350);
   });
 });

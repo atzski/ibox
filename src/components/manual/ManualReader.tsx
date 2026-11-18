@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import type { Game } from "@/domain/types";
 import type { ManualInfo } from "@/services/manuals";
-import { pageRatios, renderPage } from "@/services/manualPdf";
+import { manualCover, pageRatios, renderPage } from "@/services/manualPdf";
 import { input } from "@/input/InputController";
 import { sound } from "@/services/sound";
 import { useReducedMotion } from "@/app/shellState";
 import { Icon } from "@/components/ui/Icon";
-import { buildFaces, spreadOf, type Face } from "./faces";
+import { buildFaces, faceRenderWidth, readerPageSize, spreadOf, THUMB_WIDTH, type Face } from "./faces";
 import "./manual.css";
 
 const FLIP_MS = 820;
@@ -36,6 +36,21 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
   zoomRef.current = zoom;
   const stamp = manual.addedAt;
   const N = faces ? Math.ceil(faces.length / 2) : 0;
+  // couverture déjà préparée pour le carnet 3D : affichée tout de suite, en attendant la vraie page
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    let made: string | null = null;
+    void manualCover(manual.gameId, stamp).then((b) => {
+      if (!alive || !b) return;
+      made = URL.createObjectURL(b);
+      setCoverUrl(made);
+    });
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [manual.gameId, stamp]);
 
   // Pages et proportions
   useEffect(() => {
@@ -53,11 +68,7 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
     if (!faces?.length) return;
     const ratio = faces[0].ratio;
     const fit = () => {
-      // en-tête (~110 px) et commandes + vignettes (~230 px) toujours visibles
-      const availW = Math.max(320, window.innerWidth - 160);
-      const availH = Math.max(240, window.innerHeight - 350);
-      const h = Math.min(availH, availW / 2 / ratio);
-      setSize({ w: Math.round(h * ratio), h: Math.round(h) });
+      setSize(readerPageSize(ratio, window.innerWidth, window.innerHeight));
     };
     fit();
     window.addEventListener("resize", fit);
@@ -238,8 +249,9 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
                 transition: reduced ? undefined : "transform 0.8s cubic-bezier(.3,.1,.2,1)",
               }}
             >
-              <PageEdges side="left" count={cur} total={N} visible={cur > 0} />
-              <PageEdges side="right" count={N - cur} total={N} visible={cur < N} />
+              {/* tranches des feuilles posées SOUS la page visible, montrées une fois les pages retombées */}
+              <PageEdges side="left" count={cur - 1} total={N} settled={moving.size === 0} />
+              <PageEdges side="right" count={N - cur - 1} total={N} settled={moving.size === 0} />
               {Array.from({ length: N }, (_, i) => {
                 const flipped = i < cur;
                 // feuilles autour de la double page (y compris pendant une cascade de pages)
@@ -266,7 +278,7 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
                       zIndex: moving.has(i) ? 100 : flipped ? i + 1 : N - i,
                     }}
                   >
-                    <PageFace face={faces[2 * i]} side="front" game={manual.gameId} stamp={stamp} width={size.w} live={near} turning={moving.has(i)} cover={i === 0} />
+                    <PageFace face={faces[2 * i]} side="front" game={manual.gameId} stamp={stamp} width={size.w} live={near} turning={moving.has(i)} cover={i === 0} placeholder={i === 0 ? coverUrl : null} />
                     <PageFace face={faces[2 * i + 1]} side="back" game={manual.gameId} stamp={stamp} width={size.w} live={near} turning={moving.has(i)} cover={i === N - 1} />
                   </div>
                 );
@@ -328,20 +340,20 @@ function ReaderButton({ label, onClick, disabled, children }: { label: string; o
 }
 
 /** Image d'une page (ou d'une moitié de double page), rendue à la demande. */
-function usePageImage(game: number, stamp: string, face: Face | undefined, width: number, live: boolean): string | null {
+function usePageImage(game: number, stamp: string, face: Face | undefined, width: number, live: boolean, priority: "high" | "low" = "high"): string | null {
   const [url, setUrl] = useState<string | null>(null);
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const px = Math.round(width * dpr * (face?.half ? 2 : 1));
+  // même calcul que le préchauffage : la page préparée est réutilisée telle quelle
+  const px = face ? faceRenderWidth(face, width, window.devicePixelRatio) : 0;
   useEffect(() => {
     if (!face || face.blank || !live || !px) return;
     let alive = true;
-    renderPage(game, stamp, face.page, px)
+    renderPage(game, stamp, face.page, px, priority)
       .then((r) => alive && setUrl(r.url))
       .catch(() => undefined);
     return () => {
       alive = false;
     };
-  }, [game, stamp, face, px, live]);
+  }, [game, stamp, face, px, live, priority]);
   return url;
 }
 
@@ -361,7 +373,9 @@ function PageFace({
   live,
   turning,
   cover,
+  placeholder = null,
 }: {
+  placeholder?: string | null;
   face: Face | undefined;
   side: "front" | "back";
   game: number;
@@ -388,8 +402,11 @@ function PageFace({
         borderRadius: side === "front" ? "0 6px 6px 0" : "6px 0 0 6px",
       }}
     >
+      {face && !url && placeholder && (
+        <div className="absolute inset-0" style={{ backgroundImage: `url(${placeholder})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+      )}
       {face && <div className="absolute inset-0" style={faceStyle(face, url)} />}
-      {face && !face.blank && !url && <div className="ibox-page-loading absolute inset-0" />}
+      {face && !face.blank && !url && !placeholder && <div className="ibox-page-loading absolute inset-0" />}
       <div className="pointer-events-none absolute inset-0" style={{ background: cover ? shade.replace(/0\.24/g, "0.32") : shade }} />
       {/* ombre qui suit la page pendant qu'elle se soulève */}
       {turning && <div className={`pointer-events-none absolute inset-0 ${side === "front" ? "ibox-turn-front" : "ibox-turn-back"}`} style={{ animationDuration: `${FLIP_MS}ms` }} />}
@@ -398,19 +415,23 @@ function PageFace({
 }
 
 /** Tranches de feuilles empilées : le carnet a de l'épaisseur. */
-function PageEdges({ side, count, total, visible }: { side: "left" | "right"; count: number; total: number; visible: boolean }) {
-  const depth = visible ? Math.max(2, Math.min(9, Math.round((count / Math.max(1, total)) * 9))) : 0;
+function PageEdges({ side, count, total, settled }: { side: "left" | "right"; count: number; total: number; settled: boolean }) {
+  // épaisseur proportionnelle aux feuilles empilées ; rien du tout sans feuille dessous
+  const depth = count > 0 ? Math.max(2, Math.min(8, Math.round((count / Math.max(1, total)) * 8) + 1)) : 0;
+  const shown = depth > 0 && settled;
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute top-[3px] bottom-[3px]"
+      className="pointer-events-none absolute top-[4px] bottom-[4px]"
       style={{
         [side]: -depth,
         width: depth,
-        borderRadius: side === "left" ? "4px 0 0 4px" : "0 4px 4px 0",
-        background: `repeating-linear-gradient(${side === "left" ? 90 : 270}deg, #e9e2d2 0 1px, #cfc6b3 1px 2px)`,
-        boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
-        transition: "width .4s, left .4s, right .4s",
+        opacity: shown ? 1 : 0,
+        borderRadius: side === "left" ? "3px 0 0 3px" : "0 3px 3px 0",
+        background: `repeating-linear-gradient(${side === "left" ? 90 : 270}deg, #ebe4d4 0 1px, #d3cab7 1px 2px)`,
+        // l'ombre suit le carnet au lieu de dessiner un trait isolé
+        boxShadow: side === "left" ? "-6px 14px 26px rgba(0,0,0,0.28)" : "6px 14px 26px rgba(0,0,0,0.28)",
+        transition: "opacity .28s ease, width .35s ease, left .35s ease, right .35s ease",
       }}
     />
   );
@@ -449,7 +470,7 @@ function Thumb({ face, index, game, stamp, on, onPick }: { face: Face; index: nu
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  const url = usePageImage(game, stamp, face, 46, seen);
+  const url = usePageImage(game, stamp, face, THUMB_WIDTH, seen, "low");
   return (
     <button
       ref={ref}
@@ -471,13 +492,25 @@ function Thumb({ face, index, game, stamp, on, onPick }: { face: Face; index: nu
 /** Une page en grand, à parcourir (glisser, molette). */
 function ZoomView({ face, index, total, game, stamp, onClose, onMove }: { face: Face; index: number; total: number; game: number; stamp: string; onClose: () => void; onMove: (d: -1 | 1) => void }) {
   const box = useRef<HTMLDivElement>(null);
-  const width = Math.min(1400, window.innerWidth - 80);
-  const url = usePageImage(game, stamp, face, width, true);
-  const drag = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  // Par défaut, la page entière tient à l'écran (rien de coupé en haut ni en bas) ;
+  // double-clic : agrandie à la largeur de l'écran pour lire un détail.
+  const [big, setBig] = useState(false);
+  const [view, setView] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const on = () => setView({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  const fitH = view.h - 120; // en-tête de la vue et marges
+  const fitW = Math.min(view.w - 120, fitH * face.ratio);
+  const width = Math.round(big ? Math.min(view.w - 80, fitW * 2) : fitW);
+  // rendu à la résolution de l'écran (×1,25 pour des lettres bien nettes)
+  const url = usePageImage(game, stamp, face, Math.round(width * 1.25), true);
+  const drag = useRef<{ x: number; y: number; sl: number; st: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     box.current?.scrollTo({ top: 0 });
-  }, [index]);
+  }, [index, big]);
 
   // manette : stick droit pour parcourir la page
   useEffect(() => {
@@ -493,12 +526,13 @@ function ZoomView({ face, index, total, game, stamp, onClose, onMove }: { face: 
   const down = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = box.current;
     if (!el) return;
-    drag.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
+    drag.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const move = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d || !box.current) return;
+    if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 4) d.moved = true;
     box.current.scrollLeft = d.sl - (e.clientX - d.x);
     box.current.scrollTop = d.st - (e.clientY - d.y);
   };
@@ -521,19 +555,25 @@ function ZoomView({ face, index, total, game, stamp, onClose, onMove }: { face: 
         <ReaderButton label="Page suivante" onClick={() => onMove(1)} disabled={index === total - 1}>
           <Icon name="chevronRight" />
         </ReaderButton>
+        <ReaderButton label={big ? "Page entière" : "Agrandir"} onClick={() => setBig((b) => !b)}>
+          <Icon name={big ? "minus" : "plus"} />
+        </ReaderButton>
         <ReaderButton label="Revenir au carnet" onClick={onClose}>
           <Icon name="plus" className="rotate-45" />
         </ReaderButton>
       </div>
       <div
         ref={box}
-        className="min-h-0 flex-1 cursor-grab overflow-auto active:cursor-grabbing"
+        className={`min-h-0 flex-1 overflow-auto ${big ? "cursor-grab active:cursor-grabbing" : "grid place-items-center"}`}
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={() => (drag.current = null)}
-        onDoubleClick={onClose}
+        onDoubleClick={() => setBig((b) => !b)}
       >
-        <div className="mx-auto my-4" style={{ width, aspectRatio: String(face.ratio), background: "#f3eee2", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", ...faceStyle(face, url) }}>
+        <div
+          className={big ? "mx-auto my-4" : "my-2"}
+          style={{ width, aspectRatio: String(face.ratio), background: "#f3eee2", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", ...faceStyle(face, url) }}
+        >
           {!url && <div className="ibox-page-loading h-full w-full" />}
         </div>
       </div>

@@ -4,6 +4,8 @@ import type { Game } from "@/domain/types";
 import { autoFetchManual, useManual, watchManuals } from "@/services/manuals";
 import { ManualReader } from "./ManualReader";
 import { ManualModal } from "./ManualModal";
+import { warmupPlan } from "./faces";
+import { prewarmManual } from "@/services/manualPdf";
 
 /**
  * Manuel d'une fiche de jeu : recherche automatique à l'ouverture, lecteur et
@@ -21,6 +23,16 @@ export function useGameManual(game: Game) {
     const t = window.setTimeout(() => autoFetchManual(game.dbId), 1200);
     return () => window.clearTimeout(t);
   }, [game.dbId]);
+
+  // Préchauffage : pendant qu'on regarde la boîte, le carnet se prépare en silence
+  useEffect(() => {
+    if (!manual) return;
+    const t = window.setTimeout(
+      () => void prewarmManual(manual.gameId, manual.addedAt, (ratios) => warmupPlan(ratios, window.innerWidth, window.innerHeight, window.devicePixelRatio)),
+      900,
+    );
+    return () => window.clearTimeout(t);
+  }, [manual]);
 
   // manuel retiré pendant la lecture
   useEffect(() => {

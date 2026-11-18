@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.88",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "manual", title: "Des carnets qui s’ouvrent aussitôt", text: "Pendant que vous regardez la boîte d’un jeu, son manuel se prépare en silence : un clic sur le carnet et la couverture est déjà là. Chaque page lue est gardée sur votre PC, les réouvertures sont instantanées, et la couverture puis les pages visibles passent toujours avant les vignettes." },
+      { icon: "front", title: "Une page agrandie qui tient à l’écran", text: "Agrandie, une page s’affiche désormais en entier, nette, sans rien couper en haut ni en bas. Un double-clic (ou le bouton +) l’agrandit encore pour lire un détail." },
+      { icon: "sparkle", title: "Un carnet bien net", text: "Le petit trait qui apparaissait à gauche au moment de tourner la première page a disparu : la tranche des pages ne se montre qu’une fois les feuilles posées." },
+    ],
+  },
+  {
     version: "0.1.87",
     date: "2026-11-18",
     highlights: [

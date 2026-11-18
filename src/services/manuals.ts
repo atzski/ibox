@@ -89,6 +89,11 @@ export const manualsApi = {
   read: (gameId: number) => call<ArrayBuffer>("manual_read", { gameId }),
   cover: (gameId: number) => call<ArrayBuffer>("manual_cover", { gameId }),
   saveCover: (gameId: number, jpegBase64: string, pages: number | null) => call<void>("manual_cover_save", { gameId, jpeg: jpegBase64, pages }),
+  /** Page déjà rendue (JPEG, vide si absente du cache disque). */
+  page: (gameId: number, page: number, width: number) => call<ArrayBuffer>("manual_page", { gameId, page, width }),
+  savePage: (gameId: number, page: number, width: number, jpegBase64: string) => call<void>("manual_page_save", { gameId, page, width, jpeg: jpegBase64 }),
+  layout: (gameId: number) => call<string | null>("manual_layout", { gameId }),
+  saveLayout: (gameId: number, layout: string) => call<void>("manual_layout_save", { gameId, layout }),
   importFile: (gameId: number, path: string) => call<ManualInfo>("manual_import", { gameId, path }),
   remove: (gameId: number) => call<void>("manual_remove", { gameId }),
   search: (gameId: number) => call<ManualSearch>("manual_search", { gameId, options: manualOptions() }),

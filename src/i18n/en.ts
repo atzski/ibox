@@ -3084,4 +3084,12 @@ export const EN: Record<string, string> = {
   "Des pages qui tournent en douceur": "Pages that turn smoothly",
   "iBox range maintenant tout seul, en arrière-plan, le manuel de chacun de vos jeux, nouveaux jeux compris. La recherche est bien plus large et choisit l’édition de votre jeu. Un bouton « Actualiser les manuels » dans Paramètres › Manuels relance tout, comme pour les illustrations.": "iBox now tucks the manual of each of your games into its case on its own, in the background, new games included. The search is much broader and picks your game’s edition. A “Refresh manuals” button in Settings › Manuals runs it all again, just like for artwork.",
   "Les pages se soulèvent avec leur ombre, les doubles pages scannées restent face à face, et le dos du livret n’apparaît plus à côté de la couverture : il le referme, à la toute fin.": "Pages lift with their shadow, scanned two-page spreads stay face to face, and the booklet’s back no longer appears next to the cover: it closes the booklet, at the very end.",
+  "Agrandir": "Enlarge",
+  "Page entière": "Whole page",
+  "Des carnets qui s’ouvrent aussitôt": "Booklets that open right away",
+  "Pendant que vous regardez la boîte d’un jeu, son manuel se prépare en silence : un clic sur le carnet et la couverture est déjà là. Chaque page lue est gardée sur votre PC, les réouvertures sont instantanées, et la couverture puis les pages visibles passent toujours avant les vignettes.": "While you look at a game’s case, its manual quietly gets ready: one click on the booklet and the cover is already there. Every page you read is kept on your PC, reopening is instant, and the cover and visible pages always come before the thumbnails.",
+  "Une page agrandie qui tient à l’écran": "An enlarged page that fits the screen",
+  "Agrandie, une page s’affiche désormais en entier, nette, sans rien couper en haut ni en bas. Un double-clic (ou le bouton +) l’agrandit encore pour lire un détail.": "When enlarged, a page now shows in full and sharp, with nothing cut off at the top or bottom. A double-click (or the + button) enlarges it further to read a detail.",
+  "Un carnet bien net": "A clean booklet",
+  "Le petit trait qui apparaissait à gauche au moment de tourner la première page a disparu : la tranche des pages ne se montre qu’une fois les feuilles posées.": "The small line that appeared on the left when turning the first page is gone: the page edges only show once the pages have landed.",
 };

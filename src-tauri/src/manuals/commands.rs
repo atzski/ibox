@@ -79,6 +79,28 @@ pub async fn manual_cover_save(app: AppHandle, game_id: i64, jpeg: String, pages
     blocking(&app, move |c, st, _| st.store.save_cover(c, game_id, &bytes, pages)).await
 }
 
+/// Page déjà rendue (JPEG) ; vide si elle n'est pas encore en cache.
+#[tauri::command]
+pub async fn manual_page(app: AppHandle, game_id: i64, page: u32, width: u32) -> Res<tauri::ipc::Response> {
+    blocking(&app, move |c, st, _| st.store.read_page(c, game_id, page, width)).await.map(|b| tauri::ipc::Response::new(b.unwrap_or_default()))
+}
+
+#[tauri::command]
+pub async fn manual_page_save(app: AppHandle, game_id: i64, page: u32, width: u32, jpeg: String) -> Res<()> {
+    let bytes = base64::engine::general_purpose::STANDARD.decode(jpeg.as_bytes()).map_err(|e| e.to_string())?;
+    blocking(&app, move |c, st, _| st.store.save_page(c, game_id, page, width, &bytes)).await
+}
+
+#[tauri::command]
+pub async fn manual_layout(app: AppHandle, game_id: i64) -> Res<Option<String>> {
+    blocking(&app, move |c, st, _| st.store.read_layout(c, game_id)).await
+}
+
+#[tauri::command]
+pub async fn manual_layout_save(app: AppHandle, game_id: i64, layout: String) -> Res<()> {
+    blocking(&app, move |c, st, _| st.store.save_layout(c, game_id, &layout)).await
+}
+
 #[tauri::command]
 pub async fn manual_import(app: AppHandle, game_id: i64, path: String) -> Res<ManualInfo> {
     let info = blocking(&app, move |c, st, _| st.store.import(c, game_id, std::path::Path::new(&path))).await?;

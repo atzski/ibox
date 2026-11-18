@@ -220,6 +220,56 @@ impl ManualStore {
         Ok(())
     }
 
+    /// Dossier du cache des pages d'un manuel (supprimé avec lui).
+    fn cache_dir(&self, file: &str) -> Result<PathBuf> {
+        self.path(file)?;
+        Ok(self.root.join("cache").join(file.trim_end_matches(".pdf")))
+    }
+
+    /// Page déjà rendue (JPEG), à une largeur donnée.
+    pub fn read_page(&self, conn: &Connection, game_id: i64, page: u32, width: u32) -> Result<Option<Vec<u8>>> {
+        let Some(file) = self.file_of(conn, game_id)? else { return Ok(None) };
+        match std::fs::read(self.cache_dir(&file)?.join(format!("{page}-{width}.jpg"))) {
+            Ok(b) => Ok(Some(b)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn save_page(&self, conn: &Connection, game_id: i64, page: u32, width: u32, jpeg: &[u8]) -> Result<()> {
+        if crate::metadata::media::sniff(jpeg).is_none() || jpeg.len() > 12 * 1024 * 1024 || page == 0 || page > 5000 || width > 4096 {
+            return Err(MetaError::Invalid("page".into()));
+        }
+        let Some(file) = self.file_of(conn, game_id)? else { return Err(MetaError::NotFound) };
+        let dir = self.cache_dir(&file)?;
+        std::fs::create_dir_all(&dir)?;
+        let tmp = dir.join(format!("{page}-{width}.tmp"));
+        std::fs::write(&tmp, jpeg)?;
+        std::fs::rename(&tmp, dir.join(format!("{page}-{width}.jpg")))?;
+        Ok(())
+    }
+
+    /// Mise en page (proportions des pages, JSON) calculée une fois par le lecteur.
+    pub fn read_layout(&self, conn: &Connection, game_id: i64) -> Result<Option<String>> {
+        let Some(file) = self.file_of(conn, game_id)? else { return Ok(None) };
+        match std::fs::read_to_string(self.cache_dir(&file)?.join("layout.json")) {
+            Ok(s) => Ok(Some(s)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn save_layout(&self, conn: &Connection, game_id: i64, layout: &str) -> Result<()> {
+        if layout.len() > 256 * 1024 || serde_json::from_str::<Vec<f64>>(layout).is_err() {
+            return Err(MetaError::Invalid("mise en page".into()));
+        }
+        let Some(file) = self.file_of(conn, game_id)? else { return Err(MetaError::NotFound) };
+        let dir = self.cache_dir(&file)?;
+        std::fs::create_dir_all(&dir)?;
+        std::fs::write(dir.join("layout.json"), layout)?;
+        Ok(())
+    }
+
     fn file_of(&self, conn: &Connection, game_id: i64) -> Result<Option<String>> {
         Ok(conn.query_row("SELECT file FROM game_manuals WHERE game_id = ?1", [game_id], |r| r.get(0)).optional()?)
     }
@@ -229,6 +279,7 @@ impl ManualStore {
         if let Some(file) = self.file_of(conn, game_id)? {
             let _ = std::fs::remove_file(self.path(&file)?);
             let _ = std::fs::remove_file(self.path(&cover_name(&file))?);
+            let _ = std::fs::remove_dir_all(self.cache_dir(&file)?);
         }
         conn.execute("DELETE FROM game_manuals WHERE game_id = ?1", [game_id])?;
         if dismiss {
@@ -294,6 +345,7 @@ impl ManualStore {
             if old != file {
                 let _ = std::fs::remove_file(self.path(&old)?);
                 let _ = std::fs::remove_file(self.path(&cover_name(&old))?);
+                let _ = std::fs::remove_dir_all(self.cache_dir(&old)?);
             }
         }
         std::fs::rename(&tmp, &path)?;
@@ -308,9 +360,20 @@ impl ManualStore {
     }
 
     pub fn size_bytes(&self) -> u64 {
-        std::fs::read_dir(&self.root)
-            .map(|it| it.flatten().filter_map(|e| e.metadata().ok()).filter(|m| m.is_file()).map(|m| m.len()).sum())
-            .unwrap_or(0)
+        fn walk(dir: &Path) -> u64 {
+            std::fs::read_dir(dir)
+                .map(|it| {
+                    it.flatten()
+                        .map(|e| match e.metadata() {
+                            Ok(m) if m.is_dir() => walk(&e.path()),
+                            Ok(m) => m.len(),
+                            Err(_) => 0,
+                        })
+                        .sum()
+                })
+                .unwrap_or(0)
+        }
+        walk(&self.root)
     }
 
     /// Fichiers orphelins (jeu retiré, téléchargement interrompu).
@@ -322,7 +385,19 @@ impl ManualStore {
         if let Ok(it) = std::fs::read_dir(&self.root) {
             for e in it.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
+                if e.path().is_dir() {
+                    continue;
+                }
                 if !keep.contains(&name) && std::fs::remove_file(e.path()).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+        // caches de pages des manuels disparus
+        if let Ok(it) = std::fs::read_dir(self.root.join("cache")) {
+            for e in it.flatten() {
+                let name = format!("{}.pdf", e.file_name().to_string_lossy());
+                if !keep.contains(&name) && std::fs::remove_dir_all(e.path()).is_ok() {
                     n += 1;
                 }
             }
@@ -486,9 +561,18 @@ mod tests {
         std::fs::write(&good, b"%PDF-1.4\n%%EOF").unwrap();
         let info = store.import(&conn, 1, &good).unwrap();
         assert_eq!(info.source, "user");
+        // cache des pages et mise en page
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, b'J', b'F', b'I', b'F', 0];
+        store.save_page(&conn, 1, 1, 960, &jpeg).unwrap();
+        assert_eq!(store.read_page(&conn, 1, 1, 960).unwrap().as_deref(), Some(&jpeg[..]));
+        assert!(store.read_page(&conn, 1, 2, 960).unwrap().is_none());
+        store.save_layout(&conn, 1, "[0.7,1.4]").unwrap();
+        assert_eq!(store.read_layout(&conn, 1).unwrap().as_deref(), Some("[0.7,1.4]"));
+        assert!(store.save_layout(&conn, 1, "pas du json").is_err());
         assert_eq!(store.read(&conn, 1).unwrap(), b"%PDF-1.4\n%%EOF");
         store.remove(&conn, 1, true).unwrap();
         assert!(store.info(&conn, 1).unwrap().is_none());
+        assert!(!dir.join("cache").read_dir().map(|mut d| d.next().is_some()).unwrap_or(false), "cache des pages supprimé avec le manuel");
         assert_eq!(lookup(&conn, 1).unwrap().unwrap().0, "dismissed");
         let _ = std::fs::remove_dir_all(&dir);
     }

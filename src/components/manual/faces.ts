@@ -67,3 +67,35 @@ function median(list: number[]): number {
   const s = [...list].sort((a, b) => a - b);
   return s[Math.floor(s.length / 2)];
 }
+
+/**
+ * Taille d'une page du lecteur pour une fenêtre donnée : l'en-tête (~110 px),
+ * les commandes et les vignettes (~230 px) restent toujours visibles.
+ */
+export function readerPageSize(ratio: number, viewW: number, viewH: number): { w: number; h: number } {
+  const availW = Math.max(320, viewW - 160);
+  const availH = Math.max(240, viewH - 350);
+  const h = Math.min(availH, availW / 2 / ratio);
+  return { w: Math.round(h * ratio), h: Math.round(h) };
+}
+
+/** Largeur rendue d'une face (une moitié de double page demande l'image entière deux fois plus large). */
+export function faceRenderWidth(face: Face, pageWidth: number, dpr: number): number {
+  return Math.round(pageWidth * Math.min(2, dpr || 1) * (face.half ? 2 : 1));
+}
+
+/** Largeur des vignettes du lecteur (CSS). */
+export const THUMB_WIDTH = 46;
+
+/**
+ * Pages à préparer avant l'ouverture : la couverture et les premières doubles
+ * pages à la taille du lecteur, puis les vignettes du début.
+ */
+export function warmupPlan(ratios: number[], viewW: number, viewH: number, dpr: number): { page: number; px: number }[] {
+  const faces = buildFaces(ratios);
+  if (!faces.length) return [];
+  const { w } = readerPageSize(faces[0].ratio, viewW, viewH);
+  const big = faces.slice(0, 6).filter((f) => !f.blank).map((f) => ({ page: f.page, px: faceRenderWidth(f, w, dpr) }));
+  const thumbs = faces.slice(0, 24).filter((f) => !f.blank).map((f) => ({ page: f.page, px: faceRenderWidth(f, THUMB_WIDTH, dpr) }));
+  return [...big, ...thumbs];
+}

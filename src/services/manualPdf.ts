@@ -88,8 +88,40 @@ export function widthBucket(px: number): number {
   return steps.find((s) => s >= px) ?? steps[steps.length - 1];
 }
 
+/**
+ * File de rendu : pdf.js ne rend qu'une page à la fois dans son fil. Les pages
+ * visibles passent devant les vignettes et le préchauffage, sinon la couverture
+ * attendrait derrière une vingtaine de miniatures.
+ */
+type Priority = "high" | "low";
+const queue: { run: () => Promise<void>; priority: Priority }[] = [];
+let active = 0;
+const CONCURRENCY = 2;
+
+function schedule<T>(priority: Priority, job: () => Promise<T>): Promise<T> {
+  return new Promise<T>((ok, ko) => {
+    const entry = { priority, run: () => job().then(ok, ko) };
+    if (priority === "high") {
+      const firstLow = queue.findIndex((q) => q.priority === "low");
+      queue.splice(firstLow < 0 ? queue.length : firstLow, 0, entry);
+    } else queue.push(entry);
+    pump();
+  });
+}
+
+function pump(): void {
+  while (active < CONCURRENCY && queue.length) {
+    const next = queue.shift()!;
+    active++;
+    void next.run().finally(() => {
+      active--;
+      pump();
+    });
+  }
+}
+
 /** Page `n` (à partir de 1) rendue en image d'au moins `minWidth` pixels de large. */
-export function renderPage(gameId: number, revision: string, n: number, minWidth: number): Promise<RenderedPage> {
+export function renderPage(gameId: number, revision: string, n: number, minWidth: number, priority: Priority = "high"): Promise<RenderedPage> {
   const width = widthBucket(minWidth);
   const docKey = `${gameId}|${revision}`;
   const key = `${docKey}|${n}|${width}`;
@@ -99,22 +131,23 @@ export function renderPage(gameId: number, revision: string, n: number, minWidth
     pages.set(key, hit);
     return hit;
   }
-  const p = openManual(gameId, revision).then(async (doc) => {
-    const page = await doc.getPage(n);
-    const base = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: width / base.width });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(viewport.width);
-    canvas.height = Math.round(viewport.height);
-    const ctx = canvas.getContext("2d", { alpha: false })!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-    page.cleanup();
-    const blob = await new Promise<Blob>((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("rendu impossible"))), "image/jpeg", 0.9));
-    canvas.width = canvas.height = 0;
-    return { url: URL.createObjectURL(blob), blob, width: viewport.width, height: viewport.height };
-  });
+  const p = (async (): Promise<RenderedPage> => {
+    // 1. déjà rendue lors d'une ouverture précédente : lue sur le disque, sans ouvrir le PDF
+    const cached = await manualsApi.page(gameId, n, width).catch(() => null);
+    if (cached && cached.byteLength > 0) {
+      const blob = new Blob([cached], { type: "image/jpeg" });
+      return { url: URL.createObjectURL(blob), blob, width, height: 0 };
+    }
+    // 2. sinon rendue par pdf.js (à son tour dans la file), puis gardée pour la prochaine fois
+    const doc = await openManual(gameId, revision);
+    // filet de sécurité : un rendu bloqué (fenêtre masquée, page piégée) libère sa place dans la file
+    return schedule(priority, () =>
+      Promise.race([
+        draw(doc, gameId, n, width),
+        new Promise<never>((_, ko) => window.setTimeout(() => ko(new Error("rendu trop long")), 20_000)),
+      ]),
+    );
+  })();
   pages.set(key, p);
   p.catch(() => pages.delete(key));
   while (pages.size > PAGE_LIMIT) {
@@ -125,15 +158,77 @@ export function renderPage(gameId: number, revision: string, n: number, minWidth
   return p;
 }
 
-/** Proportions (largeur / hauteur) de chaque page, sans les rendre. */
-export async function pageRatios(gameId: number, revision: string): Promise<number[]> {
-  const doc = await openManual(gameId, revision);
-  const out: number[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const v = (await doc.getPage(i)).getViewport({ scale: 1 });
-    out.push(v.width / v.height);
+async function draw(doc: PDFDocumentProxy, gameId: number, n: number, width: number): Promise<RenderedPage> {
+  {
+    const page = await doc.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: width / base.width });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d", { alpha: false })!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    // pas de page.cleanup() : une autre taille de la même page peut être en cours de rendu
+    const blob = await new Promise<Blob>((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("rendu impossible"))), "image/jpeg", 0.9));
+    canvas.width = canvas.height = 0;
+    void blobToBase64(blob)
+      .then((b64) => manualsApi.savePage(gameId, n, width, b64))
+      .catch(() => undefined);
+    return { url: URL.createObjectURL(blob), blob, width: viewport.width, height: viewport.height };
   }
-  return out;
+}
+
+/**
+ * Proportions (largeur / hauteur) de chaque page, sans les rendre. Calculées
+ * une seule fois (toutes les pages en parallèle), puis relues sur le disque.
+ */
+const ratiosCache = new Map<string, Promise<number[]>>();
+export function pageRatios(gameId: number, revision: string): Promise<number[]> {
+  const key = `${gameId}|${revision}`;
+  let p = ratiosCache.get(key);
+  if (p) return p;
+  p = (async () => {
+    const saved = await manualsApi.layout(gameId).catch(() => null);
+    if (saved) {
+      const list = JSON.parse(saved) as unknown;
+      if (Array.isArray(list) && list.length && list.every((x) => typeof x === "number" && x > 0)) return list as number[];
+    }
+    const doc = await openManual(gameId, revision);
+    const out = await Promise.all(
+      Array.from({ length: doc.numPages }, (_, i) =>
+        doc.getPage(i + 1).then((pg) => {
+          const v = pg.getViewport({ scale: 1 });
+          return Math.round((v.width / v.height) * 10000) / 10000;
+        }),
+      ),
+    );
+    void manualsApi.saveLayout(gameId, JSON.stringify(out)).catch(() => undefined);
+    return out;
+  })();
+  ratiosCache.set(key, p);
+  p.catch(() => ratiosCache.delete(key));
+  return p;
+}
+
+/**
+ * Prépare l'ouverture du carnet pendant qu'on regarde la boîte : mise en page,
+ * puis la couverture et la première double page à la taille du lecteur.
+ * Tout est mis en cache : le clic sur le carnet devient immédiat.
+ */
+const warmed = new Set<string>();
+export async function prewarmManual(gameId: number, revision: string, faceWidths: (ratios: number[]) => { page: number; px: number }[]): Promise<void> {
+  const key = `${gameId}|${revision}`;
+  if (warmed.has(key)) return;
+  warmed.add(key);
+  try {
+    const ratios = await pageRatios(gameId, revision);
+    // une page à la fois : la fiche du jeu reste fluide
+    for (const f of faceWidths(ratios)) await renderPage(gameId, revision, f.page, f.px, "low").catch(() => undefined);
+  } catch {
+    warmed.delete(key);
+  }
 }
 
 /* ——— couverture du carnet 3D ——— */
