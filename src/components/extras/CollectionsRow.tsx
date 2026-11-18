@@ -1,12 +1,13 @@
 import type React from "react";
-import { useEffect, useMemo, useState, type FormEvent, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type FormEvent, useRef } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, animate, motion, useMotionValue } from "motion/react";
 import type { Game } from "@/domain/types";
 import { ShelfView } from "@/three/lazy";
 import { ShelfRow } from "@/components/ui/Section";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { IconBar, IconBarButton } from "@/components/ui/IconBar";
 import { Icon } from "@/components/ui/Icon";
 import { CoverImage } from "@/components/game/CoverImage";
 import { useLibrary } from "@/services/library";
@@ -18,6 +19,28 @@ import { useNav } from "@/app/navigation";
 import { input } from "@/input/InputController";
 import { PLATFORMS } from "@/domain/platforms";
 import { sound } from "@/services/sound";
+import { EMOJIS, POKEMON, SHOWDOWN, notoGif, notoThumb } from "@/content/decorations";
+
+/** Taille d'une case de la grille des collections (rem) : celle d'une carte. */
+const CELL = { w: 19, h: 12.5, gapX: 1.25, gapY: 2.25 };
+
+/** Case de chaque collection : celle choisie (glisser-déposer), sinon la première libre. */
+function placeCollections(list: Collection[], styles: Record<number, CollectionStyle>) {
+  const taken = new Set<number>();
+  const at = new Map<number, number>();
+  for (const c of list) {
+    const slot = styles[c.id]?.slot;
+    if (slot !== undefined && slot >= 0 && !taken.has(slot)) { taken.add(slot); at.set(c.id, slot); }
+  }
+  let next = 0;
+  for (const c of list) {
+    if (at.has(c.id)) continue;
+    while (taken.has(next)) next++;
+    taken.add(next);
+    at.set(c.id, next);
+  }
+  return at;
+}
 
 /** Accueil : les collections personnelles, chacune ouvre son étagère 3D. */
 export function CollectionsRow() {
@@ -29,6 +52,7 @@ export function CollectionsRow() {
   useEffect(() => void load().catch(() => undefined), [load]);
   const byDb = useMemo(() => new Map(games.map((g) => [g.dbId, g])), [games]);
   const styles = useCollectionStyles((s) => s.styles);
+  const setSlots = useCollectionStyles((s) => s.setSlots);
   const gamesOf = (c: Collection) => {
     const rule = styles[c.id]?.rule;
     const items = rule ? games.filter((g) => matchesSmartRule(rule, g)) : c.gameIds.map((id) => byDb.get(id)).filter((g): g is Game => !!g);
@@ -46,67 +70,59 @@ export function CollectionsRow() {
     return () => window.removeEventListener("ibox:open-collection", listener);
   }, []);
 
-  // Mode « Organiser » : on attrape une carte à la souris (clic maintenu), elle suit le
-  // pointeur et les autres s'écartent ; le nouvel ordre est enregistré au relâchement.
+  // Grille libre : chaque carte occupe une case, des cases peuvent rester vides.
+  const grid = useRef<HTMLDivElement>(null);
+  const [cols, setCols] = useState(4);
+  useEffect(() => {
+    const el = grid.current;
+    if (!el) return;
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setCols(Math.max(1, Math.floor((el.clientWidth + CELL.gapX * rem) / ((CELL.w + CELL.gapX) * rem))));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const at = useMemo(() => placeCollections(list, styles), [list, styles]);
+  const last = Math.max(-1, ...at.values());
+
+  // Mode « Organiser » : on attrape une carte (clic maintenu), elle suit la souris et se
+  // pose dans la case visée, vide ou non (les deux cartes échangent alors leur place).
   const reorder = useCollections((s) => s.reorder);
   const [organizing, setOrganizing] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
-  const [draft, setDraft] = useState<number[] | null>(null);
-  const [ghost, setGhost] = useState<{ x: number; y: number; w: number } | null>(null);
-  const shown = draft ? draft.map((id) => list.find((c) => c.id === id)).filter((c): c is Collection => !!c) : list;
-  const order = useRef<number[]>([]);
-  order.current = shown.map((c) => c.id);
-  const grab = useRef<{ id: number; sx: number; sy: number; dx: number; dy: number; w: number; started: boolean; last: number | null } | null>(null);
-  const save = (ids: number[]) => void reorder(ids).catch(() => sound.play("error"));
-  const move = (id: number, delta: -1 | 1) => {
-    const ids = shown.map((c) => c.id);
-    const i = ids.indexOf(id);
-    const j = i + delta;
-    if (i < 0 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+  const [target, setTarget] = useState<number | null>(null);
+  const rows = Math.floor(last / cols) + 1 + (organizing ? 1 : 0);
+  const cellAt = (x: number, y: number) => {
+    const el = grid.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const col = Math.floor((x - r.left + (CELL.gapX * rem) / 2) / ((CELL.w + CELL.gapX) * rem));
+    const row = Math.floor((y - r.top + (CELL.gapY * rem) / 2) / ((CELL.h + CELL.gapY) * rem));
+    if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
+    return row * cols + col;
+  };
+  const place = (id: number, slot: number) => {
+    const from = at.get(id);
+    if (from === undefined || from === slot || slot < 0) return;
+    const next = new Map(at);
+    const occupant = [...at].find(([, s]) => s === slot)?.[0];
+    next.set(id, slot);
+    if (occupant !== undefined) next.set(occupant, from);
+    // on tasse vers le haut : aucune ligne entièrement vide en tête
+    const shift = Math.floor(Math.min(...next.values()) / cols) * cols;
+    for (const [k, s] of next) next.set(k, s - shift);
+    setSlots(Object.fromEntries(next));
     sound.play("move");
-    save(ids);
+    // l'ordre enregistré suit la lecture de la grille (clavier, recherche…)
+    const ids = [...next].sort((a, b) => a[1] - b[1]).map(([k]) => k);
+    if (ids.join() !== list.map((c) => c.id).join()) void reorder(ids).catch(() => sound.play("error"));
   };
-  const pointerDown = (e: React.PointerEvent<HTMLDivElement>, id: number) => {
-    if (!organizing || e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    grab.current = { id, sx: e.clientX, sy: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, started: false, last: null };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const pointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const g = grab.current;
-    if (!g) return;
-    if (!g.started) {
-      if (Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 6) return;
-      g.started = true;
-      setDragId(g.id);
-      sound.play("open");
-    }
-    setGhost({ x: e.clientX - g.dx, y: e.clientY - g.dy, w: g.w });
-    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-collection-id]");
-    const overId = over ? Number(over.dataset.collectionId) : null;
-    // une seule permutation par carte survolée : pas de va-et-vient pendant l'animation
-    if (overId === null || overId === g.id) { g.last = null; return; }
-    if (overId === g.last) return;
-    g.last = overId;
-    const ids = order.current.filter((x) => x !== g.id);
-    const after = order.current.indexOf(g.id) < order.current.indexOf(overId);
-    ids.splice(ids.indexOf(overId) + (after ? 1 : 0), 0, g.id);
-    setDraft(ids);
-    sound.play("move");
-  };
-  const pointerUp = () => {
-    const g = grab.current;
-    grab.current = null;
-    if (g?.started) {
-      if (order.current.join() !== list.map((c) => c.id).join()) save(order.current);
-      sound.play("select");
-    }
-    setDragId(null);
-    setDraft(null);
-    setGhost(null);
-  };
-  const dragged = dragId !== null ? list.find((c) => c.id === dragId) : undefined;
+  const shown = [...list].sort((a, b) => at.get(a.id)! - at.get(b.id)!);
+  const empty = organizing ? Array.from({ length: rows * cols }, (_, s) => s).filter((s) => ![...at.values()].includes(s)) : [];
 
   return (
     <ShelfRow
@@ -114,36 +130,21 @@ export function CollectionsRow() {
       group="home-collections"
       wrap
       action={
-        <div className="flex items-center gap-2">
+        <IconBar>
           {list.length > 1 && (
-            <Button
-              tone={organizing ? "green" : "purple"}
-              variant={organizing ? "primary" : "soft"}
+            <IconBarButton
               icon={organizing ? "check" : "grid"}
-              aria-label={organizing ? "Terminé" : "Organiser"}
-              title={organizing ? "Terminé" : "Organiser : maintenez le clic sur une carte pour la déplacer"}
-              className="w-11 px-0!"
-              onClick={() => {
-                sound.play(organizing ? "back" : "open");
-                setOrganizing((v) => !v);
-              }}
+              label={organizing ? "Terminé" : "Organiser"}
+              title={organizing ? "Terminé" : "Organiser : maintenez le clic sur une carte et posez-la dans la case de votre choix"}
+              active={organizing}
+              cue={organizing ? "back" : "open"}
+              tint={organizing ? "var(--tone-green-ink)" : "var(--tone-purple-ink)"}
+              onClick={() => setOrganizing((v) => !v)}
             />
           )}
-          {!organizing && (
-            <Button
-              tone="pink"
-              icon="sparkle"
-              aria-label="Ajouter une décoration"
-              title="Ajouter une décoration (image ou GIF)"
-              className="w-11 px-0!"
-              onClick={() => {
-                sound.play("open");
-                setDecorating("new");
-              }}
-            />
-          )}
-          {!organizing && <Button icon="plus" aria-label="Nouvelle collection" title="Nouvelle collection" className="w-11 px-0!" onClick={() => setEditing("new")} />}
-        </div>
+          {!organizing && <IconBarButton icon="sparkle" label="Décoration" title="Ajouter une décoration (image ou GIF)" cue="open" tint="var(--tone-pink-ink)" onClick={() => setDecorating("new")} />}
+          {!organizing && <IconBarButton icon="plus" label="Nouvelle collection" cue="open" tint="var(--tone-blue-ink)" onClick={() => setEditing("new")} />}
+        </IconBar>
       }
     >
       {list.length === 0 && (
@@ -151,73 +152,156 @@ export function CollectionsRow() {
           <Icon name="grid" /> Rangez vos jeux comme vous voulez : « À finir », « Coop »… depuis la fiche d'un jeu (bouton Collections).
         </div>
       )}
-      {shown.map((c, i) => (
-        <motion.div
-          key={c.id}
-          data-collection-id={c.id}
-          layout
-          transition={{ layout: { type: "spring", stiffness: 420, damping: 34 } }}
-          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-          onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => pointerDown(e, c.id)}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerUp}
-          onPointerCancel={pointerUp}
-          className={`group/collection relative shrink-0 ${organizing ? `cursor-grab touch-none select-none active:cursor-grabbing ${dragId === c.id ? "opacity-30" : "ibox-organize-wiggle"}` : ""}`}
-          style={organizing ? { ["--wiggle-delay" as string]: `${(i % 4) * -0.17}s` } : undefined}
-        >
-          <div className={organizing ? "pointer-events-none" : undefined}>
-            {styles[c.id]?.decor ? (
-              <DecorCard collection={c} onEdit={organizing ? undefined : () => setDecorating(c)} />
-            ) : (
-              <CollectionCard
-                collection={c}
-                items={gamesOf(c)}
-                onOpen={organizing ? undefined : () => {
-                  sound.play("select");
-                  setOpen(c);
-                }}
-                onEdit={organizing ? undefined : () => setEditing(c)}
-              />
-            )}
-          </div>
-          {organizing && (
-            // clavier et manette : déplacer d'un cran à gauche ou à droite
-            <div className="absolute inset-x-0 -bottom-4 flex justify-center gap-2">
-              <button
-                data-focusable
-                aria-label={`Déplacer ${c.name} vers la gauche`}
-                disabled={i === 0}
-                onClick={() => move(c.id, -1)}
-                className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
+      <motion.div
+        ref={grid}
+        className="grid w-full"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, ${CELL.w}rem)`,
+          gridAutoRows: `${CELL.h}rem`,
+          columnGap: `${CELL.gapX}rem`,
+          rowGap: `${CELL.gapY}rem`,
+          display: list.length ? undefined : "none",
+        }}
+      >
+        {empty.map((s) => (
+          // cases libres, visibles seulement pendant le rangement
+          <div
+            key={`empty-${s}`}
+            aria-hidden
+            className={`rounded-[1.6rem] border-2 border-dashed transition-colors ${target === s ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-ink/15"}`}
+            style={{ gridRow: Math.floor(s / cols) + 1, gridColumn: (s % cols) + 1 }}
+          />
+        ))}
+        {shown.map((c, i) => {
+          const slot = at.get(c.id)!;
+          const decor = !!styles[c.id]?.decor;
+          return (
+            <GridSlot
+              key={c.id}
+              id={c.id}
+              row={Math.floor(slot / cols) + 1}
+              col={(slot % cols) + 1}
+              organizing={organizing}
+              dragging={dragId === c.id}
+              highlight={target === slot && dragId !== c.id}
+              centered={decor}
+              onStart={() => { setDragId(c.id); sound.play("open"); }}
+              onMove={(x, y) => setTarget(cellAt(x, y))}
+              onDrop={(x, y) => {
+                const to = cellAt(x, y);
+                setDragId(null);
+                setTarget(null);
+                if (to === null || to === slot) return false;
+                place(c.id, to);
+                return true;
+              }}
+            >
+              <div
+                className={`${organizing ? "pointer-events-none" : ""} ${organizing && dragId !== c.id ? "ibox-organize-wiggle" : ""}`}
+                style={organizing ? { ["--wiggle-delay" as string]: `${(i % 4) * -0.17}s` } : undefined}
               >
-                <Icon name="chevronRight" size="1em" className="rotate-180" />
-              </button>
-              <button
-                data-focusable
-                aria-label={`Déplacer ${c.name} vers la droite`}
-                disabled={i === shown.length - 1}
-                onClick={() => move(c.id, 1)}
-                className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
-              >
-                <Icon name="chevronRight" size="1em" />
-              </button>
-            </div>
-          )}
-        </motion.div>
-      ))}
-      {dragged && ghost && createPortal(
-        // la carte attrapée suit la souris
-        <div inert aria-hidden className="pointer-events-none fixed top-0 left-0 z-50" style={{ width: ghost.w, transform: `translate(${ghost.x}px, ${ghost.y}px) rotate(-3deg) scale(1.05)` }}>
-          <div className="group/collection relative drop-shadow-[0_24px_30px_rgba(20,30,60,0.35)]">
-            {styles[dragged.id]?.decor ? <DecorCard collection={dragged} /> : <CollectionCard collection={dragged} items={gamesOf(dragged)} draft={styles[dragged.id] ?? {}} />}
-          </div>
-        </div>,
-        document.body,
-      )}
+                {decor ? (
+                  <DecorCard collection={c} onEdit={organizing ? undefined : () => setDecorating(c)} />
+                ) : (
+                  <CollectionCard
+                    collection={c}
+                    items={gamesOf(c)}
+                    onOpen={organizing ? undefined : () => {
+                      sound.play("select");
+                      setOpen(c);
+                    }}
+                    onEdit={organizing ? undefined : () => setEditing(c)}
+                  />
+                )}
+              </div>
+              {organizing && dragId === null && (
+                // clavier et manette : déplacer d'une case à gauche ou à droite
+                <div className="absolute inset-x-0 -bottom-4 flex justify-center gap-2" onPointerDownCapture={(e) => e.stopPropagation()}>
+                  <button
+                    data-focusable
+                    aria-label={`Déplacer ${c.name} vers la gauche`}
+                    disabled={slot === 0}
+                    onClick={() => place(c.id, slot - 1)}
+                    className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
+                  >
+                    <Icon name="chevronRight" size="1em" className="rotate-180" />
+                  </button>
+                  <button
+                    data-focusable
+                    aria-label={`Déplacer ${c.name} vers la droite`}
+                    disabled={slot + 1 >= rows * cols}
+                    onClick={() => place(c.id, slot + 1)}
+                    className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
+                  >
+                    <Icon name="chevronRight" size="1em" />
+                  </button>
+                </div>
+              )}
+            </GridSlot>
+          );
+        })}
+      </motion.div>
       {editing && <CollectionEditor collection={editing === "new" ? null : editing} games={editing === "new" ? [] : gamesOf(editing)} onClose={() => setEditing(null)} />}
       {decorating && <DecorEditor decor={decorating === "new" ? null : decorating} onClose={() => setDecorating(null)} />}
       <AnimatePresence>{open && <CollectionShelf key={open.id} collection={list.find((x) => x.id === open.id) ?? open} games={gamesOf(list.find((x) => x.id === open.id) ?? open)} onClose={() => setOpen(null)} />}</AnimatePresence>
     </ShelfRow>
+  );
+}
+
+/** Une case de la grille : la carte elle-même suit la souris, puis atterrit en douceur dans sa nouvelle case. */
+function GridSlot({ id, row, col, organizing, dragging, highlight, centered, onStart, onMove, onDrop, children }: {
+  id: number; row: number; col: number; organizing: boolean; dragging: boolean; highlight: boolean; centered: boolean;
+  onStart: () => void; onMove: (x: number, y: number) => void; onDrop: (x: number, y: number) => boolean; children: React.ReactNode;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const from = useRef<{ left: number; top: number } | null>(null);
+  const [landing, setLanding] = useState(false);
+  const settle = () => {
+    // vitesse remise à zéro : la carte se pose sans reprendre l'élan du geste
+    const spring = { type: "spring", stiffness: 420, damping: 34, velocity: 0 } as const;
+    x.jump(x.get());
+    y.jump(y.get());
+    void animate(x, 0, spring);
+    void animate(y, 0, spring).then(() => setLanding(false));
+  };
+  // nouvelle case : on repart de l'endroit exact où la carte a été lâchée
+  useLayoutEffect(() => {
+    const start = from.current;
+    const el = box.current;
+    if (!start || !el) return;
+    from.current = null;
+    const r = el.getBoundingClientRect();
+    x.jump(start.left - (r.left - x.get()));
+    y.jump(start.top - (r.top - y.get()));
+    settle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row, col]);
+  return (
+    <motion.div
+      ref={box}
+      data-collection-id={id}
+      layout={dragging || landing ? false : "position"}
+      transition={{ layout: { type: "spring", stiffness: 420, damping: 34 } }}
+      variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+      drag={organizing}
+      dragMomentum={false}
+      dragElastic={0}
+      whileDrag={{ scale: 1.06, cursor: "grabbing" }}
+      onDragStart={() => { setLanding(true); onStart(); }}
+      onDrag={(e) => { const p = e as PointerEvent; onMove(p.clientX, p.clientY); }}
+      onDragEnd={(e) => {
+        const p = e as PointerEvent;
+        const r = box.current?.getBoundingClientRect();
+        if (r) from.current = { left: r.left, top: r.top };
+        if (!onDrop(p.clientX, p.clientY)) { from.current = null; settle(); }
+      }}
+      className={`${organizing ? "" : "group/collection"} relative ${centered ? "justify-self-center" : ""} ${organizing ? "cursor-grab touch-none select-none" : ""} ${dragging || landing ? "z-50" : ""} ${dragging ? "drop-shadow-[0_24px_30px_rgba(20,30,60,0.35)]" : ""} ${highlight ? "rounded-[1.6rem] outline-4 outline-offset-4 outline-[var(--accent)]" : ""}`}
+      style={{ gridRow: row, gridColumn: col, x, y }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -1002,14 +1086,6 @@ function DecorCard({ collection: c, onEdit, preview }: { collection: Collection;
   );
 }
 
-/** Sprites animés de Pokémon Showdown (GIF transparents). Noms français → identifiants anglais. */
-const POKEMON: [string, string][] = [
-  ["Pikachu", "pikachu"], ["Évoli", "eevee"], ["Salamèche", "charmander"], ["Bulbizarre", "bulbasaur"], ["Carapuce", "squirtle"],
-  ["Rondoudou", "jigglypuff"], ["Mew", "mew"], ["Ronflex", "snorlax"], ["Psykokwak", "psyduck"], ["Ectoplasma", "gengar"],
-  ["Lucario", "lucario"], ["Mimiqui", "mimikyu"], ["Goupix", "vulpix"], ["Togepi", "togepi"], ["Dracaufeu", "charizard"],
-  ["Magicarpe", "magikarp"], ["Rayquaza", "rayquaza"], ["Mewtwo", "mewtwo"], ["Pichu", "pichu"], ["Lokhlass", "lapras"],
-];
-const SHOWDOWN = "https://play.pokemonshowdown.com/sprites";
 const pokemonId = (name: string) => {
   const raw = name.trim().toLowerCase();
   const known = POKEMON.find(([fr, en]) => fr.toLowerCase() === raw || en === raw);
@@ -1067,13 +1143,35 @@ function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
   );
 }
 
+/** Émojis animées (Noto) : vignettes fixes légères, la version animée s'affiche en aperçu. */
+function EmojiPicker({ onPicked }: { onPicked: (url: string) => void }) {
+  const [group, setGroup] = useState(EMOJIS[0].group);
+  const items = EMOJIS.find((g) => g.group === group)?.items ?? [];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5">
+        {EMOJIS.map((g) => <Chip key={g.group} active={g.group === group} onClick={() => setGroup(g.group)}>{g.group}</Chip>)}
+      </div>
+      <div className="grid max-h-52 grid-cols-6 gap-2 overflow-y-auto p-0.5">
+        {items.map(([code, name]) => (
+          <button key={code} type="button" data-focusable title={name} aria-label={name} onClick={() => { sound.play("select"); onPicked(notoGif(code)); }}
+            className="ibox-focusable grid aspect-square place-items-center rounded-xl bg-white p-2 transition-transform hover:scale-105 [--ring-radius:0.75rem]">
+            <img src={notoThumb(code)} alt="" loading="lazy" className="size-full object-contain" />
+          </button>
+        ))}
+      </div>
+      <p className="text-[0.75rem] text-ink-soft">Émojis animées Noto de Google, transparentes. Choisissez-en une pour la voir bouger.</p>
+    </div>
+  );
+}
+
 type DecorPick = { kind: "url"; url: string; thumb: string } | { kind: "file"; file: File; thumb: string };
 
 /** Ajouter ou modifier une décoration : icône iiDB, Pokémon animé ou image / GIF du PC. */
 function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: () => void }) {
   const { create, remove, list } = useCollections();
   const setStyle = useCollectionStyles((s) => s.setStyle);
-  const [source, setSource] = useState<"iidb" | "pokemon" | "file">("iidb");
+  const [source, setSource] = useState<"iidb" | "pokemon" | "emoji" | "file">("pokemon");
   const [pick, setPick] = useState<DecorPick | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1109,12 +1207,13 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
           </div>
         </div>
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Source de l'image">
-          {([["iidb", "Icônes iiDB"], ["pokemon", "Pokémon animés"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
+          {([["pokemon", "Pokémon animés"], ["emoji", "Émojis animées"], ["iidb", "Icônes iiDB"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
             <Chip key={k} active={source === k} onClick={() => setSource(k)}>{label}</Chip>
           ))}
         </div>
         {source === "iidb" && <IconSearch onPicked={(p) => setPick({ kind: "url", url: p.url, thumb: p.thumb })} />}
         {source === "pokemon" && <div className="rounded-2xl bg-cream-deep/60 p-3"><PokemonPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
+        {source === "emoji" && <div className="rounded-2xl bg-cream-deep/60 p-3"><EmojiPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
         {source === "file" && (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-cream-deep/60 p-3">
             <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {

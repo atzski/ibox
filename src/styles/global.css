@@ -789,6 +789,14 @@ html[data-motion="reduced"] :is(.ibox-shelf3d-spin, .ibox-shelf3d-hop, .ibox-she
 }
 
 /* Collections en mode « Organiser » : léger balancement, comme des icônes qu'on déplace */
+/* Bulle de nom des barres d'icônes (IconBar) */
+.ibox-icon-tip {
+  animation: ibox-icon-tip 0.15s ease-out;
+}
+@keyframes ibox-icon-tip {
+  from { opacity: 0; translate: 0 -4px; }
+}
+
 .ibox-organize-wiggle {
   animation: ibox-organize-wiggle 0.7s ease-in-out infinite;
   animation-delay: var(--wiggle-delay, 0s);

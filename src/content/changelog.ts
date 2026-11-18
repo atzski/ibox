@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.93",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Vos collections où vous voulez", text: "Avec Organiser, chaque collection ou décoration se pose dans la case de votre choix, même s’il reste des cases vides avant elle. Lâchée sur une autre carte, les deux échangent leur place." },
+      { icon: "shelf", title: "Un glisser tout en douceur", text: "La carte attrapée suit maintenant la souris sans se dédoubler, puis glisse d’elle-même dans sa nouvelle case." },
+      { icon: "sparkle", title: "Encore plus de décorations mignonnes", text: "Plus de 80 émojis animées (animaux, frimousses, étoiles, gourmandises…) rejoignent les Pokémon, qui passent eux aussi à 40, dont toute la famille d’Évoli." },
+      { icon: "front", title: "Des boutons cohérents", text: "Les boutons des collections prennent la même forme que la barre de l’accueil : des icônes seules, avec leur nom en bulle au survol, qui ne se cache plus jamais derrière une carte." },
+    ],
+  },
+  {
     version: "0.1.92",
     date: "2026-11-18",
     highlights: [

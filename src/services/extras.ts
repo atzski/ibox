@@ -70,11 +70,26 @@ export interface CollectionStyle {
   shade?: "light" | "medium" | "strong";
   /** Décoration : une image ou un GIF seul (icône iiDB, Pokémon animé, fichier du PC), sans jeux. */
   decor?: boolean;
+  /** Case choisie dans la grille de l'accueil (lecture de gauche à droite, ligne après ligne). */
+  slot?: number;
 }
 /** Les vraies collections (sans les décorations de l'accueil). */
 export const isDecor = (id: number) => !!useCollectionStyles.getState().styles[id]?.decor;
-export const useCollectionStyles = create<{ styles: Record<number, CollectionStyle>; setStyle: (id: number, s: CollectionStyle) => void }>()(
-  persist((set) => ({ styles: {}, setStyle: (id, s) => set((st) => ({ styles: { ...st.styles, [id]: s } })) }), { name: "ibox.collectionStyles" }),
+export const useCollectionStyles = create<{
+  styles: Record<number, CollectionStyle>;
+  setStyle: (id: number, s: CollectionStyle) => void;
+  /** Cases de plusieurs collections d'un coup (rangement de la grille). */
+  setSlots: (slots: Record<number, number>) => void;
+}>()(
+  persist((set) => ({
+    styles: {},
+    setStyle: (id, s) => set((st) => ({ styles: { ...st.styles, [id]: s } })),
+    setSlots: (slots) => set((st) => {
+      const styles = { ...st.styles };
+      for (const [id, slot] of Object.entries(slots)) styles[Number(id)] = { ...styles[Number(id)], slot };
+      return { styles };
+    }),
+  }), { name: "ibox.collectionStyles" }),
 );
 
 interface CollectionsState {
