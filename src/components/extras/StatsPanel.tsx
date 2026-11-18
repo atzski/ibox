@@ -109,7 +109,7 @@ export function StatsPanel() {
           </ol>
         </div>
       </div>
-      <p className="text-[0.8rem] font-semibold text-ink-faint">Au total : {formatDuration(stats.totalSeconds)} de jeu lancé depuis iBox.</p>
+      <p className="text-[0.8rem] font-semibold text-ink-faint">{`Au total : ${formatDuration(stats.totalSeconds)} de jeu lancé depuis iBox.`}</p>
     </div>
   );
 }

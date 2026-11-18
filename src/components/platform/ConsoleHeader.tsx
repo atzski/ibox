@@ -38,7 +38,7 @@ export function ConsoleHeader({
 
   const meta = (
     <div className={`mt-1.5 text-[0.95rem] font-bold ${night ? "text-white/85" : "text-ink/75"}`}>
-      {total} jeu{total > 1 ? "x" : ""}
+      {`${total} jeu${total > 1 ? "x" : ""}`}
       {platform && ` · ${platform.manufacturer} · ${platform.year}`}
     </div>
   );
@@ -81,7 +81,7 @@ export function ConsoleHeader({
           )}
           <div className={`min-w-0 ${night ? "text-[#f3f5fb]" : "text-ink"}`}>
             <h1 className="truncate text-xl font-bold">{platform?.name ?? title}</h1>
-            <p className="text-sm font-semibold opacity-75">{total} jeu{total > 1 ? "x" : ""}</p>
+            <p className="text-sm font-semibold opacity-75">{`${total} jeu${total > 1 ? "x" : ""}`}</p>
           </div>
         </div>
         <div className="shrink-0">{children}</div>

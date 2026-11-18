@@ -86,7 +86,7 @@ export function AchievementShowcase({ highlight, accent }: { highlight: Achievem
           </motion.div>
         </div>
         <div className="mt-1.5 flex items-center justify-between text-[0.8rem] font-bold text-ink-soft">
-          <span className="tabular-nums"><span className="text-ink">{earned}</span>&nbsp;/&nbsp;{total} succès</span>
+          <span className="tabular-nums"><span className="text-ink">{earned}</span>&nbsp;/&nbsp;<span>{`${total} succès`}</span></span>
           <span>{done ? "Platine !" : `Encore ${total - earned}`}</span>
         </div>
       </div>

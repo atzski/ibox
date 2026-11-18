@@ -38,11 +38,12 @@ export function GamesArtPanel() {
         <h3 className="text-[1rem] font-bold text-ink">Jeux</h3>
         {stats && (
           <span className="text-[0.8rem] font-bold text-ink-soft">
-            {stats.matched} reconnu{stats.matched > 1 ? "s" : ""}
-            {stats.needsChoice ? ` · ${stats.needsChoice} à associer` : ""}
-            {stats.notFound ? ` · ${stats.notFound} introuvable${stats.notFound > 1 ? "s" : ""}` : ""}
-            {stats.unresolved ? ` · ${stats.unresolved} pas encore cherché${stats.unresolved > 1 ? "s" : ""}` : ""} · {stats.iidbImages} image
-            {stats.iidbImages > 1 ? "s" : ""} iiDB
+            <span>{`${stats.matched} reconnu${stats.matched > 1 ? "s" : ""}`}</span>
+            {stats.needsChoice ? <span>{` · ${stats.needsChoice} à associer`}</span> : null}
+            {stats.notFound ? <span>{` · ${stats.notFound} introuvable${stats.notFound > 1 ? "s" : ""}`}</span> : null}
+            {stats.unresolved ? <span>{` · ${stats.unresolved} pas encore cherché${stats.unresolved > 1 ? "s" : ""}`}</span> : null}
+            {" · "}
+            <span>{`${stats.iidbImages} image${stats.iidbImages > 1 ? "s" : ""} iiDB`}</span>
           </span>
         )}
       </div>
@@ -63,7 +64,7 @@ export function GamesArtPanel() {
         )}
         {stats && stats.needsChoice > 0 && !sync.running && (
           <Button icon="search" onClick={() => setChoosing(true)}>
-            Associer {stats.needsChoice} jeu{stats.needsChoice > 1 ? "x" : ""}…
+            {`Associer ${stats.needsChoice} jeu${stats.needsChoice > 1 ? "x" : ""}…`}
           </Button>
         )}
       </div>
@@ -79,10 +80,14 @@ export function GamesArtPanel() {
       )}
       {!sync.running && r && (
         <p className="mt-3 text-[0.82rem] font-bold text-ink">
-          {r.cancelled ? "Arrêté. " : ""}
-          {r.resolved > 0 && `${r.matched} jeu${r.matched > 1 ? "x" : ""} reconnu${r.matched > 1 ? "s" : ""}${r.needsChoice ? ` · ${r.needsChoice} à associer` : ""}${r.notFound ? ` · ${r.notFound} introuvable${r.notFound > 1 ? "s" : ""}` : ""} · `}
-          {r.downloaded} image{r.downloaded > 1 ? "s" : ""} ajoutée{r.downloaded > 1 ? "s" : ""}
-          {r.failed ? ` · ${r.failed} échec${r.failed > 1 ? "s" : ""}` : ""}
+          {/* chaque morceau dans son propre texte : traduit à part, sans pluriel décollé */}
+          {r.cancelled && <span>Arrêté. </span>}
+          {r.resolved > 0 && <span>{`${r.matched} jeu${r.matched > 1 ? "x" : ""} reconnu${r.matched > 1 ? "s" : ""}`}</span>}
+          {r.resolved > 0 && r.needsChoice > 0 && <span>{` · ${r.needsChoice} à associer`}</span>}
+          {r.resolved > 0 && r.notFound > 0 && <span>{` · ${r.notFound} introuvable${r.notFound > 1 ? "s" : ""}`}</span>}
+          {r.resolved > 0 && " · "}
+          <span>{`${r.downloaded} image${r.downloaded > 1 ? "s" : ""} ajoutée${r.downloaded > 1 ? "s" : ""}`}</span>
+          {r.failed > 0 && <span>{` · ${r.failed} échec${r.failed > 1 ? "s" : ""}`}</span>}
         </p>
       )}
       {!sync.running && r?.errors.map((e) => (

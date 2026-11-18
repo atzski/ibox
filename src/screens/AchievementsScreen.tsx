@@ -266,7 +266,7 @@ function TrophyRoomHero({ user, profile, entries, awards, error, onRefresh }: {
           <div className="mt-2.5 max-w-[30rem]">
             <div className="mb-1 flex justify-between gap-3 text-[0.76rem] font-extrabold text-ink-soft">
               <span>Niveau {level}</span>
-              <span>Encore {next} succès pour le niveau {level + 1}</span>
+              <span>{`Encore ${next} succès pour le niveau ${level + 1}`}</span>
             </div>
             <StripeBar value={progress} color="#FF7A59" height={14} label="Progression du niveau" />
           </div>
@@ -639,7 +639,7 @@ function GameHeader({ d, libGame, source }: { d: RaGameDetail; libGame?: Game; s
           <div className="mt-3 flex flex-wrap gap-2 text-[0.82rem] font-bold text-ink-soft">
             {source === "ra" && <span className="rounded-full bg-white/85 px-3 py-1">{d.pointsEarned} / {d.points} points</span>}
             {source === "ra" && <span className="rounded-full bg-white/85 px-3 py-1">Hardcore : {d.earnedHardcore} / {total}</span>}
-            {source === "ra" && <span className="rounded-full bg-white/85 px-3 py-1">{d.players.toLocaleString("fr-FR")} joueurs</span>}
+            {source === "ra" && <span className="rounded-full bg-white/85 px-3 py-1">{`${d.players.toLocaleString("fr-FR")} joueurs`}</span>}
             {source === "steam" && <span className="rounded-full bg-white/85 px-3 py-1">Rareté mondiale Steam</span>}
           </div>
           {user && d.earned > 0 && (

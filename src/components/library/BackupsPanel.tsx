@@ -101,7 +101,7 @@ export function BackupsPanel() {
       {backups?.length === 0 && <p>Aucune sauvegarde valide disponible.</p>}
       {backups?.map((backup) => (
         <div key={backup.name} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-cream-deep px-4 py-2">
-          <span>{date(backup.name)} · {backup.games} jeux</span>
+          <span>{date(backup.name)}{" · "}<span>{`${backup.games} jeux`}</span></span>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => select(backup, false)}>Restaurer</Button>
             <Button onClick={() => select(backup, true)}>Supprimer</Button>
@@ -121,7 +121,7 @@ export function BackupsPanel() {
             </>
           ) : (
             <>
-              <p className="mb-4">iBox va se fermer. Rouvre l’application pour charger les {selected.games} jeux de cette sauvegarde. La base actuelle sera archivée.</p>
+              <p className="mb-4">iBox va se fermer. {`Rouvre l’application pour charger les ${selected.games} jeux de cette sauvegarde. La base actuelle sera archivée.`}</p>
               <Button disabled={busy} onClick={() => void restore(selected)}>Confirmer et fermer iBox</Button>
             </>
           )}

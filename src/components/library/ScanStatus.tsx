@@ -87,7 +87,7 @@ export function ScanStatus() {
               )}
               {!scan.running && scan.summary && scan.summary.errors.length > 0 && (
                 <div className="mt-1 truncate text-[0.75rem] font-bold text-peach-deep" title={scan.summary.errors.join("\n")}>
-                  {scan.summary.errors.length} avertissement{scan.summary.errors.length > 1 ? "s" : ""} : {scan.summary.errors[0]}
+                  <span>{`${scan.summary.errors.length} avertissement${scan.summary.errors.length > 1 ? "s" : ""} :`}</span> {scan.summary.errors[0]}
                 </div>
               )}
             </div>

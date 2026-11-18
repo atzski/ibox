@@ -154,10 +154,10 @@ export function IidbPanel() {
           )}
           {!sync.running && r && (
             <p className="text-[0.82rem] font-bold text-ink">
-              {r.matched} console{r.matched > 1 ? "s" : ""} reconnue{r.matched > 1 ? "s" : ""}
+              <span>{`${r.matched} console${r.matched > 1 ? "s" : ""} reconnue${r.matched > 1 ? "s" : ""}`}</span>
               {r.needsChoice ? ` · ${r.needsChoice} à choisir` : ""}
-              {r.notFound ? ` · ${r.notFound} introuvable${r.notFound > 1 ? "s" : ""}` : ""} · {r.downloaded} image{r.downloaded > 1 ? "s" : ""} téléchargée
-              {r.downloaded > 1 ? "s" : ""}
+              {r.notFound ? ` · ${r.notFound} introuvable${r.notFound > 1 ? "s" : ""}` : ""}{" · "}
+              <span>{`${r.downloaded} image${r.downloaded > 1 ? "s" : ""} téléchargée${r.downloaded > 1 ? "s" : ""}`}</span>
               {r.upToDate ? ` · ${r.upToDate} à jour` : ""}
               {r.keptManual ? ` · ${r.keptManual} choix conservé${r.keptManual > 1 ? "s" : ""}` : ""}
               {r.failed ? ` · ${r.failed} échec${r.failed > 1 ? "s" : ""}` : ""}
@@ -174,8 +174,10 @@ export function IidbPanel() {
 
       {status && (
         <p className="mt-3 text-[0.8rem] font-bold text-ink-soft">
-          {status.linked} console{status.linked > 1 ? "s" : ""} associée{status.linked > 1 ? "s" : ""} · {status.assets} illustration
-          {status.assets > 1 ? "s" : ""} · cache {mb(status.cacheBytes)}
+          <span>{`${status.linked} console${status.linked > 1 ? "s" : ""} associée${status.linked > 1 ? "s" : ""}`}</span>
+          {" · "}
+          <span>{`${status.assets} illustration${status.assets > 1 ? "s" : ""}`}</span>
+          {` · cache ${mb(status.cacheBytes)}`}
         </p>
       )}
 

@@ -166,7 +166,7 @@ function FolderRow({
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[0.8rem] font-bold text-ink-soft">
           <span>
-            {folder.gameCount} jeu{folder.gameCount > 1 ? "x" : ""}
+            {`${folder.gameCount} jeu${folder.gameCount > 1 ? "x" : ""}`}
           </span>
           <span>
             {folder.lastScanAt ? `Actualisé ${relativeDay(folder.lastScanAt)}` : "Jamais actualisé"}

@@ -428,7 +428,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
             {!style?.hideName && <span data-no-i18n className="block truncate font-display text-[1.3rem] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">{c.name}</span>}
           </span>
           <span className={`${cardDetails} shrink-0 rounded-full px-2.5 py-1 text-[0.78rem] font-bold shadow-sm ring-2 ring-white/70`} style={{ background: c.color, color: inkOn(c.color) }}>
-            {items.length} jeu{items.length > 1 ? "x" : ""}
+            {`${items.length} jeu${items.length > 1 ? "x" : ""}`}
           </span>
         </span>
       </button>
@@ -703,7 +703,7 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
         <span className="size-3 rounded-full" style={{ background: collection.color }} />
         <ShelfTitle collection={collection} games={games} />
         <span className="text-[0.9rem] font-bold text-white/60">
-          {games.length} jeu{games.length > 1 ? "x" : ""}
+          {`${games.length} jeu${games.length > 1 ? "x" : ""}`}
         </span>
         <span className="flex-1" />
         {games.length > 1 && <button data-focusable onClick={() => setOrdering(true)} className="ibox-focusable flex h-11 items-center gap-2 rounded-full bg-white/12 px-4 text-[0.92rem] font-bold [--ring-radius:999px] hover:bg-white/20">↕ Ordre des jeux</button>}
@@ -996,7 +996,7 @@ function GamesEditor({ collection, onClose }: { collection: Collection; onClose:
           />
           <Button type="button" icon={onlyIn ? "check" : "grid"} onClick={() => setOnlyIn((v) => !v)}>{onlyIn ? "Dans la collection" : "Tous les jeux"}</Button>
         </div>
-        <p className="text-[0.82rem] font-bold text-ink-soft">{members.size} jeu{members.size > 1 ? "x" : ""} dans la collection · cliquez pour ajouter ou retirer</p>
+        <p className="text-[0.82rem] font-bold text-ink-soft">{`${members.size} jeu${members.size > 1 ? "x" : ""} dans la collection · cliquez pour ajouter ou retirer`}</p>
         <div className="grid max-h-[55vh] grid-cols-[repeat(auto-fill,minmax(6.2rem,1fr))] gap-3 overflow-y-auto p-1">
           {shown.map((g) => {
             const inside = members.has(g.dbId!);

@@ -20,6 +20,8 @@ interface Pattern {
   out: string;
   /** Plus long morceau fixe : test rapide avant l'expression régulière. */
   hint: string;
+  /** Longueur totale du texte fixe (départage). */
+  fixed: number;
 }
 const patterns: Pattern[] = [];
 for (const [fr, en] of Object.entries(EN)) {
@@ -37,10 +39,11 @@ for (const [fr, en] of Object.entries(EN)) {
     .join("");
   const re = new RegExp(`^${source}$`, "s");
   const hint = parts.reduce((a, b) => (b.trim().length > a.length ? b.trim() : a), "");
-  patterns.push({ re, out: en, hint });
+  patterns.push({ re, out: en, hint, fixed: parts.join("").length });
 }
-// les gabarits les plus précis d'abord
-patterns.sort((a, b) => b.hint.length - a.hint.length);
+// les gabarits les plus précis d'abord (à égalité, celui qui a le plus de texte fixe :
+// « Associer {0} jeu{1}… » avant « Associer {0} »)
+patterns.sort((a, b) => b.hint.length - a.hint.length || b.fixed - a.fixed);
 
 const misses = new Set<string>();
 // outil de développement seulement : mieux vaut un faux positif qu'un texte français oublié

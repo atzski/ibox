@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.96",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "globe", title: "Des pluriels bien accordés", text: "En anglais, les compteurs affichaient parfois « 5 gamex » : tous les nombres de jeux, consoles, images et succès s’écrivent maintenant correctement, comme le temps de jeu total dans vos statistiques." },
+    ],
+  },
+  {
     version: "0.1.95",
     date: "2026-11-18",
     highlights: [
