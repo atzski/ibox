@@ -14,30 +14,43 @@ Windows 10 et 11 (64 bits) · Gratuit et open source
 
 <br>
 
-<img src="docs/media/demos/library-tour.webp" width="100%" alt="Une bibliothèque iBox sur l’étagère 3D : les boîtiers Switch, Wii, PSP, DS et Switch 2 défilent et le fond change à chaque jeu">
+<img src="docs/media/demos/collection-tour.webp" width="100%" alt="Une collection Mario feuilletée dans iBox : les boîtiers de Mario Kart 7, Super Mario Galaxy, Super Mario Bros. Wonder et Super Mario 3D Land défilent et le fond change à chaque jeu">
 
 </div>
 
 ## Une étagère pour tout ce que vous jouez
 
-Vos jeux Steam, Epic et GOG se rangent juste à côté de vos disques Wii et de vos cartouches Game Boy. iBox les trouve, récupère leurs jaquettes et les aligne sur une étagère par console, comme dans votre salon. Choisissez-en un : tout l’écran prend ses couleurs.
+Vos jeux Steam, Epic et GOG se rangent juste à côté de vos disques Wii et de vos cartouches 3DS. iBox les trouve, récupère leurs jaquettes et les aligne sur une étagère en 3D, comme dans votre salon. L’accueil montre toute votre collection d’un coup d’œil, met un de vos jeux à l’honneur à chaque retour et vous ramène à votre dernière aventure en un clic.
 
 <p align="center">
-  <img src="docs/media/screenshots/home.webp" width="100%" alt="L’accueil d’iBox : la dernière partie, le compteur de la collection et la rangée des consoles">
+  <img src="docs/media/screenshots/home.webp" width="100%" alt="L’accueil d’iBox : la collection sur une étagère 3D avec 423 jeux, la dernière partie à droite et les premières collections en dessous">
 </p>
 
-- **Une seule bibliothèque** pour les jeux PC (Steam, Epic Games Store, GOG Galaxy ou n’importe quel `.exe`) et les jeux console de vos propres dossiers.
+- **Une seule bibliothèque** pour les jeux PC (Steam, Epic Games Store, GOG Galaxy, EA, Ubisoft, Xbox, Riot ou n’importe quel `.exe`) et les jeux console de vos propres dossiers.
 - **Des illustrations trouvées pour vous** sur SteamGridDB, GameTDB, LaunchBox, les vignettes libretro et iiDB : jaquettes, dos, tranches, vrais scans de disques, logos et fonds.
-- **Collections et favoris** pour ranger vos jeux à votre façon, et les versions régionales d’un même jeu réunies sur une seule fiche.
+- **Les versions régionales** d’un même jeu réunies sur une seule fiche, et vos favoris à une touche.
+
+## Des collections à votre image
+
+Rangez vos jeux à votre façon, puis donnez à chaque collection son style. Une carte de collection peut montrer un éventail de boîtiers, une grande image, une mosaïque, ou seulement votre fond, votre logo et votre nom. Choisissez sa couleur, une icône de franchise iiDB, et posez-la où vous voulez sur l’accueil. Entre les cartes, ajoutez des décorations : logos transparents et icônes de personnages SteamGridDB, stickers animés GIPHY, Pokémon, ou votre propre image.
+
+<p align="center">
+  <img src="docs/media/demos/home-collections.webp" width="70%" alt="L’accueil d’iBox qui défile : les collections Mario, Dragon Ball, LEGO, Dark Souls, Zelda, Pokémon et Cyberpunk, avec Mario, Ronflex et Navi animés entre les cartes">
+  <img src="docs/media/screenshots/collection-editor.webp" width="28%" alt="L’éditeur de la collection The Legend of Zelda : aperçu de la carte, style (éventail, grande image, mosaïque, sans jaquettes) et couleur">
+</p>
+
+Ouvrez une collection : ses jeux défilent l’un après l’autre, chacun avec son décor. Remplissez-la à la main ou laissez-la se remplir seule : jeux jamais lancés, jeux multijoueur, un genre ou une console.
 
 ## Des boîtiers que l’on prend en main
 
 C’est le cœur d’iBox. Chaque jeu a son vrai boîtier en 3D, à la taille de sa console : boîtier GameCube et Wii, boîte fine de Switch, boîte en carton de Game Boy, boîtier DVD pour le PC. Retournez-le pour lire le dos, regardez la tranche, ouvrez-le et sortez le disque ou la cartouche.
 
 <p align="center">
-  <img src="docs/media/demos/game-case.webp" width="58%" alt="Kirby et le monde oublié : le boîtier quitte l’étagère, montre sa tranche et son dos, s’ouvre et la cartouche sort">
-  <img src="docs/media/screenshots/disc.webp" width="40%" alt="Le boîtier ouvert de Super Mario Galaxy avec le vrai disque Wii">
+  <img src="docs/media/demos/game-case.webp" width="49%" alt="Super Mario Galaxy : le boîtier Wii se retourne, montre son dos et sa tranche, s’ouvre sur le vrai disque, et le disque sort">
+  <img src="docs/media/demos/manual.webp" width="49%" alt="Le manuel de Super Mario Galaxy s’ouvre sur sa couverture et tourne ses premières doubles pages">
 </p>
+
+**Le manuel est dans la boîte.** Comme en vrai, chaque boîtier ouvert contient son livret. iBox cherche le manuel de chaque jeu en arrière-plan (Steam, ScreenScraper, Internet Archive) et ne le garde que s’il est sûr de l’édition ; vous pouvez aussi importer n’importe quel PDF, comme le scan de votre propre boîte. Cliquez sur le livret et feuilletez-le page après page, avec vignettes et zoom.
 
 À la souris (glisser, molette pour zoomer), au clavier ou au stick droit de la manette.
 
@@ -46,13 +59,13 @@ C’est le cœur d’iBox. Chaque jeu a son vrai boîtier en 3D, à la taille de
 Un petit musée de 29 consoles, de l’Atari 2600 à la Switch 2, en vraies photographies sur une frise chronologique. Chaque console a sa page : son histoire, son matériel et vos jeux.
 
 <p align="center">
-  <img src="docs/media/demos/platforms.webp" width="100%" alt="iBox Platforms : les consoles flottent l’une après l’autre, de la Nintendo 64 à la Xbox et à la PSP">
+  <img src="docs/media/demos/platforms.webp" width="100%" alt="iBox Platforms : la GameCube, la Xbox, la Nintendo DS, la PSP, la Xbox 360 et la Wii se suivent sur la frise">
 </p>
 
 Quand une console a besoin d’un émulateur, sa page propose d’installer celui qui est recommandé. iBox le télécharge depuis sa source officielle, vérifie le fichier, l’installe dans votre dossier `iBox\Emulators` et l’associe à la console. Il signale aussi un BIOS ou un micrologiciel manquant et vous laisse importer votre propre fichier. Les émulateurs que vous utilisez déjà sont reconnus et jamais remplacés sans votre accord.
 
 <p align="center">
-  <img src="docs/media/screenshots/platform-emulator.webp" width="100%" alt="La page PlayStation Portable dans iBox Platforms, avec PPSSPP recommandé et prêt à jouer">
+  <img src="docs/media/screenshots/platform-sheet.webp" width="100%" alt="La page PlayStation 3 dans iBox Platforms : son histoire, son matériel et un bouton pour installer RPCS3">
 </p>
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
@@ -67,6 +80,10 @@ Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *e
 2. **Il cherche des réglages qui ont fait leurs preuves.** Des configurations essayées par d’autres joueurs, classées selon la proximité de leur matériel avec le vôtre : même machine, machine proche ou conseil général.
 3. **Vous choisissez un objectif.** *Performance* pour un jeu fluide, *Équilibré*, ou *Qualité* pour l’image la plus nette. *Manuel* ne touche à rien.
 4. **Il applique les réglages à ce jeu seulement**, et vous revenez à votre configuration précédente en un clic.
+
+<p align="center">
+  <img src="docs/media/screenshots/smartconfig.webp" width="100%" alt="Le centre SmartConfig : ce qu’il sait de votre PC (processeur, carte graphique, mémoire, écran) et les technologies graphiques détectées">
+</p>
 
 **Sûr par conception**
 
@@ -84,11 +101,13 @@ Un émulateur compte des dizaines de réglages, et les bons dépendent du jeu *e
 
 iBox se pilote depuis l’autre bout de la pièce. Chaque écran fonctionne à la manette, jusqu’à huit à la fois, et le mode TV agrandit l’interface et masque le curseur. Au bureau, clavier et souris fonctionnent tout aussi bien.
 
+Start (ou F1) ouvre un menu rapide qui mène partout en deux appuis, et un clavier virtuel prend le relais quand il n’y a pas de clavier sous la main.
+
 À votre goût : douze palettes de couleurs en mode clair ou sombre, un fond d’accueil choisi parmi vos jeux ou votre propre image, une musique de menu originale (ou la vôtre) et un petit jingle pour chaque jeu. Chacun à la maison a son profil, avec ses réglages, son thème et ses amis ; les jeux, eux, restent communs.
 
 <p align="center">
   <img src="docs/media/screenshots/home-dark.webp" width="49%" alt="L’accueil d’iBox en mode sombre avec la palette Lavande">
-  <img src="docs/media/screenshots/themes.webp" width="49%" alt="Réglages d’apparence : modes système, clair et sombre, et palettes de couleurs">
+  <img src="docs/media/screenshots/themes.webp" width="49%" alt="Réglages d’apparence en mode sombre : modes système, clair et sombre, et palettes de couleurs">
 </p>
 
 ## Votre parcours
@@ -97,11 +116,7 @@ iBox garde la trace de vos parties : temps par jeu et par console, sessions, sé
 
 <p align="center">
   <img src="docs/media/screenshots/achievements.webp" width="49%" alt="La salle des trophées d’iBox : niveau, succès débloqués et prochains objectifs">
-  <img src="docs/media/screenshots/stats.webp" width="49%" alt="Statistiques de jeu : cette semaine, série, les 14 derniers jours, temps par console et jeux les plus joués">
-</p>
-
-<p align="center">
-  <img src="docs/media/screenshots/game-sheet-pc.webp" width="100%" alt="La fiche d’Elden Ring dans iBox : boîtier DVD en 3D, temps de jeu Steam, succès et versions">
+  <img src="docs/media/screenshots/game-sheet-pc.webp" width="49%" alt="La fiche d’Elden Ring dans iBox : boîtier DVD en 3D, temps de jeu Steam, succès et versions">
 </p>
 
 ## Jouer ensemble

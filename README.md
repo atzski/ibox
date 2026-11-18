@@ -14,30 +14,43 @@ Windows 10 and 11 (64-bit) · Free and open source
 
 <br>
 
-<img src="docs/media/demos/library-tour.webp" width="100%" alt="Browsing an iBox library on the 3D shelf: Nintendo Switch, Wii, PSP, DS and Switch 2 cases slide past while the background changes with each game">
+<img src="docs/media/demos/collection-tour.webp" width="100%" alt="Flipping through a Mario collection in iBox: Mario Kart 7, Super Mario Galaxy, Super Mario Bros. Wonder and Super Mario 3D Land cases slide past while the background changes with each game">
 
 </div>
 
 ## A shelf for everything you play
 
-Your Steam, Epic and GOG games sit right next to your Wii discs and Game Boy cartridges. iBox finds them, fetches their covers, and lines them up on a shelf per console, the way they would sit in your living room. Pick one, and the whole screen takes on its colours.
+Your Steam, Epic and GOG games sit right next to your Wii discs and 3DS cartridges. iBox finds them, fetches their covers, and lines them up on a 3D shelf, the way they would sit in your living room. The home screen shows your whole collection at a glance, puts one of your games in the spotlight each time you come back, and gets you back into your last adventure in one click.
 
 <p align="center">
-  <img src="docs/media/screenshots/home.webp" width="100%" alt="The iBox home screen with the last game played, the collection counter and a row of consoles">
+  <img src="docs/media/screenshots/home.webp" width="100%" alt="The iBox home screen: the collection on a 3D shelf with 423 games, the last game played on the right, and the first collections below">
 </p>
 
-- **One library** for PC games (Steam, Epic Games Store, GOG Galaxy, or any `.exe`) and console games from your own folders.
+- **One library** for PC games (Steam, Epic Games Store, GOG Galaxy, EA, Ubisoft, Xbox, Riot, or any `.exe`) and console games from your own folders.
 - **Artwork found for you** from SteamGridDB, GameTDB, LaunchBox, the libretro thumbnails and iiDB: covers, backs, spines, real disc scans, logos and backgrounds.
-- **Collections and favourites** to group games your way, and regional versions of the same game merged into a single entry.
+- **Regional versions** of the same game merged into a single entry, and favourites one key away.
+
+## Collections that look like yours
+
+Group games your way, then make each collection your own. A collection card can show a fan of cases, one big picture, a mosaic, or just your background, logo and name. Give it a colour, a franchise icon from iiDB, and drop it wherever you like on the home screen. Between the cards, add decorations: transparent game logos and character icons from SteamGridDB, animated stickers from GIPHY, Pokémon sprites, or your own image.
+
+<p align="center">
+  <img src="docs/media/demos/home-collections.webp" width="70%" alt="Scrolling down the iBox home screen: collection cards for Mario, Dragon Ball, LEGO, Dark Souls, Zelda, Pokémon and Cyberpunk, with animated Mario, Snorlax and Navi decorations between them">
+  <img src="docs/media/screenshots/collection-editor.webp" width="28%" alt="The collection editor for The Legend of Zelda: live preview of the card, style (fan, big picture, mosaic, no covers) and colour">
+</p>
+
+Open a collection and its games come one after another, each with its own backdrop. Fill it by hand or let it fill itself: games never launched, multiplayer games, a genre or a console.
 
 ## Cases you can hold
 
 This is the part we care about most. Every game has a proper case in 3D, sized for its console: a keep case for GameCube and Wii, a slim case for Switch, a cardboard box for Game Boy, a DVD case for PC. Turn it around to read the back, look at the spine, open it, and take out the disc or the cartridge.
 
 <p align="center">
-  <img src="docs/media/demos/game-case.webp" width="58%" alt="Kirby and the Forgotten Land: the case flies in from the shelf, shows its spine and back, opens, and the cartridge slides out">
-  <img src="docs/media/screenshots/disc.webp" width="40%" alt="An open Super Mario Galaxy case showing the real Wii disc art">
+  <img src="docs/media/demos/game-case.webp" width="49%" alt="Super Mario Galaxy: the Wii case turns to show its back and spine, opens on the real disc art, and the disc comes out">
+  <img src="docs/media/demos/manual.webp" width="49%" alt="The Super Mario Galaxy manual opens on its cover and turns to its first double pages">
 </p>
+
+**The manual is in the box.** Like the real thing, every open case holds its booklet. iBox looks for each game's manual in the background (Steam, ScreenScraper, the Internet Archive) and only keeps it when it is sure of the edition; you can also import any PDF, such as a scan of your own box. Click the booklet and read it page by page, with thumbnails and zoom.
 
 Works with a mouse (drag, scroll to zoom), the keyboard or a controller's right stick.
 
@@ -46,13 +59,13 @@ Works with a mouse (drag, scroll to zoom), the keyboard or a controller's right 
 A small museum of 29 consoles, from the Atari 2600 to the Switch 2, photographed and laid out on a timeline. Each console has its own page with its history, its hardware and your games for it.
 
 <p align="center">
-  <img src="docs/media/demos/platforms.webp" width="100%" alt="iBox Platforms: consoles floating one after another, from the Nintendo 64 to the Xbox and the PSP">
+  <img src="docs/media/demos/platforms.webp" width="100%" alt="iBox Platforms: the GameCube, Xbox, Nintendo DS, PSP, Xbox 360 and Wii follow one another on the timeline">
 </p>
 
 When a console needs an emulator, its page offers to install the recommended one. iBox downloads it from the official source, checks the file, installs it in your `iBox\Emulators` folder and links it to the console. It also tells you when a BIOS or firmware is missing and lets you import your own file. Emulators you already use are detected and never replaced without asking.
 
 <p align="center">
-  <img src="docs/media/screenshots/platform-emulator.webp" width="100%" alt="The PlayStation Portable page in iBox Platforms, with PPSSPP recommended and ready to play">
+  <img src="docs/media/screenshots/platform-sheet.webp" width="100%" alt="The PlayStation 3 page in iBox Platforms: its history, its hardware and a button to install RPCS3">
 </p>
 
 <h2><img src="docs/media/branding/ibox-smartconfig.png" height="64" alt="iBox SmartConfig"></h2>
@@ -67,6 +80,10 @@ Emulators have dozens of settings, and the right ones depend on the game *and* o
 2. **It looks for settings that worked.** Configurations tested by other players, ranked by how close their hardware is to yours: same machine, similar machine, or general advice.
 3. **You pick a goal.** *Performance* for a smooth game, *Balanced*, or *Quality* for the sharpest picture. *Manual* leaves everything as it is.
 4. **It applies the settings to that game only**, and you can go back to your previous setup in one click.
+
+<p align="center">
+  <img src="docs/media/screenshots/smartconfig.webp" width="100%" alt="The SmartConfig hub: what it knows about your PC (processor, graphics card, memory, display) and the graphics technologies it detected">
+</p>
 
 **Safe by design**
 
@@ -84,11 +101,13 @@ Emulators have dozens of settings, and the right ones depend on the game *and* o
 
 iBox is designed to be used from across the room. Every screen works with a controller, up to eight of them, and a TV mode makes the interface bigger and hides the cursor. Keyboard and mouse work just as well at a desk.
 
+Press Start (or F1) for a quick menu that takes you anywhere in two presses, and type with an on-screen keyboard when there is no keyboard around.
+
 Make it yours: twelve colour palettes in light or dark mode, a home background picked from your games or your own image, an original menu soundtrack (or your own music), and a short jingle for each game. Everyone in the house gets their own profile, with their own settings, theme and friends; the games stay shared.
 
 <p align="center">
   <img src="docs/media/screenshots/home-dark.webp" width="49%" alt="The iBox home screen in dark mode with the Lavender palette">
-  <img src="docs/media/screenshots/themes.webp" width="49%" alt="Appearance settings: system, light and dark modes and the colour palettes">
+  <img src="docs/media/screenshots/themes.webp" width="49%" alt="Appearance settings in dark mode: system, light and dark modes and the colour palettes">
 </p>
 
 ## Your journey
@@ -97,11 +116,7 @@ iBox keeps track of what you play: time per game and per console, sessions, stre
 
 <p align="center">
   <img src="docs/media/screenshots/achievements.webp" width="49%" alt="The iBox trophy room: player level, achievements unlocked and next goals">
-  <img src="docs/media/screenshots/stats.webp" width="49%" alt="Play statistics: this week, streak, the last 14 days, time per console and most played games">
-</p>
-
-<p align="center">
-  <img src="docs/media/screenshots/game-sheet-pc.webp" width="100%" alt="The Elden Ring page in iBox: DVD case in 3D, Steam playtime, achievements and installed versions">
+  <img src="docs/media/screenshots/game-sheet-pc.webp" width="49%" alt="The Elden Ring page in iBox: DVD case in 3D, Steam playtime, achievements and installed versions">
 </p>
 
 ## Play together
