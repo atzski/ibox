@@ -63,16 +63,27 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
     };
   }, [manual.gameId, stamp]);
 
-  // Taille des pages d'après la fenêtre
+  // Taille des pages : d'après la fenêtre, puis la zone réellement libre entre
+  // l'en-tête et les commandes (le carnet ne passe jamais dessous)
   useEffect(() => {
     if (!faces?.length) return;
     const ratio = faces[0].ratio;
+    const el = bookRef.current;
     const fit = () => {
-      setSize(readerPageSize(ratio, window.innerWidth, window.innerHeight));
+      const area = el ? { w: el.clientWidth, h: el.clientHeight } : undefined;
+      setSize((cur) => {
+        const next = readerPageSize(ratio, window.innerWidth, window.innerHeight, area);
+        return cur.w === next.w && cur.h === next.h ? cur : next;
+      });
     };
     fit();
+    const ro = el ? new ResizeObserver(fit) : null;
+    if (el) ro!.observe(el);
     window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", fit);
+    };
   }, [faces]);
 
   // Ouverture : son, focus, retour ; puis la couverture s'ouvre sur la première double page
@@ -217,7 +228,7 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
         data-nav-capture="xy"
         aria-label="Pages du manuel. Flèches gauche et droite pour tourner, Entrée pour agrandir."
         onKeyDown={onKeyDown}
-        className="relative flex min-h-0 flex-1 items-center justify-center outline-none"
+        className="relative flex min-h-0 w-full flex-1 items-center justify-center outline-none"
         style={{ perspective: 2800 }}
         onPointerDown={(e) => {
           if (e.target === e.currentTarget) close();

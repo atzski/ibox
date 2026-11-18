@@ -3092,4 +3092,6 @@ export const EN: Record<string, string> = {
   "Agrandie, une page s’affiche désormais en entier, nette, sans rien couper en haut ni en bas. Un double-clic (ou le bouton +) l’agrandit encore pour lire un détail.": "When enlarged, a page now shows in full and sharp, with nothing cut off at the top or bottom. A double-click (or the + button) enlarges it further to read a detail.",
   "Un carnet bien net": "A clean booklet",
   "Le petit trait qui apparaissait à gauche au moment de tourner la première page a disparu : la tranche des pages ne se montre qu’une fois les feuilles posées.": "The small line that appeared on the left when turning the first page is gone: the page edges only show once the pages have landed.",
+  "Un carnet à la bonne taille": "A booklet the right size",
+  "Ouvert, le manuel prend un peu plus de la moitié de la hauteur de l’écran et ne passe plus jamais sous les boutons de pages ni sous les vignettes, quelle que soit la taille de votre écran.": "When open, the manual takes up a little more than half the screen height and never slips under the page buttons or the thumbnails, whatever your screen size.",
 };

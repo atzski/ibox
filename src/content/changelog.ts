@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.89",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "manual", title: "Un carnet à la bonne taille", text: "Ouvert, le manuel prend un peu plus de la moitié de la hauteur de l’écran et ne passe plus jamais sous les boutons de pages ni sous les vignettes, quelle que soit la taille de votre écran." },
+    ],
+  },
+  {
     version: "0.1.88",
     date: "2026-11-18",
     highlights: [

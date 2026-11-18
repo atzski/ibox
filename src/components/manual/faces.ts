@@ -69,13 +69,20 @@ function median(list: number[]): number {
 }
 
 /**
- * Taille d'une page du lecteur pour une fenêtre donnée : l'en-tête (~110 px),
- * les commandes et les vignettes (~230 px) restent toujours visibles.
+ * Taille d'une page du lecteur. Le carnet reste nettement plus petit que la
+ * fenêtre (environ 58 % de la hauteur) et, une fois affiché, ne dépasse
+ * jamais la zone libre entre l'en-tête et les commandes (`area`, mesurée).
  */
-export function readerPageSize(ratio: number, viewW: number, viewH: number): { w: number; h: number } {
-  const availW = Math.max(320, viewW - 160);
-  const availH = Math.max(240, viewH - 350);
-  const h = Math.min(availH, availW / 2 / ratio);
+export function readerPageSize(ratio: number, viewW: number, viewH: number, area?: { w: number; h: number }): { w: number; h: number } {
+  // ~58 % de la hauteur de l'écran ; sans mesure, la zone libre vaut environ la hauteur moins 310 px
+  let availW = Math.max(320, viewW - 260);
+  let availH = Math.max(220, Math.min(viewH * 0.58, viewH - 366));
+  if (area && area.w > 0 && area.h > 0) {
+    // marge autour du carnet : ombre, tranches des pages, respiration
+    availW = Math.min(availW, area.w - 96);
+    availH = Math.min(availH, area.h - 56);
+  }
+  const h = Math.max(160, Math.min(availH, availW / 2 / ratio));
   return { w: Math.round(h * ratio), h: Math.round(h) };
 }
 

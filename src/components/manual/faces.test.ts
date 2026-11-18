@@ -38,6 +38,8 @@ describe("pages du carnet", () => {
     const { w } = readerPageSize(0.7, 1920, 1080);
     expect(plan[0]).toEqual({ page: 1, px: w });
     expect(plan.filter((p) => p.px === w).map((p) => p.page)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(readerPageSize(0.7, 1920, 1080).h).toBe(1080 - 350);
+    // deux tiers de l'écran au plus, et jamais plus que la zone libre mesurée
+    expect(readerPageSize(0.7, 1920, 1080).h).toBeLessThanOrEqual(Math.round(1080 * 0.58));
+    expect(readerPageSize(0.7, 1920, 1080, { w: 1800, h: 500 }).h).toBe(500 - 56);
   });
 });
