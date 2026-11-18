@@ -91,6 +91,8 @@ pub fn system_id(platform: &str) -> Option<u32> {
         "ps3" => 59,
         "psp" => 61,
         "switch" => 225,
+        // PC Windows : manuels des jeux en boîte (recherche par titre seulement)
+        "pc" => 138,
         _ => return None,
     })
 }
@@ -160,11 +162,15 @@ pub fn find(http: &Http, game: &GameInfo, opts: &ManualOptions) -> Result<Vec<Fo
         url.push_str(&format!("&serialnum={}", encode_segment(s)));
     }
     let mut score = 1.0;
-    let jeu = match http.json::<Value>(&url, None, "ScreenScraper") {
+    // jeux PC : pas de fichier à reconnaître, seulement le titre
+    let by_file = game.platform != "pc" && (game.file_name.is_some() || game.serial.is_some());
+    let jeu = if !by_file { None } else { match http.json::<Value>(&url, None, "ScreenScraper") {
         Ok(v) if !v["response"]["jeu"].is_null() => Some(v["response"]["jeu"].clone()),
         Ok(_) | Err(MetaError::Http { status: 404, .. }) => None,
         Err(e) => return Err(explain(e)),
-    };
+    } };
+    // fiche trouvée par le fichier mais sans manuel : une autre fiche du même jeu peut en avoir un
+    let jeu = jeu.filter(|j| j["medias"].as_array().is_some_and(|m| m.iter().any(|x| x["type"].as_str() == Some("manuel"))));
     // 2. Sinon, recherche par titre : seulement un nom quasi identique
     let jeu = match jeu {
         Some(j) => j,
@@ -183,9 +189,12 @@ pub fn find(http: &Http, game: &GameInfo, opts: &ManualOptions) -> Result<Vec<Fo
                 .filter(|j| !j["id"].is_null())
                 .map(|j| {
                     let s = j["noms"].as_array().into_iter().flatten().filter_map(|n| n["text"].as_str()).map(|n| similarity(&want, &name_key(n))).fold(0.0f32, f32::max);
-                    (s, j)
+                    // à nom égal, la fiche qui a un manuel l'emporte
+                    let has_manual = j["medias"].as_array().is_some_and(|m| m.iter().any(|x| x["type"].as_str() == Some("manuel")));
+                    (s, has_manual, j)
                 })
-                .max_by(|a, b| a.0.total_cmp(&b.0));
+                .max_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+                .map(|(s, _, j)| (s, j));
             match best {
                 Some((s, j)) if s >= 0.86 => {
                     score = s;
@@ -263,12 +272,12 @@ mod tests {
                 {"type": "manuel", "region": "fr", "url": "https://x/m-fr", "format": "pdf"}
             ]
         });
-        let fr = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into() };
+        let fr = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into(), game_region: None };
         let found = manuals_of(&jeu, "x", 1.0, &fr);
         assert_eq!(found.iter().map(|f| f.region.as_deref().unwrap()).collect::<Vec<_>>(), ["fr", "eu", "us"]);
         assert_eq!(found[2].size, Some(5_186_578));
         assert_eq!(found[0].reference, "3:fr");
-        let us = ManualOptions { sources: vec![], region: "NTSC-U".into(), language: "en".into() };
+        let us = ManualOptions { sources: vec![], region: "NTSC-U".into(), language: "en".into(), game_region: None };
         assert_eq!(manuals_of(&jeu, "x", 1.0, &us)[0].region.as_deref(), Some("us"));
     }
 
@@ -276,6 +285,6 @@ mod tests {
     fn systemes_connus() {
         assert_eq!(system_id("snes"), Some(4));
         assert_eq!(system_id("ps2"), Some(58));
-        assert_eq!(system_id("pc"), None);
+        assert_eq!(system_id("pc"), Some(138));
     }
 }

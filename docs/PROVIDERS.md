@@ -21,7 +21,11 @@ import local, Steam, ScreenScraper (fichier du jeu : nom, taille, CRC, série ; 
 identique), Internet Archive. Recherche automatique à l'ouverture d'une fiche (réessai après
 14 jours sans résultat, jamais après un retrait par l'utilisateur). Les manuels ne sont jamais
 redistribués. Lecteur : pdf.js (ressources servies sous `/pdfjs/` par `vite.config.ts`), doubles
-pages scannées coupées en deux. Essai réel : `cargo test --lib manuals::live -- --ignored --nocapture`.
+pages scannées coupées en deux. Essai réel : `cargo test --lib manuals::live -- --ignored --nocapture`
+(`IBOX_MANUAL_GAMES` : liste JSON de jeux à tester). 0.1.87 : un livret dans chaque boîte (jaquette
+du jeu tant que le vrai manuel n'est pas trouvé), récupération de toute la collection en arrière-plan
+(`manual_fetch_all`, consoles d'abord), région du jeu prise en compte, jeux PC sur ScreenScraper
+(système 138, par titre). Sur 41 jeux de console réels : 27 manuels sûrs (les boîtes Switch n'en ont pas).
 
 ## Conséquences pour l'interface
 

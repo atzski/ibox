@@ -44,7 +44,23 @@ type Props = {
 function bookletLayout(front: Object3D | null) {
   const top = front?.getObjectByName("Manual_Clip_T");
   const bottom = front?.getObjectByName("Manual_Clip_B");
-  if (!top || !bottom) return null;
+  if (!top || !bottom) {
+    // boîtier cristal (PS1) : le livret est glissé contre l'intérieur de la face, sur toute sa surface
+    const insert = front?.getObjectByName("Insert_Front") as Mesh | undefined;
+    const geo = insert?.geometry;
+    if (!insert || !geo) return null;
+    geo.computeBoundingBox();
+    const b = geo.boundingBox!;
+    const w = (b.max.x - b.min.x) * 0.96;
+    const h = (b.max.y - b.min.y) * 0.96;
+    const thickness = 0.0012;
+    return {
+      width: w,
+      height: h,
+      thickness,
+      position: [insert.position.x + (b.min.x + b.max.x) / 2, insert.position.y + (b.min.y + b.max.y) / 2, -0.0012 - thickness / 2 - 0.0001] as [number, number, number],
+    };
+  }
   const cx = (top.position.x + bottom.position.x) / 2;
   const height = top.position.y - bottom.position.y + 0.002;
   const thickness = 0.0016;

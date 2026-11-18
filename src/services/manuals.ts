@@ -46,6 +46,14 @@ export interface ManualStatus {
   cacheBytes: number;
 }
 
+export interface FetchProgress {
+  done: number;
+  total: number;
+  found: number;
+  current: string | null;
+  running: boolean;
+}
+
 export interface ScreenScraperUser {
   login: string;
   level: string | null;
@@ -87,6 +95,10 @@ export const manualsApi = {
   apply: (gameId: number, token: string) => call<ManualInfo>("manual_apply", { gameId, token }),
   auto: (gameId: number, force = false) => call<ManualAuto>("manual_auto", { gameId, options: manualOptions(), force }),
   status: () => call<ManualStatus>("manual_status"),
+  /** Manuels de toute la collection ; `force` : réinterroge aussi les jeux restés sans manuel. */
+  fetchAll: (force = false) => call<FetchProgress>("manual_fetch_all", { options: manualOptions(), force }),
+  cancelAll: () => call<void>("manual_fetch_cancel"),
+  running: () => call<boolean>("manual_fetch_running"),
   clearDownloaded: () => call<number>("manual_clear_downloaded"),
   linkScreenScraper: (login: string, password: string) => call<ScreenScraperUser>("screenscraper_account_set", { login, password }),
   screenScraperInfo: () => call<ScreenScraperUser | null>("screenscraper_account_info"),
@@ -128,6 +140,7 @@ let watching = false;
 export function watchManuals(): void {
   if (watching || !isTauri()) return;
   watching = true;
+  watchJob();
   void useManuals.getState().load();
   void import("@tauri-apps/api/event").then(({ listen }) => listen("manual://changed", () => void useManuals.getState().load()));
 }
@@ -170,4 +183,74 @@ export function autoFetchManual(dbId: number | undefined): void {
   if (useManuals.getState().byGame[dbId]) return;
   tried.add(dbId);
   void manualsApi.auto(dbId).catch(() => undefined);
+}
+
+/* ——— récupération de toute la collection ——— */
+
+interface ManualJob {
+  progress: FetchProgress | null;
+  /** Dernier résultat terminé (affiché dans les paramètres). */
+  last: FetchProgress | null;
+  error: string | null;
+  run: (force?: boolean) => Promise<void>;
+}
+
+export const useManualJob = create<ManualJob>((set, get) => ({
+  progress: null,
+  last: null,
+  error: null,
+  run: async (force = false) => {
+    if (!isTauri() || get().progress?.running) return;
+    set({ error: null, progress: { done: 0, total: 0, found: 0, current: null, running: true } });
+    try {
+      const last = await manualsApi.fetchAll(force);
+      set({ progress: null, last });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // déjà en cours (lancé ailleurs) : la progression arrive par l'événement
+      if (/déjà en cours/i.test(msg)) return;
+      set({ progress: null, error: msg });
+    }
+  },
+}));
+
+let jobWatch = false;
+function watchJob(): void {
+  if (jobWatch || !isTauri()) return;
+  jobWatch = true;
+  void import("@tauri-apps/api/event").then(({ listen }) =>
+    listen<FetchProgress>("manual://progress", (e) => {
+      const p = e.payload;
+      useManualJob.setState(p.running ? { progress: p } : { progress: null, last: p.total ? p : useManualJob.getState().last });
+    }),
+  );
+}
+
+/**
+ * Au démarrage : quand iBox est au repos, range dans chaque boîte le manuel
+ * qui lui correspond (correspondances sûres seulement). Relancé quand de
+ * nouveaux jeux arrivent dans la collection.
+ */
+export function scheduleManualFetch(gameCount: () => number, subscribe: (cb: () => void) => () => void): () => void {
+  if (!isTauri()) return () => undefined;
+  watchManuals();
+  watchJob();
+  let timer = window.setTimeout(start, 25_000);
+  let known = gameCount();
+  function start() {
+    if (useSettings.getState().manualAutoFetch === false) return;
+    void useManualJob.getState().run(false);
+  }
+  const off = subscribe(() => {
+    const n = gameCount();
+    if (n > known) {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(start, 20_000);
+    }
+    known = n;
+  });
+  return () => {
+    window.clearTimeout(timer);
+    off();
+  };
 }

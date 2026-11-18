@@ -11,7 +11,8 @@ import { Icon } from "@/components/ui/Icon";
 import { buildFaces, spreadOf, type Face } from "./faces";
 import "./manual.css";
 
-const FLIP_MS = 900;
+const FLIP_MS = 820;
+const FLIP_EASE = "cubic-bezier(.42,.0,.18,1)";
 
 /**
  * Lecteur du manuel : un carnet à feuilleter en double page.
@@ -52,8 +53,9 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
     if (!faces?.length) return;
     const ratio = faces[0].ratio;
     const fit = () => {
-      const availW = Math.max(320, window.innerWidth - 120);
-      const availH = Math.max(240, window.innerHeight - 250);
+      // en-tête (~110 px) et commandes + vignettes (~230 px) toujours visibles
+      const availW = Math.max(320, window.innerWidth - 160);
+      const availH = Math.max(240, window.innerHeight - 350);
       const h = Math.min(availH, availW / 2 / ratio);
       setSize({ w: Math.round(h * ratio), h: Math.round(h) });
     };
@@ -114,11 +116,7 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
     [N, reduced],
   );
 
-  useEffect(() => {
-    if (!N || reduced) return;
-    const t = window.setTimeout(() => go(1), 650);
-    return () => window.clearTimeout(t);
-  }, [N, reduced, go]);
+  // Le carnet s'ouvre fermé, sur sa couverture : un clic (ou →) l'ouvre.
 
   const close = () => {
     sound.play("bookClose");
@@ -263,7 +261,8 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
                       transformOrigin: "left center",
                       transformStyle: "preserve-3d",
                       transform: flipped ? "rotateY(-180deg)" : "rotateY(0deg)",
-                      transition: reduced ? undefined : `transform ${FLIP_MS}ms cubic-bezier(.35,.05,.2,1)`,
+                      transition: reduced ? undefined : `transform ${FLIP_MS}ms ${FLIP_EASE}`,
+                      willChange: "transform",
                       zIndex: moving.has(i) ? 100 : flipped ? i + 1 : N - i,
                     }}
                   >
@@ -387,12 +386,13 @@ function PageFace({
         background: "#f3eee2",
         boxShadow: "0 22px 50px rgba(0,0,0,0.45)",
         borderRadius: side === "front" ? "0 6px 6px 0" : "6px 0 0 6px",
-        animation: turning ? `ibox-page-shade ${FLIP_MS}ms ease-in-out` : undefined,
       }}
     >
       {face && <div className="absolute inset-0" style={faceStyle(face, url)} />}
       {face && !face.blank && !url && <div className="ibox-page-loading absolute inset-0" />}
       <div className="pointer-events-none absolute inset-0" style={{ background: cover ? shade.replace(/0\.24/g, "0.32") : shade }} />
+      {/* ombre qui suit la page pendant qu'elle se soulève */}
+      {turning && <div className={`pointer-events-none absolute inset-0 ${side === "front" ? "ibox-turn-front" : "ibox-turn-back"}`} style={{ animationDuration: `${FLIP_MS}ms` }} />}
     </div>
   );
 }

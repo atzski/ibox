@@ -9,8 +9,10 @@ type Pdfjs = typeof import("pdfjs-dist");
 let lib: Promise<Pdfjs> | null = null;
 
 function pdfjs(): Promise<Pdfjs> {
-  lib ??= Promise.all([import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url")]).then(([m, worker]) => {
-    m.GlobalWorkerOptions.workerSrc = worker.default;
+  lib ??= import("pdfjs-dist").then((m) => {
+    // Fil de pdf.js empaqueté par Vite (fichier .js de l'application) : servi avec
+    // le bon type par Tauri, sans dépendre d'une adresse calculée à l'exécution.
+    m.GlobalWorkerOptions.workerPort = new Worker(new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url), { type: "module" });
     return m;
   });
   return lib;
@@ -62,6 +64,8 @@ export function openManual(gameId: number, revision: string): Promise<PDFDocumen
 /* ——— pages rendues ——— */
 export interface RenderedPage {
   url: string;
+  /** Image elle-même : relire `url` par fetch est interdit par la CSP de l'application. */
+  blob: Blob;
   width: number;
   height: number;
 }
@@ -109,7 +113,7 @@ export function renderPage(gameId: number, revision: string, n: number, minWidth
     page.cleanup();
     const blob = await new Promise<Blob>((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("rendu impossible"))), "image/jpeg", 0.9));
     canvas.width = canvas.height = 0;
-    return { url: URL.createObjectURL(blob), width: viewport.width, height: viewport.height };
+    return { url: URL.createObjectURL(blob), blob, width: viewport.width, height: viewport.height };
   });
   pages.set(key, p);
   p.catch(() => pages.delete(key));
@@ -147,14 +151,32 @@ export function manualCover(gameId: number, revision: string): Promise<Blob | nu
     const saved = await manualsApi.cover(gameId).catch(() => null);
     if (saved && saved.byteLength > 0) return new Blob([saved], { type: "image/jpeg" });
     const doc = await openManual(gameId, revision);
-    const page = await renderPage(gameId, revision, 1, 960);
-    const blob = await fetch(page.url).then((r) => r.blob());
+    // couverture dépliée scannée (dos + face) : seule la moitié droite est la couverture
+    const first = (await doc.getPage(1)).getViewport({ scale: 1 });
+    const unfolded = first.width / first.height > 1.1 && doc.numPages > 1;
+    const page = await renderPage(gameId, revision, 1, unfolded ? 1920 : 960);
+    const blob = unfolded ? await rightHalf(page.blob) : page.blob;
     const b64 = await blobToBase64(blob);
     void manualsApi.saveCover(gameId, b64, doc.numPages).catch(() => undefined);
     return blob;
-  })().catch(() => null);
+  })().catch((e) => {
+    console.warn("iBox : couverture du manuel indisponible", e);
+    covers.delete(key);
+    return null;
+  });
   covers.set(key, p);
   return p;
+}
+
+/** Moitié droite d'une image (JPEG). */
+async function rightHalf(blob: Blob): Promise<Blob> {
+  const bmp = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.floor(bmp.width / 2);
+  canvas.height = bmp.height;
+  canvas.getContext("2d")!.drawImage(bmp, bmp.width - canvas.width, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  return new Promise((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("recadrage impossible"))), "image/jpeg", 0.9));
 }
 
 function blobToBase64(blob: Blob): Promise<string> {

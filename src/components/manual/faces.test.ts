@@ -20,6 +20,14 @@ describe("pages du carnet", () => {
     expect(f.findIndex((x) => x.half === "left") % 2).toBe(1);
   });
 
+  it("ouvre sur la couverture et garde le dos pour la fin (couverture dépliée scannée)", () => {
+    const f = buildFaces([1.4, 0.7, 0.7, 0.7]);
+    const label = (x: (typeof f)[number]) => (x.blank ? "-" : `${x.page}${x.half?.[0] ?? ""}`);
+    expect(f.map(label)).toEqual(["1r", "2", "3", "4", "-", "1l"]);
+    // le dos est sur une page de gauche
+    expect((f.length - 1) % 2).toBe(1);
+  });
+
   it("double page de gauche et de droite selon les feuilles tournées", () => {
     expect(spreadOf(0)).toEqual([-1, 0]);
     expect(spreadOf(1)).toEqual([1, 2]);

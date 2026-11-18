@@ -136,6 +136,10 @@ pub fn score(game_title: &str, platform: &str, doc_title: &str, doc_collections:
             s -= 0.45;
         }
     }
+    // PC : livres, romans et guides homonymes abondent ; sans « PC » ni collection de manuels, jamais sûr
+    if platform == "pc" && cited.is_empty() && !doc_collections.iter().any(|c| c == "manuals" || c.ends_with("manuals")) {
+        s -= 0.15;
+    }
     let own = collections(platform);
     if doc_collections.iter().any(|c| own.contains(&c.as_str())) {
         s += 0.1;
@@ -169,12 +173,26 @@ fn title_query(title: &str) -> Option<String> {
     (!words.is_empty()).then(|| words.join(" AND "))
 }
 
+/// Premiers mots significatifs d'un titre long (« Zelda Skyward Sword HD » → « zelda skyward sword »).
+fn short_query(title: &str) -> Option<String> {
+    let key = name_key(title);
+    let words: Vec<&str> = key.split_whitespace().filter(|w| !["the", "of", "and", "a", "hd", "deluxe", "remastered", "edition"].contains(w)).collect();
+    (words.len() > 3).then(|| words[..3].join(" AND "))
+}
+
 pub fn find(http: &Http, game: &GameInfo, opts: &ManualOptions) -> Result<Vec<Found>> {
     let Some(words) = title_query(&game.title) else { return Ok(Vec::new()) };
-    let queries = [
+    let manualish = "(title:(manual) OR title:(manuel) OR title:(instruction) OR title:(booklet) OR subject:(manual) OR subject:(manuals))";
+    let mut queries = vec![
         format!("collection:(consolemanuals) AND title:({words})"),
-        format!("mediatype:(texts) AND title:({words}) AND (title:(manual) OR title:(manuel) OR subject:(manual) OR subject:(manuals))"),
+        format!("mediatype:(texts) AND title:({words}) AND {manualish}"),
+        // collections de manuels hors consoles (PC, ordinateurs…)
+        format!("collection:(manuals) AND title:({words})"),
     ];
+    // titre long (sous-titre, édition) : aussi les premiers mots seuls
+    if let Some(short) = short_query(&game.title) {
+        queries.push(format!("mediatype:(texts) AND title:({short}) AND {manualish}"));
+    }
     let mut docs: Vec<(String, String, Vec<String>)> = Vec::new();
     for q in queries {
         let url = format!(
@@ -265,6 +283,9 @@ mod tests {
         assert!(score("Super Metroid", "snes", "Super Metroid Strategy Guide", &snes) < 0.62);
         assert!(score("Super Mario 64", "n64", "Super Mario 64 (1997)(Nintendo)(US)", &c(&["nintendo64manuals"])) >= AUTO_SCORE);
         assert!(score("Crash Bandicoot", "ps1", "Crash Bandicoot Warped Manual", &c(&["consolemanuals"])) < AUTO_SCORE);
+        // PC : un titre seul ne suffit pas
+        assert!(score("Fortnite", "pc", "Fortnite", &c(&["opensource"])) < AUTO_SCORE);
+        assert!(score("Half-Life", "pc", "Half-Life PC manual", &c(&["manuals"])) >= AUTO_SCORE);
         // suite
         assert!(score("Crash Bandicoot", "ps1", "Crash Bandicoot 2 Cortex Strikes Back PlayStation Manual", &c(&["consolemanuals"])) < 0.62);
         assert!(score("Final Fantasy VII", "ps1", "Final Fantasy VIII manual", &c(&["consolemanuals"])) < 0.62);

@@ -344,7 +344,7 @@ function GameSheet({ game }: { game: Game }) {
               dark={dark}
               onToggleOpen={toggleOpen}
               manualOut={manual.reading}
-              onOpenManual={manual.read}
+              onOpenManual={manual.open}
             />
             <div className="absolute top-4 left-5 z-20">
               <Achievements key={game.id} game={game} compact />

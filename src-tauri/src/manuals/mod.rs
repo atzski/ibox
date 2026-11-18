@@ -64,6 +64,10 @@ pub struct ManualOptions {
     pub region: String,
     /// Langue de l'interface : fr | en.
     pub language: String,
+    /// Région du jeu lui-même (PAL | NTSC-U | NTSC-J), renseignée côté natif :
+    /// le manuel de la même édition que la boîte passe avant les autres.
+    #[serde(default)]
+    pub game_region: Option<String>,
 }
 
 impl ManualOptions {
@@ -76,6 +80,12 @@ impl ManualOptions {
         let mut out: Vec<&'static str> = Vec::new();
         if self.language == "fr" {
             out.extend(["fr", "eu", "wor"]);
+        }
+        match self.game_region.as_deref() {
+            Some("PAL") => out.extend(["eu", "uk", "wor"]),
+            Some("NTSC-U") => out.extend(["us", "ca", "wor"]),
+            Some("NTSC-J") => out.extend(["jp"]),
+            _ => {}
         }
         match self.region.as_str() {
             "NTSC-U" => out.extend(["us", "wor", "ca", "uk", "eu", "au"]),
@@ -100,6 +110,7 @@ impl ManualOptions {
 #[derive(Debug, Clone)]
 pub struct GameInfo {
     pub id: i64,
+    pub region: Option<String>,
     pub platform: String,
     pub title: String,
     pub serial: Option<String>,
@@ -112,7 +123,7 @@ pub struct GameInfo {
 pub fn game_info(conn: &Connection, game_id: i64) -> Result<GameInfo> {
     let row = conn
         .query_row(
-            "SELECT g.platform_id, g.title, g.serial, f.path, f.size, f.crc32 FROM games g
+            "SELECT g.platform_id, g.title, g.serial, f.path, f.size, f.crc32, g.region FROM games g
              LEFT JOIN game_files f ON f.game_id = g.id AND f.role IN ('main', 'disc', 'playlist')
              WHERE g.id = ?1 ORDER BY CASE f.role WHEN 'main' THEN 0 WHEN 'disc' THEN 1 ELSE 2 END, f.disc_number LIMIT 1",
             [game_id],
@@ -124,6 +135,7 @@ pub fn game_info(conn: &Connection, game_id: i64) -> Result<GameInfo> {
                     r.get::<_, Option<String>>(3)?,
                     r.get::<_, Option<i64>>(4)?,
                     r.get::<_, Option<String>>(5)?,
+                    r.get::<_, Option<String>>(6)?,
                 ))
             },
         )
@@ -137,7 +149,7 @@ pub fn game_info(conn: &Connection, game_id: i64) -> Result<GameInfo> {
         )
         .optional()?;
     let file_name = row.3.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().into_owned());
-    Ok(GameInfo { id: game_id, platform: row.0, title: row.1, serial: row.2, file_name, file_size: row.4, crc32: row.5, steam_appid })
+    Ok(GameInfo { id: game_id, region: row.6, platform: row.0, title: row.1, serial: row.2, file_name, file_size: row.4, crc32: row.5, steam_appid })
 }
 
 /// Rangement des PDF.
@@ -445,12 +457,15 @@ mod tests {
 
     #[test]
     fn ordre_des_regions() {
-        let fr = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into() };
+        let fr = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into(), game_region: None };
         assert!(fr.region_rank(Some("fr")) < fr.region_rank(Some("eu")));
         assert!(fr.region_rank(Some("eu")) < fr.region_rank(Some("us")));
         assert!(fr.region_rank(Some("us")) < fr.region_rank(None));
-        let us = ManualOptions { sources: vec![], region: "NTSC-U".into(), language: "en".into() };
+        let us = ManualOptions { sources: vec![], region: "NTSC-U".into(), language: "en".into(), game_region: None };
         assert!(us.region_rank(Some("us")) < us.region_rank(Some("eu")));
+        // jeu japonais : son manuel japonais passe avant l'américain pour un joueur anglophone
+        let jp = ManualOptions { game_region: Some("NTSC-J".into()), ..us };
+        assert!(jp.region_rank(Some("jp")) < jp.region_rank(Some("us")));
     }
 
     #[test]
@@ -485,14 +500,14 @@ mod live {
     use super::*;
 
     fn game(platform: &str, title: &str, steam: Option<&str>) -> GameInfo {
-        GameInfo { id: 0, platform: platform.into(), title: title.into(), serial: None, file_name: None, file_size: None, crc32: None, steam_appid: steam.map(str::to_string) }
+        GameInfo { id: 0, region: None, platform: platform.into(), title: title.into(), serial: None, file_name: None, file_size: None, crc32: None, steam_appid: steam.map(str::to_string) }
     }
 
     #[test]
     #[ignore]
     fn vrai_archive_et_steam() {
         let http = Http::new().unwrap();
-        let opts = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into() };
+        let opts = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into(), game_region: None };
         for (p, t) in [("snes", "Super Metroid"), ("megadrive", "Sonic the Hedgehog 2"), ("ps1", "Crash Bandicoot"), ("n64", "Super Mario 64"), ("gamecube", "Super Mario Sunshine")] {
             let found = archive::find(&http, &game(p, t, None), &opts).unwrap();
             println!("{p} {t} :");
@@ -507,6 +522,42 @@ mod live {
         println!("steam sans manuel : {}", none.len());
     }
 
+    /// Jeux listés dans le fichier `IBOX_MANUAL_GAMES` (JSON : plateforme, titre, région,
+    /// série, chemin, taille) : combien de manuels sûrs seraient ajoutés.
+    #[test]
+    #[ignore]
+    fn vrai_collection() {
+        let Ok(path) = std::env::var("IBOX_MANUAL_GAMES") else { return };
+        let list: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<i64>)> =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let http = Http::new().unwrap();
+        let opts = ManualOptions { sources: vec!["steam".into(), "screenscraper".into(), "archive".into()], region: "PAL".into(), language: "fr".into(), game_region: None };
+        let (mut sure, mut maybe) = (0, 0);
+        for (platform, title, region, serial, file, size) in &list {
+            let g = GameInfo {
+                id: 0,
+                region: region.clone(),
+                platform: platform.clone(),
+                title: title.clone(),
+                serial: serial.clone(),
+                file_name: file.as_deref().and_then(|p| Path::new(p).file_name()).map(|n| n.to_string_lossy().into_owned()),
+                file_size: *size,
+                crc32: None,
+                steam_appid: None,
+            };
+            let o = ManualOptions { game_region: region.clone(), ..opts.clone() };
+            let mut found = Vec::new();
+            if screenscraper::available() {
+                match screenscraper::find(&http, &g, &o) { Ok(f) => found.extend(f), Err(e) => println!("   SS erreur : {e}") }
+            }
+            match archive::find(&http, &g, &o) { Ok(f) => found.extend(f), Err(e) => println!("   IA erreur : {e}") }
+            let best = found.iter().map(|f| f.score).fold(0.0f32, f32::max);
+            if best >= archive::AUTO_SCORE { sure += 1 } else if best > 0.0 { maybe += 1 }
+            println!("{:<9} {:<55} sûr={} propositions={} meilleur={:.2} {:?}", platform, title, best >= archive::AUTO_SCORE, found.len(), best, found.first().map(|f| (&f.source, &f.region)));
+        }
+        println!("== {} jeux : {} sûrs, {} à vérifier", list.len(), sure, maybe);
+    }
+
     /// Demande `IBOX_SS_DEVID` / `IBOX_SS_DEVPASSWORD` à la compilation.
     #[test]
     #[ignore]
@@ -516,7 +567,7 @@ mod live {
             return;
         }
         let http = Http::new().unwrap();
-        let opts = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into() };
+        let opts = ManualOptions { sources: vec![], region: "PAL".into(), language: "fr".into(), game_region: None };
         let mut g = game("snes", "Super Metroid", None);
         g.file_name = Some("Super Metroid (Japan, USA) (En,Ja).sfc".into());
         g.file_size = Some(3_145_728);

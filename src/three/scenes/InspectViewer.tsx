@@ -47,9 +47,12 @@ function Rig({
 }: Omit<ViewerProps, "onToggleOpen" | "onOpenManual"> & { onCompiled?: () => void; onManualPress?: () => void }) {
   const textures = useCaseTextures(game, spec, "inspect");
   const manualTexture = useManualTexture(game);
+  // Comme dans une vraie boîte, il y a toujours un livret : le vrai manuel quand
+  // il existe, sinon un livret à la jaquette du jeu (le cliquer propose d'en trouver un).
+  const bookletTexture = manualTexture ?? textures?.front ?? null;
   const manual = useMemo(
-    () => (manualTexture && onManualPress ? { texture: manualTexture, onPress: onManualPress, out: manualOut } : null),
-    [manualTexture, onManualPress, manualOut],
+    () => (bookletTexture && onManualPress ? { texture: bookletTexture, onPress: onManualPress, out: manualOut } : null),
+    [bookletTexture, onManualPress, manualOut],
   );
   const anim = useRef<KeepCaseAnim>(createCaseAnim());
   const outer = useRef<Group>(null);

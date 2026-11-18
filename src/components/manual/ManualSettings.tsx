@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SettingsUi } from "@/components/smartconfig/SmartConfigSettings";
 import { Button } from "@/components/ui/Button";
 import { useSettings } from "@/services/settings";
-import { useLibrary } from "@/services/library";
 import { formatBytes } from "@/services/metadata";
 import { isTauri } from "@/services/native";
-import { manualsApi, watchManuals, useManuals, type ManualSource, type ManualStatus, type ScreenScraperUser } from "@/services/manuals";
+import { manualsApi, watchManuals, useManuals, useManualJob, type ManualSource, type ManualStatus, type ScreenScraperUser } from "@/services/manuals";
 
 /** Sources des manuels : le seul endroit de l'interface où elles sont nommées. */
 const SOURCES: { id: ManualSource; label: string; note: string }[] = [
@@ -51,12 +50,10 @@ export function ManualSettings({ ui: { Group, Row, Toggle } }: { ui: SettingsUi 
         icon="manual"
         note="Le manuel d'un jeu se range dans sa boîte : ouvrez-la sur la fiche du jeu et cliquez sur le carnet, ou utilisez le bouton « Manuel »."
       >
-        <Row label="Recherche automatique" note="À l'ouverture d'une fiche, iBox cherche le manuel du jeu et ne l'ajoute que si la correspondance est sûre.">
-          <Toggle checked={s.manualAutoFetch !== false} onChange={(v) => s.set("manualAutoFetch", v)} label="Recherche automatique des manuels" />
+        <Row label="Récupération automatique" note="En arrière-plan, iBox range dans chaque boîte le manuel qui lui correspond, y compris pour les nouveaux jeux. Seules les correspondances sûres sont ajoutées.">
+          <Toggle checked={s.manualAutoFetch !== false} onChange={(v) => s.set("manualAutoFetch", v)} label="Récupération automatique des manuels" />
         </Row>
-        <Row label="Toute la collection" note="Cherche les manuels manquants de tous vos jeux (correspondances sûres seulement). Peut prendre du temps.">
-          <BulkFetch onDone={refresh} />
-        </Row>
+        <JobPanel onDone={refresh} />
         <Row
           label="Manuels enregistrés"
           note={status ? `${status.count} manuel${status.count > 1 ? "s" : ""} · ${formatBytes(status.cacheBytes)} sur ce PC` : "Rangés dans les données d'iBox"}
@@ -192,48 +189,56 @@ function ScreenScraperAccount({ status, onChange, Row }: { status: ManualStatus 
   );
 }
 
-/** Recherche des manuels de toute la collection, un jeu après l'autre. */
-function BulkFetch({ onDone }: { onDone: () => void }) {
-  const games = useLibrary((l) => l.games);
-  const [progress, setProgress] = useState<{ done: number; total: number; found: number } | null>(null);
-  const stop = useRef(false);
+/** Récupération des manuels de toute la collection (comme les illustrations). */
+function JobPanel({ onDone }: { onDone: () => void }) {
+  const job = useManualJob();
+  const p = job.progress;
+  const pct = p && p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+  const last = job.last;
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !p) onDone();
+    wasRunning.current = !!p;
+  }, [p, onDone]);
 
-  const run = async () => {
-    const ids = games.map((g) => g.dbId).filter((id): id is number => id !== undefined && !useManuals.getState().byGame[id]);
-    stop.current = false;
-    let found = 0;
-    setProgress({ done: 0, total: ids.length, found });
-    for (let i = 0; i < ids.length && !stop.current; i++) {
-      const r = await manualsApi.auto(ids[i]).catch(() => null);
-      if (r?.status === "found") found++;
-      setProgress({ done: i + 1, total: ids.length, found });
-    }
-    window.setTimeout(() => setProgress(null), 4000);
-    onDone();
-  };
-
-  if (progress && progress.done < progress.total && !stop.current) {
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-[0.85rem] font-bold text-ink-soft tabular-nums">
-          {`${progress.done} / ${progress.total} · ${progress.found} trouvé${progress.found > 1 ? "s" : ""}`}
-        </span>
-        <Button variant="ghost" icon="x" onClick={() => (stop.current = true)}>
-          Arrêter
-        </Button>
-      </div>
-    );
-  }
   return (
-    <div className="flex items-center gap-3">
-      {progress && (
-        <span className="text-[0.85rem] font-bold text-ink-soft">
-          {`${progress.found} manuel${progress.found > 1 ? "s" : ""} ajouté${progress.found > 1 ? "s" : ""}`}
-        </span>
+    <div className="py-3.5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.98rem] font-bold text-ink">Manuels de la collection</div>
+          <div className="text-[0.8rem] font-semibold text-ink-soft">
+            {p
+              ? p.total
+                ? `${p.done} / ${p.total} jeux · ${p.found} manuel${p.found > 1 ? "s" : ""} ajouté${p.found > 1 ? "s" : ""}`
+                : "Préparation…"
+              : last
+                ? `Dernier passage : ${last.found} manuel${last.found > 1 ? "s" : ""} ajouté${last.found > 1 ? "s" : ""} sur ${last.total} jeu${last.total > 1 ? "x" : ""} cherché${last.total > 1 ? "s" : ""}`
+                : "Cherche le manuel de chaque jeu qui n'en a pas encore."}
+          </div>
+        </div>
+        {p ? (
+          <Button cue="back" icon="x" onClick={() => void manualsApi.cancelAll()}>
+            Arrêter
+          </Button>
+        ) : (
+          <Button variant="primary" icon="reset" disabled={!isTauri()} onClick={() => void job.run(true)}>
+            Actualiser les manuels
+          </Button>
+        )}
+      </div>
+      {p && (
+        <div className="mt-3">
+          <div className="h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300" style={{ width: `${pct}%` }} />
+          </div>
+          {p.current && (
+            <p data-no-i18n className="mt-1.5 truncate text-[0.78rem] font-semibold text-ink-soft">
+              {p.current}
+            </p>
+          )}
+        </div>
       )}
-      <Button icon="search" disabled={!isTauri() || games.length === 0} onClick={() => void run()}>
-        Chercher
-      </Button>
+      {job.error && <p className="mt-2 text-[0.85rem] font-semibold text-[#b02e2e]">{job.error}</p>}
     </div>
   );
 }

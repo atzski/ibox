@@ -10,6 +10,7 @@ use crate::metadata::{keys, MetaError};
 use base64::Engine;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -21,13 +22,16 @@ pub struct ManualState {
     candidates: Mutex<HashMap<String, (i64, Found)>>,
     /// Jeux en cours de recherche automatique (une seule à la fois par jeu).
     busy: Mutex<HashSet<i64>>,
+    /// Récupération de toute la collection.
+    job_running: AtomicBool,
+    job_cancel: AtomicBool,
 }
 
 impl ManualState {
     pub fn open(app: &AppHandle) -> Result<Self, String> {
         let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("manuals");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        Ok(Self { store: Arc::new(ManualStore::new(dir)), candidates: Mutex::new(HashMap::new()), busy: Mutex::new(HashSet::new()) })
+        Ok(Self { store: Arc::new(ManualStore::new(dir)), candidates: Mutex::new(HashMap::new()), busy: Mutex::new(HashSet::new()), job_running: AtomicBool::new(false), job_cancel: AtomicBool::new(false) })
     }
 }
 
@@ -140,6 +144,7 @@ fn search_all(http: &Http, game: &super::GameInfo, opts: &ManualOptions, stop_at
 pub async fn manual_search(app: AppHandle, game_id: i64, options: ManualOptions) -> Res<SearchOut> {
     blocking(&app, move |c, st, http| {
         let game = game_info(c, game_id)?;
+        let options = ManualOptions { game_region: game.region.clone(), ..options };
         let (mut found, errors) = search_all(http, &game, &options, false);
         // meilleure confiance d'abord, puis région préférée
         found.sort_by(|a, b| b.score.total_cmp(&a.score).then(options.region_rank(a.region.as_deref()).cmp(&options.region_rank(b.region.as_deref()))));
@@ -198,8 +203,41 @@ fn retry_after(outcome: &str) -> Option<i64> {
     }
 }
 
-/// Recherche automatique (ouverture d'une fiche, ou toute la collection) :
-/// n'applique que ce qui est sûr, ne réinterroge pas trop souvent.
+/// Recherche automatique d'un jeu : n'applique que ce qui est sûr (identifiant
+/// exact, ou titre quasi identique) et ne réinterroge pas trop souvent.
+fn auto_one(c: &rusqlite::Connection, st: &ManualState, http: &Http, game_id: i64, options: &ManualOptions, force: bool) -> Result<AutoOut, MetaError> {
+    if let Some(m) = st.store.info(c, game_id)? {
+        return Ok(AutoOut { status: "found", manual: Some(m), error: None });
+    }
+    if !force {
+        if let Some((outcome, at)) = lookup(c, game_id)? {
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+            match retry_after(&outcome) {
+                None => return Ok(AutoOut { status: "skipped", manual: None, error: None }),
+                Some(gap) if at > iso_from_unix(now - gap) => return Ok(AutoOut { status: "skipped", manual: None, error: None }),
+                _ => {}
+            }
+        }
+    }
+    let game = game_info(c, game_id)?;
+    let options = ManualOptions { game_region: game.region.clone(), ..options.clone() };
+    let (mut found, errors) = search_all(http, &game, &options, true);
+    // sûr seulement ; parmi les sûrs : la langue de l'utilisateur, puis l'édition du jeu, puis l'anglais
+    found.retain(|f| f.score >= archive::AUTO_SCORE);
+    found.sort_by(|a, b| options.region_rank(a.region.as_deref()).cmp(&options.region_rank(b.region.as_deref())).then(b.score.total_cmp(&a.score)));
+    let mut last_error = errors.first().cloned();
+    for f in &found {
+        match st.store.download(c, http, game_id, f) {
+            Ok(m) => return Ok(AutoOut { status: "found", manual: Some(m), error: None }),
+            Err(e) => last_error = Some(e.to_string()),
+        }
+    }
+    let status = if last_error.is_some() { "error" } else { "none" };
+    set_lookup(c, game_id, status)?;
+    Ok(AutoOut { status, manual: None, error: last_error })
+}
+
+/// Recherche automatique d'un jeu (ouverture de sa fiche).
 #[tauri::command]
 pub async fn manual_auto(app: AppHandle, game_id: i64, options: ManualOptions, force: bool) -> Res<AutoOut> {
     {
@@ -208,42 +246,92 @@ pub async fn manual_auto(app: AppHandle, game_id: i64, options: ManualOptions, f
             return Ok(AutoOut { status: "skipped", manual: None, error: None });
         }
     }
-    let result = blocking(&app, move |c, st, http| {
-        if let Some(m) = st.store.info(c, game_id)? {
-            return Ok(AutoOut { status: "found", manual: Some(m), error: None });
-        }
-        if !force {
-            if let Some((outcome, at)) = lookup(c, game_id)? {
-                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-                match retry_after(&outcome) {
-                    None => return Ok(AutoOut { status: "skipped", manual: None, error: None }),
-                    Some(gap) if at > iso_from_unix(now - gap) => return Ok(AutoOut { status: "skipped", manual: None, error: None }),
-                    _ => {}
-                }
-            }
-        }
-        let game = game_info(c, game_id)?;
-        let (mut found, errors) = search_all(http, &game, &options, true);
-        // seul, iBox n'ajoute qu'un manuel sûr, dans la langue de l'utilisateur ou en anglais
-        found.retain(|f| f.score >= archive::AUTO_SCORE && archive::language_bonus(f.region.as_deref(), &options) >= 0.0);
-        found.sort_by(|a, b| b.score.total_cmp(&a.score).then(options.region_rank(a.region.as_deref()).cmp(&options.region_rank(b.region.as_deref()))));
-        let mut last_error = errors.first().cloned();
-        for f in &found {
-            match st.store.download(c, http, game_id, f) {
-                Ok(m) => return Ok(AutoOut { status: "found", manual: Some(m), error: None }),
-                Err(e) => last_error = Some(e.to_string()),
-            }
-        }
-        let status = if last_error.is_some() { "error" } else { "none" };
-        set_lookup(c, game_id, status)?;
-        Ok(AutoOut { status, manual: None, error: last_error })
-    })
-    .await;
+    let result = blocking(&app, move |c, st, http| auto_one(c, st, http, game_id, &options, force)).await;
     app.state::<ManualState>().busy.lock().unwrap_or_else(|e| e.into_inner()).remove(&game_id);
     if let Ok(AutoOut { status: "found", manual: Some(_), .. }) = &result {
         changed(&app, game_id);
     }
     result
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchProgress {
+    done: usize,
+    total: usize,
+    found: usize,
+    current: Option<String>,
+    running: bool,
+}
+
+/// Manuels de toute la collection, un jeu après l'autre (progression sur
+/// `manual://progress`). `force` : réinterroge aussi les jeux déjà cherchés
+/// sans succès (jamais ceux dont l'utilisateur a retiré le manuel).
+#[tauri::command]
+pub async fn manual_fetch_all(app: AppHandle, options: ManualOptions, force: bool) -> Res<FetchProgress> {
+    {
+        let st = app.state::<ManualState>();
+        if st.job_running.swap(true, Ordering::SeqCst) {
+            return Err(MetaError::Busy.to_string());
+        }
+        st.job_cancel.store(false, Ordering::SeqCst);
+    }
+    let emitter = app.clone();
+    let result = blocking(&app, move |c, st, http| {
+        if force {
+            c.execute("DELETE FROM manual_lookups WHERE outcome IN ('none', 'error')", [])?;
+        }
+        // consoles d'abord (presque toutes leurs boîtes avaient un manuel), puis les jeux
+        // joués récemment : ce sont les boîtes qu'on ouvre en premier
+        let games: Vec<(i64, String)> = {
+            let mut q = c.prepare(
+                "SELECT g.id, g.title FROM games g
+                 WHERE g.variant_of IS NULL AND g.id NOT IN (SELECT game_id FROM game_manuals)
+                 ORDER BY g.platform_id = 'pc', g.last_played_at IS NULL, g.last_played_at DESC, g.sort_title",
+            )?;
+            let rows = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+            rows
+        };
+        let mut p = FetchProgress { done: 0, total: games.len(), found: 0, current: None, running: true };
+        let _ = emitter.emit("manual://progress", p.clone());
+        for (id, title) in games {
+            if st.job_cancel.load(Ordering::SeqCst) {
+                break;
+            }
+            p.current = Some(title);
+            let _ = emitter.emit("manual://progress", p.clone());
+            if st.busy.lock().unwrap_or_else(|e| e.into_inner()).insert(id) {
+                let out = auto_one(c, st, http, id, &options, false);
+                st.busy.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+                if let Ok(AutoOut { status: "found", manual: Some(_), .. }) = out {
+                    p.found += 1;
+                    let _ = emitter.emit("manual://changed", id);
+                }
+            }
+            p.done += 1;
+        }
+        p.current = None;
+        p.running = false;
+        Ok(p)
+    })
+    .await;
+    app.state::<ManualState>().job_running.store(false, Ordering::SeqCst);
+    let last = match &result {
+        Ok(p) => p.clone(),
+        Err(_) => FetchProgress { done: 0, total: 0, found: 0, current: None, running: false },
+    };
+    let _ = app.emit("manual://progress", last);
+    result
+}
+
+#[tauri::command]
+pub fn manual_fetch_cancel(state: State<ManualState>) {
+    state.job_cancel.store(true, Ordering::SeqCst);
+}
+
+#[tauri::command]
+pub fn manual_fetch_running(state: State<ManualState>) -> bool {
+    state.job_running.load(Ordering::SeqCst)
 }
 
 #[derive(Serialize)]

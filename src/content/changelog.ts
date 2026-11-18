@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.87",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "manual", title: "Un livret dans chaque boîte", text: "Comme dans la vraie vie, chaque boîte ouverte contient désormais son livret, glissé sous les clips. Cliquez dessus : le vrai manuel s’ouvre, fermé sur sa couverture, et se feuillette page après page. S’il n’a pas encore été trouvé, le livret vous propose d’en chercher un ou d’importer le vôtre." },
+      { icon: "download", title: "Toute votre collection équipée", text: "iBox range maintenant tout seul, en arrière-plan, le manuel de chacun de vos jeux, nouveaux jeux compris. La recherche est bien plus large et choisit l’édition de votre jeu. Un bouton « Actualiser les manuels » dans Paramètres › Manuels relance tout, comme pour les illustrations." },
+      { icon: "sparkle", title: "Des pages qui tournent en douceur", text: "Les pages se soulèvent avec leur ombre, les doubles pages scannées restent face à face, et le dos du livret n’apparaît plus à côté de la couverture : il le referme, à la toute fin." },
+    ],
+  },
+  {
     version: "0.1.86",
     date: "2026-11-18",
     highlights: [

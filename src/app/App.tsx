@@ -25,6 +25,7 @@ import { input } from "@/input/InputController";
 import { attachGamepads } from "@/input/gamepad";
 import { FlightLayer, preload3D } from "@/three/lazy";
 import { useLibrary } from "@/services/library";
+import { scheduleManualFetch } from "@/services/manuals";
 import { useLauncher } from "@/services/launcher";
 import { usePlatformArtStore } from "@/services/platformArt";
 import { applyAppTheme } from "@/theme/appThemes";
@@ -99,6 +100,8 @@ export function App() {
   useEffect(() => attachSocial(), []);
   useEffect(() => attachRemotePlayOnline(), []);
   useEffect(() => attachAutoJingles(), []);
+  // manuels : chaque boîte reçoit le sien, en arrière-plan
+  useEffect(() => scheduleManualFetch(() => useLibrary.getState().realGames.length, (cb) => useLibrary.subscribe(cb)), []);
 
   // Démarrage : première configuration, puis « Qui joue ? »
   const setupDone = useSettings((s) => s.setupDone);

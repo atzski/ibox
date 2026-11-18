@@ -398,7 +398,7 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
         dark={dark}
         onToggleOpen={toggleOpen}
         manualOut={manual.reading}
-        onOpenManual={manual.read}
+        onOpenManual={manual.open}
       />
       <div className="pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.72rem] font-bold whitespace-nowrap text-ink-soft">
         <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner" : "Glisser pour tourner"}
