@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.97",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "sparkle", title: "Des décorations 100 % jeu vidéo", text: "Les émojis quittent les décorations. À la place : les icônes de personnages et les logos transparents de n’importe quel jeu via SteamGridDB, animés compris, et pour chaque Pokémon ses rendus 3D de Pokémon HOME et son illustration officielle, en plus des sprites animés." },
+    ],
+  },
+  {
     version: "0.1.96",
     date: "2026-11-18",
     highlights: [

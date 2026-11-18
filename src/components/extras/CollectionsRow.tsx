@@ -19,7 +19,7 @@ import { useNav } from "@/app/navigation";
 import { input } from "@/input/InputController";
 import { PLATFORMS } from "@/domain/platforms";
 import { sound } from "@/services/sound";
-import { EMOJIS, POKEMON, SHOWDOWN, notoGif, notoThumb } from "@/content/decorations";
+import { POKEMON, SHOWDOWN, pokemonImages } from "@/content/decorations";
 import { anchorFor, layoutGrid, moveInGrid, occupiedCells, type GridItem } from "./collectionGrid";
 
 /** Grille de l'accueil : cases carrées d'au moins 12,5 rem, étirées sur toute la largeur. */
@@ -1087,8 +1087,8 @@ function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
   const [id, setId] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const choose = (value: string) => { setMissing([]); setId(pokemonId(value)); };
-  const variants = id ? (["ani", "ani-shiny", "gen5ani", "gen5ani-shiny"] as const).map((dir) => `${SHOWDOWN}/${dir}/${id}.gif`) : [];
-  const visible = variants.filter((u) => !missing.includes(u));
+  const variants = id ? pokemonImages(id, POKEMON.find((p) => p[1] === id)?.[2]) : [];
+  const visible = variants.filter((v) => !missing.includes(v.url));
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
@@ -1106,12 +1106,12 @@ function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
       {id ? (
         <div>
           <button type="button" data-focusable onClick={() => setId(null)} className="ibox-focusable mb-1.5 text-[0.8rem] font-bold text-accent-text">← Populaires</button>
-          {visible.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucun sprite animé pour « {q || id} ». Essayez son nom anglais.</p> : (
-            <div className="grid grid-cols-4 gap-2">
-              {visible.map((u) => (
-                <button key={u} type="button" data-focusable aria-label={u.includes("shiny") ? "Version chromatique" : "Version normale"} onClick={() => { sound.play("select"); onPicked(u); }}
+          {visible.length === 0 ? <p className="text-[0.85rem] text-ink-soft">{`Aucune image pour « ${q || id} ». Essayez son nom anglais.`}</p> : (
+            <div className="grid max-h-60 grid-cols-4 gap-2 overflow-y-auto p-0.5">
+              {visible.map((v) => (
+                <button key={v.url} type="button" data-focusable title={v.label} aria-label={v.label} onClick={() => { sound.play("select"); onPicked(v.url); }}
                   className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-white p-2 [--ring-radius:0.75rem]">
-                  <img src={u} alt="" loading="lazy" onError={() => setMissing((m) => [...m, u])} className="max-h-24 max-w-full object-contain [image-rendering:pixelated]" />
+                  <img src={v.url} alt="" loading="lazy" onError={() => setMissing((m) => [...m, v.url])} className={`max-h-24 max-w-full object-contain ${v.pixel ? "[image-rendering:pixelated]" : ""}`} />
                 </button>
               ))}
             </div>
@@ -1128,29 +1128,69 @@ function PokemonPicker({ onPicked }: { onPicked: (url: string) => void }) {
           ))}
         </div>
       )}
-      <p className="text-[0.75rem] text-ink-soft">Sprites animés de Pokémon Showdown, transparents.</p>
+      <p className="text-[0.75rem] text-ink-soft">Sprites animés (Pokémon Showdown), rendus 3D de Pokémon HOME et illustrations officielles, tous transparents.</p>
     </div>
   );
 }
 
-/** Émojis animées (Noto) : vignettes fixes légères, la version animée s'affiche en aperçu. */
-function EmojiPicker({ onPicked }: { onPicked: (url: string) => void }) {
-  const [group, setGroup] = useState(EMOJIS[0].group);
-  const items = EMOJIS.find((g) => g.group === group)?.items ?? [];
+/** Icônes et logos transparents de n'importe quel jeu (SteamGridDB, animés compris). */
+function GameArtPicker({ onPicked }: { onPicked: (url: string, thumb: string) => void }) {
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<{ id: number; name: string }[] | null>(null);
+  const [pics, setPics] = useState<Pic[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (f: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try { await f(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
+  };
+  const search = () => {
+    if (busy || q.trim().length < 2) return;
+    void run(async () => {
+      setPics(null);
+      setFound(await invoke<{ id: number; name: string }[]>("avatar_steam_search", { query: q }));
+    });
+  };
+  const open = (id: number) => run(async () => setPics(await invoke<Pic[]>("collection_sgdb_images", { id, kind: "decor" })));
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        {EMOJIS.map((g) => <Chip key={g.group} active={g.group === group} onClick={() => setGroup(g.group)}>{g.group}</Chip>)}
+      <div className="flex gap-2">
+        <input
+          data-focusable
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); search(); } }}
+          placeholder="Jeu (ex. Kirby, Hollow Knight, Sonic)"
+          aria-label="Chercher un jeu"
+          className="ibox-focusable h-10 min-w-0 flex-1 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]"
+        />
+        <Button type="button" icon="search" disabled={busy || q.trim().length < 2} onClick={search}>Chercher</Button>
       </div>
-      <div className="grid max-h-52 grid-cols-6 gap-2 overflow-y-auto p-0.5">
-        {items.map(([code, name]) => (
-          <button key={code} type="button" data-focusable title={name} aria-label={name} onClick={() => { sound.play("select"); onPicked(notoGif(code)); }}
-            className="ibox-focusable grid aspect-square place-items-center rounded-xl bg-white p-2 transition-transform hover:scale-105 [--ring-radius:0.75rem]">
-            <img src={notoThumb(code)} alt="" loading="lazy" className="size-full object-contain" />
-          </button>
-        ))}
-      </div>
-      <p className="text-[0.75rem] text-ink-soft">Émojis animées Noto de Google, transparentes. Choisissez-en une pour la voir bouger.</p>
+      {busy && <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>}
+      {error && <p role="alert" className="text-[0.8rem] font-bold text-peach-deep">{error}{" "}<span>Clé SteamGridDB : Paramètres › Images et données.</span></p>}
+      {found && !pics && (
+        <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+          {found.length === 0 && <p className="text-[0.85rem] text-ink-soft">Aucun résultat.</p>}
+          {found.map((f) => <Chip key={f.id} active={false} onClick={() => void open(f.id)}><span data-no-i18n>{f.name}</span></Chip>)}
+        </div>
+      )}
+      {pics && (
+        <div>
+          <button type="button" data-focusable onClick={() => setPics(null)} className="ibox-focusable mb-1.5 text-[0.8rem] font-bold text-accent-text">← Résultats</button>
+          {pics.length === 0 ? <p className="text-[0.85rem] text-ink-soft">Aucune icône ni aucun logo pour ce jeu.</p> : (
+            <div className="grid max-h-60 grid-cols-4 gap-2 overflow-y-auto p-0.5">
+              {pics.map((p) => (
+                <button key={p.url} type="button" data-focusable aria-label="Utiliser cette image" onClick={() => { sound.play("select"); onPicked(p.url, p.thumb); }}
+                  className="ibox-focusable grid aspect-square place-items-center overflow-hidden rounded-xl bg-[#2b3445] p-2 [--ring-radius:0.75rem]">
+                  <img src={p.thumb} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <p className="text-[0.75rem] text-ink-soft">Icônes de personnages et logos transparents de SteamGridDB, animés compris.</p>
     </div>
   );
 }
@@ -1161,7 +1201,7 @@ type DecorPick = { kind: "url"; url: string; thumb: string } | { kind: "file"; f
 function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: () => void }) {
   const { create, remove, list } = useCollections();
   const setStyle = useCollectionStyles((s) => s.setStyle);
-  const [source, setSource] = useState<"iidb" | "pokemon" | "emoji" | "file">("pokemon");
+  const [source, setSource] = useState<"pokemon" | "games" | "iidb" | "file">("pokemon");
   const [pick, setPick] = useState<DecorPick | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1197,13 +1237,13 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
           </div>
         </div>
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Source de l'image">
-          {([["pokemon", "Pokémon animés"], ["emoji", "Émojis animées"], ["iidb", "Icônes iiDB"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
+          {([["pokemon", "Pokémon"], ["games", "Jeux vidéo (SteamGridDB)"], ["iidb", "Icônes iiDB"], ["file", "Depuis le PC"]] as const).map(([k, label]) => (
             <Chip key={k} active={source === k} onClick={() => setSource(k)}>{label}</Chip>
           ))}
         </div>
         {source === "iidb" && <IconSearch onPicked={(p) => setPick({ kind: "url", url: p.url, thumb: p.thumb })} />}
         {source === "pokemon" && <div className="rounded-2xl bg-cream-deep/60 p-3"><PokemonPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
-        {source === "emoji" && <div className="rounded-2xl bg-cream-deep/60 p-3"><EmojiPicker onPicked={(url) => setPick({ kind: "url", url, thumb: url })} /></div>}
+        {source === "games" && <div className="rounded-2xl bg-cream-deep/60 p-3"><GameArtPicker onPicked={(url, thumb) => setPick({ kind: "url", url, thumb })} /></div>}
         {source === "file" && (
           <div className="flex flex-col items-start gap-2 rounded-2xl bg-cream-deep/60 p-3">
             <input ref={fileInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => {

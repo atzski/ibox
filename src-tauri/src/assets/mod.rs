@@ -722,10 +722,10 @@ pub mod commands {
         let path = collection_file(&app, id, &kind)?;
         let host_ok = reqwest::Url::parse(&url).ok().and_then(|u| u.host_str().map(str::to_ascii_lowercase))
             .is_some_and(|h| h.ends_with(".iisu.network") || h == "cdn2.steamgriddb.com" || h == "cdn.steamgriddb.com" || h == "play.pokemonshowdown.com");
-        // émojis animées Noto (Google Fonts) : seulement ce dossier
-        let noto = reqwest::Url::parse(&url).ok()
-            .is_some_and(|u| u.host_str() == Some("fonts.gstatic.com") && u.path().starts_with("/s/e/notoemoji/"));
-        if !host_ok && !noto { return Err("Adresse d'image refusée.".into()); }
+        // rendus Pokémon HOME et illustrations officielles (dépôt PokeAPI/sprites) : seulement ce dossier
+        let pokeapi = reqwest::Url::parse(&url).ok()
+            .is_some_and(|u| u.host_str() == Some("raw.githubusercontent.com") && u.path().starts_with("/PokeAPI/sprites/"));
+        if !host_ok && !pokeapi { return Err("Adresse d'image refusée.".into()); }
         let http = app.state::<MetadataState>().http.clone();
         run(move || {
             let u = crate::metadata::commands::check_image_link(&url).map_err(|e| e.to_string())?;
