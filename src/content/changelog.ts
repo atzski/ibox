@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.90",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "power", title: "Plus solide que jamais", text: "Si un écran rencontre un problème, il propose de réessayer ou de revenir à l’accueil, et le reste d’iBox continue de fonctionner. Un incident en arrière-plan n’arrête plus l’application, et il est noté dans le rapport de problème (Paramètres › Système) pour être corrigé." },
+      { icon: "sparkle", title: "Un démarrage plus léger", text: "iBox charge près de moitié moins de code au démarrage : les écrans moins fréquents (Paramètres, Communauté, Succès, Plateformes) se préparent en arrière-plan et s’ouvrent toujours aussitôt." },
+      { icon: "key", title: "Sécurité renforcée", text: "Protections de l’interface resserrées, outils de Windows toujours appelés depuis leur emplacement officiel, et chaque version vérifiée par l’ensemble des tests avant d’être publiée." },
+    ],
+  },
+  {
     version: "0.1.89",
     date: "2026-11-18",
     highlights: [

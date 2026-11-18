@@ -375,7 +375,7 @@ pub fn captures_delete(app: AppHandle, name: String) -> Result<(), String> {
 #[tauri::command]
 pub fn captures_folder(app: AppHandle) -> Result<(), String> {
     let d = dir(&app)?;
-    std::process::Command::new("explorer").arg(d).spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(d).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Réduction douce (moyenne des pixels couverts) d'une image RGB.

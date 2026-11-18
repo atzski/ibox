@@ -3,7 +3,8 @@ import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
 import { attachSocial } from "@/services/social";
 import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
 import { RemotePlayLayer } from "@/components/remoteplay/RemotePlayOnline";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { ErrorBoundary, ScreenFallback } from "@/components/shell/ErrorBoundary";
 import { ProfileGate } from "@/components/start/ProfileGate";
 import { SetupWizard } from "@/components/start/SetupWizard";
 import { useSession } from "@/services/profiles";
@@ -12,7 +13,6 @@ import { startUpdateWatch } from "@/services/updater";
 import { startRaWatch } from "@/services/retro";
 import { DuplicatesHost } from "@/components/game/Versions";
 import { PlayerJoinedOverlay } from "@/components/shell/Players";
-import { AchievementsScreen } from "@/screens/AchievementsScreen";
 import { attachInetbox } from "@/services/inetbox";
 import { InetboxModal } from "@/components/social/InetboxPanel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
@@ -37,17 +37,33 @@ import { PlayerSheetHost } from "@/components/social/PlayerProfile";
 import { BackgroundJobs } from "@/components/library/MetaStatus";
 import { LaunchOverlay } from "@/components/library/LaunchOverlay";
 import { HomeScreen } from "@/screens/HomeScreen";
-import { PlatformsScreen } from "@/screens/PlatformsScreen";
-import { PlatformSheet } from "@/screens/PlatformSheet";
 import { useEmulators } from "@/services/emulators";
 import { LibraryScreen } from "@/screens/LibraryScreen";
 import { GameScreen } from "@/screens/GameScreen";
-import { SettingsScreen } from "@/screens/SettingsScreen";
-import { CommunityScreen } from "@/screens/CommunityScreen";
-import { SmartConfigScreen } from "@/screens/SmartConfigScreen";
 import { SmartConfigFeedback } from "@/components/smartconfig/SmartConfigFeedback";
 import { captures } from "@/services/community";
 import { isTauri } from "@/services/native";
+
+// Écrans secondaires chargés à la demande (préchargés pendant un temps mort, voir
+// `preloadScreens`) : le démarrage ne lit que l'accueil, la bibliothèque et la fiche.
+const loadSettings = () => import("@/screens/SettingsScreen");
+const loadCommunity = () => import("@/screens/CommunityScreen");
+const loadSmartConfig = () => import("@/screens/SmartConfigScreen");
+const loadPlatforms = () => import("@/screens/PlatformsScreen");
+const loadPlatformSheet = () => import("@/screens/PlatformSheet");
+const loadAchievements = () => import("@/screens/AchievementsScreen");
+const SettingsScreen = lazy(() => loadSettings().then((m) => ({ default: m.SettingsScreen })));
+const CommunityScreen = lazy(() => loadCommunity().then((m) => ({ default: m.CommunityScreen })));
+const SmartConfigScreen = lazy(() => loadSmartConfig().then((m) => ({ default: m.SmartConfigScreen })));
+const PlatformsScreen = lazy(() => loadPlatforms().then((m) => ({ default: m.PlatformsScreen })));
+const PlatformSheet = lazy(() => loadPlatformSheet().then((m) => ({ default: m.PlatformSheet })));
+const AchievementsScreen = lazy(() => loadAchievements().then((m) => ({ default: m.AchievementsScreen })));
+
+function preloadScreens(): void {
+  const run = () => void Promise.all([loadSettings(), loadPlatforms(), loadPlatformSheet(), loadAchievements(), loadCommunity(), loadSmartConfig()]).catch(() => undefined);
+  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 2000);
+}
 
 function Screen({ route }: { route: Route }) {
   switch (route.name) {
@@ -72,17 +88,35 @@ function Screen({ route }: { route: Route }) {
   }
 }
 
-/** Monte un écran et place le focus (élément mémorisé au retour, sinon focus initial). */
-function ScreenHost({ route }: { route: Route }) {
+/** Place le focus une fois l'écran réellement affiché (après son chargement éventuel). */
+function FocusOnShow({ route }: { route: Route }) {
   useEffect(() => {
     const id = requestAnimationFrame(() => input.focusInitial(rememberedFocus(route)));
-    return () => {
-      cancelAnimationFrame(id);
-      clearAmbientGame();
-    };
+    return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return <Screen route={route} />;
+  return null;
+}
+
+/**
+ * Monte un écran et place le focus (élément mémorisé au retour, sinon focus initial).
+ * Une erreur d'affichage reste confinée à l'écran : barre du haut et navigation restent utilisables.
+ */
+function ScreenHost({ route }: { route: Route }) {
+  useEffect(() => () => clearAmbientGame(), []);
+  return (
+    <ErrorBoundary
+      where={`écran ${route.name}`}
+      fallback={(retry) => (
+        <ScreenFallback onRetry={retry} onHome={route.name === "home" ? undefined : () => useNav.getState().go({ name: "home" })} />
+      )}
+    >
+      <Suspense fallback={null}>
+        <Screen route={route} />
+        <FocusOnShow route={route} />
+      </Suspense>
+    </ErrorBoundary>
+  );
 }
 
 // Transitions d'écran : sortie très brève, entrée douce (glissé léger). Uniquement
@@ -183,6 +217,7 @@ export function App() {
     const detach = input.attachKeyboard();
     const detachPads = attachGamepads();
     preload3D();
+    preloadScreens();
     // tableau des succès préchargé : l'écran Succès s'ouvre déjà rempli
     const warm = window.setTimeout(() => void import("@/services/achievementsCache").then((m) => m.prefetchAchievements()), 8000);
     const offBack = input.onBack(() => useNav.getState().back());

@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "0.1.89"
+version = "0.1.90"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -60,8 +60,31 @@ sevenz-rust2 = { version = "0.25", default-features = false, features = ["util"]
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+# « unwind » : une panique dans un fil de fond (métadonnées, Remote Play…) arrête ce fil,
+# pas toute l'application ; elle est écrite dans logs/crash.log (crash.rs)
+panic = "unwind"
 strip = true
+
+# Code chaud (son, transport et chiffrement Remote Play, archives, empreintes, images) :
+# optimisé pour la vitesse, le reste de l'application reste compact
+[profile.release.package.opus-rs]
+opt-level = 3
+[profile.release.package.str0m]
+opt-level = 3
+[profile.release.package.sevenz-rust2]
+opt-level = 3
+[profile.release.package.zip]
+opt-level = 3
+[profile.release.package.xxhash-rust]
+opt-level = 3
+[profile.release.package.crc32fast]
+opt-level = 3
+[profile.release.package.png]
+opt-level = 3
+[profile.release.package.jpeg-encoder]
+opt-level = 3
+[profile.release.package.sha2]
+opt-level = 3
 
 [dev-dependencies]
 minisign-verify = "0.2"

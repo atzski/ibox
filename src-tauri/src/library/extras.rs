@@ -447,7 +447,7 @@ pub fn saves_reveal(app: AppHandle, state: State<LibraryState>, game_id: i64, pa
             d.display().to_string()
         }
     };
-    std::process::Command::new("explorer.exe").arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

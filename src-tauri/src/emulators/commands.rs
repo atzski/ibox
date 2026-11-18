@@ -283,7 +283,7 @@ fn open_in_explorer(dir: &Path) -> Res<()> {
     if !dir.is_dir() {
         return Err("dossier introuvable".into());
     }
-    std::process::Command::new("explorer").arg(dir).spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(dir).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Ouvre un dossier connu : `root`, `backups`, ou celui d'un paquet installé.
@@ -316,7 +316,7 @@ pub fn emulators_open_url(url: String) -> Res<()> {
     if !known || !url.starts_with("https://") {
         return Err("adresse non autorisée".into());
     }
-    std::process::Command::new("explorer").arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(crate::shell::windows_tool("explorer.exe")).arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Ouvre l'émulateur lui-même (réglages, micrologiciel), sans jeu.

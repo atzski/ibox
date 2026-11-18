@@ -6,6 +6,11 @@ import "./styles/global.css";
 import { useSettings } from "./services/settings";
 import { defaultLang, startTranslation } from "./i18n";
 import { restorePortableSettings } from "./services/portableBackup";
+import { attachCrashLog } from "./services/crashLog";
+import { ErrorBoundary, RootFallback } from "./components/shell/ErrorBoundary";
+
+// erreurs non rattrapées de cette fenêtre : notées dans logs/crash.log
+attachCrashLog();
 
 // Outils de vérification en développement uniquement (absents du build de production)
 if (import.meta.env.DEV) {
@@ -42,7 +47,9 @@ if (isIndicator) {
   void initialize().then(() => Promise.all([import("./app/App"), import("./services/tvMode")])).then(([{ App }]) =>
     root.render(
       <StrictMode>
-        <App />
+        <ErrorBoundary where="application" fallback={() => <RootFallback />}>
+          <App />
+        </ErrorBoundary>
       </StrictMode>,
     ),
   );

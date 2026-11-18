@@ -387,7 +387,7 @@ fn spawn(run: &Run) -> Result<(), String> {
         Run::Shell(line) => {
             // `cmd` accepte les lignes du registre telles quelles (guillemets, MsiExec /X{…})
             // et demande l'élévation Windows quand le désinstalleur l'exige.
-            let mut c = std::process::Command::new("cmd.exe");
+            let mut c = std::process::Command::new(crate::shell::windows_tool(r"System32\cmd.exe"));
             #[cfg(windows)]
             {
                 use std::os::windows::process::CommandExt;

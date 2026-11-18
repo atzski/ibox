@@ -5,6 +5,7 @@ import { useNotifications } from "./notifications";
 import { useInetbox } from "./inetbox";
 import { metadataApi } from "./metadata";
 import { getAppInfo } from "./native";
+import { crashLogTail } from "./crashLog";
 
 /**
  * Rapport de problème : un texte lisible qui décrit l'installation, préparé
@@ -53,6 +54,10 @@ export async function buildDiagnostic(): Promise<string> {
 
   h("Notifications récentes");
   for (const n of useNotifications.getState().items.slice(0, 40)) lines.push(`${n.at} [${n.tone}] ${n.title}${n.body ? ` — ${mask(n.body)}` : ""}`);
+
+  h("Incidents récents (logs/crash.log)");
+  const crashes = await crashLogTail().catch(() => "");
+  lines.push(crashes.trim() ? mask(crashes.trim()) : "(aucun)");
 
   return lines.join("\n") + "\n";
 }

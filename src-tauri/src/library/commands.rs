@@ -47,7 +47,9 @@ impl LibraryState {
     }
 
     pub fn with<T>(&self, f: impl FnOnce(&mut Connection) -> Result<T, LibraryError>) -> Result<T, String> {
-        let mut conn = self.conn.lock().map_err(|_| "Base de données indisponible.".to_string())?;
+        // une panique pendant une requête ne doit pas condamner la base jusqu'au redémarrage :
+        // SQLite annule de lui-même une transaction inachevée, la connexion reste utilisable
+        let mut conn = self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         f(conn.as_mut().map_err(|e| e.clone())?).map_err(|e| e.to_string())
     }
 }

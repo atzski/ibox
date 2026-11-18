@@ -5,6 +5,7 @@
 #   3. .\scripts\release.ps1 -Publish   publie ce dossier, sans rien reconstruire
 #
 # Garanties :
+#   - rien n'est construit si tsc, vitest ou cargo test échoue (-SkipTests : urgence seulement) ;
 #   - les notes viennent uniquement de src/content/changelog.ts (entrée de la version) ;
 #   - les chemins de compilation (nom d'utilisateur Windows) sont effacés du binaire ;
 #   - avant de construire et avant de publier, le binaire, l'installeur, la signature et
@@ -19,6 +20,8 @@
 param(
   [switch]$Publish,
   [switch]$NoBridge,
+  # saute tsc, vitest et cargo test avant la construction (correctif d'urgence seulement)
+  [switch]$SkipTests,
   [string]$Repo = "atzski/ibox",
   [string]$LegacyRepo = "atzski/inbox-releases",
   [string]$KeyPath = "$env:USERPROFILE\Documents\iBox-sauvegarde\signature\ibox-updater.key"
@@ -103,6 +106,26 @@ if (-not $Publish) {
   # ——— Construction ———
   if (-not (Test-Path $KeyPath)) { throw "Clé de signature introuvable : $KeyPath" }
   if (git -C $root status --porcelain) { Write-Warning "Des modifications ne sont pas commitées : le code publié sur GitHub doit correspondre à cette version." }
+
+  # ——— Vérifications : une version dont un contrôle échoue n'est jamais construite ———
+  if ($SkipTests) {
+    Write-Warning "Vérifications sautées (-SkipTests) : à réserver à un correctif d'urgence."
+  } else {
+    $checks = @(
+      @{ Name = "Types TypeScript"; Dir = $root; Cmd = { npx tsc -b --noEmit } },
+      @{ Name = "Tests de l'interface"; Dir = $root; Cmd = { npx vitest run --silent } },
+      @{ Name = "Tests natifs (Rust)"; Dir = (Join-Path $root "src-tauri"); Cmd = { cargo test --lib --quiet } }
+    )
+    foreach ($check in $checks) {
+      Write-Host "Vérification : $($check.Name)…"
+      Push-Location $check.Dir
+      try {
+        & $check.Cmd
+        if ($LASTEXITCODE -ne 0) { throw "Vérification échouée : $($check.Name) (code $LASTEXITCODE). Rien n'est construit." }
+      } finally { Pop-Location }
+    }
+    Write-Host "Vérifications : tout est passé."
+  }
 
   $saved = @{}
   foreach ($var in "TAURI_SIGNING_PRIVATE_KEY", "IBOX_UPDATE_URL", "CARGO_ENCODED_RUSTFLAGS", "CARGO_TARGET_DIR", "IBOX_SS_DEVID", "IBOX_SS_DEVPASSWORD") {

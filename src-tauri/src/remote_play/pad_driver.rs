@@ -86,7 +86,7 @@ pub fn install() -> Result<PadDriver, String> {
             "$p = Start-Process -FilePath '{}'{list} -Verb RunAs -Wait -PassThru; exit $p.ExitCode",
             exe.display().to_string().replace('\'', "''")
         );
-        std::process::Command::new("powershell")
+        std::process::Command::new(crate::shell::windows_tool(r"System32\WindowsPowerShell\v1.0\powershell.exe"))
             .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
             .creation_flags(0x08000000)
             .output()

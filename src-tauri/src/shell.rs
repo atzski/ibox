@@ -143,6 +143,13 @@ const HELP_PAGES: [&str; 7] = [
     "https://store.steampowered.com/account/",
 ];
 
+/// Outil de Windows désigné par son chemin complet (`%SystemRoot%\…`) : jamais un
+/// homonyme trouvé ailleurs (dossier d'iBox, PATH modifié).
+pub fn windows_tool(rel: &str) -> std::path::PathBuf {
+    let root = std::env::var_os("SystemRoot").map(std::path::PathBuf::from).unwrap_or_else(|| r"C:\Windows".into());
+    root.join(rel)
+}
+
 /// Ouvre une page d'aide dans le navigateur par défaut.
 #[tauri::command]
 pub fn open_help_page(url: String) -> Result<(), String> {
@@ -150,7 +157,7 @@ pub fn open_help_page(url: String) -> Result<(), String> {
         return Err("Adresse non autorisée.".into());
     }
     // explorer.exe reçoit l'adresse comme un seul argument (aucun interpréteur de commandes)
-    std::process::Command::new("explorer.exe").arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
+    std::process::Command::new(windows_tool("explorer.exe")).arg(&url).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 // ——— Démarrage avec Windows ———
@@ -218,7 +225,7 @@ pub fn diagnostic_save(app: AppHandle, text: String) -> Result<String, String> {
     let path = dir.join(format!("ibox-diagnostic-{stamp}.txt"));
     std::fs::write(&path, text).map_err(|e| e.to_string())?;
     // chemin construit par iBox (jamais un nom venant de l'extérieur), passé comme un seul argument
-    let _ = std::process::Command::new("explorer.exe").arg(format!("/select,{}", path.display())).spawn();
+    let _ = std::process::Command::new(windows_tool("explorer.exe")).arg(format!("/select,{}", path.display())).spawn();
     Ok(path.display().to_string())
 }
 

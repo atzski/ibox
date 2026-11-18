@@ -22,6 +22,7 @@ pub mod inetbox;
 pub mod profile;
 pub mod capture;
 pub mod clips;
+pub mod crash;
 pub mod toast;
 pub mod remote_play;
 pub mod smartconfig;
@@ -67,6 +68,10 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![shell::HIDDEN_ARG])))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // en premier : toute panique qui suit laisse une trace dans logs/crash.log
+            if let Ok(dir) = app.path().app_log_dir() {
+                crash::install(&dir);
+            }
             if let Ok(dir) = app.path().app_data_dir() {
                 metadata::keys::set_fallback_dir(dir.join("vault"));
             }
@@ -212,6 +217,8 @@ pub fn run() {
             shell::autostart_set,
             shell::shell_visible,
             shell::diagnostic_save,
+            crash::crash_log_tail,
+            crash::crash_log_ui,
             shell::update_check,
             shell::update_install,
             wallpaper::wallpaper_set,

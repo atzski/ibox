@@ -49,3 +49,22 @@ hébergement du site (GitHub Pages, par exemple).
 - Anglais en plus du français.
 - « Quoi de neuf » après chaque mise à jour.
 - Mentions légales : licences des sources (GameTDB, LaunchBox, SteamGridDB, libretro, iiDB), confidentialité (iNetbox).
+
+## Audit avant 1.0 (18/11/2026)
+
+Fait dans ce passage :
+- Journal des plantages `logs/crash.log` (paniques Rust et erreurs de l'interface), repris dans le rapport de problème.
+- `panic = "unwind"` : une panique dans un fil de fond n'arrête plus toute l'application ; la base de la bibliothèque survit à une panique (verrou empoisonné récupéré).
+- Filet d'erreur par écran (« Cet écran a rencontré un problème », Réessayer / Accueil) et filet global (« Recharger iBox ») : plus d'écran vide.
+- Écrans secondaires (Paramètres, Communauté, SmartConfig, Plateformes, Succès) chargés à la demande puis préchargés : paquet de démarrage 879 → 504 Ko.
+- Code chaud compilé en `opt-level = 3` (Opus, str0m, 7z/zip, empreintes, PNG/JPEG, SHA-256) ; le reste reste compact.
+- CSP : `object-src`, `base-uri`, `form-action`, `frame-ancestors` fermés. Outils Windows (explorer, cmd, PowerShell) appelés par leur chemin complet.
+
+Reste avant la 1.0, par priorité :
+1. Certificat de signature de code (SmartScreen) : principal frein à l'installation chez un nouvel utilisateur.
+2. E-mails sur Render (`RESEND_API_KEY`, `MAIL_FROM`) : sans eux, « mot de passe oublié » ne marche pas.
+3. Serveur iNetbox en veille (offre gratuite Render) : premier appel lent après inactivité ; offre payante ou réveil planifié.
+4. Installateur en français seulement (`nsis.languages`) : ajouter l'anglais avec la traduction complète.
+5. Images de la Communauté en `bytea` sur Neon : passer à un stockage objet (R2) avant d'avoir du monde.
+6. Pas d'intégration continue : lancer `tsc`, `vitest` et `cargo test` à chaque publication (au moins dans `release.ps1`).
+7. Entretien : `SettingsScreen.tsx` (~1 400 lignes) à découper par catégorie ; fenêtres toast/overlay qui chargent tout le paquet commun.
