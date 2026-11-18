@@ -67,6 +67,19 @@ section .lead { text-align: center; color: var(--soft); font-weight: 600; max-wi
 .note b { color: var(--ink); }
 .note + .note { margin-top: 14px; }
 
+/* Steam Deck */
+.badge { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 4px 12px; border-radius: 999px; background: var(--coral-soft); color: var(--coral-deep); font-size: 0.8rem; font-weight: 800; font-family: "Nunito", sans-serif; }
+.ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.ticks li { position: relative; padding-left: 28px; color: var(--soft); font-weight: 600; }
+.ticks li::before { content: ""; position: absolute; left: 0; top: 0.3em; width: 18px; height: 18px; border-radius: 50%; background: var(--coral) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 8.2 2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat; }
+.ticks b { color: var(--ink); }
+.cta.alt { background: var(--ink); box-shadow: 0 14px 30px -14px rgba(30, 40, 70, 0.7); }
+.cta.alt:hover { background: #1f2a3a; }
+.cta[aria-disabled="true"] { opacity: 0.5; pointer-events: none; box-shadow: none; }
+.also { display: inline-block; margin-top: 8px; font-size: 0.9rem; font-weight: 800; color: var(--coral-deep); text-decoration: none; }
+.also:hover { text-decoration: underline; }
+#steamdeck .steps { margin-top: 28px; }
+
 footer { margin-top: 90px; padding: 36px 0 48px; background: #eef0f5; font-size: 0.88rem; color: var(--soft); font-weight: 600; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; justify-content: space-between; }
 footer nav { display: flex; gap: 22px; flex-wrap: wrap; }
