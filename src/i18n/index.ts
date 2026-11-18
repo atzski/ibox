@@ -43,7 +43,9 @@ for (const [fr, en] of Object.entries(EN)) {
 patterns.sort((a, b) => b.hint.length - a.hint.length);
 
 const misses = new Set<string>();
-const FRENCH_HINT = /[àâçéèêëîïôûùüœ]|\b(le|la|les|des|du|une|un|vos|votre|pour|avec|dans|sur|est|pas)\b/i;
+// outil de développement seulement : mieux vaut un faux positif qu'un texte français oublié
+const FRENCH_HINT =
+  /[àâçéèêëîïôûùüœ’«»]|\b(le|la|les|des|du|une|un|vos|votre|pour|avec|dans|sur|est|pas|aucun|aucune|jeux?|et|ou|ce|cette|ces|au|aux|vous|nous|plus|tous|toutes?|sans|par|qui|que|mes|mon|ma|son|sa|ses|leur|encore|ici|choisir|ouvrir|fermer|ajouter|joueurs?|manettes?|partie|compte|réglages)\b/i;
 
 /** Traduit un texte (null si inconnu). Les parties variables sont traduites elles aussi. */
 export function translate(text: string, depth = 0): string | null {
@@ -64,7 +66,7 @@ export function translate(text: string, depth = 0): string | null {
     }
   }
   if (out === undefined) {
-    if (import.meta.env.DEV && depth === 0 && core.length < 300 && FRENCH_HINT.test(core)) misses.add(core);
+    if (import.meta.env.DEV && depth === 0 && core.length < 1000 && FRENCH_HINT.test(core)) misses.add(core);
     return null;
   }
   return out === core ? null : text.replace(core, out);

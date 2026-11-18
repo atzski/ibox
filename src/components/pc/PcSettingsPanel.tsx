@@ -62,7 +62,7 @@ export function PcSettingsPanel() {
           Ajouter un jeu PC…
         </Button>
         <span className="text-[0.85rem] font-bold text-ink-soft">
-          {pcCount} jeu{pcCount > 1 ? "x" : ""} PC dans la bibliothèque
+          {`${pcCount} jeu${pcCount > 1 ? "x" : ""} PC dans la bibliothèque`}
         </span>
       </div>
 

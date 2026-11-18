@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.92",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "globe", title: "iBox parle anglais jusqu’au bout", text: "Les derniers textes restés en français dans l’interface anglaise sont traduits : consoles sans jeux, boutiques PC, sauvegarde de la collection, émulateurs, Remote Play et plus encore." },
+      { icon: "sparkle", title: "Des Paramètres plus légers", text: "L’écran Paramètres est réorganisé en coulisses, une partie par catégorie : il reste aussi rapide à ouvrir et sera plus simple à faire évoluer." },
+    ],
+  },
+  {
     version: "0.1.91",
     date: "2026-11-18",
     highlights: [
