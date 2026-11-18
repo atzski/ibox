@@ -60,8 +60,30 @@ pub struct Packet {
 /// Démarre Media Foundation pour la durée de vie de l'objet (compteur interne à MF).
 pub struct MfRuntime;
 
+/// Media Foundation est-il présent ? Absent des éditions « N » de Windows (Europe) tant que
+/// le Media Feature Pack n'est pas installé. Ses DLL sont chargées à la demande (`/DELAYLOAD`,
+/// build.rs) : sans ce contrôle, le premier appel ferait tomber iBox.
+pub fn media_foundation_available() -> bool {
+    static PRESENT: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *PRESENT.get_or_init(|| {
+        use windows_sys::Win32::System::LibraryLoader::{LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
+        ["mfplat.dll", "mfreadwrite.dll"].iter().all(|name| {
+            let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+            // la bibliothèque reste chargée : le chargement différé la retrouvera
+            !unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), LOAD_LIBRARY_SEARCH_SYSTEM32) }.is_null()
+        })
+    })
+}
+
+/// Message montré quand Media Foundation manque (clips, Remote Play, diagnostic).
+pub const MEDIA_FOUNDATION_MISSING: &str =
+    "Media Foundation est absent de ce Windows (édition N) : installez le « Media Feature Pack » depuis les fonctionnalités facultatives de Windows.";
+
 impl MfRuntime {
     pub fn start() -> Result<MfRuntime> {
+        if !media_foundation_available() {
+            return Err(windows::core::Error::new(windows::Win32::Foundation::E_NOTIMPL, MEDIA_FOUNDATION_MISSING));
+        }
         unsafe { MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET)? };
         Ok(MfRuntime)
     }

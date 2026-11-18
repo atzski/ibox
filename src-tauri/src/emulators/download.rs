@@ -26,7 +26,11 @@ pub fn client() -> Result<reqwest::blocking::Client, String> {
         .user_agent(concat!("iBox/", env!("CARGO_PKG_VERSION"), " (+https://github.com/atzski/ibox)"))
         .https_only(true)
         .connect_timeout(Duration::from_secs(20))
-        .timeout(None)
+        // client bloquant : ce délai vaut pour l'attente de la réponse puis pour CHAQUE lecture
+        // du corps (reqwest blocking/response.rs), pas pour tout le téléchargement. Un gros
+        // paquet sur une connexion lente passe ; une connexion figée (Wi-Fi perdu sans coupure
+        // franche) échoue au lieu de bloquer l'installation, Annuler compris.
+        .timeout(Duration::from_secs(60))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= 6 {
                 attempt.error("trop de redirections")

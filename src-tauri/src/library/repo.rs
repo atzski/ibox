@@ -492,3 +492,52 @@ mod retrait_tests {
         assert_eq!(left, vec![1]);
     }
 }
+
+/// Gros volumes (phase 1 de la feuille de route 1.0) : la liste complète est lue sur le
+/// fil principal à chaque actualisation, elle doit rester rapide pour une très grosse collection.
+/// `cargo test --release --lib volume_10000_jeux -- --ignored --nocapture`
+#[cfg(test)]
+mod volume {
+    use super::*;
+    use crate::db;
+    use std::time::Instant;
+
+    #[test]
+    #[ignore = "mesure de performance, à lancer en --release"]
+    fn volume_10000_jeux() {
+        const N: i64 = 10_000;
+        let mut conn = db::open_in_memory().unwrap();
+        let t = Instant::now();
+        let tx = conn.transaction().unwrap();
+        for i in 1..=N {
+            tx.execute(
+                "INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence, description)
+                 VALUES (?1, ?2, ?3, ?3, '2026-01-01T00:00:00Z', 'filename', 0.9, ?4)",
+                rusqlite::params![i, ["gc", "wii", "ps2", "snes", "pc"][i as usize % 5], format!("Jeu {i:05}"), "Une description de jeu un peu longue. ".repeat(8)],
+            ).unwrap();
+            tx.execute(
+                "INSERT INTO game_files (game_id, path, size, fingerprint, role, status, last_seen_at)
+                 VALUES (?1, ?2, 1000000, ?3, 'main', 'present', '2026-01-01T00:00:00Z')",
+                rusqlite::params![i, format!("D:/Jeux/jeu-{i:05}.iso"), format!("fp{}", i % 9000)],
+            ).unwrap();
+            for kind in ["front", "back", "logo"] {
+                tx.execute(
+                    "INSERT INTO media (game_id, kind, source, file, width, height, added_at)
+                     VALUES (?1, ?2, 'libretro', ?3, 512, 720, '2026-01-01T00:00:00Z')",
+                    rusqlite::params![i, kind, format!("{i}/{kind}.png")],
+                ).unwrap();
+            }
+        }
+        tx.commit().unwrap();
+        println!("remplissage : {:?}", t.elapsed());
+
+        let t = Instant::now();
+        let rows = list_games(&conn).unwrap();
+        let read = t.elapsed();
+        let t = Instant::now();
+        let json = serde_json::to_vec(&rows).unwrap();
+        println!("{} jeux : lecture {:?}, JSON {:?} ({} Ko)", rows.len(), read, t.elapsed(), json.len() / 1024);
+        assert_eq!(rows.len() as i64, N);
+        assert!(rows.iter().filter(|r| r.duplicate).count() > 0, "les doublons d'empreinte sont repérés");
+    }
+}

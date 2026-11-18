@@ -11,7 +11,7 @@ import { PcCardMeta } from "@/components/pc/PcParts";
 import { usePlatformArt } from "@/services/platformArt";
 import { useSettings } from "@/services/settings";
 import { isInstalled } from "@/services/pc";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { memo, type PointerEvent as ReactPointerEvent } from "react";
 
 /** Inclinaison légère vers le pointeur (variables CSS lues par `.ibox-tilt`). */
 function tilt(e: ReactPointerEvent<HTMLElement>) {
@@ -35,8 +35,12 @@ export const cardEnter = {
   show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 380, damping: 28 } },
 } as const;
 
-/** Carte de jeu : la jaquette est l'élément principal, le titre reste discret. */
-export function GameCard({
+/**
+ * Carte de jeu : la jaquette est l'élément principal, le titre reste discret.
+ * Mémorisée : dans une grande grille affichée par lots, ajouter un lot ne redessine
+ * pas les cartes déjà là (sinon le coût croît avec le carré du nombre de jeux).
+ */
+export const GameCard = memo(function GameCard({
   game,
   width,
   showMeta = true,
@@ -119,7 +123,7 @@ export function GameCard({
       )}
     </motion.div>
   );
-}
+});
 
 function Badge({ children, tone }: { children: string; tone?: "warn" | "accent" }) {
   const cls =

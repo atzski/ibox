@@ -98,14 +98,16 @@ mod win {
                 Ok(list) => r.gpus = list,
                 Err(e) => r.errors.push(format!("Cartes graphiques : {e}")),
             }
-            match MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET) {
+            if !crate::remote_play::encode::mf::media_foundation_available() {
+                r.errors.push(crate::remote_play::encode::mf::MEDIA_FOUNDATION_MISSING.into());
+            } else { match MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET) {
                 Ok(()) => {
                     r.hardware_encoders = codecs(MFT_ENUM_FLAG_HARDWARE | MFT_ENUM_FLAG_SORTANDFILTER);
                     r.software_encoders = codecs(MFT_ENUM_FLAG_SYNCMFT | MFT_ENUM_FLAG_ASYNCMFT | MFT_ENUM_FLAG_SORTANDFILTER);
                     let _ = MFShutdown();
                 }
                 Err(e) => r.errors.push(format!("Media Foundation indisponible : {e}")),
-            }
+            } }
             match audio_counts() {
                 Ok((out, inp)) => {
                     r.audio_outputs = out;

@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.95",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "power", title: "iBox démarre sur tous les Windows", text: "Sur les éditions « N » de Windows, vendues en Europe, iBox ne se lançait pas. Il démarre désormais partout ; seuls les clips et Remote Play vous indiquent comment ajouter le module vidéo de Windows s’il manque." },
+      { icon: "grid", title: "De très grandes collections, toujours fluides", text: "Avec des milliers de jeux, la grille ne revient plus au début pendant que les jaquettes arrivent, et la bibliothèque se met à jour sans figer l’écran." },
+      { icon: "download", title: "Des installations qui ne restent plus bloquées", text: "Si la connexion se fige pendant le téléchargement d’un émulateur, iBox l’arrête au bout d’une minute et vous prévient, au lieu d’attendre sans fin." },
+    ],
+  },
+  {
     version: "0.1.94",
     date: "2026-11-18",
     highlights: [

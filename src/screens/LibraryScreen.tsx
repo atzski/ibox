@@ -80,7 +80,10 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
   const [restoreFocus] = useState(() => useNav.getState().direction === -1
     ? rememberedFocus({ name: "library", platformId })
     : undefined);
-  const shown = useProgressive(visible, isPc || view === "grid", restoreFocus);
+  // repart du début seulement si l'utilisateur change de console, de filtre, de recherche ou de
+  // tri : une relecture des données (jaquettes trouvées, synchro Steam…) ne rétrécit plus la grille
+  const progressiveKey = `${platformId}|${isPc ? pcCategory : ""}|${onlyFavs}|${onlyReview}|${query}|${sort}|${view}`;
+  const shown = useProgressive(visible, isPc || view === "grid", progressiveKey, restoreFocus);
   const reviewCount = useMemo(
     () => games.filter((g) => (platformId === "all" || g.platformId === platformId) && (g.needsReview || g.missing || g.mediaStatus === "ambiguous")).length,
     [games, platformId],
@@ -444,15 +447,16 @@ function FilterPill({ active, onClick, label, color }: { active: boolean; onClic
 /**
  * Affichage progressif d'une longue liste : un premier lot immédiatement (avec
  * l'animation d'entrée), puis le reste par lots à chaque image, sans bloquer
- * l'écran. Repart du début quand la liste change (filtre, recherche, console).
+ * l'écran. Repart du début quand `resetKey` change (filtre, recherche, console, tri), pas
+ * quand les mêmes jeux sont relus.
  */
-function useProgressive(list: Game[], enabled: boolean, restoreFocus?: string): Game[] {
+function useProgressive(list: Game[], enabled: boolean, resetKey: string, restoreFocus?: string): Game[] {
   const first = 36;
   const step = 48;
   const [count, setCount] = useState(() => Math.max(first, list.findIndex((game) => `game:${game.id}` === restoreFocus) + 1));
-  const [previousList, setPreviousList] = useState(list);
-  if (previousList !== list) {
-    setPreviousList(list);
+  const [previousKey, setPreviousKey] = useState(resetKey);
+  if (previousKey !== resetKey) {
+    setPreviousKey(resetKey);
     setCount(first);
   }
   useEffect(() => {

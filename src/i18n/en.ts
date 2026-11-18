@@ -3314,4 +3314,11 @@ export const EN: Record<string, string> = {
   "Les collections s’alignent maintenant sur des cases carrées qui occupent toute la largeur de l’écran : une icône ou une décoration prend une case, une grande carte en prend deux. Plus de trous entre petites et grandes cartes.": "Collections now line up on square slots spanning the full width of the screen: an icon or decoration takes one slot, a large card takes two. No more gaps between small and large cards.",
   "Grandes et petites cartes se rangent ensemble": "Large and small cards arrange together",
   "Posez une grande carte sur deux petites : elles prennent sa place. Les cases visées s’allument pendant que vous la déplacez.": "Drop a large card onto two small ones and they take its place. The target slots light up while you move it.",
+  "iBox démarre sur tous les Windows": "iBox starts on every Windows",
+  "Sur les éditions « N » de Windows, vendues en Europe, iBox ne se lançait pas. Il démarre désormais partout ; seuls les clips et Remote Play vous indiquent comment ajouter le module vidéo de Windows s’il manque.": "On “N” editions of Windows, sold in Europe, iBox would not launch. It now starts everywhere; only clips and Remote Play tell you how to add the Windows video module if it is missing.",
+  "De très grandes collections, toujours fluides": "Very large collections, still smooth",
+  "Avec des milliers de jeux, la grille ne revient plus au début pendant que les jaquettes arrivent, et la bibliothèque se met à jour sans figer l’écran.": "With thousands of games, the grid no longer jumps back to the start while covers arrive, and the library updates without freezing the screen.",
+  "Des installations qui ne restent plus bloquées": "Installs that no longer get stuck",
+  "Si la connexion se fige pendant le téléchargement d’un émulateur, iBox l’arrête au bout d’une minute et vous prévient, au lieu d’attendre sans fin.": "If the connection freezes while downloading an emulator, iBox stops after a minute and lets you know, instead of waiting forever.",
+  "Media Foundation est absent de ce Windows (édition N) : installez le « Media Feature Pack » depuis les fonctionnalités facultatives de Windows.": "Media Foundation is missing from this Windows (N edition): install the “Media Feature Pack” from Windows optional features.",
 };

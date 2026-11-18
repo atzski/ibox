@@ -10,7 +10,7 @@ quotidien, avec un vrai réseau d'amis. Quatre phases, chacune livrable seule.
 | Démarrage avec Windows | Option (désactivée par défaut) : iBox démarre discrètement dans la zone de notification. | Fait |
 | Rapport de problème | Paramètres › Système : un fichier de diagnostic (version, Windows, bibliothèque, émulateurs, erreurs récentes) créé localement, jamais envoyé tout seul ; aucune clé ni mot de passe dedans. | Fait |
 | Mises à jour | Vérification au démarrage et à la demande, téléchargement et installation signés (clé de signature hors du projet). Activées dès qu'une adresse de publication existe. | Fait (en attente de l'adresse) |
-| Stabilité | Bibliothèque vide, hors connexion, gros volumes, PC sans émulateurs ni Steam. | En cours |
+| Stabilité | Bibliothèque vide, hors connexion, gros volumes, PC sans émulateurs ni Steam. | Fait (18/11/2026, voir « Audit avant 1.0 ») |
 | Signature du programme | Certificat de signature de code (SmartScreen « éditeur inconnu »). | **Décision : achat d'un certificat** |
 | Hébergement des mises à jour | GitHub Releases (gratuit) ou serveur iBox. | **Décision : où publier** |
 
@@ -68,3 +68,10 @@ Reste avant la 1.0, par priorité :
 5. Images de la Communauté en `bytea` sur Neon : passer à un stockage objet (R2) avant d'avoir du monde.
 6. Pas d'intégration continue : lancer `tsc`, `vitest` et `cargo test` à chaque publication (au moins dans `release.ps1`).
 7. Entretien : `SettingsScreen.tsx` (~1 400 lignes) à découper par catégorie ; fenêtres toast/overlay qui chargent tout le paquet commun.
+
+Stabilité (phase 1), 18/11/2026 :
+- Windows « N » (Europe) : Media Foundation chargé à la demande (`/DELAYLOAD`, build.rs) ; iBox démarre sans le Media Feature Pack, clips et Remote Play l'expliquent.
+- Aucune dépendance au runtime Visual C++ (vérifié dans les imports de l'exécutable).
+- Hors connexion : tous les clients HTTP ont un délai ; un téléchargement d'émulateur figé échoue après 60 s sans données au lieu de bloquer.
+- 10 000 jeux : liste lue en ~0,1 s (test `volume_10000_jeux`), désormais hors du fil principal ; grille : cartes mémorisées et plus de retour à 36 cartes quand les données sont relues.
+- Sans Steam ni émulateurs : veille Steam silencieuse et légère, jeux de démonstration et proposition d'émulateur déjà en place.

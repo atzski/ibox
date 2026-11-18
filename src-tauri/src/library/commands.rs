@@ -110,8 +110,10 @@ pub fn library_remove_missing(state: State<LibraryState>, meta: State<crate::met
     })
 }
 
+/// Asynchrone : hors du fil principal. Relue après chaque action (favori, jaquettes…),
+/// une collection de 10 000 jeux demande ~0,1 s de lecture et de sérialisation (test `volume`).
 #[tauri::command]
-pub fn library_list(state: State<LibraryState>) -> Res<Vec<repo::GameRow>> {
+pub async fn library_list(state: State<'_, LibraryState>) -> Res<Vec<repo::GameRow>> {
     state.with(|c| repo::list_games(c))
 }
 
