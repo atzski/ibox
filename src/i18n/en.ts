@@ -3309,4 +3309,9 @@ export const EN: Record<string, string> = {
   "Mélofée": "Clefairy",
   "Smogogo": "Weezing",
   "Métamorph": "Ditto",
+  // ——— 0.1.94 : grille à cases carrées ———
+  "Une grille au cordeau": "A perfectly aligned grid",
+  "Les collections s’alignent maintenant sur des cases carrées qui occupent toute la largeur de l’écran : une icône ou une décoration prend une case, une grande carte en prend deux. Plus de trous entre petites et grandes cartes.": "Collections now line up on square slots spanning the full width of the screen: an icon or decoration takes one slot, a large card takes two. No more gaps between small and large cards.",
+  "Grandes et petites cartes se rangent ensemble": "Large and small cards arrange together",
+  "Posez une grande carte sur deux petites : elles prennent sa place. Les cases visées s’allument pendant que vous la déplacez.": "Drop a large card onto two small ones and they take its place. The target slots light up while you move it.",
 };

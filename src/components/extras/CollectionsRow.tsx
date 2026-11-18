@@ -20,27 +20,10 @@ import { input } from "@/input/InputController";
 import { PLATFORMS } from "@/domain/platforms";
 import { sound } from "@/services/sound";
 import { EMOJIS, POKEMON, SHOWDOWN, notoGif, notoThumb } from "@/content/decorations";
+import { anchorFor, layoutGrid, moveInGrid, occupiedCells, type GridItem } from "./collectionGrid";
 
-/** Taille d'une case de la grille des collections (rem) : celle d'une carte. */
-const CELL = { w: 19, h: 12.5, gapX: 1.25, gapY: 2.25 };
-
-/** Case de chaque collection : celle choisie (glisser-déposer), sinon la première libre. */
-function placeCollections(list: Collection[], styles: Record<number, CollectionStyle>) {
-  const taken = new Set<number>();
-  const at = new Map<number, number>();
-  for (const c of list) {
-    const slot = styles[c.id]?.slot;
-    if (slot !== undefined && slot >= 0 && !taken.has(slot)) { taken.add(slot); at.set(c.id, slot); }
-  }
-  let next = 0;
-  for (const c of list) {
-    if (at.has(c.id)) continue;
-    while (taken.has(next)) next++;
-    taken.add(next);
-    at.set(c.id, next);
-  }
-  return at;
-}
+/** Grille de l'accueil : cases carrées d'au moins 12,5 rem, étirées sur toute la largeur. */
+const CELL = { min: 12.5, gap: 1.5 };
 
 /** Accueil : les collections personnelles, chacune ouvre son étagère 3D. */
 export function CollectionsRow() {
@@ -70,23 +53,33 @@ export function CollectionsRow() {
     return () => window.removeEventListener("ibox:open-collection", listener);
   }, []);
 
-  // Grille libre : chaque carte occupe une case, des cases peuvent rester vides.
+  // Grille libre : cases carrées sur toute la largeur ; une carte carrée (icône, décoration)
+  // prend 1 case, une carte large 2. Des cases peuvent rester vides.
   const grid = useRef<HTMLDivElement>(null);
-  const [cols, setCols] = useState(4);
+  const [geom, setGeom] = useState({ cols: 6, cell: 200, gap: 24 });
+  const cols = geom.cols;
   useEffect(() => {
     const el = grid.current;
     if (!el) return;
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setCols(Math.max(1, Math.floor((el.clientWidth + CELL.gapX * rem) / ((CELL.w + CELL.gapX) * rem))));
+      const gap = CELL.gap * rem;
+      const n = Math.max(2, Math.floor((el.clientWidth + gap) / (CELL.min * rem + gap)));
+      setGeom({ cols: n, cell: (el.clientWidth - gap * (n - 1)) / n, gap });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const at = useMemo(() => placeCollections(list, styles), [list, styles]);
-  const last = Math.max(-1, ...at.values());
+  const gridItems = useMemo<GridItem[]>(() => list.map((c) => ({
+    id: c.id,
+    span: styles[c.id]?.decor || styles[c.id]?.iconStamp ? 1 : 2,
+    slot: styles[c.id]?.slot,
+  })), [list, styles]);
+  const spanOf = (id: number) => gridItems.find((g) => g.id === id)?.span ?? 1;
+  const at = useMemo(() => layoutGrid(gridItems, cols), [gridItems, cols]);
+  const last = Math.max(-1, ...gridItems.map((g) => at.get(g.id)! + g.span - 1));
 
   // Mode « Organiser » : on attrape une carte (clic maintenu), elle suit la souris et se
   // pose dans la case visée, vide ou non (les deux cartes échangent alors leur place).
@@ -99,30 +92,28 @@ export function CollectionsRow() {
     const el = grid.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const col = Math.floor((x - r.left + (CELL.gapX * rem) / 2) / ((CELL.w + CELL.gapX) * rem));
-    const row = Math.floor((y - r.top + (CELL.gapY * rem) / 2) / ((CELL.h + CELL.gapY) * rem));
+    const step = geom.cell + geom.gap;
+    const col = Math.floor((x - r.left + geom.gap / 2) / step);
+    const row = Math.floor((y - r.top + geom.gap / 2) / step);
     if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
     return row * cols + col;
   };
-  const place = (id: number, slot: number) => {
-    const from = at.get(id);
-    if (from === undefined || from === slot || slot < 0) return;
-    const next = new Map(at);
-    const occupant = [...at].find(([, s]) => s === slot)?.[0];
-    next.set(id, slot);
-    if (occupant !== undefined) next.set(occupant, from);
-    // on tasse vers le haut : aucune ligne entièrement vide en tête
-    const shift = Math.floor(Math.min(...next.values()) / cols) * cols;
-    for (const [k, s] of next) next.set(k, s - shift);
+  const place = (id: number, cell: number) => {
+    if (cell < 0) return false;
+    const next = moveInGrid(gridItems, cols, at, id, cell);
+    if (next === at) return false;
     setSlots(Object.fromEntries(next));
     sound.play("move");
     // l'ordre enregistré suit la lecture de la grille (clavier, recherche…)
     const ids = [...next].sort((a, b) => a[1] - b[1]).map(([k]) => k);
     if (ids.join() !== list.map((c) => c.id).join()) void reorder(ids).catch(() => sound.play("error"));
+    return true;
   };
   const shown = [...list].sort((a, b) => at.get(a.id)! - at.get(b.id)!);
-  const empty = organizing ? Array.from({ length: rows * cols }, (_, s) => s).filter((s) => ![...at.values()].includes(s)) : [];
+  const used = occupiedCells(gridItems, at);
+  const empty = organizing ? Array.from({ length: rows * cols }, (_, s) => s).filter((s) => !used.has(s)) : [];
+  // cases que recouvrirait la carte attrapée
+  const aimed = new Set(target !== null && dragId !== null ? Array.from({ length: spanOf(dragId) }, (_, k) => anchorFor(target, spanOf(dragId), cols) + k) : []);
 
   return (
     <ShelfRow
@@ -156,10 +147,9 @@ export function CollectionsRow() {
         ref={grid}
         className="grid w-full"
         style={{
-          gridTemplateColumns: `repeat(${cols}, ${CELL.w}rem)`,
-          gridAutoRows: `${CELL.h}rem`,
-          columnGap: `${CELL.gapX}rem`,
-          rowGap: `${CELL.gapY}rem`,
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoRows: `${geom.cell}px`,
+          gap: `${geom.gap}px`,
           display: list.length ? undefined : "none",
         }}
       >
@@ -168,42 +158,42 @@ export function CollectionsRow() {
           <div
             key={`empty-${s}`}
             aria-hidden
-            className={`rounded-[1.6rem] border-2 border-dashed transition-colors ${target === s ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-ink/15"}`}
+            className={`rounded-[1.6rem] border-2 border-dashed transition-colors ${aimed.has(s) ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-ink/15"}`}
             style={{ gridRow: Math.floor(s / cols) + 1, gridColumn: (s % cols) + 1 }}
           />
         ))}
         {shown.map((c, i) => {
           const slot = at.get(c.id)!;
           const decor = !!styles[c.id]?.decor;
+          const span = spanOf(c.id);
           return (
             <GridSlot
               key={c.id}
               id={c.id}
               row={Math.floor(slot / cols) + 1}
               col={(slot % cols) + 1}
+              span={span}
               organizing={organizing}
               dragging={dragId === c.id}
-              highlight={target === slot && dragId !== c.id}
-              centered={decor}
+              highlight={dragId !== c.id && Array.from({ length: span }, (_, k) => slot + k).some((k) => aimed.has(k))}
               onStart={() => { setDragId(c.id); sound.play("open"); }}
               onMove={(x, y) => setTarget(cellAt(x, y))}
               onDrop={(x, y) => {
                 const to = cellAt(x, y);
                 setDragId(null);
                 setTarget(null);
-                if (to === null || to === slot) return false;
-                place(c.id, to);
-                return true;
+                return to !== null && place(c.id, to);
               }}
             >
               <div
-                className={`${organizing ? "pointer-events-none" : ""} ${organizing && dragId !== c.id ? "ibox-organize-wiggle" : ""}`}
+                className={`h-full ${organizing ? "pointer-events-none" : ""} ${organizing && dragId !== c.id ? "ibox-organize-wiggle" : ""}`}
                 style={organizing ? { ["--wiggle-delay" as string]: `${(i % 4) * -0.17}s` } : undefined}
               >
                 {decor ? (
-                  <DecorCard collection={c} onEdit={organizing ? undefined : () => setDecorating(c)} />
+                  <DecorCard fill collection={c} onEdit={organizing ? undefined : () => setDecorating(c)} />
                 ) : (
                   <CollectionCard
+                    fill
                     collection={c}
                     items={gamesOf(c)}
                     onOpen={organizing ? undefined : () => {
@@ -229,7 +219,7 @@ export function CollectionsRow() {
                   <button
                     data-focusable
                     aria-label={`Déplacer ${c.name} vers la droite`}
-                    disabled={slot + 1 >= rows * cols}
+                    disabled={slot + span >= rows * cols}
                     onClick={() => place(c.id, slot + 1)}
                     className="ibox-focusable ibox-chip grid size-9 place-items-center rounded-full disabled:opacity-35 [--ring-radius:999px]"
                   >
@@ -249,8 +239,8 @@ export function CollectionsRow() {
 }
 
 /** Une case de la grille : la carte elle-même suit la souris, puis atterrit en douceur dans sa nouvelle case. */
-function GridSlot({ id, row, col, organizing, dragging, highlight, centered, onStart, onMove, onDrop, children }: {
-  id: number; row: number; col: number; organizing: boolean; dragging: boolean; highlight: boolean; centered: boolean;
+function GridSlot({ id, row, col, span, organizing, dragging, highlight, onStart, onMove, onDrop, children }: {
+  id: number; row: number; col: number; span: number; organizing: boolean; dragging: boolean; highlight: boolean;
   onStart: () => void; onMove: (x: number, y: number) => void; onDrop: (x: number, y: number) => boolean; children: React.ReactNode;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -277,7 +267,7 @@ function GridSlot({ id, row, col, organizing, dragging, highlight, centered, onS
     y.jump(start.top - (r.top - y.get()));
     settle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row, col]);
+  }, [row, col, span]);
   return (
     <motion.div
       ref={box}
@@ -297,8 +287,8 @@ function GridSlot({ id, row, col, organizing, dragging, highlight, centered, onS
         if (r) from.current = { left: r.left, top: r.top };
         if (!onDrop(p.clientX, p.clientY)) { from.current = null; settle(); }
       }}
-      className={`${organizing ? "" : "group/collection"} relative ${centered ? "justify-self-center" : ""} ${organizing ? "cursor-grab touch-none select-none" : ""} ${dragging || landing ? "z-50" : ""} ${dragging ? "drop-shadow-[0_24px_30px_rgba(20,30,60,0.35)]" : ""} ${highlight ? "rounded-[1.6rem] outline-4 outline-offset-4 outline-[var(--accent)]" : ""}`}
-      style={{ gridRow: row, gridColumn: col, x, y }}
+      className={`${organizing ? "" : "group/collection"} relative ${organizing ? "cursor-grab touch-none select-none" : ""} ${dragging || landing ? "z-50" : ""} ${dragging ? "drop-shadow-[0_24px_30px_rgba(20,30,60,0.35)]" : ""} ${highlight ? "rounded-[1.6rem] outline-4 outline-offset-4 outline-[var(--accent)]" : ""}`}
+      style={{ gridRow: row, gridColumn: `${col} / span ${span}`, x, y }}
     >
       {children}
     </motion.div>
@@ -357,7 +347,7 @@ function styleFor(style: CollectionStyle | undefined, items: Game[]) {
 const cardDetails = "translate-y-1 opacity-0 transition-[opacity,translate] duration-300 ease-out group-hover/collection:translate-y-0 group-hover/collection:opacity-100 group-has-[:focus-visible]/collection:translate-y-0 group-has-[:focus-visible]/collection:opacity-100 motion-reduce:translate-y-0 motion-reduce:transition-none";
 const editReveal = `${cardDetails} pointer-events-none group-hover/collection:pointer-events-auto group-has-[:focus-visible]/collection:pointer-events-auto`;
 
-function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images }: { collection: Collection; items: Game[]; onOpen?: () => void; onEdit?: () => void; draft?: CollectionStyle; images?: Partial<Record<"logo" | "hero" | "icon", Pic | null>> }) {
+function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, fill }: { collection: Collection; items: Game[]; onOpen?: () => void; onEdit?: () => void; draft?: CollectionStyle; images?: Partial<Record<"logo" | "hero" | "icon", Pic | null>>; fill?: boolean }) {
   const savedStyle = useCollectionStyles((st) => st.styles[c.id]);
   const style = draft ?? savedStyle;
   const { logo, hero, look } = styleFor(style, items);
@@ -378,7 +368,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images }:
           onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
           aria-label={`${c.name}, ${items.length} jeu${items.length > 1 ? "x" : ""}`}
           title={c.name}
-          className="group ibox-focusable ibox-lift relative block size-[12.5rem] [--ring-radius:1.6rem]"
+          className={`group ibox-focusable ibox-lift relative block ${fill ? "size-full" : "size-[12.5rem]"} [--ring-radius:1.6rem]`}
         >
           {iconUrl && <img src={iconUrl} alt="" draggable={false} className="h-full w-full object-contain drop-shadow-[0_8px_14px_rgba(10,20,40,0.35)] transition-transform duration-500 group-hover:scale-105" />}
           <span className={`${cardDetails} absolute right-2.5 bottom-2.5 rounded-full px-2 py-0.5 text-[0.72rem] font-bold shadow-sm ring-2 ring-white/70`} style={{ background: c.color, color: inkOn(c.color) }}>{items.length}</span>
@@ -406,7 +396,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images }:
           tabIndex={draft ? -1 : undefined}
         onClick={onOpen}
         onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
-        className="group ibox-focusable ibox-lift relative flex h-[12.5rem] w-[19rem] flex-col justify-end overflow-hidden rounded-[1.6rem] text-left shadow-md [--ring-radius:1.6rem]"
+        className={`group ibox-focusable ibox-lift relative flex ${fill ? "h-full w-full" : "h-[12.5rem] w-[19rem]"} flex-col justify-end overflow-hidden rounded-[1.6rem] text-left shadow-md [--ring-radius:1.6rem]`}
         style={{ background: `linear-gradient(150deg, ${c.color}, color-mix(in oklab, ${c.color} 60%, #1b2030))` }}
       >
         {heroUrl ? (
@@ -1039,7 +1029,7 @@ function GamesEditor({ collection, onClose }: { collection: Collection; onClose:
 }
 
 /** Décoration de l'accueil : une image ou un GIF seul, détouré, sans cadre. */
-function DecorCard({ collection: c, onEdit, preview }: { collection: Collection; onEdit?: () => void; preview?: string | null }) {
+function DecorCard({ collection: c, onEdit, preview, fill }: { collection: Collection; onEdit?: () => void; preview?: string | null; fill?: boolean }) {
   const stamp = useCollectionStyles((st) => st.styles[c.id]?.iconStamp);
   const saved = useCollectionArt(c.id, "icon", preview === undefined ? stamp : undefined);
   const url = preview === undefined ? saved : preview;
@@ -1056,7 +1046,7 @@ function DecorCard({ collection: c, onEdit, preview }: { collection: Collection;
         whileTap={{ scale: 0.9, rotate: -4 }}
         onClick={() => live && sound.play("select")}
         onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
-        className="group ibox-focusable relative grid size-[12.5rem] place-items-center [--ring-radius:1.6rem]"
+        className={`group ibox-focusable relative grid ${fill ? "size-full" : "size-[12.5rem]"} place-items-center [--ring-radius:1.6rem]`}
       >
         {url ? (
           <img

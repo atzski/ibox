@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.94",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Une grille au cordeau", text: "Les collections s’alignent maintenant sur des cases carrées qui occupent toute la largeur de l’écran : une icône ou une décoration prend une case, une grande carte en prend deux. Plus de trous entre petites et grandes cartes." },
+      { icon: "shelf", title: "Grandes et petites cartes se rangent ensemble", text: "Posez une grande carte sur deux petites : elles prennent sa place. Les cases visées s’allument pendant que vous la déplacez." },
+    ],
+  },
+  {
     version: "0.1.93",
     date: "2026-11-18",
     highlights: [
