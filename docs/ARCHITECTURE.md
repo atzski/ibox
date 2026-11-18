@@ -1,133 +1,129 @@
-# iBox — Architecture et design system
+# iBox architecture and design system
 
-> Nom provisoire. Phase actuelle : **1 — prototype visuel**.
+[← Home](../README.md) · [Developing iBox](DEVELOPMENT.md)
 
-## 1. Architecture technique
+This page describes iBox as of version 0.1.104: how the app is put together, where each feature lives in the code, and the design tokens the interface is built on. The code is the reference; paths are relative to the repository root.
+
+## 1. Technical overview
 
 ```
-┌──────────────────────────── Fenêtre Tauri 2 (WebView2) ────────────────────────────┐
-│  Interface React 19 + TypeScript + Vite                                            │
-│  ┌──────────── screens/ ────────────┐   ┌──────── three/ (R3F + Drei) ─────────┐   │
-│  │ Accueil · Consoles · Bibliothèque│──▶│ KeepCase paramétrique · Étagère ·     │   │
-│  │ Fiche jeu · Paramètres           │   │ Visionneuse · InspectController       │   │
-│  └───────────────┬──────────────────┘   └──────────────────────────────────────┘   │
-│        components/ (UI réutilisable) · theme/ · art/ (habillages procéduraux)        │
-│  ┌──────────────── services/ (logique métier) ────────────────┐  input/            │
-│  │ library (LibrarySource) · settings · sound · native (pont)  │  clavier → actions │
-│  └─────────────────────────────┬──────────────────────────────┘  (manette phase 5)  │
-│                     domain/ (types, registre des consoles, texte) — sans React       │
-└────────────────────────────────┼───────────────────────────────────────────────────┘
-                                 │ invoke()
-┌────────────────────────────────▼───────────────── src-tauri/ (Rust) ──────────────┐
-│ Phase 1 : fenêtre + `app_info`                                                     │
-│ Phase 2 : scan (walkdir + en-têtes), SQLite (rusqlite + migrations)                │
-│ Phase 3 : fournisseurs de métadonnées (reqwest), cache média, coffre Windows       │
-│ Phase 4 : profils de lancement (std::process::Command, arguments séparés, jamais   │
-│           de shell)                                                                │
-└────────────────────────────────────────────────────────────────────────────────────┘
++------------------------- Tauri 2 window (WebView2) --------------------------+
+|  React 19 + TypeScript + Vite + Tailwind 4                                   |
+|                                                                              |
+|  app/        shell, screen stack (zustand), transitions                      |
+|  screens/    Home, Library, Game, PC game, Platforms, Settings,              |
+|              Achievements, Community, SmartConfig                            |
+|  components/ UI by feature (library, game, manual, social, remoteplay...)    |
+|  three/      React Three Fiber scenes: shelf, inspect viewer, 3D cases       |
+|  services/   business logic and zustand stores, bridges to Rust commands     |
+|  input/      keyboard + gamepads -> abstract actions, spatial navigation     |
+|  i18n/       French source text translated to English at render time        |
+|  domain/     types, console registry, platform catalogue (no React)          |
++--------------------------------------+---------------------------------------+
+                                       | invoke() / events
++--------------------------------------v---------- src-tauri/ (Rust) ----------+
+|  db/ SQLite + migrations   scanner/ library/   metadata/ assets/ manuals/    |
+|  launcher/ pc/ emulators/ smartconfig/   achievements.rs   inetbox.rs        |
+|  remote_play/   capture.rs clips.rs   profile.rs shell.rs toast.rs ...       |
++------------------------------------------------------------------------------+
 ```
 
-### Choix et écarts justifiés
+The interface never touches the file system, the network or other processes directly: it calls Rust commands registered in `src-tauri/src/lib.rs` (`invoke_handler`) through thin wrappers in `src/services/` (`native.ts`, `nativeLibrary.ts`, `metadata.ts`, `launcher.ts`, `emulators.ts`, `smartconfig.ts`, `remotePlay.ts`...). Long jobs (scans, downloads, installs, metadata) report progress through Tauri events. Launches use `std::process::Command` with separate arguments, never a shell.
 
-| Sujet | Choix | Pourquoi |
+In the browser preview (`npm run dev`), Tauri is absent: services fall back to a demo library (`domain/demoLibrary.ts`, `domain/pcDemo.ts`).
+
+### Main choices
+
+| Topic | Choice | Why |
 | --- | --- | --- |
-| Routage | Pile d'écrans (zustand) au lieu d'un routeur URL | Pas d'URL en desktop ; « Retour » manette trivial ; transitions orientées. |
-| État | zustand | Léger, lisible hors React (sons, contrôleur d'entrées). |
-| Modèles 3D | **Géométrie paramétrique** (`KeepCase` + `KeepCaseSpec`) plutôt que GLB en phase 1 | Un seul composant couvre GameCube/Wii/PS2 en changeant dimensions et matières ; textures dynamiques ; zéro asset binaire à maintenir. Un chargeur GLB pourra s'ajouter pour les formes complexes (Switch, cartouches). |
-| Éclairage 3D | Lightformers Drei, pas de HDR | Pas de téléchargement : fonctionne hors ligne. |
-| Tone mapping | `flat` (aucun) | ACES désaturait les pastels des jaquettes. |
-| Jaquettes de démo | Peintes en Canvas 2D (`art/`) | Originales, sans droits, et servent ensuite de **remplacement élégant** quand un visuel manque (jamais de faux scan). |
-| Polices | Fredoka + Nunito via Fontsource | Rondes, lisibles, embarquées (hors ligne). |
-| Sons | Synthèse Web Audio originale | Aucun son officiel ; chaque cue est remplaçable par un fichier (`sound.registerSoundFile`). |
-| Musique | `services/music.ts` (HTMLAudio en boucle, fondus) | Piste importée dans les réglages ; une console peut déclarer sa propre piste (`Platform.ambience`), avec fondu enchaîné. Démarre au premier clic si la lecture automatique est bloquée ; pause quand la fenêtre est réduite. |
-| Mode sombre | Tokens `light-dark()` + `color-scheme` | Chaque couleur est déclarée une fois pour les deux thèmes ; les composants n'ont pas de logique de thème. `bg-white` = surface des cartes. Réglage Système / Clair / Sombre, barre de titre Windows synchronisée. |
-| Formats de fichiers | `shared/platform-formats.json` | Table unique lue par TypeScript et par le scanner Rust. |
-| Persistance des réglages | localStorage (phase 1) | Migrera vers SQLite en phase 2 via la même API de store. Les clés API iront dans le Gestionnaire d'identifiants Windows. |
+| Navigation | Screen stack in `app/navigation.ts` (zustand), no URL router | A desktop app driven by a gamepad has no URLs; Back (B / Escape) is a pop, transitions know their direction, and the focused element is remembered per screen. |
+| State | zustand stores in `services/` | Light, and readable outside React (sounds, input controller, Rust events). |
+| Persistence | SQLite for the library (`src-tauri/src/db/`, numbered migrations in `db/migrations/`, rolling backups); interface settings in a persisted zustand store (`services/settings.ts`, key `ibox.settings`) | The library is shared with the Rust side; settings stay instant to read. API keys go to the Windows Credential Manager (`metadata/keys.rs`). |
+| Translation | French source text, English through `src/i18n/` | Components keep plain French strings; no translation calls scattered in the code. |
+| 3D | React Three Fiber + Drei, Drei lightformers, no tone mapping (`flat`) | Works offline; tone mapping desaturated the cover art. |
+| Missing artwork | Procedural covers painted in Canvas 2D (`art/`) | Original artwork, never a fake scan. |
+| Sounds | Original Web Audio synthesis (`services/sound.ts`), optional imported menu music (`services/music.ts`, `menuMusic.ts`) | No official sounds are shipped. |
+| File formats | `shared/platform-formats.json` | One table read by TypeScript and by the Rust scanner. |
+| Native windows | Created asynchronously (overlay, toast window) | Creating a Tauri window from a synchronous command blocks WebView2. |
 
-## 2. Arborescence
+## 2. Interface (`src/`)
 
-```
-ibox/
-├─ index.html · vite.config.ts · tsconfig.json · package.json
-├─ public/logo.svg                    logo (boîte ouverte rouge corail)
-├─ docs/ARCHITECTURE.md
-├─ shared/platform-formats.json      formats reconnus (TS + Rust)
-├─ src-tauri/                         cœur natif Rust (Tauri 2)
-│  ├─ src/lib.rs · src/main.rs
-│  ├─ src/db/                         SQLite, migrations (phase 2)
-│  ├─ src/scanner/                    parcours, en-têtes, identification, rapprochement (phase 2)
-│  ├─ src/library/                    dossiers, jeux, actualisation, commandes (phase 2)
-│  ├─ src/metadata/                   sources, cache d'images, correspondances, clés (phase 3)
-│  ├─ src/launcher/                   profils, émulateurs, lancement, sessions (phase 4)
-│  ├─ tauri.conf.json · capabilities/ · icons/
-└─ src/
-   ├─ main.tsx
-   ├─ app/          App (shell + transitions), navigation (pile), shellState (indications, ambiance)
-   ├─ domain/       types, platforms (registre extensible), demoLibrary, text (+ tests)
-   ├─ services/     library (LibrarySource), settings, sound, music, native (pont Tauri)
-   ├─ input/        spatial (algorithme pur + tests), InputController (actions abstraites)
-   ├─ art/          paint, motifs, assets (images réelles + palette), covers (faces), usePalette
-   ├─ theme/        platformTheme (variables CSS + ressorts par console)
-   ├─ styles/       tokens.css (design tokens), global.css (Tailwind 4 + focus, animations)
-   ├─ components/
-   │  ├─ ui/        Button, Segmented, Icon, ShelfRow, EmptyState
-   │  ├─ shell/     TopBar, HintBar, Backdrop, BrandLogo
-   │  ├─ game/      CoverImage, GameCard
-   │  └─ platform/  PlatformCard, PlatformGlyph
-   ├─ three/
-   │  ├─ cases/     caseSpecs, KeepCase (boîtier réutilisable)
-   │  ├─ scenes/    InspectViewer, ShelfView, StudioLights
-   │  ├─ inspectController.ts · springs.ts · useCaseTextures.ts (+ tests)
-   └─ screens/      HomeScreen, PlatformsScreen, LibraryScreen, GameScreen, SettingsScreen
-```
+### Shell and navigation
 
-## 3. Composants visuels principaux
+- `app/App.tsx`: global mounts (top bar, hint bar, backdrop, notifications, update and achievement watchers), screen transitions.
+- `app/navigation.ts`: routes `home`, `platforms`, `platform`, `library`, `game`, `settings` (with a category), `achievements`, `community`, `smartconfig`.
+- `app/shellState.ts`: hints and ambience shared by the shell; `app/attract.ts`: idle mode.
+- `components/shell/`: `TopBar`, `HintBar`, `Backdrop`, `QuickMenu`, `PadKeyboard` (virtual keyboard), `PadGlyph` (drawn controller buttons), `Players`, `FriendsButton`, `NotificationsButton`, `PowerButton`.
+- `components/start/`: first-run `SetupWizard` and `ProfileGate`.
 
-- **TopBar** : logo, salutation selon l'heure, horloge, profil local, accueil, paramètres ; fil d'Ariane hors accueil.
-- **HintBar** : indications de commandes par écran (clavier aujourd'hui, boutons manette en phase 5).
-- **Backdrop** : fond crème + halos pastel qui dérivent et prennent la teinte de la console / du jeu.
-- **HeroCard** : dernier jeu, jaquette inclinée flottante, ambiance floutée, actions.
-- **PlatformCard** : grande carte pastel, pictogramme original, couleur propre (y compris l'anneau de focus).
-- **GameCard / CoverImage** : jaquette dominante, chargement scintillant, reflet de pochette.
-- **Segmented / Button / Toggle** : pilules focalisables, sons de retour.
-- **KeepCase** : boîtier 3D paramétrique (plateau, parois, tranche, charnière animée, moyeu, disque troué irisé, manuel).
-- **InspectViewer** : rotation avec inertie, tangage limité, zoom borné, vues Face/Dos/Tranche, ouverture, examen du disque.
-- **ShelfView** : étagère, tranches alignées, sélection sortie de l'étagère et présentée de face.
+### Translation (`src/i18n/`)
 
-## 4. Tokens graphiques (`src/styles/tokens.css`)
+French is the source language. `i18n/index.ts` installs a `MutationObserver` that replaces every visible text node and readable attribute (`placeholder`, `aria-label`, `title`, `alt`) with its English entry from `i18n/en.ts` as it appears. Templates such as `{0} jeux` cover variable text. Game data (titles, descriptions from providers) is left untouched. Switching language reloads the window. `scripts/i18n-extract.mjs` lists untranslated strings.
 
-| Famille | Valeurs |
+### Input and controllers (`src/input/`)
+
+- `InputController.ts`: keyboard and gamepads produce the same abstract actions (move, confirm, back, page...).
+- `spatial.ts`: pure spatial navigation algorithm (tested).
+- `gamepad.ts`: several controllers at once, player slots P1 to P8, accelerated repeat, triggers as page up/down.
+- `commands.ts`: quick menu and global search commands.
+
+### Screens
+
+`screens/`: `HomeScreen`, `LibraryScreen`, `GameScreen` (console game sheet), `PcGameSheet`, `PlatformsScreen` and `PlatformSheet` (iBox Platforms), `SettingsScreen` (pages in `screens/settings/`: Profile, Home, Display, Library, Sound, Remote Play, Controls, System), `AchievementsScreen`, `CommunityScreen`, `SmartConfigScreen`.
+
+## 3. Feature modules
+
+Each feature has an interface part in `src/` and a native part in `src-tauri/src/`.
+
+| Feature | Interface | Native |
+| --- | --- | --- |
+| Library and scan | `services/library.ts` (store, variants), `components/library/` (folders, scan status, backups, uninstall) | `scanner/` (walk, headers, fingerprints, identification, reconciliation), `library/` (repository, scan, portable backups), `db/` |
+| PC games | `services/pc.ts`, `components/pc/`, `screens/PcGameSheet.tsx` | `pc/` (Steam, Epic, GOG, Xbox, shortcuts from other launchers, running-game detection), `uninstall.rs` |
+| Metadata and artwork | `services/metadata.ts`, `components/assets/` (artwork picker, iiDB panel), `components/library/MetadataPanel.tsx` | `metadata/` (GameTDB, LaunchBox, SteamGridDB, libretro, matching, media cache), `assets/` (iiDB illustrations, collections, music, sounds) |
+| 3D cases and manuals | `three/cases/` (`KeepCase`, `GltfCase`, `RetroBox`, `GameCardModel`, `ManualBooklet`), `three/scenes/` (`ShelfView`, `InspectViewer`), `components/manual/` (reader, settings), `services/manualPdf.ts` (pdf.js) | `manuals/` (Steam, ScreenScraper, Internet Archive) |
+| iBox Platforms and emulators | `screens/PlatformsScreen.tsx`, `screens/PlatformSheet.tsx`, `components/platforms/`, `domain/platformCatalog.ts`, `services/emulators.ts` | `emulators/` (official source catalogue, download, archive extraction, install, BIOS requirements), `launcher/` (detection, launch profiles, sessions) |
+| SmartConfig | `services/smartconfig.ts`, `components/smartconfig/`, `screens/SmartConfigScreen.tsx` | `smartconfig/` (hardware detection, EmuReady and verified providers, recommendation engine, per-emulator adapters, backups and history) |
+| Achievements | `services/retro.ts` (RetroAchievements, live watch), `services/steamAchievements.ts`, `components/achievements/` | `achievements.rs` (whitelisted RetroAchievements API, Steam) |
+| iNetbox, friends, groups | `services/inetbox.ts`, `services/social.ts`, `services/groups.ts`, `components/social/` (friends, chat, groups, presence, toast window) | `inetbox.rs` (client and heartbeat), `toast.rs` (bottom-right window) |
+| Remote Play | `services/remotePlay.ts`, `remotePlayOnline.ts`, `remotePlayGuest.ts`, `components/remoteplay/` | `remote_play/` (WGC/D3D capture, H.264 encode, Opus audio, peer-to-peer transport, signed signalling, virtual controllers, permissions) |
+| Capture and clips | `components/overlay/OverlayWindow.tsx`, `services/community.ts`, `screens/CommunityScreen.tsx` | `capture.rs` (screenshots), `clips.rs` (MP4 clips with sound) |
+| Profiles | `services/profiles.ts` (per-player settings), `components/profile/` (Profile Studio, avatars, banners), `services/avatarProviders.ts` | `profile.rs` (per-profile data folders) |
+| Updates and shell | `services/updater.ts`, `services/shell.ts`, `services/notifications.ts` | `shell.rs` (tray, update install), `crash.rs`, `wallpaper.rs` |
+
+Further detail: [PHASE2.md](PHASE2.md) (library), [PHASE3.md](PHASE3.md) (metadata), [PHASE4.md](PHASE4.md) (emulators), [PHASE5.md](PHASE5.md) (cases, controllers), [PC.md](PC.md), [PLATFORMS.md](PLATFORMS.md), [SMARTCONFIG.md](SMARTCONFIG.md), [REMOTE-PLAY.md](REMOTE-PLAY.md), [INETBOX-DATABASE.md](INETBOX-DATABASE.md) (mostly in French).
+
+## 4. Design system
+
+### Tokens (`src/styles/tokens.css`)
+
+All colours, spacing, radii, shadows and motion live in `tokens.css` as CSS variables, then are mapped to Tailwind through `@theme` in `src/styles/global.css`. Each colour is declared once with `light-dark(light, dark)`; the theme follows `color-scheme` on `<html>` (System / Light / Dark setting). Dark mode is a soft blue-violet night, never pure black.
+
+| Family | Values |
 | --- | --- |
-| Fonds | crème `#F8F7F3`, crème profond `#F1EFE8`, blanc |
-| Pastels | ciel `#8CCDF1` / `#DDF1FC`, lavande `#B9A6E8` / `#EEE9FB`, menthe `#A9DFC8` / `#E6F6EF`, pêche `#F5C4AC` / `#FDEEE6` |
-| Teintes profondes (texte sur pastel) | ciel `#2F7FB0`, lavande `#6A54B4`, menthe `#2F7D5E`, pêche `#B25D3A` |
-| Texte | principal `#344459` (9,4:1), secondaire **`#637184`** (4,6:1, ajusté pour l'AA ; `#8794A3` réservé au décoratif) — nuit : `#E8ECF5`, `#A7B0C3` |
-| Accent | `--accent-deep` = fond saturé (boutons) ; `--accent-text` = texte d'accent lisible dans les deux thèmes |
-| Accent dynamique | `--accent`, `--accent-soft`, `--accent-deep`, `--accent-glow` (fixés par la console active) |
-| Espacements | base 4 px : 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 (en rem) |
-| Rayons | 12 · 20 · 28 · 36 px, pilule |
-| Ombres | xs → lg, diffuses et teintées d'encre |
-| Typo | Fredoka (titres), Nunito (texte) ; taille racine fluide `clamp(14px, 0.62vw + 7px, 24px)` pour PC et TV |
-| Mouvement | `--ease-out-soft`, `--ease-bounce` ; 160 / 260 / 480 ms ; ressorts par personnalité de console (bouncy, airy, snappy, calm, floaty) |
+| Backgrounds | cream `#F8F7F3`, deep cream `#F1EFE8`; tinted white surface (`--ibox-white`) |
+| Pastels | sky `#8CCDF1`, lavender `#B9A6E8`, mint `#A9DFC8`, peach `#F5C4AC`, each with `-soft` and `-deep` variants |
+| Text | `--ibox-ink` `#344459` (9.4:1), `--ibox-ink-soft` `#637184` (4.6:1), `--ibox-ink-faint` decorative only; night `#E8ECF5` / `#A7B0C3` |
+| Accent | `--accent`, `--accent-soft`, `--accent-deep` (solid fills), `--accent-text` (readable in both themes), `--accent-glow`; set by the active console |
+| Tones | `--tone-blue`, `-green`, `-yellow`, `-orange`, `-red`, `-pink`, `-purple`, `-teal` and their `-ink` text variants, blended with the theme accent through `--theme-blend` |
+| Spacing | 4 px base: `--space-1` to `--space-9` (4, 8, 12, 16, 24, 32, 48, 64, 96 px, in rem) |
+| Radii | `--radius-sm` 12, `-md` 20, `-lg` 28, `-xl` 36 px, `--radius-pill` |
+| Shadows | `--shadow-xs` to `--shadow-lg`, `--shadow-inset`; soft and ink-tinted |
+| Motion | `--ease-out-soft`, `--ease-bounce`; `--dur-fast` 160 ms, `--dur-base` 260 ms, `--dur-slow` 480 ms |
 
-Accessibilité : réglage *Animations* (Système / Complètes / Réduites) → `MotionConfig` + CSS + scène 3D sans animation.
+The root font size is fluid, `clamp(14px, 0.62vw + 7px, 24px)`, multiplied by `--ui-scale` (interface size setting), so the same layout reads on a desk monitor and a TV.
 
-## 5. Phase 1 — plan et état
+Themes: `src/theme/appThemes.ts` defines the app palettes that replace the base tints in light mode; `src/theme/platformTheme.ts` sets the accent and spring personality of each console (bouncy, airy, snappy, calm, floaty). Console colours stay the same across palettes.
 
-| Étape | État |
-| --- | --- |
-| Socle Tauri 2 + React + Vite + Tailwind 4 | ✅ |
-| Tokens, thème par console, registre de 13 consoles | ✅ |
-| Accueil (héros, consoles, récents, favoris, collection) | ✅ |
-| Écran Consoles | ✅ |
-| Bibliothèque GameCube : grille, recherche, tri, favoris, filtre console | ✅ |
-| Étagère 3D | ✅ |
-| Fiche jeu + boîtier GameCube manipulable, ouverture/fermeture, disque | ✅ |
-| Navigation souris / clavier (spatiale, mémoire du focus, Retour) | ✅ |
-| Sons d'interface originaux | ✅ |
-| Paramètres persistants (+ sections futures signalées) | ✅ |
-| Tests (navigation spatiale, texte, registre, contrôleur 3D, ressorts) | ✅ 23 tests |
+### Fonts
 
-Ajouts après validation : musique de menu en boucle, mode sombre, préparation de la phase 2 (voir [PHASE2.md](PHASE2.md)).
+- **Cal Sans** (`src/assets/fonts/cal-sans/`, SIL Open Font License) is the interface font for titles and body text (`--font-display`, `--font-body`), declared with `@font-face` in `global.css`.
+- **Nunito** (variable, Fontsource) is the fallback.
+- **Fredoka** (variable, Fontsource) is used only for the titles painted on procedural covers (`src/art/covers.ts`).
 
-Fonctions volontairement **indisponibles et signalées** : Jouer / Reprendre (phase 4), dossiers (phase 2), métadonnées et clés API (phase 3), manette (phase 5).
+All fonts are bundled, so the interface works offline.
+
+### Accessibility
+
+- Text colours meet WCAG AA contrast in both themes; `--ibox-ink-faint` is reserved for decoration.
+- The *Animations* setting (System / Full / Reduced) drives Motion's `MotionConfig`, the CSS transitions and the 3D scenes.
+- Every action is reachable with keyboard and controller; the focus ring takes the console colour.
