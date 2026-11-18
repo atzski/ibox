@@ -159,6 +159,10 @@ export interface SettingsState {
   steamFamily: boolean;
   /** Overlay en jeu : mémoire des dernières secondes pour les clips. */
   captureClips?: boolean;
+  /** Panneau des performances (images par seconde, processeur, GPU, mémoire, Remote Play). */
+  perfOverlay?: boolean;
+  /** Profil graphique des scènes 3D (`services/graphics.ts`). */
+  graphicsProfile?: "auto" | "quality" | "deck" | "battery";
   /** Clips : qualité de l'image (480p 30 i/s, 720p 30 i/s, 1080p 60 i/s). */
   clipQuality?: "low" | "medium" | "high";
   /** Clips : durée gardée, 5 à 30 secondes. */

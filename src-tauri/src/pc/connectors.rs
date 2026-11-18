@@ -222,6 +222,30 @@ impl Connector for HeroicConnector {
     }
 }
 
+/// Lutris (Linux, Steam Deck) : jeux installés avec Lutris, lancement par Lutris.
+pub struct LutrisConnector;
+
+impl Connector for LutrisConnector {
+    fn id(&self) -> &'static str {
+        "lutris"
+    }
+    fn name(&self) -> &'static str {
+        "Lutris"
+    }
+    fn capabilities(&self) -> Capabilities {
+        Capabilities { detect: true, scan_installed: true, owned_library: false, launch: true }
+    }
+    fn detect(&self) -> (Option<bool>, Option<PathBuf>) {
+        match super::lutris::db_path() {
+            Some(p) => (Some(true), p.parent().map(Path::to_path_buf)),
+            None => (Some(false), None),
+        }
+    }
+    fn note(&self) -> &'static str {
+        "Jeux installés avec Lutris, avec leur temps de jeu ; lancement par Lutris. Les jeux Steam de Lutris viennent du connecteur Steam."
+    }
+}
+
 const SHORTCUTS: &str = "Import des jeux installés disposant d’un raccourci compatible dans le menu Démarrer ou sur le Bureau. Les droits du compte et le catalogue en ligne ne sont pas lus.";
 
 const LATER: &str = "Import des jeux : à étudier (format local à vérifier sur une vraie installation).";
@@ -230,7 +254,7 @@ pub fn all() -> Vec<Box<dyn Connector>> {
     // Linux (Steam Deck) : ajout manuel, Steam et Heroic (Epic, GOG, Amazon) ; les autres
     // boutiques n'existent que sous Windows (docs/STEAMDECK.md §4.1)
     if !cfg!(windows) {
-        return vec![Box::new(Manual), Box::new(SteamConnector), Box::new(HeroicConnector)];
+        return vec![Box::new(Manual), Box::new(SteamConnector), Box::new(HeroicConnector), Box::new(LutrisConnector)];
     }
     vec![
         Box::new(Manual),
@@ -296,6 +320,7 @@ pub fn source_name(id: &str) -> &'static str {
         "epic" => "Epic Games",
         "gog" => "GOG",
         "heroic" => "Heroic",
+        "lutris" => "Lutris",
         "ubisoft" => "Ubisoft Connect",
         "ea" => "EA app",
         "xbox" => "Xbox",
@@ -324,7 +349,7 @@ mod tests {
             let caps = c.capabilities();
             if super::super::shortcuts::SOURCES.contains(&c.id()) {
                 assert!(caps.scan_installed && caps.launch && !caps.owned_library);
-            } else if !["manual", "steam", "epic", "gog", "heroic"].contains(&c.id()) {
+            } else if !["manual", "steam", "epic", "gog", "heroic", "lutris"].contains(&c.id()) {
                 // tant que l'import n'est pas vérifié, aucune boutique ne prétend lister ou lancer
                 assert!(!caps.scan_installed && !caps.owned_library && !caps.launch, "{}", c.id());
             }

@@ -74,6 +74,11 @@ export function SystemPage() {
           <UpdatesPanel />
         </div>
       </Group>
+      <Group title="Diagnostic" icon="search">
+        <Row label="Afficher les performances" note="Un petit panneau en haut à droite : images par seconde et temps d'image, processeur, GPU, mémoire, et pendant Remote Play le ping, le décodage et le débit.">
+          <Toggle checked={s.perfOverlay === true} onChange={(v) => s.set("perfOverlay", v)} label="Afficher les performances" />
+        </Row>
+      </Group>
       <Group title="Aide" icon="sparkle">
         <Row label="Rapport de problème" note="Crée sur ce PC un fichier qui décrit votre installation (sans clé ni mot de passe) à joindre à votre message">
           <DiagnosticButton />

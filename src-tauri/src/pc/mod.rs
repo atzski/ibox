@@ -9,6 +9,7 @@ pub mod connectors;
 pub mod epic;
 pub mod gog;
 pub mod heroic;
+pub mod lutris;
 pub mod running;
 pub mod steam;
 pub mod steam_shortcut;
@@ -292,6 +293,11 @@ pub fn launch_target(conn: &Connection, game_id: i64) -> std::result::Result<PcL
             }
             let (exe, args) = url_handler(uri);
             Ok(PcLaunch { exe, args, by: inst.source_name.to_string(), detached: true })
+        }
+        ("protocol", Some(uri)) if inst.source == "lutris" => {
+            let uri = lutris::checked_uri(uri).ok_or("Lien Lutris invalide.")?;
+            let (exe, args) = url_handler(uri);
+            Ok(PcLaunch { exe, args, by: "Lutris".into(), detached: true })
         }
         ("protocol", Some(uri)) if inst.source == "heroic" => {
             let uri = heroic::checked_uri(uri).ok_or("Lien Heroic invalide.")?;
@@ -692,6 +698,27 @@ pub fn epic_entries() -> Option<Vec<SourceEntry>> {
     )
 }
 
+/// Jeux installés avec Lutris (Linux). `None` si Lutris est absent.
+pub fn lutris_entries() -> Option<std::result::Result<Vec<SourceEntry>, String>> {
+    let db = lutris::db_path()?;
+    Some(lutris::read(&db).map(|games| {
+        games
+            .into_iter()
+            .map(|g| SourceEntry {
+                external_id: g.id.to_string(),
+                launch_target: g.launch_uri(),
+                installed: g.directory.as_deref().map_or(true, |d| Path::new(d).is_dir()),
+                title: g.name,
+                install_dir: g.directory,
+                shortcut_args: None,
+                last_played: g.last_played.and_then(time_from_unix),
+                playtime_minutes: g.playtime_minutes,
+                family: None,
+            })
+            .collect()
+    }))
+}
+
 /// Jeux Epic, GOG et Amazon installés par Heroic (Linux). `None` si Heroic est absent.
 pub fn heroic_entries() -> Option<Vec<SourceEntry>> {
     let config = heroic::config_dir()?;
@@ -793,6 +820,14 @@ pub mod commands {
             if on("epic") {
                 if let Some(entries) = epic_entries() {
                     out.push(state.with(|c| sync_source(c, "epic", &entries))?);
+                }
+            }
+            if on("lutris") {
+                match lutris_entries() {
+                    None => {}
+                    Some(Ok(entries)) => out.push(state.with(|c| sync_source(c, "lutris", &entries))?),
+                    // lecture impossible : rien n'est marqué désinstallé, l'erreur est dite
+                    Some(Err(w)) => out.push(SyncSummary { source: "lutris".into(), warning: Some(w), ..Default::default() }),
                 }
             }
             if on("heroic") {

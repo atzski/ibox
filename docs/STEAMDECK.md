@@ -314,7 +314,8 @@ Si le prototype échoue sur le décodage, on retient l'option B (CEF), réservé
 - **Option 1 (recommandée pour démarrer)** : WSL2 avec Ubuntu 22.04 sur ce PC. On y installe Rust,
   Node et les dépendances Tauri (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `librsvg2-dev`,
   `libayatana-appindicator3-dev`, `libssl-dev`, `patchelf`). Construire sur une glibc ancienne
-  rend l'AppImage compatible avec SteamOS. **Remote Play (D3)** : `gstreamer1.0-libav` et
+  rend l'AppImage compatible avec SteamOS. **Médias** : `scripts/linux-media.sh` (FFmpeg LGPL,
+  greffons sans GPL) avant toute AppImage publiable. **Remote Play (D3)** : `gstreamer1.0-libav` et
   `gstreamer1.0-plugins-bad` doivent être installés sur la machine de construction, sinon
   l'AppImage n'emporte aucun décodeur H.264 et WebCodecs refuse tout flux (installés dans WSL le
   2026-11-18 ; l'AppImage passe de 100 à 155 Mo).
@@ -657,6 +658,109 @@ dans un fichier privé (D4).
   Elles ne vont pas dans « Quoi de neuf » (`changelog.ts`), que les utilisateurs Windows voient
   aussi. **À relire avant chaque version Linux** : le texte actuel présente la première version.
 - Le site n'est pas publié : il se publie avec le reste, par la procédure habituelle.
+
+### Parité avec Windows (2026-11-18, après la 0.1.105)
+- **Émulateurs** : tout émulateur installé automatiquement sous Windows l'est aussi sous Linux
+  (BigPEmu reste manuel des deux côtés).
+  - AppImage ou archive officielle : les 14 AppImage, plus Mesen 2 (`_Linux_x64.zip`, programme
+    seul) et Xenia Canary (`xenia_canary_linux.tar_.xz`, extraction `tar.xz` par `lzma-rust2`
+    + `tar`). Programme ELF trouvé à 5 niveaux de profondeur et rendu exécutable. Installation
+    réelle vérifiée dans WSL (empreintes GitHub vérifiées).
+  - **Flathub** (`emulators/flatpak.rs`) : Dolphin, RetroArch, melonDS, shadPS4, SameBoy,
+    Stella, MAME, par `flatpak install --user` (sans droits administrateur, dépôt signé). Une
+    application déjà installée par Discover est reprise. Désinstaller la retire de
+    l'installation de l'utilisateur seulement. Les mises à jour passent par Discover. Non
+    essayé (pas de flatpak dans WSL).
+  - **Cœurs libretro** : version Linux du même serveur (`buildbot …/linux/x86_64/…_libretro.so.zip`),
+    rangée dans le dossier de cœurs de RetroArch (Flatpak : `~/.var/app/org.libretro.RetroArch/
+    config/retroarch/cores`). Le lancement les y retrouve (`profiles::cores_dir`, `core_file`).
+- **Lutris** (`pc/lutris.rs`) : jeux installés lus dans `pga.db` (classique ou Flatpak), en
+  lecture seule, avec leur temps de jeu ; lancement `lutris:rungameid/<id>`. Les jeux du runner
+  `steam` restent au connecteur Steam.
+- **Remote Play invité** : souris (pavés tactiles) et clavier envoyés aussi depuis l'invité natif.
+  `attachInputs` accepte une image `<canvas>`.
+- **Textes** : les clés sont « enregistrées sur cet appareil » sous Linux (et non dans le coffre
+  Windows).
+- **Restent propres à Windows** : héberger une partie Remote Play, l'overlay en jeu (sous
+  gamescope, c'est l'overlay de Steam), les clips (Steam les enregistre lui-même), et les
+  boutiques sans version Linux.
+
+### Stratégie validée le 2026-11-18 (rien n'est publié)
+Décisions de l'utilisateur : FFmpeg LGPL seul en liaison dynamique, VA-API d'abord avec repli
+logiciel, mentions et sources fournies, brevets documentés à part, étagère 3D gardée avec un
+profil Steam Deck et un profil d'économie d'énergie, aperçu 1280×800 sur PC, diagnostics,
+vérifications, parité Windows. **Publication suspendue** jusqu'à validation des essais et des
+obligations de licence.
+
+**Licences : FFmpeg LGPL et GStreamer**
+- Constat : le FFmpeg d'Ubuntu, embarqué jusque-là, était **GPL** (`--enable-gpl`, x264, x265, Xvid,
+  postproc).
+- `scripts/linux-media.sh` (une fois, sur la machine de construction) :
+  - télécharge FFmpeg 4.4.2 depuis ffmpeg.org et vérifie sa signature PGP (clé
+    `FCF986EA15E6E293A5644F10B4322F04D67658D8`) ;
+  - le compile **en LGPL seulement**, en bibliothèques partagées, avec le seul décodeur et
+    analyseur H.264 et sans bibliothèque externe, dans `/opt/ffmpeg-lgpl` ;
+  - garde les greffons GStreamer dont la licence déclarée n'est ni GPL ni inconnue (234 sur 243,
+    dans `/opt/gst-lgpl/plugins`).
+- `linux-build.sh` (modes `bundle` et `release`) embarque ce FFmpeg-là (`LD_LIBRARY_PATH`) et ces
+  greffons (`GSTREAMER_PLUGINS_DIR`). La construction s'arrête si `libavcodec` ne se déclare pas
+  LGPL, si une bibliothèque GPL connue est présente, ou si les textes manquent. Le mode `release`
+  refuse de construire sans le FFmpeg LGPL. Le contrôle a été essayé dans les deux sens :
+  l'AppImage passe, et le FFmpeg d'Ubuntu est refusé.
+- L'AppImage passe de 155 à 117 Mo.
+- `tauri.linux.conf.json` copie dans `/usr/share/licenses/ibox` de l'AppImage :
+  - le texte LGPL 2.1 ;
+  - `FFmpeg-BUILD.txt` (source exacte, SHA-256, options) ;
+  - `GStreamer-PLUGINS.txt` (greffons livrés et écartés) ;
+  - `docs/THIRD-PARTY-LINUX.md` (licences, remplacement de FFmpeg selon la LGPL §6) ;
+  - `docs/H264-PATENTS.md` (risques des brevets, à part, non juridique).
+  Les mentions de l'application (`legal.ts`) ont une section « Version Steam Deck (Linux) ».
+- **À faire avant publication** : relecture juridique et conditions Via LA (voir
+  `H264-PATENTS.md`).
+
+**Décodage : VA-API d'abord**
+- `platform::video_decoding_env`, au démarrage sous Linux : si un nœud `/dev/dri/renderD*` et un
+  pilote `*_drv_video.so` sont présents, `GST_PLUGIN_FEATURE_RANK=vah264dec:MAX`, car son rang est
+  nul dans GStreamer 1.20. `LIBVA_DRIVERS_PATH` reçoit le dossier des pilotes du système
+  (`/usr/lib/dri` sous SteamOS), parce que la libva de l'AppImage cherche ailleurs. Les réglages
+  de l'utilisateur sont gardés.
+- Repli : au premier échec du décodeur, `H264Renderer` repasse en `prefer-software` (FFmpeg
+  LGPL). Le décodeur employé apparaît dans les mesures (`decoder`).
+- Dans WSL, sans `/dev/dri`, VA-API ne s'active pas (correct). À voir sur le Deck : `vah264dec`
+  avec radeonsi.
+
+**Profils graphiques** (Paramètres › Apparence › Rendu 3D, `services/graphics.ts`)
+- Automatique, Qualité (×1,5, rythme de l'écran), Steam Deck (définition native, 60 im/s),
+  Économie (native, 30 im/s).
+- Automatique : Steam Deck sur le Deck, Économie sur batterie, Qualité sinon.
+- L'étagère garde le même rendu. Le plafond d'images passe par `FrameCap` (`frameloop="demand"`).
+
+**Aperçu Steam Deck sur PC**
+- `.\scripts\deck-preview.ps1 -Windows` : interface du Deck en Mode Jeu, 1280×800, sur le cœur
+  Windows et le GPU du PC, sans WSL. Données séparées (`app.ibox.deckpreview`).
+- Lancé par l'utilisateur, jamais depuis le shell de Claude (AppData virtualisée).
+- L'aperçu WSL (vraie version Linux) reste disponible.
+
+**Diagnostics** (Paramètres › Système › Diagnostic › Afficher les performances)
+- Images par seconde et temps d'image (moyen et pire).
+- Processeur et mémoire du système et d'iBox (moteur web compris), GPU.
+- En session Remote Play invité : ping, RTT, décodage, cadence, débit.
+- `perf.rs` : `/proc` et `gpu_busy_percent` sous Linux ; `GetSystemTimes`, processus de WebView2
+  et compteur PDH « GPU Engine » sous Windows. Vérifié sur les deux systèmes.
+
+**Vérifications faites (2026-11-18)**
+- Flathub : installation réelle de Stella par iBox (`flatpak install --user`, 38 s, manifeste et
+  lanceur corrects) puis désinstallation par iBox, dans WSL.
+- Mode Bureau (KDE) et Mode Jeu (gamescope simulé) : l'AppImage démarre et tient, sans erreur au
+  journal. Le Mode Bureau garde ses fenêtres de notifications séparées.
+- Manette : `libmanette` embarquée, API Gamepad exposée par WebKitGTK. La navigation elle-même
+  est la même que sous Windows ; la vraie manette du Deck reste à essayer.
+- Tests : 457 sous Windows, 431 sous Linux, 96 pour l'interface. Banc de décodage : 223 images sur
+  225, aucune erreur.
+
+**Reste avant publication** : essais sur un vrai Deck (VA-API, fluidité de l'étagère selon le
+profil, manette et Steam Input, Flathub depuis le Mode Jeu, Remote Play réel, batterie), et
+validation des obligations de licence et des brevets.
 
 ## 13. Sources externes consultées (2026-11)
 

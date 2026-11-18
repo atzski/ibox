@@ -106,6 +106,8 @@ function Monogram({ name, tone }: { name: string; tone: string }) {
 
 function PackageCard({ pkg, info, recommended, current, alternative }: { pkg: EmulatorPackage; info: ConsoleInfo; recommended?: boolean; current?: Emulator; alternative?: boolean }) {
   const overview = useEmulators((s) => s.overview);
+  // Linux : émulateur installé depuis Flathub (boutique du Steam Deck), mis à jour par Discover
+  const flathub = !!overview?.flathub?.includes(pkg.id);
   const progress = useEmulators((s) => s.progress[pkg.id]);
   const parentProgress = useEmulators((s) => (pkg.requires ? s.progress[pkg.requires] : undefined));
   const latest = useEmulators((s) => s.latest[pkg.id]);
@@ -172,10 +174,11 @@ function PackageCard({ pkg, info, recommended, current, alternative }: { pkg: Em
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] font-bold text-ink-faint">
             {installed ? (
               <span>
-                Version <span data-no-i18n>{installed.version}</span> · {installed.verified ? "empreinte officielle vérifiée" : "téléchargée depuis la source officielle"}
+                Version <span data-no-i18n>{installed.version}</span> ·{" "}
+                {flathub ? "installé depuis Flathub, mis à jour par Discover" : installed.verified ? "empreinte officielle vérifiée" : "téléchargée depuis la source officielle"}
               </span>
             ) : (
-              <span>{pkg.automatic ? "Source officielle" : "Site officiel uniquement"}</span>
+              <span>{flathub ? "Flathub, la boutique du Steam Deck" : pkg.automatic ? "Source officielle" : "Site officiel uniquement"}</span>
             )}
             <span data-no-i18n>{pkg.license}</span>
             {pkg.requires && <span>avec RetroArch</span>}

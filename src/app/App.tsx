@@ -1,4 +1,5 @@
 import { attachAutoJingles } from "@/services/jingles";
+import { PerfOverlay } from "@/components/extras/PerfOverlay";
 import { attachPower } from "@/services/power";
 import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
 import { attachSocial } from "@/services/social";
@@ -340,6 +341,7 @@ export function App() {
       <SmartConfigFeedback />
       <RemotePlayLayer />
       <FlightLayer />
+      <PerfOverlay />
       {singleWindow && (
         <Suspense fallback={null}>
           <InlineToasts />

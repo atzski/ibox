@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { FrameCap } from "../FrameCap";
+import { useGraphics } from "@/services/graphics";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,7 +14,6 @@ import { createGlareMaterial } from "./flowGlare";
 import { tuneRenderer } from "../rendererTuning";
 import { sound } from "@/services/sound";
 import { useScenePause } from "@/services/scenePause";
-import { usePower } from "@/services/power";
 import { markShelfHandoff, returnFlightPending, setFlightTarget, setViewerReady, startFlight, takeViewerPose, type ScreenPose } from "../handoff";
 import { focusAmbientGame } from "@/app/shellState";
 import { input } from "@/input/InputController";
@@ -503,8 +504,8 @@ export function ShelfView({
 }) {
   // session Remote Play d'invité : la scène s'arrête pour laisser le fil principal au décodage
   const scenePaused = useScenePause((s) => s.paused);
-  // sur batterie (Steam Deck) : rendu à la définition de l'écran, sans suréchantillonnage
-  const onBattery = usePower((s) => s.onBattery);
+  // profil graphique : définition et rythme d'images (Steam Deck, économie d'énergie)
+  const graphics = useGraphics();
   const shelves = useMemo(() => buildShelves(games, mixed), [games, mixed]);
   const [returnAt] = useState(() => {
     for (let r = 0; r < shelves.length; r++) {
@@ -745,13 +746,14 @@ export function ShelfView({
       >
         <Canvas
           flat
-          frameloop={scenePaused ? "never" : "always"}
-          dpr={onBattery ? 1 : [1, 1.5]}
+          frameloop={scenePaused ? "never" : graphics.fps ? "demand" : "always"}
+          dpr={graphics.dpr}
           camera={{ fov: 32, position: [0, 0, PERSPECTIVE * ref.width], near: 0.1, far: 60 }}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           style={{ borderRadius: "inherit" }}
           onCreated={({ gl }) => tuneRenderer(gl)}
         >
+          {graphics.fps && !scenePaused && <FrameCap fps={graphics.fps} />}
           <fog attach="fog" args={["#090a12", PERSPECTIVE * ref.width + 1.5, PERSPECTIVE * ref.width + 9]} />
           <FlowCamera spec={ref} reduced={reduced} />
           <FlowLights tint={theme.primary} on={!leaving} spec={ref} />

@@ -101,6 +101,16 @@ export const LEGAL: LegalSection[] = [
         items: ["Fastify — MIT", "node-postgres, PGlite — MIT / Apache 2.0", "Zod — MIT"],
       },
       {
+        heading: "Version Steam Deck (Linux)",
+        items: [
+          "FFmpeg 4.4.2 (décodage H.264 de Remote Play) — LGPL 2.1 ou ultérieure, compilé sans composant GPL ni nonfree, en bibliothèques partagées (liaison dynamique), source officielle non modifiée. Textes, options de compilation et source exacte : /usr/share/licenses/ibox dans l'AppImage.",
+          "GStreamer et ses greffons — LGPL 2.1 ou ultérieure ; les greffons sous GPL ne sont pas livrés.",
+          "WebKitGTK — LGPL 2 et BSD ; GTK, GLib, libsoup — LGPL.",
+          "Le format H.264 est couvert par des brevets, distincts des licences logicielles : voir H264-PATENTS.md dans l'AppImage. Le décodage matériel du Steam Deck (VA-API) est utilisé en priorité.",
+          "La version Windows n'embarque ni FFmpeg ni GStreamer.",
+        ],
+      },
+      {
         heading: "Modèles 3D et musique",
         items: [
           "Boîtiers modélisés pour iBox dans Blender ; outils de modélisation dérivés de blender-modeler — MIT.",

@@ -2296,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "0.1.105"
+version = "0.1.106"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",
@@ -2307,6 +2307,7 @@ dependencies = [
  "jpeg-encoder",
  "keyring-core",
  "libc",
+ "lzma-rust2",
  "minisign-verify 0.2.5",
  "opus-rs",
  "png",
@@ -2318,6 +2319,7 @@ dependencies = [
  "sha2 0.11.1",
  "str0m",
  "sysinfo",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
@@ -2854,6 +2856,9 @@ name = "lzma-rust2"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef1d73c59a56771343712b22ea5615092c612c16ba291c0979e3105dfeec4890"
+dependencies = [
+ "sha2 0.11.1",
+]
 
 [[package]]
 name = "markup5ever"

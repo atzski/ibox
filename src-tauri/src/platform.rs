@@ -22,8 +22,11 @@ pub struct PlatformInfo {
 }
 
 /// Aperçu Steam Deck sur PC (`IBOX_SIMULATE_DECK=1`, Linux seulement).
+/// Aperçu Steam Deck (`IBOX_SIMULATE_DECK=1`) : sous Linux (WSL, `scripts/deck-preview.ps1`) la
+/// vraie version Linux ; sous Windows (`deck-preview.ps1 -Windows`) l'interface du Deck en Mode Jeu
+/// sur le cœur Windows, pour essayer l'interface avec le GPU du PC.
 pub fn preview() -> bool {
-    cfg!(target_os = "linux") && std::env::var_os("IBOX_SIMULATE_DECK").is_some_and(|v| v == "1")
+    std::env::var_os("IBOX_SIMULATE_DECK").is_some_and(|v| v == "1")
 }
 
 /// Aperçu : la fenêtre principale prend la taille de l'écran du Deck (1280×800) au lieu du plein
@@ -63,7 +66,7 @@ fn steam_deck() -> Option<&'static str> {
 
 #[cfg(not(target_os = "linux"))]
 fn steam_deck() -> Option<&'static str> {
-    None
+    preview().then_some("Steam Deck (aperçu)")
 }
 
 /// Mode Jeu de SteamOS (lu une fois) : pas de zone de notification, et iBox ne doit jamais se
@@ -75,9 +78,10 @@ pub fn game_mode() -> bool {
 
 pub fn current() -> PlatformInfo {
     PlatformInfo {
-        os: if cfg!(windows) { "windows" } else { "linux" },
+        // aperçu sous Windows : l'interface se comporte comme sur le Deck, en Mode Jeu
+        os: if cfg!(windows) && !preview() { "windows" } else { "linux" },
         steam_deck: steam_deck(),
-        game_mode: cfg!(target_os = "linux") && game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty())),
+        game_mode: (cfg!(windows) && preview()) || (cfg!(target_os = "linux") && game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))),
         preview: preview(),
         bench: preview() && (std::env::var_os("IBOX_RP_SAMPLE_FILE").is_some() || std::env::var_os("IBOX_RP_OFFER_FILE").is_some()),
     }
@@ -90,10 +94,52 @@ pub fn current() -> PlatformInfo {
 /// reste un recours manuel (docs/STEAMDECK.md §5.3).
 pub fn prepare_webview() {
     #[cfg(target_os = "linux")]
-    if game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty())) && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+    {
         // appelé au tout début de `run`, avant tout autre fil : aucune lecture concurrente
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        if game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty())) && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+        for (k, v) in video_decoding_env(|k| std::env::var(k).ok(), &VaProbe::system()) {
+            std::env::set_var(k, v);
+        }
     }
+}
+
+/// Ce que le système offre pour le décodage matériel VA-API.
+pub struct VaProbe {
+    /// Nœud de rendu du GPU (`/dev/dri/renderD128`…).
+    pub render_node: bool,
+    /// Dossier contenant un pilote VA (`*_drv_video.so`, `radeonsi_drv_video.so` sur le Deck).
+    pub drivers_dir: Option<String>,
+}
+
+impl VaProbe {
+    /// Dossiers usuels des pilotes VA : SteamOS / Arch (`/usr/lib/dri`), Debian / Ubuntu, Fedora.
+    pub const DRIVER_DIRS: [&'static str; 4] = ["/usr/lib/dri", "/usr/lib/x86_64-linux-gnu/dri", "/usr/lib64/dri", "/usr/local/lib/dri"];
+
+    pub fn system() -> Self {
+        let render_node = std::fs::read_dir("/dev/dri").is_ok_and(|d| d.flatten().any(|e| e.file_name().to_string_lossy().starts_with("renderD")));
+        let has_driver = |dir: &str| std::fs::read_dir(dir).is_ok_and(|d| d.flatten().any(|e| e.file_name().to_string_lossy().ends_with("_drv_video.so")));
+        let drivers_dir = Self::DRIVER_DIRS.iter().find(|d| has_driver(d)).map(|d| d.to_string());
+        VaProbe { render_node, drivers_dir }
+    }
+}
+
+/// Variables d'environnement du décodage vidéo (WebCodecs par GStreamer, Remote Play invité) :
+/// décodeur matériel VA-API en priorité quand le GPU et son pilote sont là, sinon rien (le décodeur
+/// logiciel de FFmpeg, LGPL, sert de repli). Ce que l'utilisateur a réglé lui-même est gardé.
+pub fn video_decoding_env(var: impl Fn(&str) -> Option<String>, va: &VaProbe) -> Vec<(&'static str, String)> {
+    let mut out = Vec::new();
+    let Some(dir) = va.drivers_dir.as_ref().filter(|_| va.render_node) else { return out };
+    // GStreamer 1.20 : `vah264dec` a un rang nul, il n'est jamais choisi d'office
+    if var("GST_PLUGIN_FEATURE_RANK").is_none() {
+        out.push(("GST_PLUGIN_FEATURE_RANK", "vah264dec:MAX".to_string()));
+    }
+    // la libva de l'AppImage (Ubuntu) cherche ses pilotes ailleurs que SteamOS
+    if var("LIBVA_DRIVERS_PATH").is_none() {
+        out.push(("LIBVA_DRIVERS_PATH", dir.clone()));
+    }
+    out
 }
 
 #[tauri::command]
@@ -106,6 +152,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn va_api_en_priorite_seulement_si_disponible() {
+        let none = |_: &str| None::<String>;
+        let deck = VaProbe { render_node: true, drivers_dir: Some("/usr/lib/dri".into()) };
+        assert_eq!(video_decoding_env(none, &deck), vec![("GST_PLUGIN_FEATURE_RANK", "vah264dec:MAX".to_string()), ("LIBVA_DRIVERS_PATH", "/usr/lib/dri".to_string())]);
+        // pas de pilote VA, ou pas de GPU : décodeur logiciel, rien n'est changé
+        assert!(video_decoding_env(none, &VaProbe { render_node: true, drivers_dir: None }).is_empty());
+        assert!(video_decoding_env(none, &VaProbe { render_node: false, drivers_dir: Some("/usr/lib/dri".into()) }).is_empty());
+        // réglages de l'utilisateur gardés
+        let user = |k: &str| (k == "GST_PLUGIN_FEATURE_RANK").then(|| "x:1".to_string());
+        assert_eq!(video_decoding_env(user, &deck), vec![("LIBVA_DRIVERS_PATH", "/usr/lib/dri".to_string())]);
+    }
+
+    #[test]
     fn mode_jeu_reconnu_par_gamescope() {
         assert!(game_mode_from(|k| (k == "XDG_CURRENT_DESKTOP").then(|| "gamescope".into())));
         assert!(game_mode_from(|k| (k == "GAMESCOPE_WAYLAND_DISPLAY").then(|| "gamescope-0".into())));
@@ -116,8 +175,8 @@ mod tests {
     #[test]
     fn systeme_courant() {
         let p = current();
-        assert_eq!(p.os, if cfg!(windows) { "windows" } else { "linux" });
-        if cfg!(windows) {
+        assert_eq!(p.os, if cfg!(windows) && !preview() { "windows" } else { "linux" });
+        if cfg!(windows) && !preview() {
             assert!(p.steam_deck.is_none() && !p.game_mode);
         }
     }

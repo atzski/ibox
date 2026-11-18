@@ -76,6 +76,8 @@ pub struct Overview {
     pub backups: Vec<install::Backup>,
     /// Paquets en cours d'installation.
     pub jobs: Vec<String>,
+    /// Linux : paquets installés depuis Flathub (mises à jour par Discover).
+    pub flathub: Vec<String>,
 }
 
 #[tauri::command]
@@ -88,6 +90,7 @@ pub fn emulators_overview(app: AppHandle, state: State<EmulatorsState>) -> Overv
         installed: rs.iter().flat_map(|r| install::installed(r)).collect(),
         backups: rs.iter().flat_map(|r| install::backups(r)).collect(),
         jobs: state.jobs.lock().map(|j| j.keys().cloned().collect()).unwrap_or_default(),
+        flathub: catalog::PACKAGES.iter().map(catalog::for_this_system).filter(|p| matches!(p.source, catalog::Source::Flathub { .. })).map(|p| p.id.to_string()).collect(),
     }
 }
 

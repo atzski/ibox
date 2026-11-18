@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useGraphics } from "@/services/graphics";
 import { tuneRenderer } from "../rendererTuning";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { Group } from "three";
@@ -26,12 +27,13 @@ export function FlightLayer() {
   const game = useFlight((s) => s.game);
   const spec = useFlight((s) => s.spec);
   const dark = useIsDark();
+  const graphics = useGraphics();
   if (!game || !spec) return null;
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
       <Canvas
         flat
-        dpr={[1, 2]}
+        dpr={graphics.profile === "quality" ? [1, 2] : graphics.dpr}
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => tuneRenderer(gl)}

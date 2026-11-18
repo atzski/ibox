@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.106",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "gamepad", title: "iBox arrive sur Steam Deck (en essai)", text: "Une version Steam Deck est publiée à côté de la version Windows, qui ne change pas. Vos amis sur Steam Deck peuvent rejoindre vos parties Remote Play : gardez iBox à jour sur ce PC." },
+      { icon: "sparkle", title: "Profils graphiques", text: "Paramètres › Apparence › Rendu 3D : Automatique, Qualité, Steam Deck ou Économie. L’étagère garde son rendu ; seuls la finesse et le nombre d’images par seconde changent, pour soulager la carte graphique ou la batterie." },
+      { icon: "clock", title: "Panneau des performances", text: "Paramètres › Système › Diagnostic › Afficher les performances : images par seconde, processeur, carte graphique et mémoire, et pendant Remote Play le ping, le décodage et le débit." },
+    ],
+  },
+  {
     version: "0.1.105",
     date: "2026-11-18",
     highlights: [

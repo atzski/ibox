@@ -16,8 +16,9 @@
 # Ce que l'aperçu ne reproduit pas : processeur et GPU du Deck, Steam Input, gamescope lui-même,
 # la mise en veille, Steam et les émulateurs.
 set -uo pipefail
-APPIMAGE="${IBOX_APPIMAGE:-$HOME/ibox/src-tauri/target/release/bundle/appimage/iBox_0.1.104_amd64.AppImage}"
-[ -x "$APPIMAGE" ] || { echo "AppImage introuvable : $APPIMAGE (construire avec linux-build.sh bundle)"; exit 1; }
+# AppImage la plus récente construite par linux-build.sh bundle (numéro de version quelconque)
+APPIMAGE="${IBOX_APPIMAGE:-$(ls -t "$HOME"/ibox/src-tauri/target/release/bundle/appimage/iBox_*_amd64.AppImage 2>/dev/null | head -1)}"
+[ -n "$APPIMAGE" ] && [ -x "$APPIMAGE" ] || { echo "AppImage introuvable : $APPIMAGE (construire avec linux-build.sh bundle)"; exit 1; }
 
 run_ibox() {
   GDK_BACKEND=x11 XDG_CURRENT_DESKTOP=gamescope IBOX_SIMULATE_DECK=1 GDK_SCALE=1 \

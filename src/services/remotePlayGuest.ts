@@ -584,16 +584,24 @@ export function attachPad(
  * la fonction renvoyée n'est pas appelée. Le clavier est capturé avant la navigation d'iBox ; tout
  * ce qui est tenu est relâché à la sortie (et l'hôte relâche tout à la déconnexion).
  */
+/** Surface de l'image de l'hôte : `<video>` (WebRTC) ou `<canvas>` (invité natif, Steam Deck). */
+export type Surface = HTMLVideoElement | HTMLCanvasElement;
+
+/** Taille de l'image affichée (et non de l'élément), pour situer la souris. */
+const frameSize = (s: Surface): [number, number] => (s instanceof HTMLVideoElement ? [s.videoWidth, s.videoHeight] : [s.width, s.height]);
+
 export function attachInputs(
-  session: GuestSession,
-  video: HTMLVideoElement,
+  session: InputSink,
+  video: Surface,
   opts: { pad?: boolean; mouse?: boolean; keyboard?: boolean; onPad?: (name: string | null) => void; onPadCapture?: (active: boolean) => void } = {},
 ): () => void {
   const withMouse = opts.mouse !== false;
   const withKeys = opts.keyboard !== false;
   const held = new Set<number>();
   const next = () => session.nextSeq();
-  const area = () => contentRect(video.videoWidth, video.videoHeight, video.getBoundingClientRect());
+  const area = () => contentRect(...frameSize(video), video.getBoundingClientRect());
+  // écouteurs typés : une surface reste un élément HTML
+  const el: HTMLElement = video;
 
   const move = (e: PointerEvent) => {
     const p = normalizePoint(e.clientX, e.clientY, area());
@@ -655,11 +663,11 @@ export function attachInputs(
   const detachPad = opts.pad === false ? null : attachPad(session, opts);
 
   if (withMouse) {
-    video.addEventListener(MOVE_EVENT, move as EventListener);
-    video.addEventListener("pointerdown", trackDown);
-    video.addEventListener("pointerup", trackUp);
-    video.addEventListener("wheel", onWheel, { passive: false });
-    video.addEventListener("contextmenu", onContext);
+    el.addEventListener(MOVE_EVENT, move as EventListener);
+    el.addEventListener("pointerdown", trackDown);
+    el.addEventListener("pointerup", trackUp);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("contextmenu", onContext);
   }
   if (withKeys) {
     window.addEventListener("keydown", onKeyDown, true);
@@ -670,11 +678,11 @@ export function attachInputs(
     releaseAll();
     if (keyState) window.clearInterval(keyState);
     detachPad?.();
-    video.removeEventListener(MOVE_EVENT, move as EventListener);
-    video.removeEventListener("pointerdown", trackDown);
-    video.removeEventListener("pointerup", trackUp);
-    video.removeEventListener("wheel", onWheel);
-    video.removeEventListener("contextmenu", onContext);
+    el.removeEventListener(MOVE_EVENT, move as EventListener);
+    el.removeEventListener("pointerdown", trackDown);
+    el.removeEventListener("pointerup", trackUp);
+    el.removeEventListener("wheel", onWheel);
+    el.removeEventListener("contextmenu", onContext);
     window.removeEventListener("keydown", onKeyDown, true);
     window.removeEventListener("keyup", onKeyUp, true);
     window.removeEventListener("blur", releaseAll);

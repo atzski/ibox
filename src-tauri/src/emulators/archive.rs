@@ -47,7 +47,56 @@ pub fn extract(kind: Archive, archive: &Path, dest: &Path, cancel: &AtomicBool, 
     match kind {
         Archive::Zip => extract_zip(archive, dest, cancel, progress),
         Archive::SevenZ => extract_7z(archive, dest, cancel, progress),
+        Archive::TarXz => extract_tar_xz(archive, dest, cancel, progress),
     }
+}
+
+/// Type d'archive d'après le nom du fichier téléchargé (`.tar.xz`, `.tar_.xz` de GitHub…).
+pub fn kind_for(file_name: &str) -> Option<Archive> {
+    let n = file_name.to_ascii_lowercase();
+    if n.ends_with(".xz") && n.contains(".tar") {
+        Some(Archive::TarXz)
+    } else if n.ends_with(".zip") {
+        Some(Archive::Zip)
+    } else if n.ends_with(".7z") {
+        Some(Archive::SevenZ)
+    } else {
+        None
+    }
+}
+
+/// `.tar.xz` : mêmes refus que le zip (chemins dangereux, liens, taille), droits d'exécution gardés.
+fn extract_tar_xz(archive: &Path, dest: &Path, cancel: &AtomicBool, progress: &mut dyn FnMut(u64)) -> Result<Stats, String> {
+    let file = fs::File::open(archive).map_err(|e| super::download::disk_message(&e))?;
+    let xz = lzma_rust2::XzReader::new(std::io::BufReader::new(file), true);
+    let mut tar = tar::Archive::new(xz);
+    let mut stats = Stats::default();
+    for entry in tar.entries().map_err(|_| "archive tar.xz illisible".to_string())? {
+        let mut entry = entry.map_err(|_| "archive tar.xz endommagée".to_string())?;
+        let kind = entry.header().entry_type();
+        let name = entry.path().map_err(|_| "nom de fichier illisible".to_string())?.to_string_lossy().into_owned();
+        if kind.is_symlink() || kind.is_hard_link() {
+            return Err("archive refusée : lien symbolique".into());
+        }
+        let rel = safe_relative(&name).ok_or_else(|| format!("archive refusée : chemin dangereux « {name} »"))?;
+        if kind.is_dir() {
+            fs::create_dir_all(dest.join(&rel)).map_err(|e| super::download::disk_message(&e))?;
+            continue;
+        }
+        if !kind.is_file() {
+            continue;
+        }
+        let mode = entry.header().mode().unwrap_or(0o644);
+        write_entry(dest, &rel, &mut entry, &mut stats, cancel)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(dest.join(&rel), fs::Permissions::from_mode(mode & 0o755));
+        }
+        let _ = mode;
+        progress(stats.bytes);
+    }
+    Ok(stats)
 }
 
 fn write_entry(dest: &Path, rel: &Path, reader: &mut dyn Read, stats: &mut Stats, cancel: &AtomicBool) -> Result<(), String> {
@@ -206,6 +255,30 @@ mod tests {
         let s = t.path().join("faux.7z");
         fs::write(&s, b"pas une archive").unwrap();
         assert!(extract(Archive::SevenZ, &s, &t.path().join("o2"), &AtomicBool::new(false), &mut |_| {}).is_err());
+    }
+
+    #[test]
+    fn tar_xz_linux_extrait_avec_ses_droits() {
+        let t = tempfile::tempdir().unwrap();
+        let (ok, evil) = (t.path().join("x.tar.xz"), t.path().join("e.tar.xz"));
+        std::fs::write(&ok, include_bytes!("fixtures/xenia-like.tar.xz")).unwrap();
+        std::fs::write(&evil, include_bytes!("fixtures/evil.tar.xz")).unwrap();
+        assert!(matches!(kind_for("xenia_canary_linux.tar_.xz"), Some(Archive::TarXz)));
+        assert!(matches!(kind_for("Mesen_2.1.1_Linux_x64.zip"), Some(Archive::Zip)));
+        assert!(kind_for("emu.AppImage").is_none());
+        let dest = t.path().join("out");
+        let stats = extract(Archive::TarXz, &ok, &dest, &AtomicBool::new(false), &mut |_| {}).unwrap();
+        assert_eq!(stats.files, 2);
+        let exe = dest.join("build/bin/Linux/Release/xenia_canary");
+        assert!(exe.is_file());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&exe).unwrap().permissions().mode() & 0o777, 0o755);
+        }
+        let err = extract(Archive::TarXz, &evil, &t.path().join("out2"), &AtomicBool::new(false), &mut |_| {}).unwrap_err();
+        assert!(err.contains("dangereux"), "{err}");
+        assert!(!t.path().join("evil").exists());
     }
 
     #[test]

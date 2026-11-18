@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true,
+        "files": {
+          "/usr/share/licenses/ibox/FFmpeg-COPYING.LGPLv2.1": "/opt/ffmpeg-lgpl/share/ibox-licenses/FFmpeg-COPYING.LGPLv2.1",
+          "/usr/share/licenses/ibox/FFmpeg-BUILD.txt": "/opt/ffmpeg-lgpl/share/ibox-licenses/FFmpeg-BUILD.txt",
+          "/usr/share/licenses/ibox/GStreamer-PLUGINS.txt": "/opt/ffmpeg-lgpl/share/ibox-licenses/GStreamer-PLUGINS.txt",
+          "/usr/share/licenses/ibox/THIRD-PARTY-LINUX.md": "../docs/THIRD-PARTY-LINUX.md",
+          "/usr/share/licenses/ibox/H264-PATENTS.md": "../docs/H264-PATENTS.md"
+        }
+      }
+    }
+  }
+}

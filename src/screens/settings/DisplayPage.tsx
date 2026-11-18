@@ -1,4 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { usePlatform } from "@/services/platform";
+import { usePower } from "@/services/power";
+import { graphicsFor, resolveProfile, type GraphicsProfile } from "@/services/graphics";
 import { setTvMode } from "@/services/tvMode";
 import { useSettings, type GridDensity, type MotionPreference, type ThemePreference } from "@/services/settings";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -101,6 +104,9 @@ export function DisplayPage() {
         <Row label="Boîtiers 3D détaillés" note="Modèles physiques (Switch pour l'instant) ; désactivés, boîtiers simplifiés">
           <Toggle checked={s.classicCases !== true} onChange={(v) => s.set("classicCases", !v)} label="Boîtiers 3D détaillés" />
         </Row>
+      </Group>
+      <Group title="Rendu 3D" icon="sparkle">
+        <GraphicsProfileRow />
       </Group>
       <Group title="Animations" icon="motion">
         <Row label="Animations">
@@ -400,4 +406,39 @@ function PlatformHeroThumb({ platformId }: { platformId: string }) {
 function GameHeroThumb({ game }: { game: Game }) {
   const url = useMediaUrl(game, "hero");
   return url ? <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" /> : null;
+}
+
+/** Profil graphique : l'étagère 3D garde le même rendu, seuls la définition et le rythme changent. */
+function GraphicsProfileRow() {
+  const s = useSettings();
+  const deck = usePlatform((p) => p.steamDeck !== null);
+  const onBattery = usePower((p) => p.onBattery);
+  const choice = s.graphicsProfile ?? "auto";
+  const g = graphicsFor(resolveProfile(choice, deck, onBattery));
+  // phrases entières (traduites telles quelles)
+  const NOTES = {
+    quality: "Rendu affiné jusqu'à ×1,5, au rythme de l'écran.",
+    deck: "Définition de l'écran, 60 images par seconde.",
+    battery: "Définition de l'écran, 30 images par seconde : la batterie dure plus longtemps.",
+  } as const;
+  const AUTO = {
+    quality: "Automatique : Qualité pour l'instant (rendu affiné jusqu'à ×1,5, au rythme de l'écran).",
+    deck: "Automatique : Steam Deck pour l'instant (définition de l'écran, 60 images par seconde).",
+    battery: "Automatique : Économie d'énergie pour l'instant, sur batterie (définition de l'écran, 30 images par seconde).",
+  } as const;
+  return (
+    <Row label="Profil graphique" note={choice === "auto" ? AUTO[g.profile] : NOTES[g.profile]}>
+      <Segmented<GraphicsProfile>
+        label="Profil graphique"
+        value={choice}
+        onChange={(v) => s.set("graphicsProfile", v)}
+        options={[
+          { value: "auto", label: "Automatique" },
+          { value: "quality", label: "Qualité" },
+          { value: "deck", label: "Steam Deck" },
+          { value: "battery", label: "Économie" },
+        ]}
+      />
+    </Row>
+  );
 }

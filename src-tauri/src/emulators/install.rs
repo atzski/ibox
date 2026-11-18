@@ -97,7 +97,7 @@ fn read_manifest(dir: &Path) -> Option<Manifest> {
     serde_json::from_slice(&fs::read(dir.join(MANIFEST)).ok()?).ok()
 }
 
-fn write_manifest(dir: &Path, m: &Manifest) -> Result<(), String> {
+pub(crate) fn write_manifest(dir: &Path, m: &Manifest) -> Result<(), String> {
     fs::write(dir.join(MANIFEST), serde_json::to_vec_pretty(m).unwrap_or_default()).map_err(|e| download::disk_message(&e))
 }
 
@@ -124,17 +124,28 @@ pub fn installed(root: &Path) -> Vec<Installed> {
 }
 
 /// Cœurs libretro installés par iBox dans le RetroArch géré (manifeste `cores\<cœur>.ibox.json`).
+/// Dossier des cœurs du RetroArch géré par iBox : `cores` à côté du programme (Windows), ou
+/// sous Linux celui de sa configuration (Flatpak : `~/.var/app/org.libretro.RetroArch/...`).
+pub fn ra_cores_dir(root: &Path) -> Option<PathBuf> {
+    let ra = installed_dir(root, "retroarch")?;
+    if cfg!(windows) {
+        return Some(ra.join("cores"));
+    }
+    let exe = ra.join(read_manifest(&ra)?.exe);
+    Some(crate::launcher::profiles::cores_dir(&exe))
+}
+
 fn installed_cores(root: &Path) -> Vec<Installed> {
-    let Some(ra) = installed_dir(root, "retroarch") else { return Vec::new() };
-    let Ok(rd) = fs::read_dir(ra.join("cores")) else { return Vec::new() };
+    let Some(cores) = ra_cores_dir(root) else { return Vec::new() };
+    let Ok(rd) = fs::read_dir(&cores) else { return Vec::new() };
     rd.flatten()
         .filter(|e| e.file_name().to_string_lossy().ends_with(".ibox.json"))
         .filter_map(|e| {
             let m: Manifest = serde_json::from_slice(&fs::read(e.path()).ok()?).ok()?;
-            let dll = ra.join("cores").join(&m.exe);
+            let dll = cores.join(&m.exe);
             dll.is_file().then(|| Installed {
                 package_id: m.package_id,
-                dir: ra.join("cores").to_string_lossy().to_string(),
+                dir: cores.to_string_lossy().to_string(),
                 exe: dll.to_string_lossy().to_string(),
                 version: m.version,
                 verified: m.verified,
@@ -196,8 +207,13 @@ fn content_root(staging: &Path) -> PathBuf {
 
 /// Exécutable principal : nom attendu (sans casse), à trois niveaux au plus, vrai programme Windows.
 pub fn find_exe(dir: &Path, names: &[&str]) -> Option<PathBuf> {
+    // Linux : même nom sans « .exe », programme ELF (Xenia range le sien à 5 niveaux)
+    let linux = !cfg!(windows);
+    let owned: Vec<String> = names.iter().map(|n| if linux { n.trim_end_matches(".exe").trim_end_matches(".EXE").to_string() } else { n.to_string() }).collect();
+    let names: Vec<&str> = owned.iter().map(String::as_str).collect();
+    let names = names.as_slice();
     let mut found: Vec<PathBuf> = WalkDir::new(dir)
-        .max_depth(3)
+        .max_depth(if linux { 5 } else { 3 })
         .follow_links(false)
         .into_iter()
         .flatten()
@@ -206,7 +222,18 @@ pub fn find_exe(dir: &Path, names: &[&str]) -> Option<PathBuf> {
         .map(|e| e.into_path())
         .collect();
     found.sort_by_key(|p| (names.iter().position(|n| p.file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case(n))), p.components().count()));
-    found.into_iter().find(|p| is_pe(p))
+    found.into_iter().find(|p| if linux { is_elf(p) } else { is_pe(p) })
+}
+
+/// Linux : programme extrait d'une archive zip (droits perdus) rendu exécutable.
+fn make_executable(p: &Path) -> Result<(), InstallError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(p, fs::Permissions::from_mode(0o755)).map_err(|e| download::disk_message(&e))?;
+    }
+    let _ = p;
+    Ok(())
 }
 
 /// Fichier téléchargé au format AppImage (Linux).
@@ -276,6 +303,9 @@ pub fn install(
     if !pkg.automatic {
         return Err("cet émulateur s'installe depuis son site officiel".to_string().into());
     }
+    if let Source::Flathub { app } = pkg.source {
+        return super::flatpak::install(pkg, app, root, cancel, report);
+    }
     report(Step::Stage(Stage::Resolving));
     let resolved = download::resolve(http, pkg)?;
     report(Step::Version(resolved.version.clone()));
@@ -292,8 +322,8 @@ pub fn install_resolved(
 ) -> Result<Installed, InstallError> {
     let core_target = match pkg.source {
         Source::LibretroCore { file } => {
-            let ra = installed_dir(root, "retroarch").ok_or("installez d'abord RetroArch avec iBox".to_string())?;
-            Some((ra, file))
+            let cores = ra_cores_dir(root).ok_or("installez d'abord RetroArch avec iBox".to_string())?;
+            Some((cores, crate::launcher::profiles::core_file(file)))
         }
         _ => None,
     };
@@ -317,7 +347,9 @@ pub fn install_resolved(
         } else {
             report(Step::Stage(Stage::Extracting));
             let mut last = 0u64;
-            archive::extract(pkg.archive, &archive_path, &staging, cancel, &mut |bytes| {
+            // le nom du fichier l'emporte (version Linux en .tar.xz d'un paquet livré en zip sous Windows)
+            let kind = archive::kind_for(&resolved.file_name).unwrap_or(pkg.archive);
+            archive::extract(kind, &archive_path, &staging, cancel, &mut |bytes| {
                 if bytes - last > 4 * 1024 * 1024 {
                     last = bytes;
                     report(Step::Bytes { received: bytes, total: None, speed: 0 });
@@ -336,8 +368,8 @@ pub fn install_resolved(
             exe: String::new(),
             files: Vec::new(),
         };
-        if let Some((ra, file)) = &core_target {
-            return activate_core(&staging, ra, file, manifest_base);
+        if let Some((cores, file)) = &core_target {
+            return activate_core(&staging, cores, file, manifest_base);
         }
         let content = if appimage { staging.clone() } else { content_root(&staging) };
         let exe = if appimage {
@@ -345,9 +377,12 @@ pub fn install_resolved(
         } else {
             find_exe(&content, pkg.exe).ok_or("programme de l'émulateur introuvable dans l'archive officielle".to_string())?
         };
+        if !cfg!(windows) {
+            make_executable(&exe)?;
+        }
         let rel_exe = exe.strip_prefix(&content).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
         // marqueurs « portables » : propres aux versions Windows
-        for marker in pkg.markers.iter().filter(|_| !appimage) {
+        for marker in pkg.markers.iter().filter(|_| !appimage && cfg!(windows)) {
             fs::write(exe.parent().unwrap_or(&content).join(marker), b"").map_err(|e| download::disk_message(&e))?;
         }
         let manifest = Manifest { exe: rel_exe.clone(), files: top_level(&content), ..manifest_base };
@@ -405,11 +440,11 @@ fn activate(root: &Path, pkg: &Package, content: &Path) -> Result<PathBuf, Insta
     Ok(final_dir)
 }
 
-fn activate_core(staging: &Path, ra: &Path, file: &str, base: Manifest) -> Result<Installed, InstallError> {
+fn activate_core(staging: &Path, cores: &Path, file: &str, base: Manifest) -> Result<Installed, InstallError> {
     let content = content_root(staging);
     let dll = WalkDir::new(&content).max_depth(2).into_iter().flatten().find(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case(file)).map(|e| e.into_path());
-    let dll = dll.filter(|p| is_pe(p)).ok_or("cœur introuvable dans l'archive officielle".to_string())?;
-    let cores = ra.join("cores");
+    let dll = dll.filter(|p| if cfg!(windows) { is_pe(p) } else { is_elf(p) }).ok_or("cœur introuvable dans l'archive officielle".to_string())?;
+    let cores = cores.to_path_buf();
     fs::create_dir_all(&cores).map_err(|e| download::disk_message(&e))?;
     let target = cores.join(file);
     if target.exists() {
@@ -437,8 +472,8 @@ fn sanitize(s: &str) -> String {
 /// Désinstallation : le dossier géré part dans `_backups` (restaurable), jamais une installation externe.
 pub fn uninstall(root: &Path, pkg: &Package) -> Result<PathBuf, String> {
     if let Source::LibretroCore { file } = pkg.source {
-        let ra = installed_dir(root, "retroarch").ok_or("RetroArch géré par iBox introuvable")?;
-        let cores = ra.join("cores");
+        let cores = ra_cores_dir(root).ok_or("RetroArch géré par iBox introuvable")?;
+        let file = &crate::launcher::profiles::core_file(file);
         fs::remove_file(cores.join(format!("{file}.ibox.json"))).map_err(|e| download::disk_message(&e))?;
         let _ = fs::remove_file(cores.join(format!("{file}.ancien")));
         fs::remove_file(cores.join(file)).map_err(|e| download::disk_message(&e))?;
@@ -448,7 +483,12 @@ pub fn uninstall(root: &Path, pkg: &Package) -> Result<PathBuf, String> {
     if running_inside(&dir) {
         return Err(format!("{} est ouvert : fermez-le puis réessayez", pkg.name));
     }
-    let v = read_manifest(&dir).map(|m| m.version).unwrap_or_default();
+    let manifest = read_manifest(&dir);
+    // Flathub : l'application quitte aussi l'installation de l'utilisateur (pas celle du système)
+    if let Some(app) = manifest.as_ref().and_then(|m| m.source_url.strip_prefix(super::flatpak::SOURCE_PREFIX)) {
+        super::flatpak::uninstall(app)?;
+    }
+    let v = manifest.map(|m| m.version).unwrap_or_default();
     fs::create_dir_all(root.join("_backups")).map_err(|e| download::disk_message(&e))?;
     let target = root.join("_backups").join(format!("{}-{}-desinstalle-{}", folder_name(pkg), sanitize(&v), stamp()));
     fs::rename(&dir, &target).map_err(|e| download::disk_message(&e))?;
@@ -518,10 +558,16 @@ mod tests {
     use std::io::Write;
     use zip::write::SimpleFileOptions;
 
+    /// Programme factice du système : exécutable Windows, ou ELF sans « .exe » sous Linux.
+    fn fake_program() -> (&'static str, &'static [u8]) {
+        if cfg!(windows) { ("PPSSPPWindows64.exe", b"MZ fake") } else { ("PPSSPPWindows64", b"\x7fELF fake") }
+    }
+
     fn fake_zip(path: &Path, version_marker: &[u8]) {
         let mut w = zip::ZipWriter::new(fs::File::create(path).unwrap());
-        w.start_file("PPSSPP/PPSSPPWindows64.exe", SimpleFileOptions::default()).unwrap();
-        w.write_all(b"MZ fake").unwrap();
+        let (name, bytes) = fake_program();
+        w.start_file(format!("PPSSPP/{name}"), SimpleFileOptions::default()).unwrap();
+        w.write_all(bytes).unwrap();
         w.start_file("PPSSPP/assets/version.txt", SimpleFileOptions::default()).unwrap();
         w.write_all(version_marker).unwrap();
         w.finish().unwrap();
@@ -548,7 +594,7 @@ mod tests {
             sha256: String::new(),
             verified: false,
             installed_at: "t".into(),
-            exe: "PPSSPPWindows64.exe".into(),
+            exe: fake_program().0.into(),
             files: top_level(&content),
         };
         write_manifest(&content, &manifest).unwrap();
@@ -584,7 +630,7 @@ mod tests {
         assert!(Path::new(&restored.dir).join("memstick/SAVEDATA/save.bin").is_file(), "sauvegarde suivie");
 
         let moved = uninstall(&root, pkg).unwrap();
-        assert!(moved.join("PPSSPPWindows64.exe").is_file(), "désinstallation réversible");
+        assert!(moved.join(fake_program().0).is_file(), "désinstallation réversible");
         assert!(installed(&root).is_empty());
         assert!(purge_backups(&root, "ppsspp").unwrap() > 0);
         assert!(backups(&root).is_empty());
@@ -605,9 +651,11 @@ mod tests {
     fn exe_introuvable_ou_factice_refuse() {
         let t = tempfile::tempdir().unwrap();
         fs::create_dir_all(t.path().join("a")).unwrap();
-        fs::write(t.path().join("a/PPSSPPWindows64.exe"), b"pas un programme").unwrap();
+        let (name, bytes) = fake_program();
+        fs::write(t.path().join("a").join(name), b"pas un programme").unwrap();
         assert!(find_exe(t.path(), &["PPSSPPWindows64.exe"]).is_none());
-        fs::write(t.path().join("a/PPSSPPWindows64.exe"), b"MZ").unwrap();
+        fs::write(t.path().join("a").join(name), bytes).unwrap();
+        // même nom sans casse ; sous Linux, sans « .exe »
         assert!(find_exe(t.path(), &["ppssppwindows64.exe"]).is_some());
     }
 

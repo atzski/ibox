@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { isLinux } from "@/services/platform";
 import { useLibrary } from "@/services/library";
 import { useSettings } from "@/services/settings";
 import { formatBytes, metadataApi, type MetadataStatus, type ProviderId } from "@/services/metadata";
@@ -107,7 +108,7 @@ export function MetadataPanel() {
     await run(async () => {
       await metadataApi.setKey("steamgriddb", key);
       setKey("");
-    }, "Clé vérifiée et enregistrée dans le Gestionnaire d'identifiants Windows.");
+    }, isLinux() ? "Clé vérifiée et enregistrée sur cet appareil." : "Clé vérifiée et enregistrée dans le Gestionnaire d'identifiants Windows.");
     setSavingKey(false);
     // les jeux encore sans jaquette sont relancés aussitôt (jaquette, fond, logo)
     const missing = useLibrary
@@ -143,7 +144,7 @@ export function MetadataPanel() {
                 {status?.steamgriddbKey ? (
                   <div className="flex items-center gap-3">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-soft px-3 py-1 text-[0.8rem] font-bold text-mint-deep">
-                      <Icon name="key" size="1em" /> Clé enregistrée (coffre Windows)
+                      <Icon name="key" size="1em" /> {isLinux() ? "Clé enregistrée sur cet appareil" : "Clé enregistrée (coffre Windows)"}
                     </span>
                     <Button cue="back" onClick={() => void run(() => metadataApi.deleteKey("steamgriddb"), "Clé supprimée.")}>
                       Supprimer

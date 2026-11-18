@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isLinux } from "@/services/platform";
 import { isHidden, pcApi, sourceInfo, type PcConnector, type PcSyncSummary } from "@/services/pc";
 import { sound } from "@/services/sound";
 import { useSettings } from "@/services/settings";
@@ -251,7 +252,7 @@ function SteamKey({ has, onChange }: { has: boolean; onChange: () => void }) {
       <div className="text-[0.8rem] font-bold text-ink">Jeux possédés et Famille Steam</div>
       {has ? (
         <div className="mt-2 flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-soft px-3 py-1 text-[0.78rem] font-bold whitespace-nowrap text-mint-deep" title="Rangée dans le Gestionnaire d'identifiants Windows">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint-soft px-3 py-1 text-[0.78rem] font-bold whitespace-nowrap text-mint-deep" title={isLinux() ? "Rangée sur cet appareil" : "Rangée dans le Gestionnaire d'identifiants Windows"}>
             <Icon name="key" size="1em" /> Clé enregistrée
           </span>
           <Button cue="back" disabled={busy} onClick={() => void run(async () => (await pcApi.deleteSteamKey(), "Clé supprimée : les jeux déjà ajoutés restent, masquables un par un."))}>

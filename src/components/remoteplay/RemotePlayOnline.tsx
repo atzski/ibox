@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useRemoteLatency } from "@/components/extras/PerfOverlay";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
@@ -633,13 +634,24 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       s = w;
     }
     session.current = s;
-    const timer = window.setInterval(() => void s.stats().then(setStats, () => undefined), 1000);
+    const timer = window.setInterval(
+      () =>
+        void s.stats().then((st) => {
+          setStats(st);
+          // panneau des performances : latence de la session en cours
+          useRemoteLatency.setState({ latency: { pingMs: st.pingMs, rttMs: st.rttMs, decodeMs: st.decodeMs, fps: st.fps, bitrateKbps: st.bitrateKbps } });
+        }, () => undefined),
+      1000,
+    );
     // en mode Joueur, la manette de l'invité est envoyée d'office, dès qu'elle apparaît
     const detachPad = join.mode === "play" ? attachPad(s, { onPad: setPad, onPadCapture: (a) => (padCapture.active = a), paused: () => menuRef.current }) : null;
     // la souris aussi, sur l'image seulement (l'hôte la refuse si le profil ne la donne pas)
-    const detachMouse = join.mode === "play" && video.current && s instanceof GuestSession ? attachInputs(s, video.current, { pad: false, keyboard: false }) : null;
+    // la souris aussi (pavés tactiles du Steam Deck), sur l'image seulement
+    const surface = native ? canvas.current : video.current;
+    const detachMouse = join.mode === "play" && surface ? attachInputs(s, surface, { pad: false, keyboard: false }) : null;
     return () => {
       useScenePause.setState({ paused: false });
+      useRemoteLatency.setState({ latency: null });
       if (unmute) {
         window.removeEventListener("pointerdown", unmute, true);
         window.removeEventListener("keydown", unmute, true);
@@ -661,10 +673,10 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
       setControlling(false);
       return;
     }
-    // clavier : invité du WebView seulement pour l'instant (Steam Deck : manette)
-    if (!(session.current instanceof GuestSession) || !video.current) return;
+    const surface = native ? canvas.current : video.current;
+    if (!session.current || !surface) return;
     // manette et souris sont déjà envoyées d'office : seul le clavier (capturé) s'ajoute ici
-    detach.current = attachInputs(session.current, video.current, { pad: false, mouse: false });
+    detach.current = attachInputs(session.current, surface, { pad: false, mouse: false });
     setControlling(true);
   };
 

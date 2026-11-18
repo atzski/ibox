@@ -194,13 +194,19 @@ pub fn resolve(http: &reqwest::blocking::Client, pkg: &Package) -> Result<Resolv
         }
         Source::Dolphin => pick_dolphin(&get_json(http, "https://dolphin-emu.org/update/latest/beta/")?),
         Source::RetroArch => pick_retroarch(&get_text(http, "https://buildbot.libretro.com/stable/")?),
-        Source::LibretroCore { file } => Ok(Resolved {
+        Source::LibretroCore { file } => {
+            // même serveur officiel, version du système (Linux : `…_libretro.so`)
+            let (os, file) = if cfg!(windows) { ("windows", file.to_string()) } else { ("linux", crate::launcher::profiles::core_file(file)) };
+            Ok(Resolved {
             version: "nightly".into(),
-            url: format!("https://buildbot.libretro.com/nightly/windows/x86_64/latest/{file}.zip"),
+            url: format!("https://buildbot.libretro.com/nightly/{os}/x86_64/latest/{file}.zip"),
             file_name: format!("{file}.zip"),
             size: None,
             sha256: None,
-        }),
+        })
+        }
+        // Flathub : version et mise à jour gérées par flatpak (Discover), rien à télécharger ici
+        Source::Flathub { .. } => Ok(Resolved { version: "Flathub".into(), url: String::new(), file_name: String::new(), size: None, sha256: None }),
         Source::Manual => Err("cet émulateur s'installe depuis son site officiel".into()),
     }
 }

@@ -304,6 +304,31 @@ pub enum ArgsError {
     MissingCore,
 }
 
+/// Nom d'un cœur libretro sur ce système : `…_libretro.dll` sous Windows, `…_libretro.so` sous Linux.
+pub fn core_file(name: &str) -> String {
+    if cfg!(windows) {
+        return name.to_string();
+    }
+    match name.strip_suffix(".dll").or_else(|| name.strip_suffix(".DLL")) {
+        Some(stem) => format!("{stem}.so"),
+        None => name.to_string(),
+    }
+}
+
+/// Dossier des cœurs de RetroArch : `cores` à côté du programme (Windows, version portable), ou
+/// sous Linux le dossier de configuration (`$XDG_CONFIG_HOME/retroarch/cores`, Flatpak compris :
+/// `~/.var/app/org.libretro.RetroArch/config/retroarch/cores`).
+pub fn cores_dir(exe: &std::path::Path) -> std::path::PathBuf {
+    let beside = exe.parent().map(|p| p.join("cores")).unwrap_or_default();
+    if cfg!(windows) || beside.is_dir() {
+        return beside;
+    }
+    match crate::smartconfig::platform::UnixDirs::from_env(|k| std::env::var(k).ok()) {
+        Some(d) => d.for_exe(exe).config_home.join("retroarch").join("cores"),
+        None => beside,
+    }
+}
+
 /// Construit la liste d'arguments. `{rom}` et `{core}` doivent être des
 /// arguments entiers ; `{fullscreen}` se développe en zéro ou plusieurs arguments.
 pub fn build_args(template: &[String], fullscreen: Option<&[&str]>, rom: &str, core: Option<&str>) -> Result<Vec<String>, ArgsError> {
@@ -364,6 +389,14 @@ pub fn join_args(args: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn coeurs_selon_le_systeme() {
+        assert_eq!(core_file("snes9x_libretro.dll"), if cfg!(windows) { "snes9x_libretro.dll" } else { "snes9x_libretro.so" });
+        let t = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(t.path().join("RetroArch/cores")).unwrap();
+        assert_eq!(cores_dir(&t.path().join("RetroArch/retroarch.exe")), t.path().join("RetroArch/cores"));
+    }
 
     fn t(v: &[&str]) -> Vec<String> {
         v.iter().map(|s| s.to_string()).collect()

@@ -20,6 +20,7 @@ pub mod metadata;
 pub mod paths;
 pub mod pc;
 pub mod platform;
+pub mod perf;
 pub mod power;
 pub mod scanner;
 pub mod shell;
@@ -117,6 +118,7 @@ pub fn run() {
             app_info,
             platform::platform_info,
             power::power_status,
+            perf::perf_sample,
             pc::steam_shortcut::steam_add_ibox,
             manuals::commands::manual_list,
             manuals::commands::manual_read,

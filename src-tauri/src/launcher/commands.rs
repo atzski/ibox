@@ -63,12 +63,13 @@ pub fn emulator_remove(lib: State<LibraryState>, id: i64) -> Res<()> {
 #[tauri::command]
 pub fn emulator_cores(lib: State<LibraryState>, id: i64) -> Res<Vec<String>> {
     let exe: String = lib.with(|c| Ok(c.query_row("SELECT exe_path FROM emulators WHERE id = ?1", [id], |r| r.get(0))?))?;
-    let dir = std::path::Path::new(&exe).parent().map(|p| p.join("cores")).unwrap_or_default();
+    let dir = super::profiles::cores_dir(std::path::Path::new(&exe));
+    let ext = if cfg!(windows) { "_libretro.dll" } else { "_libretro.so" };
     let mut cores: Vec<String> = std::fs::read_dir(&dir)
         .map(|it| {
             it.flatten()
                 .map(|e| e.file_name().to_string_lossy().to_string())
-                .filter(|n| n.to_lowercase().ends_with("_libretro.dll"))
+                .filter(|n| n.to_lowercase().ends_with(ext))
                 .collect()
         })
         .unwrap_or_default();

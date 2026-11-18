@@ -124,6 +124,8 @@ export interface ProbeResult {
   userAgent: string;
   videoDecoder: boolean;
   audioDecoder: boolean;
+  /** API Gamepad exposée (navigation à la manette : libmanette sous WebKitGTK). */
+  gamepadApi: boolean;
   /** Profil → { matériel, logiciel } accepté par `isConfigSupported`. */
   codecs: Record<string, { hardware: boolean; software: boolean }>;
 }
@@ -134,6 +136,7 @@ export async function probeWebCodecs(): Promise<ProbeResult> {
     userAgent: navigator.userAgent,
     videoDecoder: typeof VideoDecoder !== "undefined",
     audioDecoder: typeof AudioDecoder !== "undefined",
+    gamepadApi: typeof navigator.getGamepads === "function",
     codecs: {},
   };
   if (!result.videoDecoder) return result;
@@ -202,6 +205,8 @@ export interface DecodeStats {
   paintMedianMs: number | null;
   /** Dernière erreur du décodeur (message). */
   lastError: string | null;
+  /** Décodeur demandé : matériel en priorité (VA-API sur le Deck), logiciel après un échec. */
+  decoder: "auto" | "software";
   width: number;
   height: number;
 }
@@ -219,13 +224,15 @@ function median(v: number[]): number | null {
 export class H264Renderer {
   private decoder: VideoDecoder | null = null;
   private config: string | null = null;
+  /** Repli logiciel : après un échec du décodeur choisi d'office (matériel). */
+  private accel: HardwareAcceleration = "no-preference";
   private waitingKey = true;
   private pending = new Map<number, { submitted: number; arrivedUs: number }>();
   private decodeMs: number[] = [];
   private totalMs: number[] = [];
   private paintMs: number[] = [];
   private gl: ((img: VideoFrame) => void) | null = null;
-  private stats: DecodeStats = { received: 0, decoded: 0, dropped: 0, errors: 0, keyframeRequests: 0, decodeMedianMs: null, decodeMaxMs: null, totalMedianMs: null, codec: null, paintMedianMs: null, lastError: null, width: 0, height: 0 };
+  private stats: DecodeStats = { received: 0, decoded: 0, dropped: 0, errors: 0, keyframeRequests: 0, decodeMedianMs: null, decodeMaxMs: null, totalMedianMs: null, codec: null, paintMedianMs: null, lastError: null, decoder: "auto", width: 0, height: 0 };
   /** Correspondance horloge Rust (µs depuis le début) → `performance.now()`, fixée à la 1re image. */
   private clockOffset: number | null = null;
 
@@ -279,7 +286,7 @@ export class H264Renderer {
     });
     // format AVC avec `description` (avcC) : accepté par WebKitGTK comme par Chromium
     try {
-      this.decoder.configure({ codec, description, optimizeForLatency: true, hardwareAcceleration: "no-preference" });
+      this.decoder.configure({ codec, description, optimizeForLatency: true, hardwareAcceleration: this.accel });
     } catch (e) {
       this.fail(e);
     }
@@ -326,6 +333,12 @@ export class H264Renderer {
 
   private fail(e?: unknown) {
     this.stats.errors++;
+    // premier échec : on repasse en décodage logiciel (FFmpeg LGPL), la prochaine image clé le configure
+    if (this.accel !== "prefer-software") {
+      this.accel = "prefer-software";
+      this.stats.decoder = "software";
+      this.config = null;
+    }
     this.stats.lastError = e instanceof Error ? `${e.name}: ${e.message}` : e === undefined ? null : String(e);
     this.waitingKey = true;
     this.pending.clear();

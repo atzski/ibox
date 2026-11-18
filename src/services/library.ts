@@ -339,7 +339,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
 });
 
 /** Boutiques dont iBox sait lire les jeux. */
-export const PC_SYNC_SOURCES = ["steam", "epic", "gog", "heroic", "riot", "rsi", "ea", "battlenet", "rockstar", "ubisoft", "xbox"];
+export const PC_SYNC_SOURCES = ["steam", "epic", "gog", "heroic", "lutris", "riot", "rsi", "ea", "battlenet", "rockstar", "ubisoft", "xbox"];
 
 // Retour dans iBox (après une installation dans une boutique…) : les boutiques sont relues
 if (typeof window !== "undefined") {

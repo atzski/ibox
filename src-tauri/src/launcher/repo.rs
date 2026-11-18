@@ -108,10 +108,10 @@ pub fn add(conn: &Connection, exe_path: &str) -> Result<Emulator> {
     // Cœurs RetroArch présents parmi les suggestions
     let mut cores = BTreeMap::new();
     if profile.needs_core {
-        let dir = exe.parent().map(|p| p.join("cores")).unwrap_or_default();
+        let dir = profiles::cores_dir(&exe);
         for platform in profile.platforms {
-            if let Some(core) = profiles::suggested_cores(platform).iter().find(|c| dir.join(c).is_file()) {
-                cores.insert(platform.to_string(), core.to_string());
+            if let Some(core) = profiles::suggested_cores(platform).iter().map(|c| profiles::core_file(c)).find(|c| dir.join(c).is_file()) {
+                cores.insert(platform.to_string(), core);
             }
         }
     }
@@ -327,7 +327,7 @@ pub fn plan(conn: &Connection, game_id: i64) -> Result<LaunchPlan> {
     let core_path = emu
         .cores
         .get(&platform)
-        .map(|file| exe.parent().unwrap_or(Path::new("")).join("cores").join(file).to_string_lossy().to_string());
+        .map(|file| profiles::cores_dir(&exe).join(profiles::core_file(file)).to_string_lossy().to_string());
     if let Some(core) = &core_path {
         if !Path::new(core).is_file() {
             return Err(LaunchError::CoreMissing(core.clone()));

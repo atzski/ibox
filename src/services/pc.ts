@@ -75,6 +75,7 @@ export const PC_SOURCES: Record<string, { name: string; short: string; color: st
   epic: { name: "Epic Games Store", short: "Epic", color: "#9AA3B5" },
   gog: { name: "GOG", short: "GOG", color: "#B39AE0" },
   heroic: { name: "Heroic", short: "Heroic", color: "#C4A0E8" },
+  lutris: { name: "Lutris", short: "Lutris", color: "#F5B26B" },
   ubisoft: { name: "Ubisoft Connect", short: "Ubisoft", color: "#7DB8E8" },
   ea: { name: "EA app", short: "EA", color: "#F08C8C" },
   xbox: { name: "Xbox", short: "Xbox", color: "#8CCB8C" },
@@ -143,7 +144,7 @@ export function launchState(game: Game): { install: PcInstall | null; action: "p
       ? { install, action: "install", reason: null }
       : { install, action: "install", reason: `Non installé (${sourceInfo(install.source).short})` };
   }
-  if (install.launchKind === "protocol" && (STORE_LAUNCH.includes(install.source) || ["xbox", "ubisoft", "ea", "heroic"].includes(install.source))) return { install, action: "play", reason: null };
+  if (install.launchKind === "protocol" && (STORE_LAUNCH.includes(install.source) || ["xbox", "ubisoft", "ea", "heroic", "lutris"].includes(install.source))) return { install, action: "play", reason: null };
   if (install.launchKind !== "exe") return { install, action: "play", reason: `Lancement via ${sourceInfo(install.source).short} : bientôt` };
   return { install, action: "play", reason: null };
 }

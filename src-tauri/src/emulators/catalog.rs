@@ -14,6 +14,8 @@ use serde::Serialize;
 pub enum Archive {
     Zip,
     SevenZ,
+    /// `.tar.xz` (versions Linux).
+    TarXz,
 }
 
 /// Fichier attendu dans une release GitHub (comparaison sans casse).
@@ -47,6 +49,8 @@ pub enum Source {
     RetroArch,
     /// Cœur libretro du serveur officiel (même source que le « Online Updater » de RetroArch).
     LibretroCore { file: &'static str },
+    /// Linux : application Flathub (`flatpak install --user`), voir `flatpak.rs`.
+    Flathub { app: &'static str },
     /// Pas de distribution automatisable : parcours assisté vers le site officiel.
     Manual,
 }
@@ -726,6 +730,17 @@ pub const LINUX: &[(&str, Source)] = &[
     ("xemu", gh("xemu-project/xemu", "xemu-", "-x86_64.AppImage", &["dbg"])),
     ("vita3k", gh("Vita3K/Vita3K", "Vita3K-x86_64.AppImage", "Vita3K-x86_64.AppImage", &[])),
     ("flycast", gh("flyinghead/flycast", "flycast-x86_64-", ".AppImage", &[])),
+    // programme Linux officiel dans une archive (zip ou tar.xz), rendu exécutable à l'installation
+    ("mesen", gh("SourMesen/Mesen2", "Mesen_", "_Linux_x64.zip", &[])),
+    ("xenia", gh("xenia-canary/xenia-canary-releases", "xenia_canary_linux", ".xz", &[])),
+    // pas d'AppImage simple : application Flathub (boutique du Steam Deck), voir flatpak.rs
+    ("dolphin", Source::Flathub { app: "org.DolphinEmu.dolphin-emu" }),
+    ("retroarch", Source::Flathub { app: "org.libretro.RetroArch" }),
+    ("melonds", Source::Flathub { app: "net.kuribo64.melonDS" }),
+    ("shadps4", Source::Flathub { app: "net.shadps4.shadPS4" }),
+    ("sameboy", Source::Flathub { app: "io.github.sameboy.SameBoy" }),
+    ("stella", Source::Flathub { app: "io.github.stella_emu.Stella" }),
+    ("mame", Source::Flathub { app: "org.mamedev.MAME" }),
 ];
 
 /// Source Linux d'un paquet (AppImage officielle), s'il en a une.
@@ -737,7 +752,8 @@ pub fn linux_source(id: &str) -> Option<Source> {
 /// installation automatique seulement s'il en a une.
 pub fn for_this_system(pkg: &Package) -> Package {
     let mut p = *pkg;
-    if !cfg!(windows) {
+    // cœurs libretro : même serveur officiel sous Linux (version .so), voir download.rs
+    if !cfg!(windows) && !matches!(p.source, Source::LibretroCore { .. }) {
         match linux_source(p.id) {
             Some(src) => p.source = src,
             None => {
@@ -859,8 +875,25 @@ mod tests {
             ("xemu", "xemu-0.8.139-x86_64.AppImage", &["xemu-0.8.139-dbg-x86_64.AppImage", "xemu-0.8.139-aarch64.AppImage"]),
             ("vita3k", "Vita3K-x86_64.AppImage", &["Vita3K-x86_64.AppImage.zsync", "Vita3K-aarch64.AppImage"]),
             ("flycast", "flycast-x86_64-2.7.AppImage", &["flycast-win64-2.7.zip"]),
+            // archives Linux officielles (relevées le 2026-11-18)
+            ("mesen", "Mesen_2.1.1_Linux_x64.zip", &["Mesen_2.1.1_Linux_ARM64.zip", "Mesen_2.1.1_Windows.zip", "Mesen_2.1.1_macOS_x64_Intel.zip"]),
+            ("xenia", "xenia_canary_linux.tar_.xz", &["xenia_canary_windows_.zip"]),
         ];
-        assert_eq!(cases.len(), LINUX.len());
+        let flathub: &[(&str, &str)] = &[
+            ("dolphin", "org.DolphinEmu.dolphin-emu"),
+            ("retroarch", "org.libretro.RetroArch"),
+            ("melonds", "net.kuribo64.melonDS"),
+            ("shadps4", "net.shadps4.shadPS4"),
+            ("sameboy", "io.github.sameboy.SameBoy"),
+            ("stella", "io.github.stella_emu.Stella"),
+            ("mame", "org.mamedev.MAME"),
+        ];
+        assert_eq!(cases.len() + flathub.len(), LINUX.len());
+        for (id, app) in flathub {
+            assert!(package(id).is_some(), "{id} absent du catalogue");
+            assert!(matches!(linux_source(id), Some(Source::Flathub { app: a }) if a == *app), "{id}");
+            assert!(super::super::flatpak::valid_app_id(app));
+        }
         for (id, good, bad) in cases {
             assert!(package(id).is_some(), "{id} absent du catalogue");
             let asset = match linux_source(id).unwrap() {
@@ -872,8 +905,10 @@ mod tests {
                 assert!(!asset.matches(b), "{id} : {b}");
             }
         }
-        // sous Linux, un paquet sans AppImage officielle n'est jamais installé automatiquement
-        let dolphin = for_this_system(package("dolphin").unwrap());
-        assert_eq!(dolphin.automatic, cfg!(windows));
+        // sous Linux, un paquet sans aucune source Linux n'est jamais installé automatiquement
+        let manual: Vec<&str> = PACKAGES.iter().filter(|p| p.automatic && !p.id.starts_with("core-") && linux_source(p.id).is_none()).map(|p| p.id).collect();
+        for id in &manual {
+            assert_eq!(for_this_system(package(id).unwrap()).automatic, cfg!(windows), "{id}");
+        }
     }
 }

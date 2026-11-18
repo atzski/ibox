@@ -5,5 +5,6 @@ pub mod archive;
 pub mod catalog;
 pub mod commands;
 pub mod download;
+pub mod flatpak;
 pub mod install;
 pub mod requirements;

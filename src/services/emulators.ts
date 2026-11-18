@@ -15,7 +15,7 @@ export interface EmulatorPackage {
   id: string;
   name: string;
   profileId: string;
-  archive: "zip" | "sevenZ";
+  archive: "zip" | "sevenZ" | "tarXz";
   platforms: string[];
   homepage: string;
   docs: string;
@@ -54,6 +54,8 @@ export interface Overview {
   installed: InstalledPackage[];
   backups: PackageBackup[];
   jobs: string[];
+  /** Linux : paquets installés depuis Flathub (mises à jour par Discover). */
+  flathub?: string[];
 }
 
 export type Stage = "resolving" | "downloading" | "verifying" | "extracting" | "installing" | "done" | "error" | "cancelled";
