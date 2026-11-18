@@ -33,12 +33,14 @@ The [Windows build](../.github/workflows/windows.yml) workflow runs the TypeScri
 
 Public builds let you import your own menu music under **Settings → Sound**. Media fetched from artwork providers are not included in the repository.
 
+The ScreenScraper developer credentials used to find manuals are never in the repository. Builds without them show ScreenScraper as unavailable in **Settings → Manuals**; Steam and Internet Archive keep working.
+
 ## Repository layout
 
 | Folder | Contents |
 | --- | --- |
-| `src/` | React interface: screens, components, 3D scenes (`three/`), procedural artwork (`art/`), services, translations (`i18n/`) |
-| `src-tauri/` | Rust side: SQLite library, scanner, metadata providers, launchers, emulator installation, iNetbox client, Remote Play, capture |
+| `src/` | React interface: screens, components, 3D scenes (`three/`), procedural artwork (`art/`), services, translations (`i18n/`, French source text translated through `i18n/en.ts`) |
+| `src-tauri/` | Rust side: SQLite library, scanner, metadata providers, manuals, launchers, emulator installation, SmartConfig, iNetbox client, Remote Play, capture |
 | `3d-assets/` | Sources and pipeline of the 3D game cases |
 | `public/` | Static assets: console photos, case models, interface sounds |
 | `docs/` | Documentation and README media |
@@ -63,7 +65,7 @@ Most design notes are written in French.
 - [Real library](PHASE2.md) · [Metadata and artwork](PHASE3.md) · [Emulators](PHASE4.md) · [Cases per console, controllers](PHASE5.md)
 - [PC games](PC.md) · [iBox Platforms](PLATFORMS.md) · [Emulator launch profiles](EMULATORS.md)
 - [Artwork sources and licences](PROVIDERS.md) · [3D assets](ASSETS.md)
-- [Remote Play](REMOTE-PLAY.md) · [iNetbox database](INETBOX-DATABASE.md)
+- [iBox SmartConfig](SMARTCONFIG.md) · [Remote Play](REMOTE-PLAY.md) · [iNetbox database](INETBOX-DATABASE.md) · [Road to 1.0](ROADMAP-1.0.md)
 - [Regenerating the README media](media/README.md)
 
 ## Reporting a bug

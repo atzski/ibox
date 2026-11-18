@@ -25,6 +25,8 @@ An API key is a personal code that lets iBox connect to a service using your acc
 | SteamGridDB | Covers, logos and backgrounds. |
 | iiDB | Artwork for consoles and games. |
 | RetroAchievements | Retro achievements on game pages. |
+| GIPHY | Animated stickers to decorate your collections. |
+| ScreenScraper account | Optional: your own quota for finding game manuals. |
 
 **Keep your keys private**, just like passwords. Never include them in screenshots, messages or GitHub issues. If you share one accidentally, revoke or regenerate it on the service’s website, then replace it in iBox.
 
@@ -59,6 +61,19 @@ If Steam refuses to create a key, follow the instructions on its page: Steam det
 3. In iBox, paste it into **RetroAchievements API key** and select **Save**. Also enter your RetroAchievements username in iBox settings if prompted.
 4. To earn achievements while playing, configure RetroAchievements separately in a compatible emulator; adding the key to iBox does not configure your emulator.
 
+### GIPHY
+
+1. Sign in or create an account on [GIPHY Developers](https://developers.giphy.com/).
+2. Select **Create an API Key**, choose **API** and copy the key.
+3. In iBox, open the home screen, select **Add a decoration** (the sparkle button next to your collections), open the stickers search and paste the key once.
+
+### ScreenScraper account (optional)
+
+iBox finds game manuals on its own (Steam, ScreenScraper, Internet Archive). A free account on [ScreenScraper](https://www.screenscraper.fr/) gives you your own quota, so manuals arrive faster when the service is busy.
+
+1. Create an account on ScreenScraper.
+2. In iBox, open **Settings → Manuals → ScreenScraper account** and enter your username and password. The password is checked with ScreenScraper, then stored in the Windows vault.
+
 ## 4. Controls
 
 iBox works with a controller, a keyboard or a mouse, and you can switch between them at any time. Up to eight controllers are recognised (P1 to P8).
@@ -72,6 +87,12 @@ iBox works with a controller, a keyboard or a mouse, and you can switch between 
 | Turn the case around | ← → (viewer focused) | Right stick | Drag |
 | Open / close the case | Enter (viewer focused) | A | Double-click or **Open** |
 | Zoom | + / − | Triggers | Mouse wheel |
+| Quick menu (go anywhere, list of controls) | F1 | Start | — |
+| Search | / | Select | Search button |
+| Previous / next game (game page) | Q / E | LB / RB | — |
+| Turn the manual's pages | ← → | D-pad | Click |
+
+Open a case and click its booklet to read the game's manual. If none was found, **Manual** on the game page offers the versions found, or lets you import any PDF.
 
 During a game, **Alt+E** opens the iBox overlay to save a screenshot or a clip of the last seconds.
 
@@ -80,6 +101,7 @@ During a game, **Alt+E** opens the iBox overlay to save a screenshot or a clip o
 - **Key rejected:** check that you signed in to the correct account, copy the entire key without extra spaces, and try again.
 - **Steam games missing:** check the public game details setting, then refresh your library.
 - **Missing artwork or achievements:** the service may not have a result for that game. Check the game name and your connection to the service.
+- **No manual in the box:** iBox only keeps a manual when it is sure of the edition. Use **Manual** on the game page to pick one of the versions found, import a PDF, or select **Refresh manuals** in **Settings → Manuals**.
 - **Need help?** Open an [iBox issue](https://github.com/atzski/ibox/issues) with your version, the steps you followed and the error message. Do not share your keys or personal information.
 
 External websites can change their menus. If a step no longer matches, follow the service’s current instructions and let us know in an issue.
