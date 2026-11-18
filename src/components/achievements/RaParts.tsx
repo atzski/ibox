@@ -306,7 +306,7 @@ export function AchievementsCard({ game, inline = false, compact = false }: { ga
                 <img key={a.id} src={achievementImage(a)} alt="" loading="lazy" className={`size-7 rounded-full ring-2 ${a.earnedAt ? "ring-[#F5B700]" : "opacity-55 ring-black/5 grayscale"}`} />
               ))}
             </span>
-            {left > 0 && <span className="mt-1 block text-[0.72rem] font-bold text-ink-soft">Plus que {left} pour le 100 %</span>}
+            {left > 0 && <span className="mt-1 block text-[0.72rem] font-bold text-ink-soft">{`Plus que ${left} pour le 100 %`}</span>}
           </>
         )}
       </span>

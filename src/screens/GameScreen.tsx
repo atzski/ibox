@@ -458,7 +458,7 @@ function Synopsis({ text }: { text: string }) {
   const long = text.length > 260;
   return (
     <div className="mt-5">
-      <p className={`text-[0.98rem] leading-relaxed font-semibold text-ink-soft ${full || !long ? "" : "line-clamp-4"}`}>{text}</p>
+      <p data-no-i18n className={`text-[0.98rem] leading-relaxed font-semibold text-ink-soft ${full || !long ? "" : "line-clamp-4"}`}>{text}</p>
       {long && (
         <button data-focusable onClick={() => setFull((f) => !f)} className="ibox-focusable mt-1 text-[0.85rem] font-extrabold text-accent-text [--ring-radius:8px]">
           {full ? "Réduire" : "Lire la suite"}

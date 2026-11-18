@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.104",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "globe", title: "Des descriptions intactes en anglais", text: "Avec l’interface en anglais, la description d’un jeu restait truffée de mots traduits au hasard (« of », « and » au milieu du français). Elle s’affiche désormais telle quelle." },
+      { icon: "globe", title: "Les derniers mots en français traduits", text: "« avec » sous le bouton Jouer, le compteur « pour le 100 % » des succès, l’étiquette du bouton Amis et la page Images et données passent enfin en anglais." },
+      { icon: "manual", title: "Images et données à jour", text: "La case ScreenScraper « Bientôt » disparaît de Paramètres › Images et données : ScreenScraper sert déjà aux manuels, réglés dans Paramètres › Manuels." },
+    ],
+  },
+  {
     version: "0.1.103",
     date: "2026-11-18",
     highlights: [

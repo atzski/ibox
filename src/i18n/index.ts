@@ -45,6 +45,9 @@ for (const [fr, en] of Object.entries(EN)) {
 // « Associer {0} jeu{1}… » avant « Associer {0} »)
 patterns.sort((a, b) => b.hint.length - a.hint.length || b.fixed - a.fixed);
 
+/** Longueur maximale d'une partie variable de gabarit (un titre de jeu, un nom, un nombre). */
+const MAX_SLOT = 120;
+
 const misses = new Set<string>();
 // outil de développement seulement : mieux vaut un faux positif qu'un texte français oublié
 const FRENCH_HINT =
@@ -59,7 +62,9 @@ export function translate(text: string, depth = 0): string | null {
     for (const p of patterns) {
       if (p.hint && !core.includes(p.hint)) continue;
       const m = p.re.exec(core);
-      if (!m) continue;
+      // Une partie variable très longue est un texte libre (description de jeu, message) et non
+      // un libellé à trous : « {0} de {1} » y remplaçait chaque « de » par « of ».
+      if (!m || m.slice(1).some((v) => (v?.length ?? 0) > MAX_SLOT)) continue;
       out = p.out.replace(/\{(\d+)(?:\?([^}]*))?\}/g, (_, i: string, word?: string) => {
         const v = m[Number(i) + 1] ?? "";
         if (word !== undefined) return v ? word : "";

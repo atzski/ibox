@@ -171,17 +171,6 @@ export function MetadataPanel() {
             )}
           </SourceRow>
         ))}
-        <div aria-disabled className="rounded-lg border-2 border-dashed border-ink/8 bg-white/30 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-[1rem] font-semibold text-ink-soft">ScreenScraper</span>
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[0.68rem] font-extrabold tracking-wider text-ink-soft uppercase">
-              <Icon name="lock" size="0.95em" /> Bientôt
-            </span>
-          </div>
-          <p className="mt-1 text-[0.82rem] font-semibold text-ink-soft">
-            Scans complets et manuels. Nécessite des identifiants développeur délivrés par l'équipe ScreenScraper.
-          </p>
-        </div>
       </div>
 
       {message && (

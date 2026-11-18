@@ -163,7 +163,7 @@ export function PcGameSheet({ game }: { game: Game }) {
         </motion.div>
 
         {game.description && (
-          <motion.p {...enter(0.2)} className="mt-5 max-w-[46rem] text-[1.02rem] leading-relaxed font-semibold text-ink-soft">
+          <motion.p {...enter(0.2)} data-no-i18n className="mt-5 max-w-[46rem] text-[1.02rem] leading-relaxed font-semibold text-ink-soft">
             {game.description}
           </motion.p>
         )}
