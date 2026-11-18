@@ -406,7 +406,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
         {shade > 0 && <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />}
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
-            {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-white/50"><CoverImage game={g} /></span>)}
+            {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-white/50"><CoverImage game={g} className="size-full" /></span>)}
           </span>
         ) : look === "fan" ? (
           <span className="absolute top-4 right-4 flex">
@@ -416,7 +416,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
                 className="-ml-6 h-[6.2rem] w-[4.5rem] overflow-hidden rounded-lg shadow-lg ring-2 ring-white/85 transition-transform duration-300 group-hover:-translate-y-1"
                 style={{ zIndex: 10 - i, transform: `rotate(${(i - (covers.length - 1) / 2) * 7}deg) translateY(${Math.abs(i - (covers.length - 1) / 2) * 5}px)` }}
               >
-                <CoverImage game={g} />
+                <CoverImage game={g} className="size-full" />
               </span>
             ))}
           </span>
@@ -1092,7 +1092,7 @@ function GamesEditor({ collection, onClose }: { collection: Collection; onClose:
                 title={g.title}
                 className={`ibox-focusable relative flex flex-col gap-1 rounded-xl p-1 text-left [--ring-radius:0.75rem] ${inside ? "bg-[var(--accent-soft)] ring-2 ring-[var(--accent)]" : "bg-cream-deep/60 opacity-75 hover:opacity-100"}`}
               >
-                <span className="aspect-[3/4] overflow-hidden rounded-lg shadow-sm"><CoverImage game={g} /></span>
+                <span className="flex aspect-[3/4] items-end justify-center"><CoverImage game={g} rounded="rounded-lg" className="w-full shadow-sm" /></span>
                 <span data-no-i18n className="truncate text-[0.72rem] font-bold text-ink">{g.title}</span>
                 <span className={`absolute top-2 right-2 grid size-6 place-items-center rounded-full shadow-sm ${inside ? "bg-[var(--accent)] text-white" : "bg-white/90 text-ink-soft"}`}>
                   <Icon name={inside ? "check" : "plus"} size="0.8em" />

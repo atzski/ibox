@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.103",
+    date: "2026-11-18",
+    highlights: [
+      { icon: "grid", title: "Des boîtes bien cadrées", text: "Dans le choix des jeux d’une collection, les boîtes plus petites (DS, 3DS, Switch…) ne laissent plus de bloc vide sous l’image : elles gardent leur vraie forme, alignées sur leur titre. Les jaquettes des cartes de collection remplissent aussi leur cadre." },
+    ],
+  },
+  {
     version: "0.1.102",
     date: "2026-11-18",
     highlights: [

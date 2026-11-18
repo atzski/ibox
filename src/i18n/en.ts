@@ -3429,4 +3429,7 @@ export const EN: Record<string, string> = {
   "Icône de licence": "Franchise icon",
   "Un éditeur de collection repensé": "A redesigned collection editor",
   "Tout est rangé en trois onglets, Apparence, Contenu et Icône, avec des sections colorées. L’aperçu de la carte reste visible pendant vos réglages, et les recherches de logos ou de fonds ne s’ouvrent que si vous les demandez.": "Everything is sorted into three tabs, Appearance, Contents and Icon, with colorful sections. The card preview stays in view while you adjust it, and logo or background searches only open when you ask for them.",
+  // ——— 0.1.103 : boîtes bien cadrées ———
+  "Des boîtes bien cadrées": "Neatly framed boxes",
+  "Dans le choix des jeux d’une collection, les boîtes plus petites (DS, 3DS, Switch…) ne laissent plus de bloc vide sous l’image : elles gardent leur vraie forme, alignées sur leur titre. Les jaquettes des cartes de collection remplissent aussi leur cadre.": "When picking a collection’s games, smaller boxes (DS, 3DS, Switch…) no longer leave an empty block under the picture: they keep their true shape, lined up with their title. Covers on collection cards also fill their frame.",
 };
