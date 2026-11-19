@@ -159,7 +159,7 @@ pub fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
 }
 
 /// Jeu PC déjà ouvert au moment où il entre dans la bibliothèque : iBox le suit comme
-/// s'il l'avait lancé (session, temps de jeu, capture Alt+E), sans relancer le jeu.
+/// s'il l'avait lancé (session, temps de jeu, capture au raccourci réglable), sans relancer le jeu.
 #[tauri::command]
 pub fn game_adopt_running(app: AppHandle) -> Option<Running> {
     let state = app.state::<LauncherState>();

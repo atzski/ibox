@@ -16,12 +16,14 @@ import { useInetbox } from "@/services/inetbox";
 import { isTauri } from "@/services/native";
 import { isLinux } from "@/services/platform";
 import { sound } from "@/services/sound";
+import { useSettings } from "@/services/settings";
+import { DEFAULT_KEYS } from "@/services/shortcuts";
 
 type Tab = "feed" | "mine";
 
 /**
  * Hub de la communauté : le fil des captures et clips partagés par vos amis
- * (et les profils publics), et vos propres captures prises en jeu avec Alt+E.
+ * (et les profils publics), et vos propres captures prises en jeu avec leur raccourci (Alt+X par défaut).
  */
 export function CommunityScreen() {
   const [tab, setTab] = useState<Tab>("feed");
@@ -213,6 +215,7 @@ function SharedCard({ item, index, people, onOpen, onReact }: { item: SharedCapt
 }
 
 function Mine() {
+  const captureKeys = useSettings((s) => s.captureKeys ?? DEFAULT_KEYS.capture);
   const user = useInetbox((s) => s.user);
   const [items, setItems] = useState<LocalCapture[] | null>(null);
   const [open, setOpen] = useState<LocalCapture | null>(null);
@@ -233,7 +236,7 @@ function Mine() {
         <Button icon="folder" onClick={() => void captures.folder()}>Ouvrir le dossier</Button>
       </div>
       {items.length === 0 ? (
-        <Empty icon="front" title="Aucune capture pour l’instant" body={isLinux() ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : "Appuyez sur Alt+E au bon moment, en jeu ou non."} />
+        <Empty icon="front" title="Aucune capture pour l’instant" body={isLinux() ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : `Appuyez sur ${captureKeys} au bon moment, en jeu ou non.`} />
       ) : (
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4" data-nav-group="community-mine">
           {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); picked.current = new Map(); }} />)}

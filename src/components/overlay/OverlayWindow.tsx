@@ -5,14 +5,16 @@ import { listen } from "@tauri-apps/api/event";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { getPlatform } from "@/domain/platforms";
 import { sound } from "@/services/sound";
+import { useSettings } from "@/services/settings";
+import { DEFAULT_KEYS } from "@/services/shortcuts";
 
 interface OverlayState { game: string | null; platformId: string | null; hasShot: boolean; clipSeconds: number; clipMax?: number; clips: boolean }
 type Done = { kind: "screenshot" | "clip"; at: number } | null;
 
 /**
- * Overlay iBox par-dessus le jeu (Alt+E) : l'image du jeu est déjà figée au
+ * Overlay iBox par-dessus le jeu (Alt+X par défaut) : l'image du jeu est déjà figée au
  * moment de l'appui. On la garde, on enregistre un clip des dernières secondes,
- * ou on ouvre la Communauté. Échap, Alt+E ou « Reprendre » rendent la main au jeu.
+ * ou on ouvre la Communauté. Échap, son raccourci ou « Reprendre » rendent la main au jeu.
  */
 export function OverlayWindow() {
   const [state, setState] = useState<OverlayState | null>(null);
@@ -21,6 +23,7 @@ export function OverlayWindow() {
   const [done, setDone] = useState<Done>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
+  const keys = useSettings((s) => s.captureKeys ?? DEFAULT_KEYS.capture);
 
   const refresh = useCallback(async () => {
     setDone(null);
@@ -149,7 +152,7 @@ export function OverlayWindow() {
               </div>
             </div>
             {error && <p className="mt-3 rounded-xl bg-[#E8433A]/25 px-3 py-2 text-[0.85rem] font-bold">{error}</p>}
-            <p className="mt-3 text-center text-[0.75rem] font-semibold text-white/45">Alt+E à tout moment pour ouvrir ou fermer l’overlay</p>
+            <p className="mt-3 text-center text-[0.75rem] font-semibold text-white/45">{keys} à tout moment pour ouvrir ou fermer l’overlay</p>
           </motion.div>
         )}
       </AnimatePresence>

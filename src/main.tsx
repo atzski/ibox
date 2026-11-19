@@ -25,22 +25,33 @@ if (import.meta.env.DEV) {
 // La fenêtre des notifications (en bas à droite) n'affiche que les notifications.
 const windowLabel = (window as unknown as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } }).__TAURI_INTERNALS__?.metadata?.currentWindow?.label;
 const isToast = windowLabel === "toast";
-// L'overlay en jeu (Alt+E) : captures et clips par-dessus la partie.
+// L'overlay en jeu (Alt+X par défaut) : captures et clips par-dessus la partie.
 const isOverlay = windowLabel === "overlay";
 // Remote Play : bandeau de l'hôte, toujours visible pendant un partage.
 const isIndicator = windowLabel === "remote-play-indicator";
+// Music in the Box (Alt+C, réveillé par son plugin) : panneau de musique par-dessus la partie.
+const isMusic = windowLabel === "music";
+// les fenêtres d’overlay restent ouvertes en arrière-plan : elles relisent les réglages
+// changés dans la fenêtre principale (raccourcis, position du mini-lecteur, thème)
+if (isToast || isOverlay || isMusic) {
+  window.addEventListener("storage", (e) => {
+    if (e.key === "ibox.settings") void useSettings.persist.rehydrate();
+  });
+}
 // fenêtres transparentes : jamais de décor plein écran derrière leur contenu
-if (isToast || isOverlay || isIndicator) document.documentElement.classList.add("ibox-transparent-window");
+if (isToast || isOverlay || isIndicator || isMusic) document.documentElement.classList.add("ibox-transparent-window");
 const root = createRoot(document.getElementById("root")!);
 const initialize = async () => {
   await loadPlatform();
-  if (!isToast && !isOverlay && !isIndicator) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
+  if (!isToast && !isOverlay && !isIndicator && !isMusic) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
   const settings = useSettings.getState();
   if (!settings.language) settings.set("language", defaultLang());
   startTranslation(useSettings.getState().language ?? "fr");
 };
 if (isIndicator) {
   void initialize().then(() => import("./components/remoteplay/RemotePlayIndicator")).then(({ RemotePlayIndicator }) => root.render(<RemotePlayIndicator />));
+} else if (isMusic) {
+  void initialize().then(() => import("./components/music/MusicWindow")).then(({ MusicWindow }) => root.render(<MusicWindow />));
 } else if (isOverlay) {
   void initialize().then(() => import("./components/overlay/OverlayWindow")).then(({ OverlayWindow }) => root.render(<OverlayWindow />));
 } else if (isToast) {

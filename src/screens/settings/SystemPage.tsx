@@ -14,11 +14,14 @@ import { CLIP_SECONDS_CHOICES } from "@/services/community";
 import { useNotifications } from "@/services/notifications";
 import { usePlatform } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
+import { ShortcutField } from "@/components/ui/ShortcutField";
+import { DEFAULT_KEYS, useShortcuts } from "@/services/shortcuts";
 
 // ——— Système ———
 
 export function SystemPage() {
   const s = useSettings();
+  const captureTaken = useShortcuts((x) => x.captureTaken);
   const platform = usePlatform();
   const linux = platform.os === "linux";
   const notifClear = useNotifications((n) => n.clear);
@@ -97,12 +100,17 @@ export function SystemPage() {
           </Button>
         </Row>
       </Group>
-      {/* Steam Deck : Steam fait déjà captures et enregistrements, et Alt+E n'existe pas sous gamescope */}
+      {/* Steam Deck : Steam fait déjà captures et enregistrements, et les raccourcis globaux n’existent pas sous gamescope */}
       {!linux && (
       <Group title="Overlay en jeu" icon="gamepad">
-        <Row label="Raccourci Alt+E" note="À tout moment, ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie). Désactivez-le si un autre logiciel utilise Alt+E.">
-          <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Raccourci Alt+E" />
+        <Row label="Overlay de capture" note="À tout moment, son raccourci ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie).">
+          <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Overlay de capture" />
         </Row>
+        {s.captureHotkey !== false && (
+          <Row label="Raccourci de l’overlay" note="Choisissez une combinaison qu’aucun de vos jeux n’utilise.">
+            <ShortcutField label="Raccourci de l’overlay" value={s.captureKeys ?? DEFAULT_KEYS.capture} defaultValue={DEFAULT_KEYS.capture} taken={captureTaken} onChange={(v) => s.set("captureKeys", v)} />
+          </Row>
+        )}
         <Row label="Clips vidéo" note="Pendant une partie, iBox garde en mémoire les dernières secondes (vidéo MP4 avec le son). Rien n’est écrit sans votre demande, et les clips restent sur ce PC.">
           <Toggle checked={s.captureClips !== false} onChange={(v) => s.set("captureClips", v)} label="Clips" />
         </Row>

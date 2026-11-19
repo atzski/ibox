@@ -29,6 +29,9 @@ pub mod uninstall;
 pub mod inetbox;
 pub mod profile;
 pub mod capture;
+pub mod music;
+pub mod shortcut;
+pub mod plugins;
 pub mod clips;
 pub mod crash;
 pub mod toast;
@@ -76,6 +79,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![shell::HIDDEN_ARG])))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // fichiers des plugins installés, servis à leur seule fenêtre (docs/PLUGINS.md)
+        .register_asynchronous_uri_scheme_protocol(plugins::protocol::SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let label = ctx.webview_label().to_string();
+            std::thread::spawn(move || responder.respond(plugins::protocol::handle(&app, &label, &request)));
+        })
         .setup(|app| {
             // en premier : toute panique qui suit laisse une trace dans logs/crash.log
             if let Ok(dir) = app.path().app_log_dir() {
@@ -112,6 +121,13 @@ pub fn run() {
             profile::load(app.handle());
             inetbox::start(app.handle().clone());
             capture::start(app.handle().clone());
+            music::start(app.handle().clone());
+            // raccourcis globaux (overlay de capture, Music in the Box), réglables dans les Paramètres
+            shortcut::start(app.handle().clone(), |app, slot| match slot {
+                shortcut::Slot::Capture => capture::on_hotkey(app),
+                shortcut::Slot::Music => music::overlay::toggle(app),
+            });
+            plugins::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -175,6 +191,23 @@ pub fn run() {
             capture::overlay_save_clip,
             capture::overlay_close,
             capture::overlay_open_community,
+            plugins::plugins_list,
+            plugins::plugins_install,
+            plugins::plugins_set_enabled,
+            plugins::plugins_uninstall,
+            music::music_state,
+            shortcut::shortcuts_set,
+            shortcut::shortcuts_suspend,
+            music::backdrop::music_backdrop,
+            music::music_control,
+            music::overlay::music_open,
+            music::overlay::music_close,
+            music::overlay::music_layout,
+            music::overlay::music_set_monitor,
+            music::overlay::music_follow_cursor,
+            music::overlay::music_release,
+            music::ytm::music_ytm_open,
+            music::ytm::music_ytm_call,
             capture::capture_settings,
             capture::captures_list,
             capture::captures_read,

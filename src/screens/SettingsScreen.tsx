@@ -18,13 +18,14 @@ import { ControlsPage } from "./settings/ControlsPage";
 import { DisplayPage } from "./settings/DisplayPage";
 import { HomePage } from "./settings/HomePage";
 import { ImagesPage, LibraryPage } from "./settings/LibraryPage";
+import { PluginsPage } from "./settings/PluginsPage";
 import { ProfilePage } from "./settings/ProfilePage";
 import { RemotePlayPage } from "./settings/RemotePlayPage";
 import { SoundPage } from "./settings/SoundPage";
 import { DownloadPopupsToggle, FriendAlertsToggle, SystemPage } from "./settings/SystemPage";
 import { Group, Row, Toggle } from "./settings/ui";
 
-type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "manuals" | "sound" | "controls" | "remoteplay" | "system";
+type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "manuals" | "sound" | "controls" | "remoteplay" | "plugins" | "system";
 
 interface Category {
   id: CategoryId;
@@ -52,6 +53,7 @@ const CATEGORIES: Category[] = [
   { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], hue: "pink", group: "Système" },
   { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], hue: "green", group: "Système" },
   { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], hue: "blue", group: "Système" },
+  { id: "plugins", label: "Plugins", hint: "Extensions signées à installer : créateur, permissions, mises à jour", icon: "sparkle", tone: ["#E4DAFB", "#F3EEFF"], hue: "purple", group: "Système" },
   { id: "system", label: "Système", hint: "Plein écran, notifications, sauvegardes, à propos", icon: "gear", tone: ["#E2E5EC", "#F2F4F7"], hue: "orange", group: "Système" },
 ];
 
@@ -277,6 +279,8 @@ function CategoryPage({ id }: { id: CategoryId }) {
       return <ControlsPage />;
     case "remoteplay":
       return <RemotePlayPage />;
+    case "plugins":
+      return <PluginsPage />;
     case "system":
       return <SystemPage />;
   }

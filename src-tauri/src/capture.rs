@@ -1,9 +1,9 @@
-//! Captures en jeu : pendant une partie, Alt+E fige l'image du jeu et ouvre
+//! Captures en jeu : pendant une partie, le raccourci de capture (Alt+X par défaut) fige l'image du jeu et ouvre
 //! l'overlay iBox par-dessus (capture d'écran, clip des dernières secondes,
 //! Communauté). Les captures restent dans le dossier de données d'iBox, propre
 //! à chaque profil ; rien ne part en ligne sans un partage explicite.
 //!
-//! Alt+E marche aussi hors partie (capture de tout l'écran) ; le clip vidéo des
+//! Le raccourci marche aussi hors partie (capture de tout l'écran) ; le clip vidéo des
 //! dernières secondes (MP4 avec son, voir `clips.rs`), lui, n'est tenu que
 //! pendant un jeu. Les clips restent sur le PC : la Communauté n'accepte que
 //! les images (0.1.72).
@@ -19,7 +19,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const LABEL: &str = "overlay";
 
-/// Image du jeu prise à l'appui sur Alt+E (PNG), en attente d'être gardée.
+/// Image du jeu prise à l'appui sur le raccourci de capture (PNG), en attente d'être gardée.
 static PENDING: Mutex<Option<Shot>> = Mutex::new(None);
 /// Jeu en cours (titre, console) tel que vu par la dernière vérification.
 static GAME: Mutex<Option<(String, String)>> = Mutex::new(None);
@@ -189,35 +189,16 @@ pub fn start(app: AppHandle) {
         std::thread::sleep(Duration::from_secs(2));
     });
     crate::clips::start();
-    hotkey_thread(app);
 }
 
-#[cfg(windows)]
-fn hotkey_thread(app: AppHandle) {
-    std::thread::spawn(move || unsafe {
-        use std::ptr::null_mut;
-        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_ALT, MOD_NOREPEAT};
-        use windows_sys::Win32::UI::WindowsAndMessaging::{PeekMessageW, MSG, PM_REMOVE, WM_HOTKEY};
-        const ID: i32 = 0x1B0E;
-        let mut registered = false;
-        let mut msg: MSG = std::mem::zeroed();
-        loop {
-            // réservé tant que le réglage est actif, en jeu ou non (capture de n'importe quoi)
-            let want = HOTKEY.load(Ordering::Relaxed);
-            if want && !registered { registered = RegisterHotKey(null_mut(), ID, MOD_ALT | MOD_NOREPEAT, 'E' as u32) != 0; }
-            if !want && registered { UnregisterHotKey(null_mut(), ID); registered = false; }
-            while PeekMessageW(&mut msg, null_mut(), 0, 0, PM_REMOVE) != 0 {
-                if msg.message == WM_HOTKEY && msg.wParam as i32 == ID { on_hotkey(&app); }
-            }
-            std::thread::sleep(Duration::from_millis(40));
-        }
-    });
-}
-#[cfg(not(windows))]
-fn hotkey_thread(_app: AppHandle) {}
 
-/// Alt+E : l'overlay est déjà ouvert → il se ferme ; sinon l'image du jeu est figée puis l'overlay s'ouvre.
-fn on_hotkey(app: &AppHandle) {
+/// Raccourci de capture : l'overlay est déjà ouvert → il se ferme ; sinon l'image du jeu est figée puis l'overlay s'ouvre.
+/// Raccourci activé dans Paramètres › Système (la combinaison elle-même : `shortcut.rs`).
+pub(crate) fn hotkey_enabled() -> bool {
+    HOTKEY.load(Ordering::Relaxed)
+}
+
+pub(crate) fn on_hotkey(app: &AppHandle) {
     if app.get_webview_window(LABEL).is_some_and(|w| w.is_visible().unwrap_or(false)) {
         hide(app);
         return;
@@ -260,6 +241,7 @@ fn show(app: &AppHandle) {
             let _ = w.set_always_on_top(true);
             let _ = w.set_focus();
             let _ = app.emit_to(LABEL, "overlay-open", ());
+            crate::music::diag::after_show(&app, LABEL);
         });
     });
 }
@@ -294,7 +276,7 @@ pub fn overlay_preview() -> Result<tauri::ipc::Response, String> {
     p.as_ref().map(|s| tauri::ipc::Response::new(s.png.clone())).ok_or_else(|| "Aucune image.".into())
 }
 
-/// Garde l'image figée à l'appui sur Alt+E.
+/// Garde l'image figée à l'appui sur le raccourci de capture.
 #[tauri::command]
 pub async fn overlay_save_shot(app: AppHandle) -> Result<Capture, String> {
     let shot = PENDING.lock().map_err(|_| "Indisponible.")?.take().ok_or("Aucune image à garder.")?;

@@ -760,7 +760,7 @@ obligations de licence.
 
 **Reste avant publication** : essais sur un vrai Deck (VA-API, fluidité de l'étagère selon le
 profil, manette et Steam Input, Flathub depuis le Mode Jeu, Remote Play réel, batterie), et
-validation des obligations de licence et des brevets.
+validation des obligations de licence et des brevets. Liste d'essais : `docs/STEAMDECK-TESTS.md`.
 
 ## 13. Sources externes consultées (2026-11)
 

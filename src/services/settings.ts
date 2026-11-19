@@ -171,8 +171,18 @@ export interface SettingsState {
   clipSystemAudio?: boolean;
   /** Clips : micro par défaut de Windows. */
   clipMicrophone?: boolean;
-  /** Overlay en jeu : raccourci Alt+E pendant les parties. */
+  /** Overlay en jeu : raccourci activé (combinaison : `captureKeys`). */
   captureHotkey?: boolean;
+  /** Combinaison de l'overlay de capture (défaut « Alt+X »). */
+  captureKeys?: string;
+  /** Music in the Box : combinaison du panneau (défaut « Alt+C »). */
+  musicKeys?: string;
+  /** Music in the Box : position du mini-lecteur, de 0 à 1 dans l'écran (défaut : bord droit, milieu). */
+  musicPosition?: { x: number; y: number };
+  /** Music in the Box : le lecteur reste affiché pendant le jeu (sinon il se ferme dès qu’on clique ailleurs). */
+  musicStayOpen?: boolean;
+  /** Music in the Box : écran où la carte a été posée (nom Windows) ; absent : l’écran principal. */
+  musicMonitor?: string;
   /** Bouton de validation de la manette : auto (selon la famille), en bas, à droite. */
   gamepadConfirm: "auto" | "south" | "east";
   /** iBox SmartConfig (valeurs absentes : défauts de `services/smartconfig`). */

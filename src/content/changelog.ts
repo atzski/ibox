@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.107",
+    date: "2026-11-19",
+    highlights: [
+      { icon: "sparkle", title: "Plugins", text: "Nouvel onglet Paramètres › Plugins : des extensions signées par leur créateur, publiées à part d’iBox. Leurs permissions sont affichées avant l’installation, et un plugin désactivé ne réserve ni raccourci ni fenêtre." },
+      { icon: "disc", title: "Music in the Box", text: "Le premier plugin : pilotez YouTube Music ou votre lecteur Windows par-dessus vos parties, avec Alt+C ou Vue + Y à la manette. À installer depuis Paramètres › Plugins." },
+      { icon: "key", title: "Raccourcis clavier réglables", text: "La capture en jeu passe à Alt+X par défaut. Paramètres › Système permet de choisir une autre combinaison, et iBox prévient quand une autre application l’utilise déjà." },
+    ],
+  },
+  {
     version: "0.1.106",
     date: "2026-11-18",
     highlights: [

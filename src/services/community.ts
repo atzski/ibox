@@ -4,7 +4,7 @@ import { call } from "./inetbox";
 import type { AvatarChoice } from "./settings";
 
 /**
- * Communauté : captures prises avec l'overlay (Alt+E en jeu), gardées sur ce PC
+ * Communauté : captures prises avec l'overlay (Alt+X par défaut en jeu), gardées sur ce PC
  * par profil, et partagées sur iNetbox seulement sur demande.
  */
 export interface LocalCapture { name: string; kind: "screenshot" | "clip"; game?: string | null; platformId?: string | null; at: number; size: number }

@@ -44,7 +44,9 @@ import { LibraryScreen } from "@/screens/LibraryScreen";
 import { GameScreen } from "@/screens/GameScreen";
 import { SmartConfigFeedback } from "@/components/smartconfig/SmartConfigFeedback";
 import { captures } from "@/services/community";
+import { applyShortcuts, DEFAULT_KEYS } from "@/services/shortcuts";
 import { isTauri } from "@/services/native";
+import { invoke } from "@tauri-apps/api/core";
 import { isLinux, usePlatform } from "@/services/platform";
 
 // Écrans secondaires chargés à la demande (préchargés pendant un temps mort, voir
@@ -179,7 +181,7 @@ export function App() {
     () => useLauncher.getState().phase === "running",
     (fn) => useLauncher.subscribe((s, p) => { if ((s.phase === "running") !== (p.phase === "running")) fn(s.phase === "running"); }),
   ), []);
-  // overlay en jeu (Alt+E) : réglages des clips et du raccourci, ouverture de la Communauté
+  // overlay en jeu (Alt+X par défaut) : réglages des clips et du raccourci, ouverture de la Communauté
   const captureClips = useSettings((s) => s.captureClips !== false);
   const captureHotkey = useSettings((s) => s.captureHotkey !== false);
   const clipQuality = useSettings((s) => s.clipQuality ?? "medium");
@@ -190,6 +192,15 @@ export function App() {
     () => void captures.settings(captureClips, captureHotkey, { quality: clipQuality, seconds: clipSeconds, systemAudio: clipSystemAudio, microphone: clipMicrophone }).catch(() => undefined),
     [captureClips, captureHotkey, clipQuality, clipSeconds, clipSystemAudio, clipMicrophone],
   );
+  // raccourcis globaux : overlay de capture et Music in the Box (Paramètres › Système, › Plugins)
+  const captureKeys = useSettings((s) => s.captureKeys ?? DEFAULT_KEYS.capture);
+  const musicKeys = useSettings((s) => s.musicKeys ?? DEFAULT_KEYS.music);
+  useEffect(() => void applyShortcuts(captureKeys, musicKeys), [captureKeys, musicKeys]);
+  // écran où le lecteur Music in the Box s’ouvre (le dernier où il a été posé)
+  const musicMonitor = useSettings((s) => s.musicMonitor ?? null);
+  useEffect(() => {
+    if (isTauri()) void invoke("music_set_monitor", { name: musicMonitor }).catch(() => undefined);
+  }, [musicMonitor]);
   useEffect(() => {
     if (!isTauri()) return;
     const off = import("@tauri-apps/api/event").then(({ listen }) => listen("open-community", () => useNav.getState().go({ name: "community" })));

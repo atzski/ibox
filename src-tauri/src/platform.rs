@@ -1,6 +1,6 @@
 //! Plateforme d'exécution, transmise à l'interface : Windows ou Linux, Steam Deck, Mode Jeu.
 //!
-//! L'interface s'en sert pour masquer ce qui n'existe pas sur la plateforme (capture Alt+E,
+//! L'interface s'en sert pour masquer ce qui n'existe pas sur la plateforme (capture au raccourci,
 //! hôte Remote Play, zone de notification…). Voir `docs/STEAMDECK.md`.
 
 use serde::Serialize;

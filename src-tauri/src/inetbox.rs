@@ -17,6 +17,9 @@ static RETRY_AT: AtomicU64 = AtomicU64::new(0);
 /// compilation, par exemple par le serveur local de développement (http://127.0.0.1:4318).
 const SERVICE: &str = match option_env!("IBOX_INETBOX_URL") { Some(url) => url, None => "https://inetbox-server.onrender.com" };
 
+/// Adresse du serveur iNetbox (catalogue des plugins).
+pub(crate) fn service_url() -> &'static str { SERVICE }
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Error { code: String, message: String, retry_after_seconds: Option<u64> }
