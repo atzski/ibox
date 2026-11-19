@@ -778,6 +778,12 @@ pub mod commands {
     }
 
     #[tauri::command]
+    pub fn pc_set_epic_folder(app: AppHandle, folder: PathBuf) -> Res<()> {
+        let file = app.path().app_data_dir().map_err(|e| e.to_string())?.join("epic-folder.txt");
+        epic::set_manual_dir(&file, folder)
+    }
+
+    #[tauri::command]
     pub fn pc_add_manual(state: State<LibraryState>, exe_path: String, title: String) -> Res<i64> {
         state.with(|c| add_manual(c, &exe_path, &title))
     }

@@ -20,7 +20,7 @@ export function PcSettingsPanel() {
   const [connectors, setConnectors] = useState<PcConnector[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [choosingSteam, setChoosingSteam] = useState(false);
-  const [steamError, setSteamError] = useState<string | null>(null);
+  const [folderError, setFolderError] = useState<{ store: string; text: string } | null>(null);
   const pcCount = useLibrary((s) => s.realGames.filter((g) => g.platformId === "pc" && !isHidden(g)).length);
   const realGames = useLibrary((s) => s.realGames);
   const hidden = useMemo(() => realGames.filter(isHidden), [realGames]);
@@ -35,17 +35,17 @@ export function PcSettingsPanel() {
     void pcApi.connectors().then(setConnectors);
   }, []);
 
-  const chooseSteam = async () => {
+  const chooseFolder = async (store: "steam" | "epic") => {
     setChoosingSteam(true);
-    setSteamError(null);
+    setFolderError(null);
     try {
-      const folder = await nativeLibrary.pickFolder("Choisir le dossier Steam");
+      const folder = await nativeLibrary.pickFolder(store === "steam" ? "Choisir le dossier Steam" : "Choisir le dossier Epic Games");
       if (!folder) return;
-      await pcApi.setSteamFolder(folder);
+      await (store === "steam" ? pcApi.setSteamFolder(folder) : pcApi.setEpicFolder(folder));
       setConnectors(await pcApi.connectors());
       await syncPc();
     } catch (error) {
-      setSteamError(error instanceof Error ? error.message : String(error));
+      setFolderError({ store, text: error instanceof Error ? error.message : String(error) });
     } finally {
       setChoosingSteam(false);
     }
@@ -113,11 +113,20 @@ export function PcSettingsPanel() {
               <>
                 {!c.present && <p className="mt-2 text-sm text-ink-soft">Sélectionnez le dossier qui contient steam.exe.</p>}
                 {!c.present && (
-                  <Button className="mt-2" disabled={choosingSteam || pcSync.running} onClick={() => void chooseSteam()}>
+                  <Button className="mt-2" disabled={choosingSteam || pcSync.running} onClick={() => void chooseFolder("steam")}>
                     Choisir le dossier Steam
                   </Button>
                 )}
-                {steamError && <p role="alert" className="mt-2 text-sm font-bold text-peach-deep">{steamError}</p>}
+                {folderError?.store === "steam" && <p role="alert" className="mt-2 text-sm font-bold text-peach-deep">{folderError.text}</p>}
+              </>
+            )}
+            {c.id === "epic" && native && (
+              <>
+                {!c.present && <p className="mt-2 text-sm text-ink-soft">Sélectionnez le dossier Epic qui contient Data\Manifests.</p>}
+                <Button className="mt-2" disabled={choosingSteam || pcSync.running} onClick={() => void chooseFolder("epic")}>
+                  {c.present ? "Changer le dossier Epic Games" : "Choisir le dossier Epic Games"}
+                </Button>
+                {folderError?.store === "epic" && <p role="alert" className="mt-2 text-sm font-bold text-peach-deep">{folderError.text}</p>}
               </>
             )}
             {c.id === "steam" && c.present && c.hasKey !== null && (

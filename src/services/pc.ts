@@ -44,6 +44,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 
 export const pcApi = {
   setSteamFolder: (folder: string) => call<void>("pc_set_steam_folder", { folder }),
+  setEpicFolder: (folder: string) => call<void>("pc_set_epic_folder", { folder }),
   connectors: () => (isTauri() ? call<PcConnector[]>("pc_connectors") : Promise.resolve([] as PcConnector[])),
   addManual: (exePath: string, title: string) => call<number>("pc_add_manual", { exePath, title }),
   splitInstall: (installId: number, title: string) => call<number>("pc_split_install", { installId, title }),

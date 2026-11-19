@@ -921,6 +921,9 @@ export const EN: Record<string, string> = {
 
   "Choisir le dossier Steam": "Choose the Steam folder",
   "Sélectionnez le dossier qui contient steam.exe.": "Select the folder that contains steam.exe.",
+  "Choisir le dossier Epic Games": "Choose the Epic Games folder",
+  "Changer le dossier Epic Games": "Change the Epic Games folder",
+  "Sélectionnez le dossier Epic qui contient Data\\Manifests.": "Select the Epic folder that contains Data\\Manifests.",
   "Choisissez le dossier qui contient steam.exe.": "Choose the folder that contains steam.exe.",
   "Ce chemin Steam est illisible.": "This Steam path could not be read.",
   "Impossible d’enregistrer le dossier Steam : {0}": "Could not save the Steam folder: {0}",

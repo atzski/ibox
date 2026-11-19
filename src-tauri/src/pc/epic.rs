@@ -18,10 +18,52 @@ pub struct EpicGame {
     pub launch_uri: String,
 }
 
+static MANUAL_DIR: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
 pub fn manifests_dir() -> Option<PathBuf> {
+    if let Some(p) = MANUAL_DIR.lock().ok().and_then(|d| d.clone()).and_then(|d| resolve_manifests(&d)) {
+        return Some(p);
+    }
     let base = std::env::var("ProgramData").ok()?;
     let p = Path::new(&base).join("Epic").join("EpicGamesLauncher").join("Data").join("Manifests");
     p.is_dir().then_some(p)
+}
+
+/// Dossier de manifestes à partir du dossier choisi : `Manifests` lui-même, ou un parent
+/// (`Epic`, `EpicGamesLauncher`, `Data`) qui le contient.
+pub fn resolve_manifests(chosen: &Path) -> Option<PathBuf> {
+    if !chosen.is_absolute() {
+        return None;
+    }
+    [
+        chosen.to_path_buf(),
+        chosen.join("Manifests"),
+        chosen.join("Data").join("Manifests"),
+        chosen.join("EpicGamesLauncher").join("Data").join("Manifests"),
+    ]
+    .into_iter()
+    .find(|p| p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("Manifests")) && p.is_dir())
+}
+
+pub fn load_manual_dir(file: &Path) {
+    if let Ok(path) = std::fs::read_to_string(file) {
+        if let Ok(mut dir) = MANUAL_DIR.lock() {
+            *dir = Some(PathBuf::from(path.trim()));
+        }
+    }
+}
+
+pub fn set_manual_dir(file: &Path, path: PathBuf) -> Result<(), String> {
+    if resolve_manifests(&path).is_none() {
+        return Err("Choisissez le dossier Epic qui contient Data\\Manifests (par défaut C:\\ProgramData\\Epic\\EpicGamesLauncher).".into());
+    }
+    let text = path.to_str().ok_or("Ce chemin Epic est illisible.")?;
+    let mut dir = MANUAL_DIR.lock().map_err(|e| e.to_string())?;
+    let temporary = file.with_extension("tmp");
+    std::fs::write(&temporary, text).map_err(|e| format!("Impossible d’enregistrer le dossier Epic : {e}"))?;
+    std::fs::rename(&temporary, file).map_err(|e| format!("Impossible d’enregistrer le dossier Epic : {e}"))?;
+    *dir = Some(path);
+    Ok(())
 }
 
 pub fn scan(dir: &Path) -> Vec<EpicGame> {
@@ -97,6 +139,19 @@ pub fn install_uri(launch_uri: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn dossier_epic_manuel() {
+        let base = std::env::temp_dir().join(format!("ibox-epic-{}", std::process::id()));
+        let manifests = base.join("EpicGamesLauncher").join("Data").join("Manifests");
+        std::fs::create_dir_all(&manifests).unwrap();
+        for chosen in [base.clone(), base.join("EpicGamesLauncher"), base.join("EpicGamesLauncher").join("Data"), manifests.clone()] {
+            assert_eq!(super::resolve_manifests(&chosen).as_deref(), Some(manifests.as_path()));
+        }
+        assert!(super::resolve_manifests(&base.join("absent")).is_none());
+        assert!(super::resolve_manifests(std::path::Path::new("relatif")).is_none());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     use super::*;
 
     #[test]

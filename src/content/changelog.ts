@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.108",
+    date: "2026-11-19",
+    highlights: [
+      { icon: "sparkle", title: "Plus de cadre jaune autour de l’écran", text: "L’enregistrement des clips en jeu ne fait plus apparaître de bordure jaune. Sur les Windows qui ne savent pas la masquer, les clips se mettent en pause au lieu de l’afficher." },
+      { icon: "shelf", title: "Dossier Epic Games au choix", text: "Si iBox ne trouve pas Epic Games, Paramètres › PC permet de choisir son dossier à la main, comme pour Steam." },
+    ],
+  },
+  {
     version: "0.1.107",
     date: "2026-11-19",
     highlights: [

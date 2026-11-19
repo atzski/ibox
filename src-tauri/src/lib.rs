@@ -99,6 +99,7 @@ pub fn run() {
             let state = lib_cmd::LibraryState::open(app.handle())?;
             if let Ok(dir) = app.path().app_data_dir() {
                 pc::steam::load_manual_root(&dir.join("steam-folder.txt"));
+                pc::epic::load_manual_dir(&dir.join("epic-folder.txt"));
             }
             app.manage(state);
             app.manage(meta_cmd::MetadataState::open(app.handle())?);
@@ -295,6 +296,7 @@ pub fn run() {
             pc::commands::pc_connectors,
             pc::commands::pc_running_game,
             pc::commands::pc_set_steam_folder,
+            pc::commands::pc_set_epic_folder,
             pc::commands::pc_add_manual,
             pc::commands::pc_installs,
             pc::commands::pc_set_preferred,

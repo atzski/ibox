@@ -74,6 +74,21 @@ fn size_of(s: SizeInt32) -> (u32, u32) {
     (s.Width.max(0) as u32, s.Height.max(0) as u32)
 }
 
+/// Demande une seule fois à Windows l'autorisation de capturer sans bordure jaune.
+/// Une app non empaquetée l'obtient d'office ; l'appel reste sans effet sur les Windows anciens.
+fn request_borderless() -> bool {
+    use windows::Graphics::Capture::{GraphicsCaptureAccess, GraphicsCaptureAccessKind};
+    use windows::Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus;
+    static ALLOWED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ALLOWED.get_or_init(|| {
+        match GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless).and_then(|op| op.join()) {
+            Ok(status) => status == AppCapabilityAccessStatus::Allowed,
+            // API absente : on laisse SetIsBorderRequired trancher.
+            Err(_) => true,
+        }
+    })
+}
+
 fn create_item(target: Target) -> Result<GraphicsCaptureItem> {
     let interop = factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
     unsafe {
@@ -121,7 +136,10 @@ impl Capture {
         // image du jeu arrive dès qu'elle est composée (on garde toujours la plus récente : moins
         // d'attente avant l'encodage). Refusé sans conséquence sur les Windows plus anciens.
         let _ = session.SetMinUpdateInterval(windows::Foundation::TimeSpan { Duration: 10_000 });
-        let borderless = options.borderless && super::borderless_supported(windows_build) && session.SetIsBorderRequired(false).is_ok();
+        let borderless = options.borderless && super::borderless_supported(windows_build) && request_borderless() && session.SetIsBorderRequired(false).is_ok();
+        if options.require_borderless && !borderless {
+            return Err(windows::core::Error::new(windows::core::HRESULT(0x80070032u32 as i32), "bordure de capture non retirable"));
+        }
         session.StartCapture()?;
 
         let mut frequency = 0i64;

@@ -28,11 +28,13 @@ pub struct Options {
     pub cursor: bool,
     /// Retirer la bordure jaune de capture (Windows build 20348+ seulement).
     pub borderless: bool,
+    /// Refuser la capture si la bordure jaune ne peut pas être retirée (capture discrète, ex. clips).
+    pub require_borderless: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { cursor: true, borderless: true }
+        Options { cursor: true, borderless: true, require_borderless: false }
     }
 }
 

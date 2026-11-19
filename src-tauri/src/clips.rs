@@ -245,7 +245,7 @@ fn video_loop(s: ClipSettings, stop: &AtomicBool) {
     while !stop.load(Ordering::Relaxed) {
         let settings = Settings {
             target: Target::PrimaryMonitor,
-            capture: Options { cursor: false, borderless: true },
+            capture: Options { cursor: false, borderless: true, require_borderless: true },
             duration: Duration::from_secs(60 * 60 * 24 * 365),
             fps,
             bitrate_kbps: kbps,
