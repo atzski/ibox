@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { formatTime, moveFocus, placeCard, positionAt, positionOf, upNext, type MusicState, type QueueItem } from "./musicBox";
 
 const state = (playing: boolean): MusicState => ({
@@ -51,5 +51,32 @@ describe("Music in the Box", () => {
     const p = positionOf(500, 200, 392, 340, 1920, 1080);
     expect(p.x).toBeGreaterThan(0.2);
     expect(p.x).toBeLessThan(0.4);
+  });
+});
+
+describe("playlists page par page", () => {
+  const t = (id: string) => ({ videoId: id, title: id, artist: "", album: null, duration: "", thumbnail: null }) as unknown as import("./musicBox").Track;
+
+  it("montre la première page aussitôt puis ajoute les suivantes sans doublon", async () => {
+    const { music, loadPlaylist } = await import("./musicBox");
+    const pages = [
+      { tracks: [t("a"), t("b")], next: { token: "p2" } },
+      { tracks: [t("b"), t("c")], next: null },
+    ];
+    const spy = vi.spyOn(music, "playlistPage").mockImplementation(async (_id, next) => pages[next ? 1 : 0]);
+    const seen: string[][] = [];
+    const all = await loadPlaylist("VLLM", (list) => seen.push(list.map((x) => x.videoId)));
+    expect(seen[0]).toEqual(["a", "b"]);
+    expect(all.map((x) => x.videoId)).toEqual(["a", "b", "c"]);
+    spy.mockRestore();
+  });
+
+  it("se replie sur l'ancien pont, qui rend tout d'un coup", async () => {
+    const { music, loadPlaylist } = await import("./musicBox");
+    const page = vi.spyOn(music, "playlistPage").mockRejectedValue("commande-inconnue");
+    const whole = vi.spyOn(music, "playlist").mockResolvedValue([t("x")]);
+    expect((await loadPlaylist("VLLM", () => undefined)).map((x) => x.videoId)).toEqual(["x"]);
+    page.mockRestore();
+    whole.mockRestore();
   });
 });

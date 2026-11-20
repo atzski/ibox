@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { animate, AnimatePresence, motion, useAnimationFrame, useMotionValue, useSpring, useTransform } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { DEFAULT_POSITION, formatTime, music, placeCard, positionAt, positionOf, upNext, type Artist, type ArtistPage, type MusicAction, type MusicState, type Playlist, type QueueItem, type Track } from "@/services/musicBox";
+import { DEFAULT_POSITION, formatTime, loadPlaylist, music, placeCard, positionAt, positionOf, upNext, type Artist, type ArtistPage, type MusicAction, type MusicState, type Playlist, type QueueItem, type Track } from "@/services/musicBox";
 import { sound } from "@/services/sound";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { PadKeyboard } from "@/components/shell/PadKeyboard";
@@ -33,6 +33,24 @@ type SearchKind = "songs" | "artists";
 
 /** Playlists gardées d'une ouverture du panneau à l'autre. */
 let cachedPlaylists: Playlist[] | null = null;
+/** Titres des playlists déjà ouvertes : affichés aussitôt, puis relus en arrière-plan. */
+const cachedTracks = new Map<string, Track[]>();
+/** Lecture en cours par playlist (une seule à la fois, partagée avec le préchargement). */
+const loadingTracks = new Map<string, Promise<Track[]>>();
+
+function fetchTracks(id: string, onTracks?: (tracks: Track[]) => void): Promise<Track[]> {
+  const running = loadingTracks.get(id);
+  if (running) {
+    if (onTracks) void running.then(onTracks, () => undefined);
+    return running;
+  }
+  const p = loadPlaylist(id, (tracks) => {
+    cachedTracks.set(id, tracks);
+    onTracks?.(tracks);
+  }).finally(() => loadingTracks.delete(id));
+  loadingTracks.set(id, p);
+  return p;
+}
 
 function readRecent(): string[] {
   try {
@@ -137,6 +155,9 @@ export function MusicWindow() {
       .then((p) => {
         cachedPlaylists = p;
         setPlaylists(p);
+        // « Titres aimés » : la plus ouverte, préparée pendant qu'on regarde la liste
+        const liked = p.find((l) => l.id === "LM" || l.id === "VLLM");
+        if (liked && !cachedTracks.has(liked.id)) void fetchTracks(liked.id).catch(() => undefined);
       })
       .catch((e) => setListsError(e === "non-connecte" ? "Connectez YouTube Music pour retrouver vos playlists." : "Playlists indisponibles pour le moment."));
   }, [view, playlists, state?.youtube]);
@@ -256,11 +277,10 @@ export function MusicWindow() {
 
   const openList = useCallback((list: Playlist) => {
     setDir(1);
-    setDetail({ list, tracks: null });
-    music
-      .playlist(list.id)
-      .then((tracks) => setDetail((d) => (d?.list.id === list.id ? { list, tracks } : d)))
-      .catch(() => setDetail((d) => (d?.list.id === list.id ? { list, tracks: [] } : d)));
+    // déjà ouverte : affichée tout de suite, puis relue (titres aimés ou retirés entre-temps)
+    setDetail({ list, tracks: cachedTracks.get(list.id) ?? null });
+    const show = (tracks: Track[]) => setDetail((d) => (d?.list.id === list.id ? { list, tracks } : d));
+    fetchTracks(list.id, show).catch(() => setDetail((d) => (d?.list.id === list.id ? { list, tracks: d.tracks ?? [] } : d)));
   }, []);
 
   const openArtist = useCallback((a: Artist) => {
@@ -498,9 +518,18 @@ function ReportLayout({ card, stayOpen }: { card: RefObject<HTMLElement | null>;
  * elle-même de la capture), relue quatre fois par seconde et recalée à chaque image sur
  * la position de la carte, qui bouge pendant les animations.
  */
+/** Fondu entre deux images du fond (ms) : le jeu bouge derrière le verre sans à-coups. */
+const GLASS_FADE = 450;
+
 function Glass({ card, tint }: { card: RefObject<HTMLElement | null>; tint: string }) {
-  const img = useRef<HTMLImageElement>(null);
-  const [src, setSrc] = useState<string | null>(null);
+  const img = useRef<HTMLDivElement>(null);
+  // trois couches au plus : chaque nouvelle image apparaît en fondu par-dessus les précédentes
+  const [layers, setLayers] = useState<{ src: string; id: number }[]>([]);
+  const seq = useRef(0);
+  const setSrc = useCallback((src: string) => {
+    const id = ++seq.current;
+    setLayers((l) => [...l.slice(-2), { src, id }]);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -520,7 +549,8 @@ function Glass({ card, tint }: { card: RefObject<HTMLElement | null>; tint: stri
           setSrc(next);
           const old = current;
           current = next;
-          if (old) window.setTimeout(() => URL.revokeObjectURL(old), 600);
+          // l'ancienne reste dessous le temps du fondu (et d'une image de plus)
+          if (old) window.setTimeout(() => URL.revokeObjectURL(old), GLASS_FADE * 3);
         } catch {
           /* capture impossible : le voile seul reste */
         }
@@ -530,7 +560,7 @@ function Glass({ card, tint }: { card: RefObject<HTMLElement | null>; tint: stri
     return () => {
       alive = false;
     };
-  }, []);
+  }, [setSrc]);
 
   useAnimationFrame(() => {
     const c = card.current;
@@ -542,10 +572,25 @@ function Glass({ card, tint }: { card: RefObject<HTMLElement | null>; tint: stri
 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
-      {src && <img ref={img} src={src} alt="" className="absolute top-0 left-0 h-screen w-screen max-w-none blur-2xl" />}
-      {/* voile de l'overlay de capture d'iBox, allégé, et une touche de la couleur de la pochette */}
+      <div ref={img} className="absolute top-0 left-0 h-screen w-screen">
+        {layers.map((l, i) => (
+          <img
+            key={l.id}
+            src={l.src}
+            alt=""
+            className="absolute inset-0 h-full w-full max-w-none blur-2xl"
+            style={i > 0 ? { animation: `glass-in ${GLASS_FADE}ms ease-out both` } : undefined}
+          />
+        ))}
+      </div>
+      {/* voile de l'overlay de capture d'iBox, allégé, et une touche de la couleur de la pochette :
+          une couleur unie (elle s'anime) découpée en halo, un dégradé ne s'animant pas */}
       <div className="absolute inset-0 bg-[rgba(20,24,40,0.64)]" />
-      <div className="absolute inset-0 transition-[background] duration-1000" style={{ background: `radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, ${tint} 45%, transparent), transparent 70%)` }} />
+      <div
+        className="absolute inset-0 opacity-45 transition-[background-color] duration-1000 ease-out"
+        style={{ backgroundColor: tint, maskImage: "radial-gradient(120% 70% at 50% 0%, #000, transparent 70%)" }}
+      />
+      <style>{`@keyframes glass-in { from { opacity: 0 } to { opacity: 1 } }`}</style>
     </div>
   );
 }

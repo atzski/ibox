@@ -82,6 +82,42 @@ export type MusicAction = "toggle" | "play" | "pause" | "next" | "prev" | "seek"
 
 const ytm = <T>(cmd: string, arg?: unknown) => invoke<T>("music_ytm_call", { cmd, arg: arg ?? null });
 
+/** Jeton de page suivante d'une playlist (rendu tel quel par le pont). */
+export interface PageToken { token: string; legacy?: boolean }
+
+/** Pages lues au plus par playlist (comme le pont) : environ 1 000 titres. */
+const MAX_PAGES = 10;
+
+/**
+ * Titres d'une playlist, page par page : `onTracks` reçoit la liste complète à chaque page
+ * ajoutée (la première s'affiche aussitôt). Un pont plus ancien, sans `playlistPage`, rend
+ * tout d'un coup.
+ */
+export async function loadPlaylist(id: string, onTracks: (tracks: Track[], done: boolean) => void, alive: () => boolean = () => true): Promise<Track[]> {
+  let page: { tracks: Track[]; next: PageToken | null };
+  try {
+    page = await music.playlistPage(id);
+  } catch (e) {
+    if (e !== "commande-inconnue") throw e;
+    const all = await music.playlist(id);
+    onTracks(all, true);
+    return all;
+  }
+  const seen = new Set(page.tracks.map((t) => t.videoId));
+  let all = page.tracks;
+  onTracks(all, !page.next);
+  for (let n = 1; page.next && n < MAX_PAGES && alive(); n++) {
+    page = await music.playlistPage(id, page.next);
+    const more = page.tracks.filter((t) => !seen.has(t.videoId));
+    if (!more.length) break;
+    more.forEach((t) => seen.add(t.videoId));
+    all = [...all, ...more];
+    onTracks(all, !page.next);
+  }
+  onTracks(all, true);
+  return all;
+}
+
 export const music = {
   state: () => invoke<MusicState>("music_state"),
   control: (action: MusicAction, value?: number) => invoke<MusicState>("music_control", { action, value }),
@@ -93,6 +129,8 @@ export const music = {
   artist: (id: string) => ytm<ArtistPage>("artist", { id }),
   playlists: () => ytm<Playlist[]>("playlists"),
   playlist: (id: string) => ytm<Track[]>("playlist", { id }),
+  /** Une page de playlist (pont 1.0.1 et plus) : `next` à repasser pour la suivante. */
+  playlistPage: (id: string, next?: PageToken | null) => ytm<{ tracks: Track[]; next: PageToken | null }>("playlistPage", next ? { next } : { id }),
   queue: () => ytm<QueueItem[]>("queue"),
   /** Lance un titre, une playlist, ou une playlist à partir d'un titre. */
   play: (item: { videoId?: string; playlistId?: string; index?: number }) => ytm<boolean>("playItem", item),

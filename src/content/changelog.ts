@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.109",
+    date: "2026-11-20",
+    highlights: [
+      { icon: "disc", title: "Titres aimés en un instant", text: "Dans Music in the Box, vos playlists s’affichent dès la première page de titres, et la suite arrive pendant que vous parcourez. « Titres aimés » est préparée dès l’ouverture de vos playlists." },
+      { icon: "disc", title: "YouTube Music reste en coulisses", text: "La fenêtre de YouTube Music qui fait jouer la musique n’apparaît plus dans la barre des tâches ni dans Alt+Tab ; elle ne se montre que pour vous connecter." },
+      { icon: "sparkle", title: "Un fond de panneau plus doux", text: "Le verre du panneau musique suit le jeu en fondu, et sa teinte glisse d’une pochette à l’autre au lieu de changer d’un coup." },
+    ],
+  },
+  {
     version: "0.1.108",
     date: "2026-11-19",
     highlights: [

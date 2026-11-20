@@ -74,6 +74,8 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .inner_size(1100.0, 780.0)
         .center()
         .visible(false)
+        // lecteur caché : ni bouton dans la barre des tâches, ni Alt+Tab (montré seulement pour la connexion)
+        .skip_taskbar(true)
         .data_directory(data_dir(app)?)
         .additional_browser_args(BROWSER_ARGS)
         .initialization_script(&bridge)
@@ -86,6 +88,7 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         if let WindowEvent::CloseRequested { api, .. } = e {
             api.prevent_close();
             let _ = h.hide();
+            let _ = h.set_skip_taskbar(true);
         }
     });
     Some(w)
@@ -105,11 +108,13 @@ pub fn open(app: &AppHandle, visible: bool) -> bool {
         let _ = main.run_on_main_thread(move || {
             let ok = build(&a).map(|w| {
                 if visible {
+                    let _ = w.set_skip_taskbar(false);
                     let _ = w.show();
                     let _ = w.unminimize();
                     let _ = w.set_focus();
                 } else {
                     let _ = w.hide();
+                    let _ = w.set_skip_taskbar(true);
                 }
             });
             let _ = tx.send(ok.is_some());
