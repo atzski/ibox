@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.111",
+    date: "2026-11-20",
+    highlights: [
+      { icon: "disc", title: "Des titres qui défilent sans s’arrêter", text: "Dans le panneau musique, un titre ou un nom d’artiste trop long pour tenir défile désormais en continu : il ne se fige plus après un redimensionnement du panneau ou l’arrivée de la police." },
+    ],
+  },
+  {
     version: "0.1.110",
     date: "2026-11-20",
     highlights: [

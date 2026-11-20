@@ -1757,6 +1757,8 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "Des titres qui défilent sans s’arrêter": "Song titles that keep scrolling",
+  "Dans le panneau musique, un titre ou un nom d’artiste trop long pour tenir défile désormais en continu : il ne se fige plus après un redimensionnement du panneau ou l’arrivée de la police.": "In the music panel, a song title or artist name too long to fit now scrolls continuously: it no longer freezes after the panel resizes or the font loads.",
   "Un verre sans raccord": "Seamless glass",
   "Le fond flouté du panneau musique est préparé une fois en petit au lieu d’être flouté en direct : plus de bande horizontale dans le verre, et moins de travail pour la carte graphique pendant que vous jouez.": "The music panel’s blurred background is now prepared once at a small size instead of being blurred live: no more horizontal band in the glass, and less work for the graphics card while you play.",
   "Titres aimés en un instant": "Liked songs in an instant",
