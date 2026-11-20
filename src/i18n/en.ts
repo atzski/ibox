@@ -1757,6 +1757,8 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "Un verre sans raccord": "Seamless glass",
+  "Le fond flouté du panneau musique est préparé une fois en petit au lieu d’être flouté en direct : plus de bande horizontale dans le verre, et moins de travail pour la carte graphique pendant que vous jouez.": "The music panel’s blurred background is now prepared once at a small size instead of being blurred live: no more horizontal band in the glass, and less work for the graphics card while you play.",
   "Titres aimés en un instant": "Liked songs in an instant",
   "Dans Music in the Box, vos playlists s’affichent dès la première page de titres, et la suite arrive pendant que vous parcourez. « Titres aimés » est préparée dès l’ouverture de vos playlists.": "In Music in the Box, your playlists show up as soon as the first page of songs arrives, and the rest loads while you browse. Liked songs are prepared as soon as you open your playlists.",
   "YouTube Music reste en coulisses": "YouTube Music stays backstage",

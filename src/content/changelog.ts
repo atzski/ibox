@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.110",
+    date: "2026-11-20",
+    highlights: [
+      { icon: "sparkle", title: "Un verre sans raccord", text: "Le fond flouté du panneau musique est préparé une fois en petit au lieu d’être flouté en direct : plus de bande horizontale dans le verre, et moins de travail pour la carte graphique pendant que vous jouez." },
+    ],
+  },
+  {
     version: "0.1.109",
     date: "2026-11-20",
     highlights: [
