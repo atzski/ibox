@@ -16,7 +16,7 @@
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
   // Apparitions : mêmes listes que les sélecteurs « .js :is(...) » de style.css.
-  const REVEAL = "section h2, section .lead, .features .card, .steps .card, .note, .show figure, .show > div, .consoles span, .ticks li, .step";
+  const REVEAL = "section h2, section .lead, .features .card, .steps .card, .note, .show figure, .show > div, .ticks li, .step, .th-stage, .lineup";
   const countUp = (title) => {
     const node = title.firstChild;
     const match = node && node.nodeType === 3 && /^(\d+)(.*)$/s.exec(node.textContent);
@@ -44,7 +44,7 @@
       const parent = el.parentElement;
       const rank = ranks.get(parent) || 0;
       ranks.set(parent, rank + 1);
-      const gap = el.parentElement.closest(".consoles") ? 0.022 : 0.075;
+      const gap = 0.075;
       el.style.setProperty("--d", `${(rank * gap).toFixed(3)}s`);
       el.classList.add("in");
       if (el.matches("#consoles h2")) countUp(el);
@@ -63,25 +63,51 @@
   }, { rootMargin: "-45% 0px -50% 0px" });
   links.forEach((_, id) => { const s = document.getElementById(id); if (s) spy.observe(s); });
 
-  // Consoles : trois rangées, chacune répétée pour pouvoir glisser sur toute la largeur.
-  const consoles = document.querySelector(".consoles");
-  if (consoles) {
-    const pills = [...consoles.children];
-    const per = Math.ceil(pills.length / 3);
-    for (let r = 0; r < 3; r++) {
-      const row = document.createElement("div");
-      row.className = "row";
-      const own = pills.slice(r * per, (r + 1) * per);
-      row.append(...own);
-      for (let copy = 0; copy < 2; copy++) for (const pill of own) {
-        const clone = pill.cloneNode(true);
-        clone.classList.add("clone");
-        clone.setAttribute("aria-hidden", "true");
-        row.append(clone);
-      }
-      consoles.append(row);
+  // Scènes recréées : dans le récit elles vivent dans l'écran (à la place d'une capture), sinon
+  // elles restent dans leur étape et s'animent seules.
+  const demos = [...document.querySelectorAll(".step")].map((step, i) => ({ step, demo: step.querySelector(":scope > .demo"), slot: document.querySelectorAll(".views > *")[i + 1] })).filter((d) => d.demo);
+  const place = () => {
+    const story = root.classList.contains("story");
+    for (const d of demos) {
+      if (story && d.demo.parentElement === d.step) { d.slot.replaceWith(d.demo); }
+      else if (!story && d.demo.parentElement !== d.step) { d.demo.replaceWith(d.slot); d.demo.classList.remove("on"); d.demo.style.removeProperty("--s"); d.step.prepend(d.demo); }
     }
+  };
+  place();
+
+  // Thèmes : les douze palettes de l'application (data-c = fond, quatre teintes, deux fonds de nuit).
+  const themeStage = document.querySelector("[data-themes]");
+  let themes = null;
+  if (themeStage) {
+    const host = document.getElementById("themes");
+    const dots = [...themeStage.querySelectorAll(".th-dots button")];
+    const names = [...themeStage.querySelectorAll(".th-names p")];
+    const mode = themeStage.querySelector(".th-mode");
+    const state = { index: -1, night: false, manual: false };
+    const apply = (index, night) => {
+      if (index === state.index && night === state.night) return;
+      state.index = index;
+      state.night = night;
+      const c = dots[index].dataset.c.split(",");
+      host.style.setProperty("--t-bg", night ? c[5] : c[0]);
+      host.style.setProperty("--t-card", night ? c[6] : "#ffffff");
+      host.style.setProperty("--t-ink", night ? "#F4F1EC" : "#344459");
+      ["a", "b", "c", "d"].forEach((k, j) => host.style.setProperty(`--t-${k}`, c[j + 1]));
+      dots.forEach((dot, j) => dot.classList.toggle("on", j === index));
+      names.forEach((name, j) => name.classList.toggle("on", j === index));
+      mode.setAttribute("aria-pressed", String(night));
+    };
+    dots.forEach((dot, j) => dot.addEventListener("click", () => { state.manual = true; apply(j, state.night); }));
+    mode.addEventListener("click", () => { state.manual = true; apply(Math.max(0, state.index), !state.night); });
+    apply(0, false);
+    themes = { range: themeStage.dataset.themes.split(" ").map(Number), count: dots.length, apply };
+    // hors récit, les palettes défilent seules tant qu'on n'y a pas touché
+    setInterval(() => { if (!root.classList.contains("story") && !reduce.matches && !state.manual) apply((state.index + 1) % dots.length, state.night); }, 2600);
   }
+
+  // Frise des consoles.
+  const lineupEl = document.querySelector("[data-lineup]");
+  const lineup = lineupEl && { el: lineupEl, range: lineupEl.dataset.lineup.split(" ").map(Number), items: [...lineupEl.querySelectorAll(".con")].map((el) => ({ el, f: -1 })) };
 
   // Scènes épinglées.
   const scenes = [...document.querySelectorAll("[data-tl]")].map((el) => {
@@ -94,10 +120,10 @@
       range: col.dataset.steps.split(/\s+/).map(Number),
       items: [...col.querySelectorAll(".step")],
       dots: [...col.querySelectorAll(".dots i")],
-      views: [...el.querySelectorAll(".views img")],
+      views: [...el.querySelectorAll(".views > *")],
       index: -2,
     };
-    return { el, tracks, steps, top: 0, range: 1, last: -1 };
+    return { el, tracks, steps, themes: themes && el.contains(themeStage) ? themes : null, lineup: lineup && el.contains(lineupEl) ? lineup : null, top: 0, range: 1, last: -1 };
   });
   const value = (at, p) => {
     if (at.length === 2) return ease(clamp((p - at[0]) / (at[1] - at[0])));
@@ -115,6 +141,19 @@
     scene.last = p;
     for (const track of scene.tracks) scene.el.style.setProperty(`--${track.name}`, value(track.at, p).toFixed(4));
     scene.el.classList.toggle("deep", p > 0.07);
+    if (scene.themes) {
+      const [from, to, night] = scene.themes.range;
+      scene.themes.apply(Math.min(scene.themes.count - 1, Math.floor(clamp((p - from) / (to - from)) * scene.themes.count)), p > night);
+    }
+    if (scene.lineup) {
+      const { el, range, items } = scene.lineup;
+      const x = clamp((p - range[0]) / (range[1] - range[0])) * (items.length - 1);
+      el.style.setProperty("--x", x.toFixed(3));
+      items.forEach((item, i) => {
+        const f = clamp(1 - Math.abs(i - x));
+        if (f !== item.f) { item.f = f; item.el.style.setProperty("--f", f.toFixed(3)); }
+      });
+    }
     const steps = scene.steps;
     if (!steps) return;
     const count = steps.items.length;
@@ -122,6 +161,7 @@
     const index = Math.min(count - 1, Math.floor(x));
     steps.items[index].style.setProperty("--s", clamp(x - index).toFixed(4));
     const view = p < steps.range[0] ? 0 : index + 1;
+    steps.views[index + 1].style.setProperty("--s", clamp(x - index).toFixed(4));
     if (index === steps.index && view === steps.view) return;
     steps.index = index;
     steps.view = view;
@@ -157,7 +197,13 @@
   addEventListener("scroll", kick, { passive: true });
   addEventListener("resize", refresh, { passive: true });
   addEventListener("load", refresh);
-  wide.addEventListener("change", () => { root.classList.toggle("story", wide.matches); refresh(); });
+  wide.addEventListener("change", () => {
+    root.classList.toggle("story", wide.matches);
+    place();
+    if (lineup && !wide.matches) lineup.items.forEach((item) => { item.f = -1; item.el.style.removeProperty("--f"); });
+    for (const scene of scenes) if (scene.steps) scene.steps.views = [...scene.el.querySelectorAll(".views > *")];
+    refresh();
+  });
   refresh();
   requestAnimationFrame(frame);
 
