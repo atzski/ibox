@@ -1761,6 +1761,8 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "Des albums dans Music in the Box": "Albums in Music in the Box",
+  "La recherche du panneau musique a un troisième onglet, Albums : ouvrez un album pour voir ses titres, puis lisez-le en entier dans l’ordre ou à partir du titre de votre choix. Avec le plugin Music in the Box 1.0.2.": "The music panel’s search has a third tab, Albums: open an album to see its songs, then play it in full, in order, or from the song you pick. With the Music in the Box 1.0.2 plugin.",
   "Des titres qui défilent sans s’arrêter": "Song titles that keep scrolling",
   "Dans le panneau musique, un titre ou un nom d’artiste trop long pour tenir défile désormais en continu : il ne se fige plus après un redimensionnement du panneau ou l’arrivée de la police.": "In the music panel, a song title or artist name too long to fit now scrolls continuously: it no longer freezes after the panel resizes or the font loads.",
   "Un verre sans raccord": "Seamless glass",

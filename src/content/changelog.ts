@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.113",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "disc", title: "Des albums dans Music in the Box", text: "La recherche du panneau musique a un troisième onglet, Albums : ouvrez un album pour voir ses titres, puis lisez-le en entier dans l’ordre ou à partir du titre de votre choix. Avec le plugin Music in the Box 1.0.2." },
+    ],
+  },
+  {
     version: "0.1.112",
     date: "2026-11-21",
     highlights: [
