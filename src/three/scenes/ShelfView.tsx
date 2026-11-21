@@ -26,6 +26,9 @@ import { getArtCanvas } from "@/art/covers";
 import { loadAssets } from "@/art/assets";
 import { metadataApi } from "@/services/metadata";
 import { isTauri } from "@/services/native";
+import { isInstalled } from "@/services/pc";
+import { drawPath, pickDraw } from "@/domain/draw";
+import { DRAW_EVENT, drawPending, takeDraw } from "@/app/draw";
 import { MediaModal } from "@/components/library/MediaModal";
 import { usePlatformArt } from "@/services/platformArt";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
@@ -46,6 +49,8 @@ const WINDOW = 10;
 const TRACK_Y = 0.34;
 /** Hauteur d'un boîtier rangé, en fraction de la hauteur de la vue. */
 const CASE_SHARE = 0.46;
+/** Durée du tour que fait le boîtier tiré au hasard. */
+const CHEER_MS = 820;
 /** Délai avant de charger le décor d'une sélection stabilisée. */
 const DECOR_SETTLE_MS = 300;
 /** Distance de la caméra, en largeurs de boîtier (perspective du carrousel). */
@@ -188,6 +193,7 @@ function FlowCase({
   flipped,
   spin,
   bump,
+  cheer,
   leaving,
   flown,
   returning,
@@ -206,6 +212,8 @@ function FlowCase({
   spin: { current: number };
   /** Butée en bout de rangée (sens, instant). */
   bump: { current: { dir: number; at: number } };
+  /** Instant où le tirage au hasard s'est posé sur le boîtier choisi : il fait un tour sur lui-même. */
+  cheer: { current: number };
   leaving: boolean;
   flown: boolean;
   returning: boolean;
@@ -286,6 +294,12 @@ function FlowCase({
     b.position.z = mid * 0.12;
     const kb = selected && !reduced ? (performance.now() - bump.current.at) / 240 : 1;
     b.position.x = kb >= 0 && kb < 1 ? bump.current.dir * Math.sin(Math.PI * kb) * bw * 0.045 : 0;
+    // tirage au hasard : le boîtier tiré se soulève et fait un tour complet, puis se repose de face
+    const kc = selected && !reduced && cheer.current >= 0 ? (performance.now() - cheer.current) / CHEER_MS : 1;
+    if (kc >= 0 && kc < 1) {
+      b.rotation.y += SLIDE(kc) * Math.PI * 2;
+      b.position.y = Math.sin(Math.PI * kc) * spec.height * 0.07;
+    } else b.position.y = 0;
 
     // reflet qui suit l'angle, voile sur les boîtiers de côté, éclat à l'arrivée
     if (selected && !wasSelected.current) sheenAt.current = time + 0.5;
@@ -528,6 +542,9 @@ export function ShelfView({
   const [entering, setEntering] = useState(!returnAt);
   const spin = useRef(0);
   const bump = useRef({ dir: 0, at: -1 });
+  // tirage au hasard en cours : la rangée défile seule jusqu'au jeu tiré
+  const [drawing, setDrawing] = useState(false);
+  const cheer = useRef(-1);
   const groups = useRef(new Map<string, Group>());
   const three = useRef<{ camera: Camera; gl: WebGLRenderer } | null>(null);
   const register = (id: string, g: Group | null) => {
@@ -602,7 +619,7 @@ export function ShelfView({
   }, []);
 
   const open = (g: Game) => {
-    if (leaving || swap) return;
+    if (leaving || swap || drawing) return;
     if (reduced) {
       sound.play("select");
       onOpen(g);
@@ -626,7 +643,7 @@ export function ShelfView({
   };
 
   const select = (i: number) => {
-    if (leaving || swap || !shelf) return;
+    if (leaving || swap || drawing || !shelf) return;
     const next = Math.max(0, Math.min(shelf.games.length - 1, i));
     if (next === index) {
       // bout de la rangée : le boîtier choisi butte sur place
@@ -637,8 +654,8 @@ export function ShelfView({
     setPicks((p) => ({ ...p, [shelf.id]: next }));
   };
 
-  const changeShelf = (r: number) => {
-    if (leaving || swap) return false;
+  const changeShelf = (r: number, force = false) => {
+    if (leaving || swap || (drawing && !force)) return false;
     const next = Math.max(0, Math.min(shelves.length - 1, r));
     if (next === shelfIndex) return false;
     sound.play("tab");
@@ -659,14 +676,76 @@ export function ShelfView({
     return true;
   };
 
+  /**
+   * « Au hasard » : un jeu est tiré dans tout ce que l'étagère montre (toutes ses
+   * rangées), puis la rangée défile jusqu'à lui en ralentissant, un cran sonore
+   * par boîtier. À l'arrivée, le boîtier tiré fait un tour sur lui-même.
+   */
+  const draw = () => {
+    if (leaving || swap || drawing || !shelf) return;
+    const target = pickDraw(shelves.map((s) => s.games), { row: shelfIndex, index }, (g) => !g.missing && (g.platformId !== "pc" || g.isDemo || isInstalled(g)));
+    if (!target) {
+      // un seul jeu : rien à tirer, le boîtier butte sur place
+      bump.current = { dir: 1, at: performance.now() };
+      sound.play("error");
+      return;
+    }
+    const row = shelves[target.row];
+    setFlipped(false);
+    if (reduced) {
+      sound.play("confirm");
+      setShelfIndex(target.row);
+      setPicks((p) => ({ ...p, [row.id]: target.index }));
+      return;
+    }
+    setDrawing(true);
+    let from = index;
+    let wait = 0;
+    if (target.row !== shelfIndex) {
+      // autre console : sa rangée arrive d'abord, posée loin du jeu tiré pour avoir de quoi défiler
+      const last = row.games.length - 1;
+      from = target.index > last / 2 ? Math.max(0, target.index - 14) : Math.min(last, target.index + 14);
+      setPicks((p) => ({ ...p, [row.id]: from }));
+      changeShelf(target.row, true);
+      wait = 760;
+    }
+    const path = drawPath(from, target.index, row.games.length);
+    for (const step of path) {
+      wait += step.delay;
+      later(() => {
+        sound.play("move");
+        setPicks((p) => ({ ...p, [row.id]: step.index }));
+      }, wait);
+    }
+    later(() => {
+      cheer.current = performance.now();
+      sound.play("confirm");
+    }, wait + 240);
+    later(() => setDrawing(false), wait + 240 + CHEER_MS * 0.6);
+  };
+  // la demande peut venir d'ailleurs (accueil, menu rapide, recherche) : en attente à l'arrivée, ou en direct
+  const drawRef = useRef(draw);
+  drawRef.current = draw;
+  useEffect(() => {
+    const run = () => drawRef.current();
+    // la demande n'est consommée qu'au moment de tirer : un montage annulé (mode strict) ne la perd pas
+    const waiting = drawPending() ? window.setTimeout(() => takeDraw() && run(), reduced ? 0 : 900) : undefined;
+    window.addEventListener(DRAW_EVENT, run);
+    return () => {
+      window.clearTimeout(waiting);
+      window.removeEventListener(DRAW_EVENT, run);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const flip = () => {
-    if (leaving || !sel) return;
+    if (leaving || drawing || !sel) return;
     sound.play(flipped ? "close" : "open");
     setFlipped((f) => !f);
   };
 
   const quickPlay = () => {
-    if (!sel || playState.reason || sel.dbId === undefined) return;
+    if (drawing || !sel || playState.reason || sel.dbId === undefined) return;
     sound.play("select");
     void useLauncher.getState().play(sel.dbId, sel.title);
   };
@@ -685,6 +764,7 @@ export function ShelfView({
     else if (e.key === "Enter" || e.key === " ") open(sel);
     else if (e.key === "f" || e.key === "F") flip();
     else if (e.key === "x" || e.key === "X") quickPlay();
+    else if (e.key === "r" || e.key === "R") draw();
     else return;
     e.preventDefault();
   };
@@ -773,6 +853,7 @@ export function ShelfView({
                   flipped={i === index && flipped}
                   spin={spin}
                   bump={bump}
+                  cheer={cheer}
                   leaving={leaving}
                   flown={flown}
                   returning={!!returnAt && shelfIndex === returnAt.row && i === returnAt.index && !reduced}
@@ -856,6 +937,7 @@ export function ShelfView({
           <FlowAction icon="play" label="Jouer" primary disabled={!!playState.reason || sel.dbId === undefined} title={playState.reason ?? undefined} onClick={quickPlay} />
           <FlowAction icon="open" label="Fiche" onClick={() => open(sel)} />
           <FlowAction icon="reset" label={flipped ? "Face" : "Dos"} onClick={flip} />
+          {games.length > 1 && <FlowAction icon="dice" label="Au hasard" title="Laisser iBox choisir un jeu (R)" disabled={drawing} onClick={draw} />}
           {sel.dbId !== undefined && isTauri() && (
             <FlowAction icon="sparkle" label="Images" title="Personnaliser la jaquette, le dos, la tranche ou le fond" onClick={() => setEditing(true)} />
           )}

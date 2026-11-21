@@ -25,7 +25,7 @@ export type MotionPreference = "system" | "full" | "reduced";
 export type LibraryView = "grid" | "shelf";
 /** Taille des jaquettes dans les grilles. */
 export type GridDensity = "compact" | "standard" | "comfortable";
-export type LibrarySort = "alpha" | "added";
+export type LibrarySort = "alpha" | "added" | "played";
 export type Region = "PAL" | "NTSC-U" | "NTSC-J";
 export type ThemePreference = "system" | "light" | "dark";
 

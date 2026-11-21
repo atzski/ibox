@@ -138,7 +138,7 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
             size="lg"
             icon={consoleInfo(game.platformId)?.recommended ? "download" : "gear"}
             autoFocusScreen
-            onClick={() => go(consoleInfo(game.platformId) ? { name: "platform", platformId: game.platformId } : { name: "settings" })}
+            onClick={() => go(consoleInfo(game.platformId) ? { name: "platform", platformId: game.platformId } : { name: "settings", category: "pc" })}
           >
             {consoleInfo(game.platformId)?.recommended ? "Installer l'émulateur" : "Configurer un émulateur"}
           </Button>

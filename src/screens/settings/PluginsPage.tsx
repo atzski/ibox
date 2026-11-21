@@ -4,6 +4,7 @@ import { openPlayer } from "@/components/social/PlayerProfile";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { call } from "@/services/inetbox";
+import { PLUGINS_CHANGED } from "@/services/nowPlaying";
 import { formatSize, installPlugin, listPlugins, permissionLabel, setPluginEnabled, uninstallPlugin, type PluginAuthor, type PluginList, type PluginView } from "@/services/plugins";
 import type { AvatarChoice } from "@/services/settings";
 import { sound } from "@/services/sound";
@@ -43,6 +44,8 @@ export function PluginsPage() {
       setList(await job());
       setConfirm(null);
       sound.play(done);
+      // la barre du haut (« En cours ») suit aussitôt l'activation ou le retrait du plugin
+      window.dispatchEvent(new Event(PLUGINS_CHANGED));
     } catch (e) {
       setError(String(e));
       sound.play("error");

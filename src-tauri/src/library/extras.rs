@@ -31,15 +31,20 @@ pub struct Stats {
 /// Parties réussies uniquement (un lancement en échec ne compte pas).
 const OK: &str = "seconds > 0 AND error IS NULL";
 
-pub fn stats(conn: &Connection, today: &str) -> Result<Stats> {
+/// Fuseau des statistiques : modificateur SQLite appliqué aux dates (enregistrées en UTC).
+/// `localtime` dans l'application : une partie lancée à 0 h 30 compte pour ce jour-là, pas
+/// pour la veille. Les tests passent un décalage fixe (« +02:00 »).
+pub const LOCAL: &str = "localtime";
+
+pub fn stats(conn: &Connection, today: &str, zone: &str) -> Result<Stats> {
     let mut s = Stats::default();
     (s.total_seconds, s.sessions) = conn.query_row(&format!("SELECT COALESCE(SUM(seconds), 0), COUNT(*) FROM play_sessions WHERE {OK}"), [], |r| {
         Ok((r.get(0)?, r.get(1)?))
     })?;
     s.games_played = conn.query_row(&format!("SELECT COUNT(DISTINCT game_id) FROM play_sessions WHERE {OK}"), [], |r| r.get(0))?;
     s.week_seconds = conn.query_row(
-        &format!("SELECT COALESCE(SUM(seconds), 0) FROM play_sessions WHERE {OK} AND date(started_at) > date(?1, '-7 day')"),
-        [today],
+        &format!("SELECT COALESCE(SUM(seconds), 0) FROM play_sessions WHERE {OK} AND date(started_at, ?2) > date(?1, '-7 day')"),
+        [today, zone],
         |r| r.get(0),
     )?;
     s.by_platform = conn
@@ -53,11 +58,10 @@ pub fn stats(conn: &Connection, today: &str) -> Result<Stats> {
         .prepare(&format!("SELECT game_id, SUM(seconds) FROM play_sessions WHERE {OK} GROUP BY game_id ORDER BY 2 DESC LIMIT 6"))?
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<std::result::Result<_, _>>()?;
+    // tous les jours joués : la série peut être plus longue que la fenêtre du graphique
     let per_day: BTreeMap<String, i64> = conn
-        .prepare(&format!(
-            "SELECT date(started_at), SUM(seconds) FROM play_sessions WHERE {OK} AND date(started_at) > date(?1, '-60 day') GROUP BY 1"
-        ))?
-        .query_map([today], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .prepare(&format!("SELECT date(started_at, ?1), SUM(seconds) FROM play_sessions WHERE {OK} GROUP BY 1"))?
+        .query_map([zone], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<std::result::Result<_, _>>()?;
     for back in (0..14).rev() {
         let day: String = conn.query_row("SELECT date(?1, ?2)", params![today, format!("-{back} day")], |r| r.get(0))?;
@@ -76,10 +80,77 @@ pub fn stats(conn: &Connection, today: &str) -> Result<Stats> {
     Ok(s)
 }
 
+/// Date du jour dans le fuseau des statistiques.
+fn today_in(conn: &Connection, zone: &str) -> Result<String> {
+    Ok(conn.query_row("SELECT date('now', ?1)", [zone], |r| r.get(0))?)
+}
+
 #[tauri::command]
 pub fn stats_overview(state: State<LibraryState>) -> Res<Stats> {
-    let today = now_iso()[..10].to_string();
-    state.with(|c| stats(c, &today))
+    state.with(|c| stats(c, &today_in(c, LOCAL)?, LOCAL))
+}
+
+// ——— Journal de jeu ———
+
+/// Semaines affichées par le journal d'un jeu.
+const JOURNAL_WEEKS: i64 = 12;
+/// Parties listées par le journal (les plus récentes).
+const JOURNAL_RECENT: i64 = 40;
+
+/// Tout ce qu'iBox sait des parties d'un jeu : totaux, rythme par semaine, dernières parties.
+#[derive(Debug, Serialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Journal {
+    pub total_seconds: i64,
+    pub sessions: i64,
+    pub longest_seconds: i64,
+    /// Jours différents où le jeu a été lancé.
+    pub days_played: i64,
+    /// Début de la première et de la dernière partie (ISO, UTC).
+    pub first_played: Option<String>,
+    pub last_played: Option<String>,
+    /// 12 dernières semaines : (lundi AAAA-MM-JJ, secondes), de la plus ancienne à la plus récente.
+    pub weeks: Vec<(String, i64)>,
+    /// Dernières parties : (début ISO, secondes), la plus récente d'abord.
+    pub recent: Vec<(String, i64)>,
+}
+
+/// Journal d'un jeu et de ses autres versions (`game_ids` : la fiche et ses variantes).
+pub fn journal(conn: &Connection, game_ids: &[i64], today: &str, zone: &str) -> Result<Journal> {
+    let mut j = Journal::default();
+    if game_ids.is_empty() {
+        return Ok(j);
+    }
+    // identifiants entiers : insérés tels quels, aucun texte venu de l'extérieur
+    let ids = game_ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+    let mine = format!("{OK} AND game_id IN ({ids})");
+    (j.total_seconds, j.sessions, j.longest_seconds, j.days_played, j.first_played, j.last_played) = conn.query_row(
+        &format!(
+            "SELECT COALESCE(SUM(seconds), 0), COUNT(*), COALESCE(MAX(seconds), 0), COUNT(DISTINCT date(started_at, ?1)), MIN(started_at), MAX(started_at)
+             FROM play_sessions WHERE {mine}"
+        ),
+        [zone],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+    )?;
+    // lundi de la semaine de chaque partie
+    let per_week: BTreeMap<String, i64> = conn
+        .prepare(&format!("SELECT date(started_at, ?1, '-6 days', 'weekday 1'), SUM(seconds) FROM play_sessions WHERE {mine} GROUP BY 1"))?
+        .query_map([zone], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    for back in (0..JOURNAL_WEEKS).rev() {
+        let week: String = conn.query_row("SELECT date(?1, '-6 days', 'weekday 1', ?2)", params![today, format!("-{} days", back * 7)], |r| r.get(0))?;
+        j.weeks.push((week.clone(), per_week.get(&week).copied().unwrap_or(0)));
+    }
+    j.recent = conn
+        .prepare(&format!("SELECT started_at, seconds FROM play_sessions WHERE {mine} ORDER BY started_at DESC LIMIT {JOURNAL_RECENT}"))?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    Ok(j)
+}
+
+#[tauri::command]
+pub fn game_journal(state: State<LibraryState>, game_ids: Vec<i64>) -> Res<Journal> {
+    state.with(|c| journal(c, &game_ids, &today_in(c, LOCAL)?, LOCAL))
 }
 
 // ——— Collections ———
@@ -477,13 +548,83 @@ mod tests {
              INSERT INTO play_sessions (game_id, started_at, seconds, error) VALUES (2, '2026-11-13T11:00:00Z', 2, 'crash');",
         )
         .unwrap();
-        let s = stats(&conn, "2026-11-13").unwrap();
+        let s = stats(&conn, "2026-11-13", "+00:00").unwrap();
         assert_eq!((s.total_seconds, s.sessions, s.games_played), (5400, 3, 2));
         assert_eq!(s.streak_days, 2);
         assert_eq!(s.by_platform[0], ("wii".to_string(), 4200));
         assert_eq!(s.top_games[0], (1, 4200));
         assert_eq!(s.days.len(), 14);
         assert_eq!(s.days[13], ("2026-11-13".to_string(), 3600));
+    }
+
+    /// Parties autour de minuit : elles comptent pour le jour vécu par le joueur, pas pour le jour UTC.
+    #[test]
+    fn statistiques_au_jour_local() {
+        let conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch(
+            "INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence) VALUES (1, 'wii', 'A', 'a', '2026-01-01', 'filename', 1);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-07-10T22:30:00Z', 1800);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-07-11T22:30:00Z', 900);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-07-12T20:00:00Z', 600);",
+        )
+        .unwrap();
+        // heure d'été française (UTC+2) : 22 h 30 UTC, c'est 0 h 30 le lendemain
+        let local = stats(&conn, "2026-07-12", "+02:00").unwrap();
+        assert_eq!(local.days[13], ("2026-07-12".to_string(), 1500));
+        assert_eq!(local.days[12], ("2026-07-11".to_string(), 1800));
+        assert_eq!(local.streak_days, 2);
+        // en UTC, les mêmes parties tombent sur trois jours
+        let utc = stats(&conn, "2026-07-12", "+00:00").unwrap();
+        assert_eq!(utc.days[13], ("2026-07-12".to_string(), 600));
+        assert_eq!(utc.streak_days, 3);
+    }
+
+    /// La série n'est plus plafonnée à la fenêtre de lecture des jours.
+    #[test]
+    fn serie_plus_longue_que_deux_mois() {
+        let conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch("INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence) VALUES (1, 'wii', 'A', 'a', '2026-01-01', 'filename', 1);").unwrap();
+        for back in 0..75 {
+            conn.execute(
+                "INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, strftime('%Y-%m-%dT12:00:00Z', '2026-11-13', ?1), 60)",
+                [format!("-{back} day")],
+            )
+            .unwrap();
+        }
+        assert_eq!(stats(&conn, "2026-11-13", "+00:00").unwrap().streak_days, 75);
+    }
+
+    #[test]
+    fn journal_d_un_jeu() {
+        let conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch(
+            "INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence) VALUES (1, 'wii', 'A', 'a', '2026-01-01', 'filename', 1);
+             INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence) VALUES (2, 'wii', 'A (USA)', 'a', '2026-01-01', 'filename', 1);
+             INSERT INTO games (id, platform_id, title, sort_title, added_at, id_method, id_confidence) VALUES (3, 'ds', 'B', 'b', '2026-01-01', 'filename', 1);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-07-01T10:00:00Z', 1200);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-11-09T10:00:00Z', 3600);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (1, '2026-11-09T20:00:00Z', 600);
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (2, '2026-11-12T10:00:00Z', 900);
+             INSERT INTO play_sessions (game_id, started_at, seconds, error) VALUES (1, '2026-11-13T09:00:00Z', 3, 'crash');
+             INSERT INTO play_sessions (game_id, started_at) VALUES (1, '2026-11-13T10:00:00Z');
+             INSERT INTO play_sessions (game_id, started_at, seconds) VALUES (3, '2026-11-13T10:00:00Z', 9999);",
+        )
+        .unwrap();
+        // la fiche et son autre version, sans le jeu 3 ; échec et partie en cours ignorés
+        let j = journal(&conn, &[1, 2], "2026-11-13", "+00:00").unwrap();
+        assert_eq!((j.total_seconds, j.sessions, j.longest_seconds, j.days_played), (6300, 4, 3600, 3));
+        assert_eq!(j.first_played.as_deref(), Some("2026-07-01T10:00:00Z"));
+        assert_eq!(j.last_played.as_deref(), Some("2026-11-12T10:00:00Z"));
+        assert_eq!(j.recent[0], ("2026-11-12T10:00:00Z".to_string(), 900));
+        assert_eq!(j.recent.len(), 4);
+        // 12 semaines, la dernière commence le lundi 9 novembre 2026 ; le 1er juillet est hors fenêtre
+        assert_eq!(j.weeks.len(), 12);
+        assert_eq!(j.weeks[11], ("2026-11-09".to_string(), 5100));
+        assert_eq!(j.weeks[10], ("2026-11-02".to_string(), 0));
+        assert_eq!(j.weeks.iter().map(|w| w.1).sum::<i64>(), 5100);
+        // jeu jamais lancé, ou aucun identifiant : journal vide, pas d'erreur
+        assert_eq!(journal(&conn, &[42], "2026-11-13", "+00:00").unwrap().sessions, 0);
+        assert_eq!(journal(&conn, &[], "2026-11-13", "+00:00").unwrap(), Journal::default());
     }
 
     #[test]

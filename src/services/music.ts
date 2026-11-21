@@ -26,6 +26,18 @@ class MusicPlayer {
   private suspended = false;
   /** Fenêtre d'iBox masquée (démarrage avec Windows, zone de notification). */
   private background = false;
+  /** La musique de l'utilisateur joue (Music in the Box) : celle des menus lui laisse la place. */
+  private yielding = false;
+
+  /**
+   * Votre musique d'abord : tant qu'elle joue, la musique des menus se tait (fondu) ;
+   * elle revient d'elle-même quand la vôtre s'arrête.
+   */
+  setYielding(value: boolean): void {
+    if (this.yielding === value) return;
+    this.yielding = value;
+    this.sync();
+  }
 
   setBackground(value: boolean): void {
     if (this.background === value) return;
@@ -90,7 +102,7 @@ class MusicPlayer {
 
   private shouldPlay(): boolean {
     const s = useSettings.getState();
-    return !!this.wanted && s.musicEnabled && s.musicVolume > 0 && !document.hidden && !this.suspended && !this.background;
+    return !!this.wanted && s.musicEnabled && s.musicVolume > 0 && !document.hidden && !this.suspended && !this.background && !this.yielding;
   }
 
   private targetVolume(): number {

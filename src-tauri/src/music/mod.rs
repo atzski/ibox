@@ -89,6 +89,9 @@ pub fn current(app: &AppHandle) -> MusicState {
 pub fn emit_state(app: &AppHandle) {
     let state = current(app);
     let _ = app.emit_to(overlay::LABEL, "music://state", &state);
+    // la fenêtre principale affiche « En cours » dans sa barre du haut : elle suit en direct
+    // tant que le panneau est ouvert (fermé, elle relit l'état toute seule, plus rarement)
+    let _ = app.emit_to("main", "music://state", &state);
 }
 
 fn control(app: &AppHandle, action: &str, value: Option<f64>) -> Result<(), String> {

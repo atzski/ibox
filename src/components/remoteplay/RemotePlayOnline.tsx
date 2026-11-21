@@ -89,7 +89,7 @@ function NotEnabled({ onClose }: { onClose: () => void }) {
         autoFocus
         onClick={() => {
           onClose();
-          useNav.getState().go({ name: "settings" });
+          useNav.getState().go({ name: "settings", category: "remoteplay" });
         }}
       >
         Ouvrir les paramètres
@@ -392,7 +392,7 @@ export function RemotePlayGameDialog({ gameTitle, onLaunch, onClose }: { gameTit
             autoFocus
             onClick={() => {
               onClose();
-              useNav.getState().go({ name: "settings" });
+              useNav.getState().go({ name: "settings", category: "inetbox" });
             }}
           >
             Ouvrir les paramètres

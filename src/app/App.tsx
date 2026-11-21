@@ -24,6 +24,7 @@ import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shell
 import { useSettings } from "@/services/settings";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
 import { music, MENU_TRACK } from "@/services/music";
+import { startNowPlaying } from "@/services/nowPlaying";
 import { sound } from "@/services/sound";
 import { input } from "@/input/InputController";
 import { attachGamepads } from "@/input/gamepad";
@@ -276,6 +277,8 @@ export function App() {
   const ambientTrack = useShell((s) => s.ambientPlatform?.ambience) ?? custom ?? MENU_TRACK;
   useEffect(() => music.attach(), []);
   useEffect(() => attachMenuMusic(), []);
+  // Music in the Box : « En cours » dans la barre du haut, et la musique des menus qui s'efface
+  useEffect(() => startNowPlaying(), []);
   useEffect(() => music.play(ambientTrack), [ambientTrack]);
 
   // Thème : color-scheme pilote toutes les couleurs light-dark() des tokens
@@ -337,7 +340,7 @@ export function App() {
               <p className="max-h-20 overflow-auto text-sm">{libraryError}</p>
             </div>
             <button data-focusable className="ibox-focusable shrink-0 rounded-lg bg-white px-4 py-2 font-bold"
-              onClick={() => useNav.getState().go({ name: "settings" })}>Paramètres</button>
+              onClick={() => useNav.getState().go({ name: "settings", category: "system" })}>Paramètres</button>
           </div>
         )}
         <main className="relative min-h-0 flex-1">

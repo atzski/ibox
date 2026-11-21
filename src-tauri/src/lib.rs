@@ -359,6 +359,7 @@ pub fn run() {
             lib_cmd::folder_remove,
             lib_cmd::library_remove_missing,
             library::extras::stats_overview,
+            library::extras::game_journal,
             library::extras::collections_list,
             library::extras::collection_create,
             library::extras::collection_update,

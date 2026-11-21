@@ -10,20 +10,23 @@ import { sound } from "@/services/sound";
 
 /**
  * Petite barre de l'accueil : à gauche le joueur actif (changer d'utilisateur
- * en deux clics), à droite les raccourcis discrets Succès, Communauté, Fond et
+ * en deux clics), à droite les raccourcis discrets Succès, Communauté, Au hasard, Fond et
  * Recherche, en icônes seules (leur nom s'affiche au survol).
  */
-export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommunity }: {
+export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommunity, onDraw }: {
   onAchievements: () => void;
   onBackground: () => void;
   onSearch: () => void;
   onCommunity: () => void;
+  /** Tirage au hasard (absent tant qu'il n'y a pas au moins deux jeux). */
+  onDraw?: () => void;
 }) {
   return (
     <div className="flex items-center justify-end gap-3 px-[3rem] pt-2">
       <IconBar>
         <IconBarButton icon="trophy" label="Succès" onClick={onAchievements} tint="var(--tone-yellow-ink)" />
         <IconBarButton icon="globe" label="Communauté" onClick={onCommunity} tint="var(--tone-green-ink)" />
+        {onDraw && <IconBarButton icon="dice" label="Au hasard" title="Laisser iBox choisir un jeu" onClick={onDraw} tint="var(--tone-purple-ink)" cue={null} />}
         <IconBarButton icon="front" label="Fond" title="Changer le fond de l’accueil" onClick={onBackground} tint="var(--tone-pink-ink)" />
         <IconBarButton icon="search" label="Recherche" title="Recherche rapide (X)" onClick={onSearch} tint="var(--tone-blue-ink)" />
       </IconBar>

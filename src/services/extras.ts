@@ -28,6 +28,25 @@ export interface Stats {
 
 export const statsApi = { overview: () => call<Stats>("stats_overview") };
 
+// ——— Journal de jeu ———
+
+/** Tout ce qu'iBox sait des parties d'un jeu (et de ses autres versions). */
+export interface Journal {
+  totalSeconds: number;
+  sessions: number;
+  longestSeconds: number;
+  /** Jours différents où le jeu a été lancé. */
+  daysPlayed: number;
+  firstPlayed: string | null;
+  lastPlayed: string | null;
+  /** 12 dernières semaines : [lundi AAAA-MM-JJ, secondes], de la plus ancienne à la plus récente. */
+  weeks: [string, number][];
+  /** Dernières parties : [début ISO, secondes], la plus récente d'abord. */
+  recent: [string, number][];
+}
+
+export const journalApi = { get: (gameIds: number[]) => call<Journal>("game_journal", { gameIds }) };
+
 // ——— Collections ———
 
 export interface Collection {

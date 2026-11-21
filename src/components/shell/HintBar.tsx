@@ -44,7 +44,8 @@ export function HintBar() {
   const raw = useShell((s) => s.hints);
   const { active, family } = useGamepad();
   const side = useSettings((s) => s.gamepadConfirm);
-  const hints: Hint[] = active ? [{ keys: ["F1"], label: "Menu" }, ...raw] : raw;
+  // à la manette, une commande réservée au clavier (touche R…) n'a pas de bouton : on ne l'annonce pas
+  const hints: Hint[] = active ? [{ keys: ["F1"], label: "Menu" }, ...raw.filter((h) => padKeysOf(h.keys).length > 0)] : raw;
   return (
     <footer className="pointer-events-none relative z-20 flex h-[3.25rem] shrink-0 items-center justify-end gap-6 px-[3rem]">
       <AnimatePresence mode="popLayout" initial={false}>

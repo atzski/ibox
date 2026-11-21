@@ -2,6 +2,7 @@ import { saved } from "@/services/saved";
 import { SPRING } from "@/motion/tokens";
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
+import { PlayJournalChip } from "@/components/game/PlayJournal";
 import { VersionPicker, VersionsModal, familyOf, preferredVersion } from "@/components/game/Versions";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
@@ -210,7 +211,7 @@ function GameSheet({ game }: { game: Game }) {
         {noCover && sgdbKey === false && !game.missing && (
           <Notice icon="key" tone="accent">
             Pas de jaquette : ajoutez votre clé SteamGridDB gratuite pour la récupérer.{" "}
-            <button data-focusable onClick={() => go({ name: "settings" })} className="ibox-focusable font-extrabold underline underline-offset-2 [--ring-radius:8px]">
+            <button data-focusable onClick={() => go({ name: "settings", category: "images" })} className="ibox-focusable font-extrabold underline underline-offset-2 [--ring-radius:8px]">
               Ajouter la clé
             </button>
           </Notice>
@@ -236,6 +237,8 @@ function GameSheet({ game }: { game: Game }) {
           <div className="mt-4 flex flex-wrap gap-2">
             {(game.playSeconds ?? 0) > 0 && <Stat icon="clock" label={formatPlayTime(game.playSeconds!)} />}
             {game.lastPlayedAt && <Stat icon="play" label={`Joué ${relativeDay(game.lastPlayedAt)}`} />}
+            {/* le détail, partie par partie */}
+            <PlayJournalChip game={game} />
           </div>
         )}
 

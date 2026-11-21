@@ -10,6 +10,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.3",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "grid", title: "Une recherche qui trouve tout", text: "La recherche (touche /, bouton Select) retrouve vos jeux avec leur jaquette, les consoles, vos collections, les pages des Paramètres et des actions. Elle comprend les initiales (« mk8 »), les sigles (« GC ») et une faute de frappe. Entrée ouvre le meilleur résultat, X lance le jeu." },
+      { icon: "shelf", title: "Au hasard : iBox choisit pour vous", text: "Sur l’étagère 3D, le bouton Au hasard (touche R) fait défiler les boîtiers jusqu’à un jeu tiré au sort, qui fait un tour sur lui-même. Aussi depuis l’accueil, le menu rapide et la recherche." },
+      { icon: "clock", title: "Un journal de jeu sur chaque fiche", text: "La pastille Journal d’une fiche ouvre le détail de vos parties : temps total, plus longue partie, rythme des douze dernières semaines, puis les parties une à une. La bibliothèque gagne le tri Joués récemment." },
+      { icon: "disc", title: "Votre musique jusque dans iBox", text: "Avec le plugin Music in the Box, le titre en cours s’affiche dans la barre du haut (lecture, pause, suivant) et la musique des menus se tait tant que la vôtre joue. Le panneau gagne les paroles, une radio à partir d’un titre et un démarrage rapide quand rien ne joue." },
+      { icon: "key", title: "Corrections", text: "Les liens vers les Paramètres ouvrent la bonne page. Une partie lancée après minuit compte pour le bon jour dans les statistiques, et la série de jours n’est plus limitée à 60. Dans le panneau musique, on avance dans un titre au clavier et à la manette." },
+    ],
+  },
+  {
     version: "1.0.2",
     date: "2026-11-21",
     highlights: [

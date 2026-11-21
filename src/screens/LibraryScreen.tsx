@@ -1,7 +1,7 @@
 import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useLibrary, countByPlatform, isFavorite } from "@/services/library";
+import { useLibrary, compareGames, countByPlatform, isFavorite } from "@/services/library";
 import { useSettings, type LibraryView, type GridDensity } from "@/services/settings";
 import { rememberedFocus, useNav } from "@/app/navigation";
 import { useIsDark, useReducedMotion, useScreenChrome, useShell } from "@/app/shellState";
@@ -73,9 +73,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         (!onlyReview || g.needsReview || g.missing || g.mediaStatus === "ambiguous") &&
         matchesQuery(`${g.title} ${g.publisher ?? ""} ${g.genre ?? ""}`, query),
     );
-    return list.sort((a, b) =>
-      sort === "alpha" ? a.sortTitle.localeCompare(b.sortTitle) : b.addedAt.localeCompare(a.addedAt),
-    );
+    return list.sort(compareGames(sort));
   }, [pool, platformId, onlyFavs, onlyReview, favorites, query, sort, isPc, pcCategory]);
   // grandes bibliothèques : les premières cartes tout de suite, les suivantes par lots
   const [restoreFocus] = useState(() => useNav.getState().direction === -1
@@ -114,6 +112,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
             ...(platformId === "all" ? [{ keys: ["↑", "↓"], label: "Étagère" }] : []),
             { keys: ["F"], label: "Retourner" },
             { keys: ["X"], label: "Jouer" },
+            ...(visible.length > 1 ? [{ keys: ["R"], label: "Au hasard" }] : []),
           ]
         : [
             { keys: ["X"], label: "Jouer" },
@@ -195,6 +194,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
           options={[
             { value: "alpha", label: "A → Z", icon: "sortAlpha" },
             { value: "added", label: "Ajout récent", icon: "clock" },
+            { value: "played", label: "Joués récemment", icon: "play" },
           ]}
         />
         {!isPc && (
@@ -286,7 +286,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
             }
           >
             {native ? (
-              <Button variant="primary" icon="folder" autoFocusScreen onClick={() => go({ name: "settings" })}>
+              <Button variant="primary" icon="folder" autoFocusScreen onClick={() => go({ name: "settings", category: "library" })}>
                 Gérer les dossiers
               </Button>
             ) : (

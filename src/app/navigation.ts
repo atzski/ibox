@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { SettingsCategoryId } from "@/screens/settings/categories";
 
 /**
  * Navigation applicative sous forme de pile d'écrans.
@@ -13,7 +14,7 @@ export type Route =
   | { name: "platform"; platformId: string }
   | { name: "library"; platformId: string | "all"; shelfGameId?: string }
   | { name: "game"; gameId: string }
-  | { name: "settings"; category?: string }
+  | { name: "settings"; category?: SettingsCategoryId }
   /** Univers RetroAchievements : tableau de bord, ou la page d'un jeu. */
   | { name: "achievements"; gameId?: string }
   /** Hub de la communauté : captures et clips partagés. */

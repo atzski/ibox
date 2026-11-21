@@ -1,6 +1,7 @@
 import { SPRING } from "@/motion/tokens";
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
+import { PlayJournalChip } from "@/components/game/PlayJournal";
 import { playJingle, stopJingle } from "@/services/jingles";
 import { FriendsWithGame } from "@/components/social/FriendViews";
 import { useEffect, useMemo, useState } from "react";
@@ -161,6 +162,8 @@ export function PcGameSheet({ game }: { game: Game }) {
               { icon: "user", label: "Joueurs", value: game.players },
             ]}
           />
+          {/* le détail des parties lancées depuis iBox */}
+          <PlayJournalChip game={game} className="mt-3" />
         </motion.div>
 
         {game.description && (

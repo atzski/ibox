@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { useNav } from "@/app/navigation";
 import type { Game } from "@/domain/types";
 import { input } from "@/input/InputController";
-import { useLibrary } from "@/services/library";
-import { useSettings } from "@/services/settings";
+import { compareGames, useLibrary } from "@/services/library";
+import { useSettings, type LibrarySort } from "@/services/settings";
 import { sound } from "@/services/sound";
 
 /** Jeux de la même console, dans l'ordre de la bibliothèque (tri choisi). */
-export function siblingsOf(game: Game, games: Game[], sort: "alpha" | "recent" | string): Game[] {
+export function siblingsOf(game: Game, games: Game[], sort: LibrarySort): Game[] {
   return games
     .filter((g) => g.platformId === game.platformId && !!g.isDemo === !!game.isDemo)
-    .sort((a, b) => (sort === "alpha" ? a.sortTitle.localeCompare(b.sortTitle) : b.addedAt.localeCompare(a.addedAt)));
+    .sort(compareGames(sort));
 }
 
 /**

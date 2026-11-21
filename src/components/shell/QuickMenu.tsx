@@ -1,5 +1,6 @@
 import { useNav, useRoute, type Route } from "@/app/navigation";
 import { useCommands } from "@/input/commands";
+import { requestDraw } from "@/app/draw";
 import { useGamepad, type ConfirmSide, type PadFamily } from "@/input/gamepad";
 import { Modal } from "@/components/ui/Modal";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -44,13 +45,14 @@ export function ControlsSheet({ family, side, compact = false }: { family: PadFa
   );
 }
 
-const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "search" }[] = [
+const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "search" | "draw" }[] = [
   { label: "Accueil", icon: "home", route: { name: "home" } },
   { label: "Toute la collection", icon: "shelf", route: { name: "library", platformId: "all" } },
   { label: "iBox Platforms", icon: "gamepad", route: { name: "platforms" } },
   { label: "Succès", icon: "trophy", route: { name: "achievements" } },
   { label: "Communauté", icon: "chat", route: { name: "community" } },
   { label: "SmartConfig", icon: "tune", route: { name: "smartconfig" } },
+  { label: "Au hasard", icon: "dice", action: "draw" },
   { label: "Recherche", icon: "search", action: "search" },
   { label: "Paramètres", icon: "gear", route: { name: "settings" } },
 ];
@@ -61,6 +63,11 @@ function QuickMenu({ onClose }: { onClose: () => void }) {
   const side = useSettings((s) => s.gamepadConfirm);
   const route = useRoute();
   const open = (d: (typeof DESTINATIONS)[number]) => {
+    // le tirage joue ses propres sons en arrivant sur l'étagère
+    if (d.action === "draw") {
+      onClose();
+      return requestDraw();
+    }
     sound.play(d.action === "search" ? "search" : d.route?.name === "home" ? "home" : d.route?.name === "settings" ? "settings" : "enter");
     if (d.action === "search") return useCommands.getState().setSearch(true);
     onClose();

@@ -9,6 +9,7 @@ import { FriendsButton } from "./FriendsButton";
 import { Avatar } from "@/components/profile/Avatar";
 import { ProfileModal } from "@/components/profile/ProfileModal";
 import { MinimizeButton, PowerButton } from "./PowerButton";
+import { NowPlayingPill } from "./NowPlayingPill";
 import { useNav, useRoute } from "@/app/navigation";
 import { useShell } from "@/app/shellState";
 import { useSettings } from "@/services/settings";
@@ -111,6 +112,7 @@ export function TopBar() {
           inert={immersive}
           className="flex items-center gap-3"
         >
+        <NowPlayingPill />
         <div className="mr-2 text-right leading-tight">
           <div className="font-display text-[1.45rem] font-semibold text-ink tabular-nums">{time}</div>
           {showDate && <div className="text-[0.78rem] font-semibold text-ink-soft capitalize">{date}</div>}

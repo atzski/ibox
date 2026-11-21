@@ -220,6 +220,19 @@ const PATHS = {
       <path d="M12 8.5V12l2.5 1.8" />
     </>
   ),
+  // dé (tirage au hasard) : la face cinq
+  dice: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <g fill="currentColor" stroke="none">
+        <circle cx="8.7" cy="8.7" r="1.2" />
+        <circle cx="15.3" cy="8.7" r="1.2" />
+        <circle cx="12" cy="12" r="1.2" />
+        <circle cx="8.7" cy="15.3" r="1.2" />
+        <circle cx="15.3" cy="15.3" r="1.2" />
+      </g>
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -45,7 +45,7 @@ export function EmulatorPanel({ info, requirements, onRequirementsChange }: { in
             iBox n'installe pas d'émulateur pour cette console. Ajoutez celui que vous utilisez déjà : iBox le reconnaîtra et l'associera.
           </p>
           <div className="mt-4">
-            <Button icon="gear" onClick={() => go({ name: "settings", category: "emulators" })}>
+            <Button icon="gear" onClick={() => go({ name: "settings", category: "pc" })}>
               Ajouter un émulateur
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import { useNav } from "@/app/navigation";
+import { isSettingsCategory } from "@/screens/settings/categories";
 
 /**
  * Destinations d'iBox : ce vers quoi mène une notification (dans iBox ou dans la fenêtre
@@ -35,7 +36,7 @@ export function openLink(link: AppLink) {
       return;
     case "settings":
       window.dispatchEvent(new CustomEvent("ibox:settings-category", { detail: link.category }));
-      if (current.name !== "settings") nav.go({ name: "settings", category: link.category });
+      if (current.name !== "settings") nav.go({ name: "settings", category: isSettingsCategory(link.category) ? link.category : undefined });
       return;
     case "duplicates":
       window.dispatchEvent(new Event("ibox:open-duplicates"));

@@ -130,7 +130,7 @@ export function LaunchOverlay() {
                 icon="gear"
                 onClick={() => {
                   dismiss();
-                  go({ name: "settings" });
+                  go({ name: "settings", category: "pc" });
                 }}
               >
                 Paramètres des émulateurs

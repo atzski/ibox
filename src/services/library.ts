@@ -15,7 +15,7 @@ import {
   type ScanProgress,
   type ScanSummary,
 } from "./nativeLibrary";
-import { useSettings } from "./settings";
+import { useSettings, type LibrarySort } from "./settings";
 import { notify } from "./notifications";
 import { metadataApi, type JobProgress, type JobSummary } from "./metadata";
 
@@ -410,6 +410,23 @@ export function countByPlatform(games: Game[]): Map<PlatformId, number> {
   const m = new Map<PlatformId, number>();
   for (const g of games) m.set(g.platformId, (m.get(g.platformId) ?? 0) + 1);
   return m;
+}
+
+/**
+ * Ordre de la bibliothèque selon le tri choisi. Un seul comparateur pour la grille,
+ * l'étagère 3D et le passage d'une fiche à l'autre (Q / E) : l'ordre est le même partout.
+ * « Joués récemment » : la dernière partie d'abord ; les jeux jamais lancés suivent, de A à Z.
+ */
+export function compareGames(sort: LibrarySort): (a: Game, b: Game) => number {
+  const alpha = (a: Game, b: Game) => a.sortTitle.localeCompare(b.sortTitle);
+  if (sort === "added") return (a, b) => b.addedAt.localeCompare(a.addedAt) || alpha(a, b);
+  if (sort === "played")
+    return (a, b) => {
+      if (a.lastPlayedAt && b.lastPlayedAt) return b.lastPlayedAt.localeCompare(a.lastPlayedAt) || alpha(a, b);
+      if (a.lastPlayedAt || b.lastPlayedAt) return a.lastPlayedAt ? -1 : 1;
+      return alpha(a, b);
+    };
+  return alpha;
 }
 
 export function lastPlayed(games: Game[]): Game | undefined {

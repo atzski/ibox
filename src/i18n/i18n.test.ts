@@ -18,6 +18,14 @@ describe("traduction", () => {
     expect(translate("Au total : 6 h 51 de jeu lancé depuis iBox.")).toBe("In total: 6 h 51 of play launched from iBox.");
     expect(translate("2 consoles associées")).toBe("2 consoles linked");
   });
+  it("traduit le journal de jeu, durées comprises", () => {
+    expect(translate("Joué 41 jours différents")).toBe("Played on 41 different days");
+    expect(translate("22 min par partie en moyenne")).toBe("22 min per session on average");
+    expect(translate("1 h 05 par partie en moyenne")).toBe("1 h 05 per session on average");
+    expect(translate("Et 23 parties plus anciennes.")).toBe("And 23 older sessions.");
+    // « Joué {0} » (dernière partie) ne capture pas la phrase du journal
+    expect(translate("Joué hier")).toBe("Played yesterday");
+  });
   it("laisse intacts les textes libres (descriptions de jeux)", () => {
     const desc =
       "Brûlez l'asphalte, planez dans les airs et plongez sous l'eau dans Mario Kart 7 sur les consoles de la famille Nintendo 3DS ! Personnalisez votre kart à votre image, prenez le volant et contrôlez votre bolide avec les commandes par mouvement.";

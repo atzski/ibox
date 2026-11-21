@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupVariants, isFavorite, rowToGame } from "./library";
+import { compareGames, groupVariants, isFavorite, rowToGame } from "./library";
 import { summarize } from "@/components/library/ScanStatus";
 import type { GameRowDto, ScanSummary } from "./nativeLibrary";
 
@@ -75,6 +75,30 @@ describe("isFavorite", () => {
     expect(isFavorite(rowToGame({ ...row, favorite: false }), ["lib-7"])).toBe(false);
     const demo = { ...rowToGame(row), dbId: undefined, id: "demo-x" };
     expect(isFavorite(demo, ["demo-x"])).toBe(true);
+  });
+});
+
+describe("compareGames", () => {
+  const game = (id: number, title: string, addedAt: string, lastPlayedAt: string | null) => rowToGame({ ...row, id, title, addedAt, lastPlayedAt });
+  const games = [
+    game(1, "Zelda", "2026-01-01T00:00:00Z", "2026-11-10T20:00:00Z"),
+    game(2, "The Animal Crossing", "2026-03-01T00:00:00Z", null),
+    game(3, "Mario", "2026-02-01T00:00:00Z", "2026-11-12T20:00:00Z"),
+    game(4, "Luigi", "2026-02-01T00:00:00Z", null),
+  ];
+  const order = (sort: Parameters<typeof compareGames>[0]) => [...games].sort(compareGames(sort)).map((g) => g.title);
+
+  it("trie de A à Z sans tenir compte de l'article", () => {
+    expect(order("alpha")).toEqual(["The Animal Crossing", "Luigi", "Mario", "Zelda"]);
+  });
+
+  it("met les derniers ajouts d'abord, de A à Z à date égale", () => {
+    expect(order("added")).toEqual(["The Animal Crossing", "Luigi", "Mario", "Zelda"]);
+    expect(order("added").slice(1, 3)).toEqual(["Luigi", "Mario"]);
+  });
+
+  it("met la dernière partie d'abord, puis les jeux jamais lancés de A à Z", () => {
+    expect(order("played")).toEqual(["Mario", "Zelda", "The Animal Crossing", "Luigi"]);
   });
 });
 

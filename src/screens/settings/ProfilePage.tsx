@@ -81,7 +81,7 @@ function ProfileCollectionStats() {
   const favorites = useSettings((s) => s.favorites);
   const consoles = new Set(games.map((g) => g.platformId)).size;
   const tiles: { icon: IconName; label: string; value: string }[] = [
-    { icon: "grid", label: "Collection", value: `${games.length} jeux` },
+    { icon: "grid", label: "Collection", value: games.length === 1 ? "1 jeu" : `${games.length} jeux` },
     { icon: "star", label: "Favoris", value: String(games.filter((game) => isFavorite(game, favorites)).length) },
     { icon: "gamepad", label: "Plateformes", value: String(consoles) },
   ];

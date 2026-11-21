@@ -6,6 +6,7 @@ import { CollectionsRow } from "@/components/extras/CollectionsRow";
 import { WhatsNew } from "@/components/extras/WhatsNew";
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { useAttractMode } from "@/app/attract";
+import { requestDraw } from "@/app/draw";
 import { useLibrary, countByPlatform, isFavorite, lastPlayed, recentlyAdded } from "@/services/library";
 import { useSettings } from "@/services/settings";
 import { useNav } from "@/app/navigation";
@@ -212,6 +213,7 @@ export function HomeScreen() {
           onCommunity={() => go({ name: "community" })}
           onBackground={() => setPicking(true)}
           onSearch={() => setSearch(true)}
+          onDraw={games.length > 1 ? requestDraw : undefined}
         />
       )}
       {picking && <HomeBackgroundPicker onClose={() => setPicking(false)} />}
@@ -432,7 +434,8 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
           className={`flex-1 ${playReason ? "" : "ibox-beckon"}`}
           onClick={() => void play(game.dbId!, game.title)}
         >
-          Reprendre
+          {/* un jeu jamais lancé ne se « reprend » pas */}
+          {game.lastPlayedAt || game.isDemo ? "Reprendre" : "Jouer"}
         </Button>
         <Button icon="open" aria-label="Voir le jeu" title="Voir le jeu" onClick={() => go({ name: "game", gameId: game.id })} />
       </div>
@@ -640,7 +643,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
           <div>
             <div className="text-[0.8rem] font-extrabold tracking-[0.16em] text-lavender-deep uppercase">Ma collection</div>
             <div className="mt-2 font-display text-[3.4rem] leading-none font-semibold text-ink tabular-nums">{shown}</div>
-            <div className="mt-1 text-[0.95rem] font-bold text-ink-soft">jeux, toutes consoles</div>
+            <div className="mt-1 text-[0.95rem] font-bold text-ink-soft">{games.length === 1 ? "jeu dans la collection" : "jeux, toutes consoles"}</div>
           </div>
           <div className="flex items-center gap-3 font-display text-[1.05rem] font-semibold text-ink">
             Parcourir tout

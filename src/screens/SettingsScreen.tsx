@@ -7,8 +7,7 @@ import { motion } from "motion/react";
 import { ConsolesPanel } from "@/components/extras/ConsolesPanel";
 import { useSettings } from "@/services/settings";
 import { useReducedMotion, useScreenChrome } from "@/app/shellState";
-import type { Tone } from "@/components/ui/Button";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { sound } from "@/services/sound";
 import { ManualSettings } from "@/components/manual/ManualSettings";
 import { EmulatorsPanel } from "@/components/library/EmulatorsPanel";
@@ -25,38 +24,11 @@ import { RemotePlayPage } from "./settings/RemotePlayPage";
 import { SoundPage } from "./settings/SoundPage";
 import { DownloadPopupsToggle, FriendAlertsToggle, SystemPage } from "./settings/SystemPage";
 import { Group, Row, Toggle } from "./settings/ui";
+import { SETTINGS_CATEGORIES, isSettingsCategory, type SettingsCategory, type SettingsCategoryId } from "./settings/categories";
 
-type CategoryId = "inetbox" | "profile" | "home" | "display" | "library" | "consoles" | "pc" | "smartconfig" | "images" | "manuals" | "sound" | "controls" | "remoteplay" | "plugins" | "system";
-
-interface Category {
-  id: CategoryId;
-  label: string;
-  hint: string;
-  icon: IconName;
-  /** couleur de la pastille et du bandeau */
-  tone: [string, string];
-  /** couleur vive de l'icône (code couleur commun, voir tokens.css) */
-  hue: Tone;
-  group: string;
-}
-
-const CATEGORIES: Category[] = [
-  { id: "inetbox", label: "iNetbox", hint: "Compte, amis et confidentialité", icon: "globe", tone: ["#DCCFFA", "#F6E9FF"], hue: "purple", group: "Vous" },
-  { id: "profile", label: "Profil", hint: "Votre nom, votre photo, votre collection", icon: "user", tone: ["#FFD9C7", "#FBE6EE"], hue: "pink", group: "Vous" },
-  { id: "home", label: "Accueil", hint: "Sections et horloge de l'écran d'accueil", icon: "home", tone: ["#FFE7B8", "#FFF4DC"], hue: "yellow", group: "Vous" },
-  { id: "display", label: "Apparence", hint: "Couleurs, fond d'écran, tailles et animations", icon: "sparkle", tone: ["#DCCFFA", "#EFE9FF"], hue: "purple", group: "Écran" },
-  { id: "library", label: "Bibliothèque", hint: "Dossiers de jeux, région, jeux masqués", icon: "folder", tone: ["#C9EEDD", "#E6F8EF"], hue: "green", group: "Jeux" },
-  { id: "consoles", label: "Consoles", hint: "Émulateur, plein écran, lancement et sauvegardes de chaque console", icon: "gamepad", tone: ["#FFD6D6", "#FFEDED"], hue: "red", group: "Jeux" },
-  { id: "pc", label: "PC et émulateurs", hint: "Boutiques PC et émulateurs des consoles", icon: "disc", tone: ["#C3E9EC", "#E4F6F7"], hue: "teal", group: "Jeux" },
-  { id: "smartconfig", label: "SmartConfig", hint: "Réglages d'émulateurs adaptés à votre PC, sources de données", icon: "tune", tone: ["#FFDDC4", "#FFF0E3"], hue: "orange", group: "Jeux" },
-  { id: "images", label: "Images et données", hint: "Jaquettes, illustrations iiDB, informations", icon: "front", tone: ["#CFE3FA", "#E8F2FD"], hue: "blue", group: "Jeux" },
-  { id: "manuals", label: "Manuels", hint: "Carnets des jeux, sources et compte ScreenScraper", icon: "manual", tone: ["#F6E3C3", "#FCF1DE"], hue: "yellow", group: "Jeux" },
-  { id: "sound", label: "Son", hint: "Musique du menu et effets", icon: "sound", tone: ["#FAD4E2", "#FDEAF1"], hue: "pink", group: "Système" },
-  { id: "controls", label: "Manette", hint: "Manette connectée et boutons", icon: "gamepad", tone: ["#D3EEC8", "#EAF8E4"], hue: "green", group: "Système" },
-  { id: "remoteplay", label: "Remote Play", hint: "Jouer à distance avec vos amis, diagnostic de cet ordinateur", icon: "play", tone: ["#CFE3FA", "#E6F0FF"], hue: "blue", group: "Système" },
-  { id: "plugins", label: "Plugins", hint: "Extensions signées à installer : créateur, permissions, mises à jour", icon: "sparkle", tone: ["#E4DAFB", "#F3EEFF"], hue: "purple", group: "Système" },
-  { id: "system", label: "Système", hint: "Plein écran, notifications, sauvegardes, à propos", icon: "gear", tone: ["#E2E5EC", "#F2F4F7"], hue: "orange", group: "Système" },
-];
+type CategoryId = SettingsCategoryId;
+type Category = SettingsCategory;
+const CATEGORIES = SETTINGS_CATEGORIES;
 
 // catégorie gardée entre deux visites
 let lastCategory: CategoryId = "profile";
@@ -66,7 +38,7 @@ let lastCategory: CategoryId = "profile";
  * (pastille qui glisse vers la sélection), une page illustrée à droite.
  * Tout est enregistré automatiquement.
  */
-const isCategory = (id: unknown): id is CategoryId => CATEGORIES.some((c) => c.id === id);
+const isCategory = isSettingsCategory;
 
 export function SettingsScreen({ category }: { category?: string } = {}) {
   const [cat, setCat] = useState<CategoryId>(() => {
