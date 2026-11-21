@@ -76,33 +76,45 @@
   place();
 
   // Thèmes : les douze palettes de l'application (data-c = fond, quatre teintes, deux fonds de nuit).
-  const themeStage = document.querySelector("[data-themes]");
-  let themes = null;
-  if (themeStage) {
-    const host = document.getElementById("themes");
-    const dots = [...themeStage.querySelectorAll(".th-dots button")];
-    const names = [...themeStage.querySelectorAll(".th-names p")];
-    const mode = themeStage.querySelector(".th-mode");
-    const state = { index: -1, night: false, manual: false };
+  // La démo (demo.js) passe par window.iboxTheme ; tant qu'on n'y a pas touché, les palettes défilent seules.
+  const themeHost = document.getElementById("themes");
+  const themeStage = null;
+  const themes = null;
+  if (themeHost && themeHost.querySelector(".th-dots")) {
+    const dots = [...themeHost.querySelectorAll(".th-dots button")];
+    const tiles = [...themeHost.querySelectorAll(".t-tile")];
+    const names = [...themeHost.querySelectorAll(".th-names p")];
+    const modes = [...themeHost.querySelectorAll(".th-mode")];
+    const app = themeHost.querySelector(".app");
+    const state = { index: -1, night: false, manual: false, seen: false };
     const apply = (index, night) => {
       if (index === state.index && night === state.night) return;
       state.index = index;
       state.night = night;
       const c = dots[index].dataset.c.split(",");
-      host.style.setProperty("--t-bg", night ? c[5] : c[0]);
-      host.style.setProperty("--t-card", night ? c[6] : "#ffffff");
-      host.style.setProperty("--t-ink", night ? "#F4F1EC" : "#344459");
-      ["a", "b", "c", "d"].forEach((k, j) => host.style.setProperty(`--t-${k}`, c[j + 1]));
+      themeHost.style.setProperty("--t-bg", night ? c[5] : c[0]);
+      themeHost.style.setProperty("--t-card", night ? c[6] : "#ffffff");
+      themeHost.style.setProperty("--t-ink", night ? "#F4F1EC" : "#344459");
+      ["a", "b", "c", "d"].forEach((k, j) => themeHost.style.setProperty(`--t-${k}`, c[j + 1]));
+      if (app) {
+        // chaque palette est présentée comme l'accueil d'un joueur différent
+        app.dataset.theme = dots[index].dataset.id;
+        const who = app.querySelector(".app-top b");
+        if (who && dots[index].dataset.u) { who.textContent = dots[index].dataset.u; app.querySelector(".app-top .av").dataset.l = dots[index].dataset.u.charAt(0); }
+      }
       dots.forEach((dot, j) => dot.classList.toggle("on", j === index));
+      tiles.forEach((tile, j) => tile.classList.toggle("on", j === index));
       names.forEach((name, j) => name.classList.toggle("on", j === index));
-      mode.setAttribute("aria-pressed", String(night));
+      modes.forEach((mode) => mode.setAttribute("aria-pressed", String(night)));
     };
-    dots.forEach((dot, j) => dot.addEventListener("click", () => { state.manual = true; apply(j, state.night); }));
-    mode.addEventListener("click", () => { state.manual = true; apply(Math.max(0, state.index), !state.night); });
+    const pick = (index, night) => { state.manual = true; apply(index, night); };
+    dots.forEach((dot, j) => dot.addEventListener("click", () => pick(j, state.night)));
+    tiles.forEach((tile, j) => tile.addEventListener("click", () => pick(j, state.night)));
+    modes.forEach((mode) => mode.addEventListener("click", () => pick(Math.max(0, state.index), !state.night)));
     apply(0, false);
-    themes = { range: themeStage.dataset.themes.split(" ").map(Number), count: dots.length, apply };
-    // hors récit, les palettes défilent seules tant qu'on n'y a pas touché
-    setInterval(() => { if (!root.classList.contains("story") && !reduce.matches && !state.manual) apply((state.index + 1) % dots.length, state.night); }, 2600);
+    new IntersectionObserver(([entry]) => { state.seen = entry.isIntersecting; }, { threshold: 0.25 }).observe(themeHost);
+    setInterval(() => { if (state.seen && !state.manual && !reduce.matches) apply((state.index + 1) % dots.length, state.night); }, 2600);
+    window.iboxTheme = { state, apply: pick };
   }
 
   // Frise des consoles.
@@ -140,6 +152,7 @@
     if (p === scene.last) return;
     scene.last = p;
     for (const track of scene.tracks) scene.el.style.setProperty(`--${track.name}`, value(track.at, p).toFixed(4));
+    scene.el.style.setProperty("--p", p.toFixed(4));
     scene.el.classList.toggle("deep", p > 0.07);
     if (scene.themes) {
       const [from, to, night] = scene.themes.range;
@@ -206,6 +219,10 @@
   });
   refresh();
   requestAnimationFrame(frame);
+
+  // Scènes 3D (Three.js, 170 Ko compressés) : chargées après coup, la page vit sans elles.
+  const loadScenes = () => import("./scene.js?v=1").catch(() => undefined);
+  if ("requestIdleCallback" in window) requestIdleCallback(loadScenes, { timeout: 2500 }); else setTimeout(loadScenes, 1200);
 
   // Reflet qui suit le pointeur sur les cartes de fonctions.
   const features = document.querySelector(".features");

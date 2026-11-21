@@ -7,7 +7,7 @@
 <meta name="description" content="iBox brings your console and PC games together in a 3D library, installs your emulators and lets you play remotely with friends. Free, for Windows and Steam Deck (preview).">
 <link rel="icon" href="logo.svg">
 <link rel="alternate" hreflang="fr" href="index.html">
-<link rel="stylesheet" href="style.css?v=0.1.106-8">
+<link rel="stylesheet" href="style.css?v=0.1.106-13">
 <script>(function(d){d.classList.add("js");if(matchMedia("(min-width:901px) and (min-height:600px) and (prefers-reduced-motion:no-preference)").matches)d.classList.add("story");setTimeout(function(){if(!window.iboxMotion)d.classList.remove("js","story")},2500)})(document.documentElement)</script>
 </head>
 <body>
@@ -131,6 +131,13 @@
   </div>
 </div></div>
 
+<section id="shelf"><div class="scene" id="shelf-scene" data-tl="sh:0 1"><div class="pin">
+  <div class="wrap"><h2>A 3D shelf, with the real cases</h2>
+  <p class="lead">Every console has its own case, modelled for iBox. Open it, take out the disc or the game card.</p></div>
+  <div class="shelf-stage" aria-hidden="true"></div>
+  <div class="shelf-names"><p><b>GameCube</b><span>Mini disc</span></p><p><b>PlayStation</b><span>Jewel case, CD</span></p><p><b>PlayStation 2</b><span>DVD</span></p><p><b>Wii</b><span>DVD</span></p><p><b>DS</b><span>Game card</span></p><p><b>PSP</b><span>UMD</span></p><p><b>3DS</b><span>Game card</span></p><p><b>Switch</b><span>Game card</span></p><p><b>Switch 2</b><span>Game card</span></p><p><b>PC</b><span>DVD</span></p></div>
+</div></div></section>
+
 <section id="fonctions"><div class="wrap">
   <h2>Made for playing, not configuring</h2>
   <p class="lead">Add your folders: iBox finds your games, their covers and their manuals, then launches them with the right emulator and the right settings.</p>
@@ -147,34 +154,59 @@
   </div>
 </div></section>
 
-<section id="themes"><div class="scene" id="themes-scene" data-tl="tin:0 1"><div class="pin"><div class="wrap">
-  <h2><span class="num">12</span> themes, by day or by night</h2>
-  <p class="lead">Twelve palettes recolour the whole of iBox, buttons and backdrop included. Each one has its night version.</p>
-  <div class="th-stage" data-themes="0.05 0.8 0.86">
-    <div class="demo ui th-ui" aria-hidden="true"><div class="d">
-        <div class="ui-bar"><i class="av"></i><b>Player 1</b><em>11:42</em><span></span><span></span><span></span></div>
-        <div class="ui-scroll">
-          <div class="ui-shelf"><p><small>My collection</small><b>128</b><small>games</small></p><div class="rack"><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i><i class="mc"></i></div></div>
-          <div class="ui-grid">
-            <div class="cc fanc"><div class="minis"><i class="mc" style="--i:-2"></i><i class="mc" style="--i:-1"></i><i class="mc" style="--i:0"></i><i class="mc" style="--i:1"></i><i class="mc" style="--i:2"></i></div><b>Adventure</b></div>
-            <div class="cc mosa"><div class="tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div><b>Platformers</b></div>
-            <div class="cc bigc"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 42V8M10 10c8-5 14 5 26 0v18c-12 5-18-5-26 0"/></svg><b>Racing</b></div>
-            <div class="cc bigc alt"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="14" width="38" height="22" rx="9"/><path d="M15 21v8M11 25h8M31 23h.1M36 27h.1"/></svg><b>Retro</b></div>
-            <div class="cc fanc v2"><div class="minis"><i class="mc" style="--i:-2"></i><i class="mc" style="--i:-1"></i><i class="mc" style="--i:0"></i><i class="mc" style="--i:1"></i><i class="mc" style="--i:2"></i></div><b>Co-op</b></div>
-            <div class="cc mosa v2"><div class="tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div><b>Puzzle</b></div>
-          </div>
-          <i class="stk s1"></i><i class="stk s2"></i><i class="stk s3"></i>
+<section id="themes">
+<div class="wrap">
+  <h2>Try iBox, right here</h2>
+  <p class="lead">Click around: open a game, install an emulator, unlock a trophy, change the theme. The twelve palettes are the ones in the app.</p>
+  <div class="try">
+    <div class="demo ui app" data-screen="home" data-theme="ibox"><div class="d">
+      <i class="motif"></i>
+      <nav class="app-nav"><button type="button" data-go="home" aria-label="Home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg></button><button type="button" data-go="plat" aria-label="Platforms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="5"/><path d="M8 10v4M6 12h4M16 11h.01M18 13h.01"/></svg></button><button type="button" data-go="ach" aria-label="Trophies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg></button><button type="button" data-go="theme" aria-label="Themes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21a2.5 2.5 0 0 1 0-5h2a3 3 0 0 0 3-3"/></svg></button></nav>
+      <div class="app-top"><i class="av" data-l="M"></i><b>Player 1</b><span class="friends"><i data-n="N" style="--h:265"></i><i data-n="K" style="--h:95"></i><i data-n="L" style="--h:330"></i><i data-n="S" style="--h:200"></i></span><span class="feed" data-feed="Nox is playing Néon Rallye|Kiwi unlocked “Marathon”|Luma filed 12 games under Adventure|Sora invites you to Remote Play|Bento switched theme: Sand">Nox is playing Néon Rallye</span><em>11:42</em></div>
+      <div class="scr s-home">
+        <div class="ui-shelf"><p><small>My collection</small><b>128</b><small>games</small></p><div class="rack"><button type="button" class="mc game" style="--g1:#ff7a59;--g2:#c62639" data-t="Comète Express" data-c="Switch" data-h="7" data-k="0" aria-label="Comète Express"></button><button type="button" class="mc game" style="--g1:#59c8ff;--g2:#2b6fd6" data-t="Kart des Nuages" data-c="Wii" data-h="23" data-k="1" aria-label="Kart des Nuages"></button><button type="button" class="mc game" style="--g1:#8a6cf0;--g2:#3d2f9e" data-t="Luna et le Phare" data-c="GameCube" data-h="41" data-k="2" aria-label="Luna et le Phare"></button><button type="button" class="mc game" style="--g1:#3b6cf0;--g2:#151f52" data-t="Néon Rallye" data-c="PlayStation 2" data-h="12" data-k="0" aria-label="Néon Rallye"></button><button type="button" class="mc game" style="--g1:#ffb347;--g2:#f0652e" data-t="Île Mochi" data-c="3DS" data-h="58" data-k="1" aria-label="Île Mochi"></button><button type="button" class="mc game" style="--g1:#5fd3a5;--g2:#1f8f78" data-t="Petit Chevalier" data-c="PC" data-h="4" data-k="2" aria-label="Petit Chevalier"></button><button type="button" class="mc game" style="--g1:#43d6b5;--g2:#0f6a78" data-t="Abysses 20" data-c="PSP" data-h="16" data-k="0" aria-label="Abysses 20"></button><button type="button" class="mc game" style="--g1:#ff8fa8;--g2:#d2386a" data-t="Forge du Ciel" data-c="DS" data-h="9" data-k="1" aria-label="Forge du Ciel"></button></div></div>
+        <div class="ui-grid">
+          <div class="cc fanc"><div class="minis"><i class="mc" style="--i:-2"></i><i class="mc" style="--i:-1"></i><i class="mc" style="--i:0"></i><i class="mc" style="--i:1"></i><i class="mc" style="--i:2"></i></div><b>Adventure</b></div>
+          <div class="cc mosa"><div class="tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div><b>Platformers</b></div>
+          <div class="cc bigc"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 42V8M10 10c8-5 14 5 26 0v18c-12 5-18-5-26 0"/></svg><b>Racing</b></div>
         </div>
-        <div class="ui-dock"><i></i><i></i><i></i><i></i><i></i></div>
-      </div></div>
+        <i class="stk s1"></i><i class="stk s3"></i>
+      </div>
+      <div class="scr s-game">
+        <button type="button" class="g-back" data-go="home">‹ Home</button>
+        <div class="g-box"><div class="g-in"><i class="g-disc"></i><span>The manual is in the box</span></div><div class="g-cover"><i></i><b class="g-ct"></b></div></div>
+        <div class="g-info"><span class="g-tag"></span><b class="g-title"></b><p><span class="g-hours"><b>0</b> h played</span><span>SmartConfig</span></p>
+          <div class="g-btns"><button type="button" class="g-play" data-steps="SmartConfig is tuning…|Launching…" data-done="Game launched (well, almost: this is a demo)">Play</button><button type="button" class="g-manual">Manual</button></div></div>
+      </div>
+      <div class="scr s-plat">
+        <small class="scr-k">Pick a console</small>
+        <div class="p-row"><button type="button" class="plat" data-id="gamecube" data-n="GameCube" data-m="Nintendo · 2001" data-g="#6A54B4" aria-label="GameCube"><img src="img/consoles/gamecube.webp" alt="" loading="lazy"></button><button type="button" class="plat" data-id="n64" data-n="Nintendo 64" data-m="Nintendo · 1996" data-g="#2F9E6E" aria-label="Nintendo 64"><img src="img/consoles/n64.webp" alt="" loading="lazy"></button><button type="button" class="plat" data-id="ps2" data-n="PlayStation 2" data-m="Sony · 2000" data-g="#2C4FD8" aria-label="PlayStation 2"><img src="img/consoles/ps2.webp" alt="" loading="lazy"></button><button type="button" class="plat" data-id="wii" data-n="Wii" data-m="Nintendo · 2006" data-g="#5FB8EC" aria-label="Wii"><img src="img/consoles/wii.webp" alt="" loading="lazy"></button><button type="button" class="plat" data-id="megadrive" data-n="Mega Drive" data-m="Sega · 1988" data-g="#2F6BD6" aria-label="Mega Drive"><img src="img/consoles/megadrive.webp" alt="" loading="lazy"></button><button type="button" class="plat" data-id="psp" data-n="PSP" data-m="Sony · 2004" data-g="#5C6E86" aria-label="PSP"><img src="img/consoles/psp.webp" alt="" loading="lazy"></button></div>
+        <div class="p-panel" data-toast="Emulator installed"><i class="p-glow"></i><img class="p-photo" alt="" src="img/consoles/gamecube.webp" loading="lazy">
+          <div class="p-txt"><small class="p-meta"></small><b class="p-name"></b><small>Recommended emulator · From its official source</small><div class="p-bar"><u></u></div>
+          <div class="p-foot"><button type="button" class="p-install">Install</button><p class="p-status"><span>Downloading…</span><span>Checking the file…</span><span>Installed</span></p></div></div></div>
+      </div>
+      <div class="scr s-ach">
+        <small class="scr-k">Trophy room · <b class="a-count">1</b> / 4 unlocked</small>
+        <div class="a-grid"><div class="troph got" data-t="First case opened"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg><b>First case opened</b><i><u></u></i></div><div class="troph" data-t="Collector: 100 games"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg><b>Collector: 100 games</b><i><u></u></i></div><div class="troph" data-t="Marathon: 10 hours"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg><b>Marathon: 10 hours</b><i><u></u></i></div><div class="troph" data-t="Night owl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg><b>Night owl</b><i><u></u></i></div></div>
+        <button type="button" class="a-unlock" data-got="Trophy unlocked:" data-all="Every trophy is yours">Unlock a trophy</button>
+      </div>
+      <div class="scr s-theme">
+        <small class="scr-k">Pick a palette</small>
+        <div class="t-grid"><button type="button" class="t-tile" style="--c0:#F8F7F3;--c1:#8CCDF1;--c2:#B9A6E8;--c3:#A9DFC8;--c4:#F5C4AC"><i></i><i></i><i></i><i></i><b>iBox</b></button><button type="button" class="t-tile" style="--c0:#DDF4F2;--c1:#1FC7CF;--c2:#4FA8F0;--c3:#3FD99A;--c4:#FF9F7A"><i></i><i></i><i></i><i></i><b>Lagoon</b></button><button type="button" class="t-tile" style="--c0:#FFE9DE;--c1:#FF8A66;--c2:#FF7FA8;--c3:#FFC94D;--c4:#FF6F61"><i></i><i></i><i></i><i></i><b>Peach</b></button><button type="button" class="t-tile" style="--c0:#ECE6FF;--c1:#8A6CF0;--c2:#B07CFF;--c3:#6FA8FF;--c4:#FF8FC8"><i></i><i></i><i></i><i></i><b>Lavender</b></button><button type="button" class="t-tile" style="--c0:#E4EFDF;--c1:#3FAF6A;--c2:#8CC152;--c3:#2FBF8F;--c4:#E8B25A"><i></i><i></i><i></i><i></i><b>Forest</b></button><button type="button" class="t-tile" style="--c0:#FFE6EF;--c1:#FF6FA0;--c2:#D98CF2;--c3:#7FD69A;--c4:#FFA78A"><i></i><i></i><i></i><i></i><b>Sakura</b></button><button type="button" class="t-tile" style="--c0:#DDEBFA;--c1:#2F86E8;--c2:#5B6CF0;--c3:#2EC4C4;--c4:#FF9F6E"><i></i><i></i><i></i><i></i><b>Ocean</b></button><button type="button" class="t-tile" style="--c0:#FFF4D2;--c1:#FFC21A;--c2:#FF8A2A;--c3:#7ED957;--c4:#FF5E5B"><i></i><i></i><i></i><i></i><b>Citrus</b></button><button type="button" class="t-tile" style="--c0:#E6EAF0;--c1:#7F98B8;--c2:#9A92C8;--c3:#88B8AA;--c4:#D6A48C"><i></i><i></i><i></i><i></i><b>Mist</b></button><button type="button" class="t-tile" style="--c0:#FFE8F7;--c1:#29C2FF;--c2:#C35CFF;--c3:#33E39A;--c4:#FF5FA2"><i></i><i></i><i></i><i></i><b>Candy</b></button><button type="button" class="t-tile" style="--c0:#F6E9D2;--c1:#E0A852;--c2:#C98A6B;--c3:#A8B866;--c4:#D9694A"><i></i><i></i><i></i><i></i><b>Sand</b></button><button type="button" class="t-tile" style="--c0:#FFE7E4;--c1:#FF7E9D;--c2:#6FB6FF;--c3:#FFB55C;--c4:#FF8066"><i></i><i></i><i></i><i></i><b>Dawn</b></button></div>
+        <button type="button" class="th-mode t-night" aria-pressed="false"><i></i><span>Day</span><span>Night</span></button>
+      </div>
+      <div class="app-toast" role="status"></div>
+    </div></div>
     <div class="th-side">
-      <span class="k">Palette</span>
+      <span class="k">Theme</span>
       <div class="th-names"><p><b>iBox</b><span>Cream and pastels, the original palette</span></p><p><b>Lagoon</b><span>Bright turquoise and mint</span></p><p><b>Peach</b><span>Vivid coral and honey</span></p><p><b>Lavender</b><span>Deep purples, dreamy mood</span></p><p><b>Forest</b><span>Fir green, moss and sand</span></p><p><b>Sakura</b><span>Bright cherry-blossom pink</span></p><p><b>Ocean</b><span>Deep blue and sea foam</span></p><p><b>Citrus</b><span>Lemon, tangerine and mint</span></p><p><b>Mist</b><span>Bluish greys, subtle but present</span></p><p><b>Candy</b><span>Tangy colors, very playful</span></p><p><b>Sand</b><span>Golden desert and terracotta</span></p><p><b>Dawn</b><span>Pink, orange and morning sky</span></p></div>
-      <div class="th-dots"><button type="button" aria-label="iBox" data-c="#F8F7F3,#8CCDF1,#B9A6E8,#A9DFC8,#F5C4AC,#1B1F2A,#262B38" style="--c0:#F8F7F3;--c1:#8CCDF1;--c2:#B9A6E8;--c3:#A9DFC8;--c4:#F5C4AC"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Lagoon" data-c="#DDF4F2,#1FC7CF,#4FA8F0,#3FD99A,#FF9F7A,#0E2226,#15313A" style="--c0:#DDF4F2;--c1:#1FC7CF;--c2:#4FA8F0;--c3:#3FD99A;--c4:#FF9F7A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Peach" data-c="#FFE9DE,#FF8A66,#FF7FA8,#FFC94D,#FF6F61,#2A1714,#3A211C" style="--c0:#FFE9DE;--c1:#FF8A66;--c2:#FF7FA8;--c3:#FFC94D;--c4:#FF6F61"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Lavender" data-c="#ECE6FF,#8A6CF0,#B07CFF,#6FA8FF,#FF8FC8,#1A1530,#251E43" style="--c0:#ECE6FF;--c1:#8A6CF0;--c2:#B07CFF;--c3:#6FA8FF;--c4:#FF8FC8"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Forest" data-c="#E4EFDF,#3FAF6A,#8CC152,#2FBF8F,#E8B25A,#122019,#1A2E23" style="--c0:#E4EFDF;--c1:#3FAF6A;--c2:#8CC152;--c3:#2FBF8F;--c4:#E8B25A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Sakura" data-c="#FFE6EF,#FF6FA0,#D98CF2,#7FD69A,#FFA78A,#2A1420,#3A1C2D" style="--c0:#FFE6EF;--c1:#FF6FA0;--c2:#D98CF2;--c3:#7FD69A;--c4:#FFA78A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Ocean" data-c="#DDEBFA,#2F86E8,#5B6CF0,#2EC4C4,#FF9F6E,#0D1A2C,#14263F" style="--c0:#DDEBFA;--c1:#2F86E8;--c2:#5B6CF0;--c3:#2EC4C4;--c4:#FF9F6E"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Citrus" data-c="#FFF4D2,#FFC21A,#FF8A2A,#7ED957,#FF5E5B,#261E0C,#362B12" style="--c0:#FFF4D2;--c1:#FFC21A;--c2:#FF8A2A;--c3:#7ED957;--c4:#FF5E5B"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Mist" data-c="#E6EAF0,#7F98B8,#9A92C8,#88B8AA,#D6A48C,#161B23,#202733" style="--c0:#E6EAF0;--c1:#7F98B8;--c2:#9A92C8;--c3:#88B8AA;--c4:#D6A48C"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Candy" data-c="#FFE8F7,#29C2FF,#C35CFF,#33E39A,#FF5FA2,#25132A,#341B3B" style="--c0:#FFE8F7;--c1:#29C2FF;--c2:#C35CFF;--c3:#33E39A;--c4:#FF5FA2"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Sand" data-c="#F6E9D2,#E0A852,#C98A6B,#A8B866,#D9694A,#241B10,#33271A" style="--c0:#F6E9D2;--c1:#E0A852;--c2:#C98A6B;--c3:#A8B866;--c4:#D9694A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Dawn" data-c="#FFE7E4,#FF7E9D,#6FB6FF,#FFB55C,#FF8066,#2A1618,#3A2023" style="--c0:#FFE7E4;--c1:#FF7E9D;--c2:#6FB6FF;--c3:#FFB55C;--c4:#FF8066"><i></i><i></i><i></i><i></i></button></div>
+      <div class="th-dots"><button type="button" aria-label="iBox" data-id="ibox" data-u="Mochi" data-c="#F8F7F3,#8CCDF1,#B9A6E8,#A9DFC8,#F5C4AC,#1B1F2A,#262B38" style="--c0:#F8F7F3;--c1:#8CCDF1;--c2:#B9A6E8;--c3:#A9DFC8;--c4:#F5C4AC"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Lagoon" data-id="lagon" data-u="Nox" data-c="#DDF4F2,#1FC7CF,#4FA8F0,#3FD99A,#FF9F7A,#0E2226,#15313A" style="--c0:#DDF4F2;--c1:#1FC7CF;--c2:#4FA8F0;--c3:#3FD99A;--c4:#FF9F7A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Peach" data-id="peche" data-u="Pixel" data-c="#FFE9DE,#FF8A66,#FF7FA8,#FFC94D,#FF6F61,#2A1714,#3A211C" style="--c0:#FFE9DE;--c1:#FF8A66;--c2:#FF7FA8;--c3:#FFC94D;--c4:#FF6F61"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Lavender" data-id="lavande" data-u="Luma" data-c="#ECE6FF,#8A6CF0,#B07CFF,#6FA8FF,#FF8FC8,#1A1530,#251E43" style="--c0:#ECE6FF;--c1:#8A6CF0;--c2:#B07CFF;--c3:#6FA8FF;--c4:#FF8FC8"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Forest" data-id="foret" data-u="Sora" data-c="#E4EFDF,#3FAF6A,#8CC152,#2FBF8F,#E8B25A,#122019,#1A2E23" style="--c0:#E4EFDF;--c1:#3FAF6A;--c2:#8CC152;--c3:#2FBF8F;--c4:#E8B25A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Sakura" data-id="sakura" data-u="Kiwi" data-c="#FFE6EF,#FF6FA0,#D98CF2,#7FD69A,#FFA78A,#2A1420,#3A1C2D" style="--c0:#FFE6EF;--c1:#FF6FA0;--c2:#D98CF2;--c3:#7FD69A;--c4:#FFA78A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Ocean" data-id="ocean" data-u="Rio" data-c="#DDEBFA,#2F86E8,#5B6CF0,#2EC4C4,#FF9F6E,#0D1A2C,#14263F" style="--c0:#DDEBFA;--c1:#2F86E8;--c2:#5B6CF0;--c3:#2EC4C4;--c4:#FF9F6E"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Citrus" data-id="agrume" data-u="Juno" data-c="#FFF4D2,#FFC21A,#FF8A2A,#7ED957,#FF5E5B,#261E0C,#362B12" style="--c0:#FFF4D2;--c1:#FFC21A;--c2:#FF8A2A;--c3:#7ED957;--c4:#FF5E5B"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Mist" data-id="brume" data-u="Bento" data-c="#E6EAF0,#7F98B8,#9A92C8,#88B8AA,#D6A48C,#161B23,#202733" style="--c0:#E6EAF0;--c1:#7F98B8;--c2:#9A92C8;--c3:#88B8AA;--c4:#D6A48C"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Candy" data-id="bonbon" data-u="Opale" data-c="#FFE8F7,#29C2FF,#C35CFF,#33E39A,#FF5FA2,#25132A,#341B3B" style="--c0:#FFE8F7;--c1:#29C2FF;--c2:#C35CFF;--c3:#33E39A;--c4:#FF5FA2"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Sand" data-id="sable" data-u="Zéphyr" data-c="#F6E9D2,#E0A852,#C98A6B,#A8B866,#D9694A,#241B10,#33271A" style="--c0:#F6E9D2;--c1:#E0A852;--c2:#C98A6B;--c3:#A8B866;--c4:#D9694A"><i></i><i></i><i></i><i></i></button><button type="button" aria-label="Dawn" data-id="aurore" data-u="Cléo" data-c="#FFE7E4,#FF7E9D,#6FB6FF,#FFB55C,#FF8066,#2A1618,#3A2023" style="--c0:#FFE7E4;--c1:#FF7E9D;--c2:#6FB6FF;--c3:#FFB55C;--c4:#FF8066"><i></i><i></i><i></i><i></i></button></div>
       <button type="button" class="th-mode" aria-pressed="false"><i></i><span>Day</span><span>Night</span></button>
+      <div class="try-go"><button type="button" data-go="home">Home</button><button type="button" data-go="plat">Platforms</button><button type="button" data-go="ach">Trophies</button><button type="button" data-go="theme">Themes</button></div>
+      <p class="try-note">Sample games and players, invented for this demo.</p>
     </div>
   </div>
-</div></div></div></section>
+</div></section>
 
 <section id="consoles"><div class="scene" id="lineup-scene" data-tl="lin:0 1"><div class="pin">
   <div class="wrap"><h2>27 supported platforms</h2>
@@ -253,6 +285,7 @@
 </div></footer>
 
 <script src="download.js?v=0.1.106-3" defer></script>
-<script src="motion.js?v=4" defer></script>
+<script src="motion.js?v=7" defer></script>
+<script src="demo.js?v=2" defer></script>
 </body>
 </html>
