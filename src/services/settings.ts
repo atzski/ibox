@@ -181,6 +181,8 @@ export interface SettingsState {
   musicPosition?: { x: number; y: number };
   /** Music in the Box : le lecteur reste affiché pendant le jeu (sinon il se ferme dès qu’on clique ailleurs). */
   musicStayOpen?: boolean;
+  /** Music in the Box : mode réduit (une barre fine : pochette, titre, précédent / pause / suivant). */
+  musicCompact?: boolean;
   /** Music in the Box : écran où la carte a été posée (nom Windows) ; absent : l’écran principal. */
   musicMonitor?: string;
   /** Bouton de validation de la manette : auto (selon la famille), en bas, à droite. */

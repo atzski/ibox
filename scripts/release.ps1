@@ -332,3 +332,8 @@ if (-not $NoBridge) {
 $online = Invoke-RestMethod -Uri $updateUrl -Headers @{ "User-Agent" = "ibox-release" }
 if ($online.version -ne $version) { Write-Warning "En ligne, latest.json annonce encore $($online.version)." }
 else { Write-Host "Vérifié : $updateUrl annonce $version." }
+
+# Annonce Discord : GitHub ne garantit pas le passage du bot toutes les 5 min, on le réveille.
+& $gh workflow run bot.yml --repo atzski/ibox-bot *> $null
+if ($LASTEXITCODE -eq 0) { Write-Host "Bot Discord lancé : l'annonce part dans #releases d'ici quelques minutes." }
+else { Write-Warning "Bot Discord non lancé : gh workflow run bot.yml --repo atzski/ibox-bot" }

@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.5",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "disc", title: "Un lecteur réduit", text: "Music in the Box se replie en une petite barre : pochette, titre qui défile, précédent, pause, suivant et progression. Bouton dans le lecteur, Menu à la manette ou R au clavier ; LB et RB changent de titre, et iBox s’en souvient à la prochaine ouverture." },
+      { icon: "sparkle", title: "Des vidéos dans la recherche", text: "La recherche du panneau musique a un onglet Vidéos : sons de fans, extraits de bandes originales, remix… Quand aucun titre officiel ne correspond, iBox y passe tout seul. Avec le plugin Music in the Box 1.0.5." },
+    ],
+  },
+  {
     version: "1.0.4",
     date: "2026-11-21",
     highlights: [

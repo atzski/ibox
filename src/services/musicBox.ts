@@ -241,6 +241,14 @@ export const music = {
   /** Montre la fenêtre YouTube Music (connexion Google). */
   connect: () => invoke("music_ytm_open", { visible: true }),
   search: (query: string) => ytm<Track[]>("search", { query, kind: "songs" }),
+  /**
+   * Vidéos (sons de fans, extraits, remix…). Un pont plus ancien (plugin 1.0.4 et avant) ne
+   * connaît pas ce filtre et rend les titres : ce double est écarté.
+   */
+  searchVideos: async (query: string) => {
+    const [videos, songs] = await Promise.all([ytm<Track[]>("search", { query, kind: "videos" }), ytm<Track[]>("search", { query, kind: "songs" }).catch(() => [] as Track[])]);
+    return sameTracks(videos, songs) ? [] : videos;
+  },
   searchArtists: (query: string) => ytm<Artist[]>("search", { query, kind: "artists" }),
   artist: (id: string) => ytm<ArtistPage>("artist", { id }),
   /** Un pont plus ancien (plugin 1.0.1) ne connaît pas les albums et rend des titres : écartés. */
@@ -314,4 +322,9 @@ export function formatTime(ms: number): string {
   const m = Math.floor((s % 3600) / 60);
   const r = String(s % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
+}
+
+/** Deux listes avec les mêmes titres, dans le même ordre (vides : différentes). */
+export function sameTracks(a: Track[], b: Track[]): boolean {
+  return a.length > 0 && a.length === b.length && a.every((t, i) => t.videoId === b[i].videoId);
 }
