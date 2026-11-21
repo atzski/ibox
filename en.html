@@ -3,298 +3,162 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>iBox — all your games, one library</title>
-<meta name="description" content="iBox brings your console and PC games together in a 3D library, installs your emulators and lets you play remotely with friends. Free, for Windows and Steam Deck (preview).">
+<title>iBox — your PC and console games in real 3D cases</title>
+<meta name="description" content="iBox brings your PC and console games together in a visual library: real 3D cases you can handle, with your emulators installed and tuned for you. Free and open source, for Windows and Steam Deck (preview).">
+<meta name="theme-color" content="#F6F3EC">
+<meta property="og:title" content="iBox — your PC and console games in real 3D cases">
+<meta property="og:description" content="iBox brings your PC and console games together in a visual library: real 3D cases you can handle, with your emulators installed and tuned for you. Free and open source, for Windows and Steam Deck (preview).">
+<meta property="og:image" content="https://atzski.github.io/ibox/img/render/hero.webp">
 <link rel="icon" href="logo.svg">
 <link rel="alternate" hreflang="fr" href="index.html">
-<link rel="stylesheet" href="style.css?v=2.2.1">
-<script>(function(d){d.classList.add("js");if(matchMedia("(min-width:901px) and (min-height:600px) and (prefers-reduced-motion:no-preference)").matches)d.classList.add("story");setTimeout(function(){if(!window.iboxMotion)d.classList.remove("js","story")},2500)})(document.documentElement)</script>
+<link rel="preload" href="fonts/fraunces.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css?v=3.0.0">
+<script>(function(d,m){var c=d.classList;c.add("js");var still=m("(prefers-reduced-motion: reduce)").matches,small=m("(max-width: 700px)").matches||m("(max-height: 560px)").matches,weak=(navigator.hardwareConcurrency||8)<4||(navigator.deviceMemory||8)<4;if(still)c.add("still");c.add(small||weak?"lite":"full");if(!small&&!weak&&!still)c.add("pin")})(document.documentElement,function(q){return matchMedia(q)})</script>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="top"><div class="wrap">
-  <a class="brand" href="en.html"><img src="logo.svg" alt="" width="34" height="34"><b>iBox</b></a>
-  <nav><a href="#visite">Tour</a><a href="#boitiers">Cases</a><a href="#accueils">Homes</a><a href="#themes">Themes</a><a href="#consoles">Consoles</a><a href="#steamdeck">Steam Deck</a></nav>
+  <a class="brand" href="en.html"><img src="logo.svg" alt="" width="30" height="30"><span translate="no">iBox</span></a>
+  <nav aria-label="Sections"><a href="#boitier">The case</a><a href="#formats">Formats</a><a href="#bibliotheque">Library</a><a href="#fonctions">Features</a></nav>
   <a class="lang" href="index.html" hreflang="fr" lang="fr">Français</a>
-  <a class="worn" href="#accueils" hidden><img src="logo.svg" alt="" width="28" height="28"><span></span></a>
-  <button type="button" class="mode" aria-pressed="false" aria-label="Switch between night and day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg></button>
-  <a class="cta mini dl-win" href="https://github.com/atzski/ibox/releases/latest">Download</a>
+  <a class="btn small" href="#telecharger">Download</a>
 </div></header>
 
-<main>
-<div class="scene" id="story" data-tl="copy:0 0.07; move:0.03 0.27; c1:0.09 0.13 0.25 0.29; open:0.3 0.47; c2:0.33 0.37 0.46 0.5; out:0.52 0.72; c3:0.74 0.8 2 3"><div class="pin">
-  <div class="aura" aria-hidden="true"></div><i class="motif" aria-hidden="true"></i>
-  <div class="wall" aria-hidden="true"><div class="wall-row"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="eager"></div><div class="wall-row"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="eager"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="eager"></div><div class="wall-row"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"></div></div>
-  <div class="rig" aria-hidden="true" data-tag="All your games, one library." data-back="Your whole library on one shelf." data-bullets="Real cases, in 3D|Emulators in one click|Play together, remotely" data-manual="Manual" data-disc="27 platforms · 3D"><img class="rig-poster" src="logo.svg" alt=""></div>
-  <div class="hero-copy">
-    <h1><span>All your games,</span> <span>one library.</span></h1>
-    <p class="lede">Consoles and PC together on a 3D shelf, in their real cases. iBox installs your emulators, tunes each game for your PC and lets you play together, even remotely.</p>
-    <div class="get">
-      <a id="download" class="cta dl-win" href="https://github.com/atzski/ibox/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>Download iBox</a>
-      <p class="meta"><span id="download-meta" data-version="Version" data-rest="Free · Windows 10 and 11 · 64‑bit">Free · Windows 10 and 11 · 64‑bit</span><a href="#steamdeck">Also on Steam Deck, in preview</a></p>
+<main id="main">
+<section class="hero">
+  <div class="wrap hero-head">
+    <h1>Your games deserve better than a list.</h1>
+    <div class="hero-side">
+      <p>Rediscover the pleasure of a real collection. Your PC and console games, together in 3D cases you can pick up and handle.</p>
+      <div class="actions"><a class="btn dl-win" href="https://github.com/atzski/ibox/releases/latest">Download iBox</a><a class="link" href="#boitier">See it in action</a></div>
+      <p class="fine">Free and open source. Windows 10 and 11, Steam Deck in preview.</p>
     </div>
   </div>
-  <p class="spin-hint" aria-hidden="true">Spin it. One click opens it.</p>
-  <figure class="screen"><img src="img/home.webp" width="1600" height="900" fetchpriority="high" alt="The iBox home screen: 423 games on a 3D shelf, the last game played and the collections"></figure>
-  <div class="caps" aria-hidden="true"><p class="c1">Every game in its real case.</p><p class="c2">Open it. The disc and the manual are inside.</p><p class="c3">And your whole library comes out.</p></div>
-</div></div>
-
-<section id="visite"><div class="scene" id="tour-scene" data-tl="t:0 1" data-steps="0.03 0.97"><div class="pin"><div class="wrap">
-  <div class="head"><h2>Made for playing, not configuring</h2><p class="lead">Add your folders: iBox finds your games, their covers and their manuals, then launches them with the right emulator and the right settings.</p></div>
-  <div class="tour">
-    <article class="chap on">
-      <div class="chap-txt"><h3><button type="button">Consoles and PC, in one place</button></h3><div class="chap-body"><p>Emulators and PC stores (Steam, Epic, GOG, EA, Ubisoft, Xbox, Riot) together, with a controller. Every game has its page: a case you can spin, your play time, your achievements.</p></div><i class="bar"></i></div>
-      <figure class="chap-fig"><img src="img/game-sheet-pc.webp" width="1600" height="900" loading="lazy" alt="A PC game's page in iBox: the 3D case, play time and Steam achievements"></figure>
-    </article>
-    <article class="chap">
-      <div class="chap-txt"><h3><button type="button">Your emulators, no searching</button></h3><div class="chap-body"><p>Pick a console: iBox Platforms downloads the recommended emulator from its official source, checks the file and installs it. iBox never provides games, BIOS files or keys.</p></div><i class="bar"></i></div>
-      <figure class="chap-fig"><img src="img/platform-emulator.webp" width="1600" height="667" loading="lazy" alt="A console's page in iBox Platforms, with its recommended emulator"></figure>
-    </article>
-    <article class="chap">
-      <div class="chap-txt"><h3><button type="button">SmartConfig knows your PC</button></h3><div class="chap-body"><p>Emulator settings tailored to your PC and to each game, with an exact preview before every change, a backup and one-click undo.</p></div><i class="bar"></i></div>
-      <figure class="chap-fig"><img src="img/smartconfig.webp" width="1600" height="900" loading="lazy" alt="The SmartConfig hub and what it knows about the PC: processor, graphics card, memory, display"></figure>
-    </article>
-    <article class="chap">
-      <div class="chap-txt"><h3><button type="button">The trophy room</button></h3><div class="chap-body"><p>RetroAchievements and Steam in one room: your level, your next goals, and achievements announced while you play.</p></div><i class="bar"></i></div>
-      <figure class="chap-fig"><img src="img/achievements.webp" width="1600" height="900" loading="lazy" alt="The trophy room: level, unlocked achievements and next goals"></figure>
-    </article>
-    <article class="chap">
-      <div class="chap-txt"><h3><button type="button">Collections that look like yours</button></h3><div class="chap-body"><p>A fan of cases, one big picture or a mosaic, a colour, an icon: every collection gets its own style. Put it wherever you like and decorate the home screen with logos, characters and animated stickers.</p></div><i class="bar"></i></div>
-      <figure class="chap-fig"><img src="img/showcase/pixel-collections.webp" width="1600" height="900" loading="lazy" alt="The collections of a home screen: fans of cases, big pictures, icons and stickers"></figure>
-    </article>
-    <p class="tour-hint">Move the pointer over the screen for a closer look.</p>
+  <div class="hero-stage" data-idle="Five games, five case formats, exactly as iBox shows them.">
+    <img class="poster" src="img/render/hero.webp" width="2400" height="1040" alt="Five game cases standing side by side: Stardew Valley on PC, Pokémon Black on DS, Super Mario Galaxy on Wii, The Legend of Zelda: Tears of the Kingdom on Switch and God of War: Ghost of Sparta on PSP" fetchpriority="high">
   </div>
-</div></div></div></section>
-
-<section id="boitiers"><div class="wrap">
-  <div class="head"><h2>The real cases, in 3D</h2><p class="lead">Every console has its own case, modelled for iBox. It opens, and the disc or the game card comes out. In the app, it wears your game's cover.</p></div>
-</div>
-<div class="shelf" id="shelf">
-  <div class="shelf-stage" aria-hidden="true"></div>
-  <div class="wrap shelf-ui">
-    <button type="button" class="round prev" aria-label="Previous case"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <ul class="shelf-tabs"><li><button type="button" class="on"><b>GameCube</b><span>Mini disc</span></button></li><li><button type="button"><b>PlayStation</b><span>Jewel case, CD</span></button></li><li><button type="button"><b>PlayStation 2</b><span>DVD</span></button></li><li><button type="button"><b>Wii</b><span>DVD</span></button></li><li><button type="button"><b>DS</b><span>Game card</span></button></li><li><button type="button"><b>PSP</b><span>UMD</span></button></li><li><button type="button"><b>3DS</b><span>Game card</span></button></li><li><button type="button"><b>Switch</b><span>Game card</span></button></li><li><button type="button"><b>Switch 2</b><span>Game card</span></button></li><li><button type="button"><b>PC</b><span>DVD</span></button></li></ul>
-    <button type="button" class="round next" aria-label="Next case"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-  </div>
-  <p class="wrap shelf-hint">Drag the shelf or pick a console.</p>
-</div></section>
-
-<section id="accueils"><i class="motif" aria-hidden="true"></i><div class="wrap">
-  <div class="head"><h2>To each their own iBox</h2><p class="lead">Wallpaper, palette, collections, stickers: the home screen is yours to compose. Here are twelve, on the same app. Pick a player: the page dresses in their colours.</p></div>
-</div>
-<div class="flow" tabindex="0">
-  <ol class="flow-track">
-    <li class="card on" data-theme="0" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/mochi.webp" width="1600" height="900" loading="lazy" alt="Mochi's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/mochi-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Mochi</b><span>iBox theme · cosy pastels</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/mochi.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/mochi-collections.webp" data-night="0">Collections</button></div>
-        <p>Cosy player: farms, quiet fishing and Sunday puzzles under a morning sky.</p>
-        <ul class="chips"><li>Animal Crossing</li><li>Petits bonheurs</li><li>Au fil de l'eau</li><li>Puzzles du dimanche</li><li>À deux sur le canapé</li><li>Kirby</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="1" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/nox.webp" width="1600" height="900" loading="lazy" alt="Nox's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/nox-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Nox</b><span>Lagoon theme · oceans and pirates</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/nox.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/nox-collections.webp" data-night="0">Collections</button><button type="button" data-src="img/showcase/nox-nuit.webp" data-night="1">By night</button></div>
-        <p>Diver and pirate: the deep, full sails and fishing trips, all the way to the stars.</p>
-        <ul class="chips"><li>Sous la surface</li><li>Cap au large</li><li>Pêche tranquille</li><li>Très loin d'ici</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="2" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/pixel.webp" width="1600" height="900" loading="lazy" alt="Pixel's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/pixel-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Pixel</b><span>Peach theme · retro Nintendo</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/pixel.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/pixel-collections.webp" data-night="0">Collections</button></div>
-        <p>Cartridge nostalgia: Mario, Wario, Hyrule and handhelds, in animated sprites.</p>
-        <ul class="chips"><li>Mario</li><li>Plombier à tout faire</li><li>Hyrule</li><li>Dans la poche</li><li>Wario</li><li>Pokémon</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="3" data-night="1"><figure>
-      <img class="card-shot" src="img/showcase/luma-nuit.webp" width="1600" height="900" loading="lazy" alt="Luma's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/luma-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Luma</b><span>Lavender theme, by night · RPGs</span></div>
-        
-        <p>RPG dreamer: crystals, turn-based battles and starry skies on a galaxy backdrop.</p>
-        <ul class="chips"><li>Lumière</li><li>Final Fantasy</li><li>Pixels et grands destins</li><li>Dans les étoiles</li><li>Encore cent heures</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="4" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/sora.webp" width="1600" height="900" loading="lazy" alt="Sora's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/sora-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Sora</b><span>Forest theme · adventure</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/sora.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/sora-collections.webp" data-night="0">Collections</button><button type="button" data-src="img/showcase/sora-nuit.webp" data-night="1">By night</button></div>
-        <p>Explorer of the great outdoors: Hyrule, forest survival, peaks to climb and monsters to hunt.</p>
-        <ul class="chips"><li>The Legend of Zelda</li><li>Hyrule</li><li>Survivre dehors</li><li>Toujours plus haut</li><li>Monster Hunter</li><li>Tombeaux et reliques</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="5" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/kiwi.webp" width="1600" height="900" loading="lazy" alt="Kiwi's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/kiwi-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Kiwi</b><span>Sakura theme · mascots and shonen</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/kiwi.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/kiwi-collections.webp" data-night="0">Collections</button></div>
-        <p>Candy-pink heart: soft mascots, card duels and shonen heroes.</p>
-        <ul class="chips"><li>Tout doux</li><li>Dragon Ball</li><li>Shonen</li><li>Yu-Gi-Oh!</li><li>Japon rêvé</li><li>Attrapez-les tous</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="6" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/rio.webp" width="1600" height="900" loading="lazy" alt="Rio's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/rio-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Rio</b><span>Ocean theme · racing</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/rio.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/rio-collections.webp" data-night="0">Collections</button><button type="button" data-src="img/showcase/rio-nuit.webp" data-night="1">By night</button></div>
-        <p>Born racer: karts, circuits, endless roads and Sunday sports.</p>
-        <ul class="chips"><li>Mario Kart</li><li>Pied au plancher</li><li>Arcade et turbo</li><li>Sur la route</li><li>Sport du dimanche</li><li>TrackMania</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="7" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/juno.webp" width="1600" height="900" loading="lazy" alt="Juno's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/juno-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Juno</b><span>Citrus theme · co-op nights</span></div>
-        
-        <p>Queen of game nights: couch co-op, mini-games, friendly brawls and laughs.</p>
-        <ul class="chips"><li>Soirée canapé</li><li>Super Smash Bros.</li><li>À deux, sinon rien</li><li>Fous rires garantis</li><li>LEGO</li><li>Baston entre amis</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="8" data-night="1"><figure>
-      <img class="card-shot" src="img/showcase/bento-nuit.webp" width="1600" height="900" loading="lazy" alt="Bento's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/bento-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Bento</b><span>Mist theme, by night · horror</span></div>
-        
-        <p>Thrill seeker: survival horror, little frights and cursed tapes, lights off.</p>
-        <ul class="chips"><li>Petites frayeurs</li><li>Little Nightmares</li><li>Ne te retourne pas</li><li>Cassettes du samedi soir</li><li>Raccoon City</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="9" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/opale.webp" width="1600" height="900" loading="lazy" alt="Opale's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/opale-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Opale</b><span>Candy theme · roguelikes</span></div>
-        
-        <p>Hooked on one more run: roguelikes, card games and bright-coloured indies.</p>
-        <ul class="chips"><li>Encore une run</li><li>Hades</li><li>Cartes et jetons</li><li>Seule contre mille</li><li>Couleurs vives</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="10" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/zephyr.webp" width="1600" height="900" loading="lazy" alt="Zéphyr's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/zephyr-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Zéphyr</b><span>Sand theme · tough action</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/zephyr.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/zephyr-collections.webp" data-night="0">Collections</button><button type="button" data-src="img/showcase/zephyr-nuit.webp" data-night="1">By night</button></div>
-        <p>Stubborn knight: bonfires, pixel-perfect parries and bosses retried a hundred times.</p>
-        <ul class="chips"><li>Dark Souls</li><li>L'Entre-terre</li><li>Lames et parades</li><li>Petits mais costauds</li><li>Hollow Knight</li><li>Un jour, je les finirai</li></ul>
-      </figcaption>
-    </figure></li>
-    <li class="card" data-theme="11" data-night="0"><figure>
-      <img class="card-shot" src="img/showcase/cleo.webp" width="1600" height="900" loading="lazy" alt="Cléo's iBox home screen">
-      <figcaption>
-        <img class="av" src="img/showcase/cleo-avatar.webp" alt="" width="56" height="56" loading="lazy">
-        <div class="card-id"><b>Cléo</b><span>Dawn theme · story games</span></div>
-        <div class="views"><button type="button" data-src="img/showcase/cleo.webp" data-night="0" class="on">Home</button><button type="button" data-src="img/showcase/cleo-collections.webp" data-night="0">Collections</button></div>
-        <p>Story lover: narrative games, heartbreaking choices and blockbusters at sunset.</p>
-        <ul class="chips"><li>Arcadia Bay</li><li>Mes films interactifs</li><li>Tomb Raider</li><li>Petites larmes</li><li>Grand spectacle</li></ul>
-      </figcaption>
-    </figure></li>
-  </ol>
-  <div class="flow-ui"><button type="button" class="round prev" aria-label="Previous player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="dock"><button type="button" class="on" aria-label="Mochi" title="Mochi"><img src="img/showcase/mochi-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Nox" title="Nox"><img src="img/showcase/nox-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Pixel" title="Pixel"><img src="img/showcase/pixel-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Luma" title="Luma"><img src="img/showcase/luma-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Sora" title="Sora"><img src="img/showcase/sora-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Kiwi" title="Kiwi"><img src="img/showcase/kiwi-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Rio" title="Rio"><img src="img/showcase/rio-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Juno" title="Juno"><img src="img/showcase/juno-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Bento" title="Bento"><img src="img/showcase/bento-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Opale" title="Opale"><img src="img/showcase/opale-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Zéphyr" title="Zéphyr"><img src="img/showcase/zephyr-avatar.webp" alt="" width="48" height="48" loading="lazy"></button><button type="button" aria-label="Cléo" title="Cléo"><img src="img/showcase/cleo-avatar.webp" alt="" width="48" height="48" loading="lazy"></button></div><button type="button" class="round next" aria-label="Next player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
-</div>
-<div class="wrap"><p class="fine">Example home screens: real captures of the app (in French), with real games, composed for this page. The player names are made up.</p></div>
+  <div class="wrap hero-foot"><p class="hero-caption" aria-live="polite">Five games, five case formats, exactly as iBox shows them.</p><p class="hero-hint">Hover a case, spin it, click to open it.</p></div>
 </section>
 
-<section id="themes"><div class="wrap">
-  <div class="head"><h2>Twelve palettes, by day or by night</h2><p class="lead">They recolour the whole of iBox, buttons and backdrop included. Pick one: this page takes it too.</p></div>
-  <div class="themes">
-    <div class="pals">
-      <ul class="pal-grid"><li><button type="button" class="pal on" aria-pressed="true" data-c="#F8F7F3,#8CCDF1,#B9A6E8,#A9DFC8,#F5C4AC,#1B1F2A,#262B38" style="--c0:#F8F7F3;--c1:#8CCDF1;--c2:#B9A6E8;--c3:#A9DFC8;--c4:#F5C4AC"><span class="sw"><i></i><i></i><i></i><i></i></span><b>iBox</b><small>Cream and pastels, the original palette</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#DDF4F2,#1FC7CF,#4FA8F0,#3FD99A,#FF9F7A,#0E2226,#15313A" style="--c0:#DDF4F2;--c1:#1FC7CF;--c2:#4FA8F0;--c3:#3FD99A;--c4:#FF9F7A"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Lagoon</b><small>Bright turquoise and mint</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#FFE9DE,#FF8A66,#FF7FA8,#FFC94D,#FF6F61,#2A1714,#3A211C" style="--c0:#FFE9DE;--c1:#FF8A66;--c2:#FF7FA8;--c3:#FFC94D;--c4:#FF6F61"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Peach</b><small>Vivid coral and honey</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#ECE6FF,#8A6CF0,#B07CFF,#6FA8FF,#FF8FC8,#1A1530,#251E43" style="--c0:#ECE6FF;--c1:#8A6CF0;--c2:#B07CFF;--c3:#6FA8FF;--c4:#FF8FC8"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Lavender</b><small>Deep purples, dreamy mood</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#E4EFDF,#3FAF6A,#8CC152,#2FBF8F,#E8B25A,#122019,#1A2E23" style="--c0:#E4EFDF;--c1:#3FAF6A;--c2:#8CC152;--c3:#2FBF8F;--c4:#E8B25A"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Forest</b><small>Fir green, moss and sand</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#FFE6EF,#FF6FA0,#D98CF2,#7FD69A,#FFA78A,#2A1420,#3A1C2D" style="--c0:#FFE6EF;--c1:#FF6FA0;--c2:#D98CF2;--c3:#7FD69A;--c4:#FFA78A"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Sakura</b><small>Bright cherry-blossom pink</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#DDEBFA,#2F86E8,#5B6CF0,#2EC4C4,#FF9F6E,#0D1A2C,#14263F" style="--c0:#DDEBFA;--c1:#2F86E8;--c2:#5B6CF0;--c3:#2EC4C4;--c4:#FF9F6E"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Ocean</b><small>Deep blue and sea foam</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#FFF4D2,#FFC21A,#FF8A2A,#7ED957,#FF5E5B,#261E0C,#362B12" style="--c0:#FFF4D2;--c1:#FFC21A;--c2:#FF8A2A;--c3:#7ED957;--c4:#FF5E5B"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Citrus</b><small>Lemon, tangerine and mint</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#E6EAF0,#7F98B8,#9A92C8,#88B8AA,#D6A48C,#161B23,#202733" style="--c0:#E6EAF0;--c1:#7F98B8;--c2:#9A92C8;--c3:#88B8AA;--c4:#D6A48C"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Mist</b><small>Bluish greys, subtle but present</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#FFE8F7,#29C2FF,#C35CFF,#33E39A,#FF5FA2,#25132A,#341B3B" style="--c0:#FFE8F7;--c1:#29C2FF;--c2:#C35CFF;--c3:#33E39A;--c4:#FF5FA2"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Candy</b><small>Tangy colors, very playful</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#F6E9D2,#E0A852,#C98A6B,#A8B866,#D9694A,#241B10,#33271A" style="--c0:#F6E9D2;--c1:#E0A852;--c2:#C98A6B;--c3:#A8B866;--c4:#D9694A"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Sand</b><small>Golden desert and terracotta</small></button></li><li><button type="button" class="pal" aria-pressed="false" data-c="#FFE7E4,#FF7E9D,#6FB6FF,#FFB55C,#FF8066,#2A1618,#3A2023" style="--c0:#FFE7E4;--c1:#FF7E9D;--c2:#6FB6FF;--c3:#FFB55C;--c4:#FF8066"><span class="sw"><i></i><i></i><i></i><i></i></span><b>Dawn</b><small>Pink, orange and morning sky</small></button></li></ul>
-      <button type="button" class="mode switch" aria-pressed="false"><span>Day</span><i></i><span>Night</span></button>
-    </div>
-    <figure class="frame themes-shot" data-tilt><img src="img/themes.webp" width="1600" height="900" loading="lazy" alt="Choosing the palette in iBox settings"></figure>
-  </div>
-</div></section>
-
-<section id="consoles"><div class="wrap">
-  <div class="head"><h2>27 supported platforms</h2><p class="lead">From the Atari 2600 to the Switch 2, plus all your PC games.</p></div>
-</div>
-<div class="lineup">
-  <b class="year" aria-hidden="true">1977</b>
-  <ol class="track">
-    <li class="con" style="--g:#C8742E" data-y="1977"><figure><img src="img/consoles/atari2600.webp" width="760" height="426" loading="lazy" alt=""><figcaption><b>Atari 2600</b><span>Atari, 1977</span></figcaption></figure></li>
-    <li class="con" style="--g:#C8414B" data-y="1983"><figure><img src="img/consoles/nes.webp" width="760" height="392" loading="lazy" alt=""><figcaption><b>NES</b><span>Nintendo, 1983</span></figcaption></figure></li>
-    <li class="con" style="--g:#D1343C" data-y="1985"><figure><img src="img/consoles/mastersystem.webp" width="760" height="406" loading="lazy" alt=""><figcaption><b>Master System</b><span>Sega, 1985</span></figcaption></figure></li>
-    <li class="con" style="--g:#2F6BD6" data-y="1988"><figure><img src="img/consoles/megadrive.webp" width="760" height="306" loading="lazy" alt=""><figcaption><b>Mega Drive</b><span>Sega, 1988</span></figcaption></figure></li>
-    <li class="con" style="--g:#8BAC0F" data-y="1989"><figure><img src="img/consoles/gb.webp" width="460" height="560" loading="lazy" alt=""><figcaption><b>Game Boy</b><span>Nintendo, 1989</span></figcaption></figure></li>
-    <li class="con" style="--g:#7B6FBF" data-y="1990"><figure><img src="img/consoles/snes.webp" width="760" height="362" loading="lazy" alt=""><figcaption><b>Super Nintendo</b><span>Nintendo, 1990</span></figcaption></figure></li>
-    <li class="con" style="--g:#2E86DE" data-y="1990"><figure><img src="img/consoles/gamegear.webp" width="760" height="460" loading="lazy" alt=""><figcaption><b>Game Gear</b><span>Sega, 1990</span></figcaption></figure></li>
-    <li class="con" style="--g:#C0262D" data-y="1993"><figure><img src="img/consoles/jaguar.webp" width="760" height="305" loading="lazy" alt=""><figcaption><b>Jaguar</b><span>Atari, 1993</span></figcaption></figure></li>
-    <li class="con" style="--g:#8C96A8" data-y="1994"><figure><img src="img/consoles/ps1.webp" width="760" height="336" loading="lazy" alt=""><figcaption><b>PlayStation</b><span>Sony, 1994</span></figcaption></figure></li>
-    <li class="con" style="--g:#4A5BA8" data-y="1994"><figure><img src="img/consoles/saturn.webp" width="760" height="410" loading="lazy" alt=""><figcaption><b>Saturn</b><span>Sega, 1994</span></figcaption></figure></li>
-    <li class="con" style="--g:#2F9E6E" data-y="1996"><figure><img src="img/consoles/n64.webp" width="760" height="407" loading="lazy" alt=""><figcaption><b>Nintendo 64</b><span>Nintendo, 1996</span></figcaption></figure></li>
-    <li class="con" style="--g:#8E5CC4" data-y="1998"><figure><img src="img/consoles/gbc.webp" width="406" height="560" loading="lazy" alt=""><figcaption><b>Game Boy Color</b><span>Nintendo, 1998</span></figcaption></figure></li>
-    <li class="con" style="--g:#E86A1C" data-y="1998"><figure><img src="img/consoles/dreamcast.webp" width="760" height="353" loading="lazy" alt=""><figcaption><b>Dreamcast</b><span>Sega, 1998</span></figcaption></figure></li>
-    <li class="con" style="--g:#2C4FD8" data-y="2000"><figure><img src="img/consoles/ps2.webp" width="458" height="560" loading="lazy" alt=""><figcaption><b>PlayStation 2</b><span>Sony, 2000</span></figcaption></figure></li>
-    <li class="con" style="--g:#6A54B4" data-y="2001"><figure><img src="img/consoles/gamecube.webp" width="760" height="417" loading="lazy" alt=""><figcaption><b>GameCube</b><span>Nintendo, 2001</span></figcaption></figure></li>
-    <li class="con" style="--g:#5A4FCF" data-y="2001"><figure><img src="img/consoles/gba.webp" width="760" height="495" loading="lazy" alt=""><figcaption><b>Game Boy Advance</b><span>Nintendo, 2001</span></figcaption></figure></li>
-    <li class="con" style="--g:#3DAA3D" data-y="2001"><figure><img src="img/consoles/xbox.webp" width="760" height="315" loading="lazy" alt=""><figcaption><b>Xbox</b><span>Microsoft, 2001</span></figcaption></figure></li>
-    <li class="con" style="--g:#2F6FE0" data-y="2004"><figure><img src="img/consoles/ds.webp" width="616" height="560" loading="lazy" alt=""><figcaption><b>DS</b><span>Nintendo, 2004</span></figcaption></figure></li>
-    <li class="con" style="--g:#5C6E86" data-y="2004"><figure><img src="img/consoles/psp.webp" width="760" height="414" loading="lazy" alt=""><figcaption><b>PSP</b><span>Sony, 2004</span></figcaption></figure></li>
-    <li class="con" style="--g:#5DC21E" data-y="2005"><figure><img src="img/consoles/xbox360.webp" width="369" height="560" loading="lazy" alt=""><figcaption><b>Xbox 360</b><span>Microsoft, 2005</span></figcaption></figure></li>
-    <li class="con" style="--g:#5FB8EC" data-y="2006"><figure><img src="img/consoles/wii.webp" width="509" height="560" loading="lazy" alt=""><figcaption><b>Wii</b><span>Nintendo, 2006</span></figcaption></figure></li>
-    <li class="con" style="--g:#3A4A6B" data-y="2006"><figure><img src="img/consoles/ps3.webp" width="760" height="304" loading="lazy" alt=""><figcaption><b>PlayStation 3</b><span>Sony, 2006</span></figcaption></figure></li>
-    <li class="con" style="--g:#22A6C9" data-y="2011"><figure><img src="img/consoles/3ds.webp" width="618" height="560" loading="lazy" alt=""><figcaption><b>3DS</b><span>Nintendo, 2011</span></figcaption></figure></li>
-    <li class="con" style="--g:#0A9FDB" data-y="2012"><figure><img src="img/consoles/wiiu.webp" width="760" height="336" loading="lazy" alt=""><figcaption><b>Wii U</b><span>Nintendo, 2012</span></figcaption></figure></li>
-    <li class="con" style="--g:#E60012" data-y="2017"><figure><img src="img/consoles/switch.webp" width="760" height="410" loading="lazy" alt=""><figcaption><b>Switch</b><span>Nintendo, 2017</span></figcaption></figure></li>
-    <li class="con" style="--g:#3BB6C8" data-y="2025"><figure><img src="img/consoles/switch2.webp" width="760" height="336" loading="lazy" alt=""><figcaption><b>Switch 2</b><span>Nintendo, 2025</span></figcaption></figure></li>
-    <li class="con" style="--g:#4FA8F0" data-y="PC"><figure><svg class="pc" viewBox="0 0 120 90" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="80" height="52" rx="6"/><path d="M34 80h24M46 58v22"/><rect x="96" y="14" width="18" height="66" rx="4"/><path d="M102 26h6M102 36h6"/><circle cx="105" cy="68" r="2.5"/></svg><figcaption><b>PC</b><span>Steam, Epic, GOG, EA, Ubisoft, Xbox, Riot</span></figcaption></figure></li>
-  </ol>
-  <div class="wrap lineup-ui"><button type="button" class="round prev" aria-label="Previous console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="rail"><i></i></div><button type="button" class="round next" aria-label="Next console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
-</div></section>
-
-<section id="plus"><div class="wrap">
-  <h2>And also</h2>
-  <dl class="more"><div><dt>Remote Play</dt><dd>Invite friends into your game, up to six players, straight from PC to PC: picture, sound and their controllers.</dd></div><div><dt>iNetbox</dt><dd>Your friends and what they are playing live, messages, invites and the Community.</dd></div><div><dt>The manual is in the box</dt><dd>iBox finds the real manual of your games, or takes any PDF you choose, and slips it into the case. Read it in double pages.</dd></div></dl>
-</div></section>
-
-<section id="steamdeck"><div class="wrap">
-  <div class="head"><h2>iBox on Steam Deck <span class="badge">Preview</span></h2><p class="lead">The same library in your hands: a Linux version built for Game Mode, played with the controller, full screen.</p></div>
-  <div class="deck">
-    <figure data-tilt><img src="img/steam-deck-ibox.webp" width="1448" height="797" loading="lazy" alt="A Steam Deck showing the iBox home screen: the collection on the shelf, the last adventure and collections"></figure>
-    <div class="deck-side">
-      <ul class="ticks"><li><b>Game Mode</b>: a single window, the Deck's controls, and iBox in your Steam library with its artwork.</li><li><b>Your games</b>: Steam, Epic, GOG and Amazon games installed with Heroic, and your Lutris games.</li><li><b>Emulators</b>: every one installs in one click, just like on Windows, from its official source or Flathub; SmartConfig tunes each game.</li><li><b>Remote Play</b>: join a friend's game running on a Windows PC with iBox.</li><li><b>Battery</b>: iBox saves power on battery and picks up by itself after sleep.</li></ul>
-      <a id="download-deck" class="cta" href="https://github.com/atzski/ibox/releases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>Download for Steam Deck</a>
-      <p class="meta"><span id="download-deck-meta" data-soon="Coming soon: the Steam Deck version is in preview." data-ready="AppImage · Steam Deck and 64‑bit Linux">AppImage · Steam Deck and 64‑bit Linux</span></p>
+<section class="story dark" id="boitier" aria-labelledby="story-h">
+  <div class="story-pin">
+    <div class="story-stage"></div>
+    <div class="wrap story-copy">
+      <h2 id="story-h">The case is real again.</h2>
+      <ol class="steps"><li class="on"><h3>The front</h3><p>The original cover, under the sleeve of the case.</p></li><li><h3>The spine</h3><p>The one your finger looks for on the shelf.</p></li><li><h3>The back</h3><p>The blurb, the screenshots, the barcode. It’s all there.</p></li><li><h3>The opening</h3><p>The front swings on its hinge, just like the real one.</p></li><li><h3>The disc</h3><p>It lifts off the hub and turns under the light.</p></li><li><h3>The booklet</h3><p>When the manual exists, it waits in its clips, ready to be leafed through.</p></li></ol>
+      <div class="story-rail" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+      <p class="fine">Super Mario Galaxy, Wii, 2007. Drag the case to turn it yourself.</p>
     </div>
   </div>
-  <ol class="steps"><li><h3>Download</h3><p>In Desktop Mode, download the <b>.AppImage</b> file and keep it in a folder, for example <b>Applications</b>.</p></li><li><h3>Launch</h3><p>Right-click › Properties › Permissions: tick <b>Is executable</b>, then open iBox.</p></li><li><h3>Add to Steam</h3><p>Quit Steam, then Settings › System › <b>Add iBox to Steam</b>. In Game Mode, iBox is waiting in your library.</p></li></ol>
-  <p class="fine">Still Windows only: hosting a Remote Play game, the in-game overlay and stores without a Linux version (EA, Ubisoft, Xbox, Battle.net). The Steam Deck version updates itself, just like on Windows.</p>
-</div></section>
-
-<section id="installer"><div class="wrap">
-  <h2>Ready in three steps</h2>
-  <ol class="steps"><li><h3>Install iBox</h3><p>No administrator rights needed, in a few seconds. Updates then arrive on their own.</p></li><li><h3>Follow the guide</h3><p>Profile, game folders, emulators, PC stores: the setup assistant explains everything.</p></li><li><h3>Play</h3><p>Pick a game on the shelf, iBox takes care of the rest.</p></li></ol>
-  <div class="final"><i class="motif" aria-hidden="true"></i><div class="wall" aria-hidden="true"><div class="wall-row"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"></div><div class="wall-row"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"></div><div class="wall-row"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/bento.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/nox.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/rio.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/cleo.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/sora.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/opale.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/pixel.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/juno.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/mochi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/kiwi.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/zephyr.webp" width="520" height="293" alt="" loading="lazy"><img src="img/wall/luma.webp" width="520" height="293" alt="" loading="lazy"></div></div>
-    <img src="logo.svg" alt="" width="72" height="72">
-    <a class="cta dl-win" href="https://github.com/atzski/ibox/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>Download iBox</a>
-    <p class="meta"><span>Free · Windows 10 and 11 · 64‑bit</span></p>
+  <div class="wrap story-flat">
+    <h2>The case is real again.</h2>
+    <ol class="stills"><li><img src="img/render/story-1.webp" width="1200" height="1200" loading="lazy" alt="The Wii case of Super Mario Galaxy, front view"><h3>The front</h3><p>The original cover, under the sleeve of the case.</p></li><li><img src="img/render/story-2.webp" width="1200" height="1200" loading="lazy" alt="The spine of the case"><h3>The spine</h3><p>The one your finger looks for on the shelf.</p></li><li><img src="img/render/story-3.webp" width="1200" height="1200" loading="lazy" alt="The back of the case"><h3>The back</h3><p>The blurb, the screenshots, the barcode. It’s all there.</p></li><li><img src="img/render/story-4.webp" width="1200" height="1200" loading="lazy" alt="The open case with the disc in its tray"><h3>The opening</h3><p>The front swings on its hinge, just like the real one.</p></li><li><img src="img/render/story-5.webp" width="1200" height="1200" loading="lazy" alt="The disc lifted out of the case"><h3>The disc</h3><p>It lifts off the hub and turns under the light.</p></li><li><img src="img/render/story-6.webp" width="1200" height="1200" loading="lazy" alt="The booklet out of its clips"><h3>The booklet</h3><p>When the manual exists, it waits in its clips, ready to be leafed through.</p></li></ol>
+    <p class="fine">Super Mario Galaxy, Nintendo Wii, 2007.</p>
   </div>
-  <p class="fine"><b>On first launch</b>, Windows may show “Windows protected your PC”, because iBox is still a young app. Click <b>More info</b>, then <b>Run anyway</b>.</p>
-  <p class="fine">iBox provides no games, BIOS files or keys: use your own legally owned copies. Emulators come from their official sources. iBox is not affiliated with any manufacturer or publisher; the trademarks mentioned and the game artwork visible in the screenshots belong to their owners.</p>
-</div></section>
+</section>
+
+<section class="formats" id="formats" aria-labelledby="formats-h">
+  <div class="wrap">
+    <div class="head"><h2 id="formats-h">Every console has its format.</h2><p>Seven case formats, modelled at their real dimensions. Pick a game and take it in hand.</p></div>
+    <div class="viewer">
+      <div class="viewer-tabs" role="tablist" aria-label="Games and formats"><button type="button" role="tab" id="tab-super-mario-galaxy" aria-controls="viewer-panel" aria-selected="true" data-slug="super-mario-galaxy"><img src="img/games/super-mario-galaxy/thumb.webp" alt="" width="136" height="191" loading="lazy"><span>Wii</span></button><button type="button" role="tab" id="tab-zelda-tears-of-the-kingdom" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="zelda-tears-of-the-kingdom"><img src="img/games/zelda-tears-of-the-kingdom/thumb.webp" alt="" width="105" height="170" loading="lazy"><span>Switch</span></button><button type="button" role="tab" id="tab-elden-ring" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="elden-ring"><img src="img/games/elden-ring/thumb.webp" alt="" width="135" height="190" loading="lazy"><span>PC</span></button><button type="button" role="tab" id="tab-pokemon-black" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="pokemon-black"><img src="img/games/pokemon-black/thumb.webp" alt="" width="137" height="125" loading="lazy"><span>DS</span></button><button type="button" role="tab" id="tab-zelda-ocarina-of-time-3d" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="zelda-ocarina-of-time-3d"><img src="img/games/zelda-ocarina-of-time-3d/thumb.webp" alt="" width="137" height="125" loading="lazy"><span>3DS</span></button><button type="button" role="tab" id="tab-god-of-war-ghost-of-sparta" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="god-of-war-ghost-of-sparta"><img src="img/games/god-of-war-ghost-of-sparta/thumb.webp" alt="" width="104" height="180" loading="lazy"><span>PSP</span></button><button type="button" role="tab" id="tab-mario-kart-world" aria-controls="viewer-panel" aria-selected="false" tabindex="-1" data-slug="mario-kart-world"><img src="img/games/mario-kart-world/thumb.webp" alt="" width="105" height="170" loading="lazy"><span>Switch 2</span></button></div>
+      <div class="viewer-panel" id="viewer-panel" role="tabpanel" aria-labelledby="tab-super-mario-galaxy">
+        <div class="viewer-stage" tabindex="0" role="application" aria-label="3D case: drag to turn it, or use the arrow keys."><img class="poster" src="img/render/super-mario-galaxy.webp" width="1200" height="1200" loading="lazy" alt="Super Mario Galaxy, Nintendo Wii, 2007"></div>
+        <div class="viewer-info">
+          <h3 aria-live="polite" translate="no">Super Mario Galaxy</h3>
+          <p class="viewer-sub">Nintendo Wii, 2007</p>
+          <dl><div><dt>Case</dt><dd data-k="size">136 × 191 × 14 mm</dd></div><div><dt>Media</dt><dd data-k="media">disc</dd></div></dl>
+          <div class="viewer-actions"><button type="button" class="chip" data-act="open" aria-pressed="false">Open</button><button type="button" class="chip" data-act="out" aria-pressed="false">Take the disc out</button><button type="button" class="chip" data-act="turn">Flip</button></div>
+          <button type="button" class="btn ghost viewer-load">Handle it in 3D</button>
+          <p class="fine viewer-drag">Drag to turn the case.</p>
+        </div>
+      </div>
+    </div>
+    <p class="systems"><span>iBox recognises 26 consoles, on top of your PC games:</span> Atari 2600, NES, Master System, Mega Drive, Game Boy, Super Nintendo, Game Gear, Jaguar, PlayStation, Saturn, Nintendo 64, Game Boy Color, Dreamcast, PlayStation 2, GameCube, Game Boy Advance, Xbox, DS, PSP, Xbox 360, Wii, PlayStation 3, 3DS, Wii U, Switch, Switch 2. GameCube, PlayStation and PlayStation 2 cases are modelled in the app too.</p>
+  </div>
+</section>
+
+<section class="library dark" id="bibliotheque" aria-labelledby="library-h">
+  <div class="wrap">
+    <div class="head"><h2 id="library-h">All your games, one collection.</h2><p>Your Steam, Epic Games and GOG games join the ones from your consoles. You sort them into collections, iBox puts them on the shelf.</p></div>
+    <figure class="clip wide">
+    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/collection-tour.webp" width="1280" height="720" aria-label="iBox recording: a collection of Mario games scrolls by, each game in its 3D case"><source src="video/collection-tour.mp4" type="video/mp4"></video>
+      <button type="button" class="clip-toggle" data-play="Play" data-pause="Pause" aria-label="Pause" hidden><span aria-hidden="true"></span></button></div>
+    <figcaption><b>Recorded in iBox</b> A Mario collection: Wii, DS, 3DS and Switch side by side, each in its own case.</figcaption>
+  </figure>
+    <div class="library-second">
+      <figure class="clip ">
+    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/game-case.webp" width="1280" height="720" aria-label="iBox recording: the Super Mario Galaxy page, its case opening and its manual"><source src="video/game-case.mp4" type="video/mp4"></video>
+      <button type="button" class="clip-toggle" data-play="Play" data-pause="Pause" aria-label="Pause" hidden><span aria-hidden="true"></span></button></div>
+    <figcaption><b>Recorded in iBox</b> A game’s page: the case turns, opens, and the original manual can be leafed through.</figcaption>
+  </figure>
+      <figure class="clip ">
+    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/platforms.webp" width="1280" height="720" aria-label="iBox recording: consoles scroll by, from the GameCube to the PlayStation 3"><source src="video/platforms.mp4" type="video/mp4"></video>
+      <button type="button" class="clip-toggle" data-play="Play" data-pause="Pause" aria-label="Pause" hidden><span aria-hidden="true"></span></button></div>
+    <figcaption><b>Recorded in iBox</b> The consoles: each one has its page, its story and its emulator.</figcaption>
+  </figure>
+    </div>
+  </div>
+</section>
+
+<section class="examples" aria-labelledby="examples-h">
+  <div class="wrap">
+    <div class="head"><h2 id="examples-h">A library that looks like you.</h2><p>Twelve palettes, a night mode, collections illustrated your way. Here are four example setups, captured in iBox.</p></div>
+    <div class="examples-tabs" role="tablist" aria-label="Example setups"><button type="button" role="tab" id="ex-retro" aria-controls="ex-panel" aria-selected="true" data-id="retro">Retro Nintendo</button><button type="button" role="tab" id="ex-pc" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="pc">PC library</button><button type="button" role="tab" id="ex-rpg" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="rpg">RPG collection</button><button type="button" role="tab" id="ex-generations" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="generations">Across generations</button></div>
+    <div class="examples-panel" id="ex-panel" role="tabpanel" aria-labelledby="ex-retro">
+      <div class="examples-frame"><img class="on" data-id="retro" src="img/examples/retro.webp" width="1600" height="784" loading="lazy" alt="iBox screenshot, example setup “Retro Nintendo”"><img data-id="pc" src="img/examples/pc.webp" width="1600" height="784" loading="lazy" alt="iBox screenshot, example setup “PC library”"><img data-id="rpg" src="img/examples/rpg.webp" width="1600" height="784" loading="lazy" alt="iBox screenshot, example setup “RPG collection”"><img data-id="generations" src="img/examples/generations.webp" width="1600" height="784" loading="lazy" alt="iBox screenshot, example setup “Across generations”"></div>
+      <div class="examples-text"><p class="on" data-id="retro">Peach palette. Mario, Hyrule, Wario and the handhelds, each with its collection.</p><p data-id="pc">Sand palette. Steam games sorted by series, the toughest ones first.</p><p data-id="rpg">Lavender palette, at night. Final Fantasy, pixel art and hundred-hour epics.</p><p data-id="generations">Forest palette. Zelda from the Wii to the Switch, on the same shelf.</p></div>
+    </div>
+    <p class="fine">Example setups made for this page. They are not player accounts. The app is shown in French here; it is fully available in English.</p>
+  </div>
+</section>
+
+<section class="features" id="fonctions" aria-labelledby="features-h">
+  <div class="wrap">
+    <h2 id="features-h">You play, iBox handles the rest.</h2>
+    <div class="features-grid">
+      <ul class="features-list"><li class="on" data-i="0"><button type="button" aria-pressed="true"><h3>Your PC games, found for you</h3></button><p>iBox reads your Steam, Epic Games and GOG libraries, play time included.</p><img src="img/game-sheet-pc.webp" width="1600" height="900" loading="lazy" alt="iBox screenshot: the Elden Ring page, its PC case and Steam achievements"></li><li data-i="1"><button type="button" aria-pressed="false"><h3>Emulators, installed for you</h3></button><p>One click per console, from the official source. If you already have yours, iBox keeps it.</p><img src="img/platform-emulator.webp" width="1600" height="900" loading="lazy" alt="iBox screenshot: the PSP page and the PPSSPP emulator"></li><li data-i="2"><button type="button" aria-pressed="false"><h3>SmartConfig</h3></button><p>Settings suited to your PC, game by game, with a preview before every change and a way back.</p><img src="img/smartconfig.webp" width="1600" height="900" loading="lazy" alt="iBox screenshot: SmartConfig describes the PC’s processor, graphics card and memory"></li><li data-i="3"><button type="button" aria-pressed="false"><h3>With a controller, from the sofa</h3></button><p>The whole interface works with a controller, a keyboard or a mouse, by day or by night.</p><img src="img/home-dark.webp" width="1600" height="900" loading="lazy" alt="iBox screenshot: the home screen in night mode, with navigation hints at the bottom"></li><li data-i="4"><button type="button" aria-pressed="false"><h3>Achievements and stats</h3></button><p>Your Steam achievements and RetroAchievements in one place, with the next ones within reach.</p><img src="img/achievements.webp" width="1600" height="900" loading="lazy" alt="iBox screenshot: the achievements page with the next goals"></li></ul>
+      <div class="features-media" aria-hidden="true"><img class="on" data-i="0" src="img/game-sheet-pc.webp" width="1600" height="900" loading="lazy" alt=""><img data-i="1" src="img/platform-emulator.webp" width="1600" height="900" loading="lazy" alt=""><img data-i="2" src="img/smartconfig.webp" width="1600" height="900" loading="lazy" alt=""><img data-i="3" src="img/home-dark.webp" width="1600" height="900" loading="lazy" alt=""><img data-i="4" src="img/achievements.webp" width="1600" height="900" loading="lazy" alt=""></div>
+    </div>
+    <p class="remote"><b>Remote Play</b><span class="tag">Experimental</span> Share a game’s screen with your friends, up to six players, each with their own controller, computer to computer. <a href="https://github.com/atzski/ibox/blob/main/docs/REMOTE-PLAY.md">How it works</a></p>
+  </div>
+</section>
+
+<section class="living" aria-labelledby="living-h">
+  <div class="wrap">
+    <div class="head"><h2 id="living-h">A place in your living room.</h2><p>Full screen on the television or in your hands, it is the same library.</p></div>
+    <figure class="clip wide">
+    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/home-collections.webp" width="1280" height="720" aria-label="iBox recording: the home screen scrolls from the shelf to the collections and the consoles"><source src="video/home-collections.mp4" type="video/mp4"></video>
+      <button type="button" class="clip-toggle" data-play="Play" data-pause="Pause" aria-label="Pause" hidden><span aria-hidden="true"></span></button></div>
+    <figcaption><b>Recorded in iBox</b> The iBox home screen: the shelf, your last game and your collections.</figcaption>
+  </figure>
+    <div class="living-cols"><div><h3>Windows</h3><p>Windows 10 and 11, 64‑bit. The complete version: library, emulators, in‑game overlay and Remote Play.</p></div><div><h3>Steam Deck<span class="tag">Preview</span></h3><p>An AppImage built for Game Mode: a single window, the Deck’s controls, iBox in your Steam library.</p></div></div>
+    <p class="fine">Still Windows only: hosting a Remote Play session, the in‑game overlay and the stores without a Linux version (EA, Ubisoft, Xbox, Battle.net).</p>
+  </div>
+</section>
+
+<section class="get dark" id="telecharger" aria-labelledby="get-h">
+  <div class="wrap">
+    <img class="get-visual" src="img/render/hero.webp" width="2400" height="1040" loading="lazy" alt="The five cases of the collection, standing side by side">
+    <h2 id="get-h">Your collection is waiting.</h2>
+    <div class="get-actions">
+      <div><a class="btn dl-win" id="download" href="https://github.com/atzski/ibox/releases/latest">Download for Windows</a><p class="fine" id="download-meta" data-version="Version" data-rest="Windows 10 and 11, 64‑bit">Windows 10 and 11, 64‑bit</p></div>
+      <div><a class="btn ghost" id="download-deck" href="https://github.com/atzski/ibox/releases/latest">Download for Steam Deck</a><p class="fine" id="download-deck-meta" data-ready="AppImage, Steam Deck and 64‑bit Linux" data-soon="Coming soon: the Steam Deck version is in preview.">AppImage, Steam Deck and 64‑bit Linux</p></div>
+    </div>
+    <p class="get-free">Free and open source, under the MIT licence. No account, no ads.</p>
+  </div>
+</section>
 </main>
 
-<footer><div class="wrap">
-  <span>© 2026 iBox</span>
-  <nav><a href="https://github.com/atzski/ibox">Source code</a><a href="https://github.com/atzski/ibox/releases">All releases</a><a href="https://discord.gg/xg6uQbYGZK">Discord</a><a href="credits.html">Console photos: credits</a><a href="privacy.html">Privacy and legal notice</a><a href="index.html" hreflang="fr" lang="fr">Français</a></nav>
+<footer class="foot dark"><div class="wrap">
+  <a class="brand" href="en.html"><img src="logo.svg" alt="" width="26" height="26"><span>iBox</span></a>
+  <ul><li><a href="https://github.com/atzski/ibox">Source code</a></li><li><a href="https://github.com/atzski/ibox/releases">All releases</a></li><li><a href="https://github.com/atzski/ibox/blob/main/docs/GUIDE.md">Guide</a></li><li><a href="https://discord.gg/xg6uQbYGZK">Discord</a></li><li><a href="https://github.com/atzski/ibox/blob/main/LICENSE">MIT licence</a></li><li><a href="privacy.html">Privacy and legal notice</a></li><li><a href="credits.html">Credits</a></li><li><a href="index.html" hreflang="fr" lang="fr">Français</a></li></ul>
+  <p class="fine">The games, cover art and trademarks shown on this page belong to their publishers. iBox does not provide any game.</p>
+  <p class="fine">© 2026 iBox</p>
 </div></footer>
-
-<script src="download.js?v=2.2.1" defer></script>
-<script src="motion.js?v=2.2.1" defer></script>
+<script type="application/json" id="site-data">{"hero":["stardew-valley","pokemon-black","super-mario-galaxy","zelda-tears-of-the-kingdom","god-of-war-ghost-of-sparta"],"story":"super-mario-galaxy","games":[{"slug":"super-mario-galaxy","title":"Super Mario Galaxy","sub":"Nintendo Wii, 2007","size":"136 × 191 × 14 mm","media":"disc","out":"Take the disc out","back":"Put the disc back"},{"slug":"zelda-tears-of-the-kingdom","title":"The Legend of Zelda: Tears of the Kingdom","sub":"Nintendo Switch, 2023","size":"105 × 170 × 11 mm","media":"game card","out":"Take the card out","back":"Put the card back"},{"slug":"elden-ring","title":"Elden Ring","sub":"PC, 2022","size":"135 × 190 × 14 mm","media":"disc","out":"Take the disc out","back":"Put the disc back"},{"slug":"pokemon-black","title":"Pokémon Black Version","sub":"Nintendo DS, 2011","size":"137 × 125 × 14 mm","media":"game card","out":"Take the card out","back":"Put the card back"},{"slug":"zelda-ocarina-of-time-3d","title":"The Legend of Zelda: Ocarina of Time 3D","sub":"Nintendo 3DS, 2011","size":"137 × 125 × 14 mm","media":"game card","out":"Take the card out","back":"Put the card back"},{"slug":"god-of-war-ghost-of-sparta","title":"God of War: Ghost of Sparta","sub":"PlayStation Portable, 2010","size":"104 × 180 × 14 mm","media":"UMD","out":"Take the UMD out","back":"Put the UMD back"},{"slug":"mario-kart-world","title":"Mario Kart World","sub":"Nintendo Switch 2, 2025","size":"105 × 170 × 11 mm","media":"game card","out":"Take the card out","back":"Put the card back"}],"labels":{"stardew-valley":"Stardew Valley, PC, 2016","pokemon-black":"Pokémon Black Version, Nintendo DS, 2011","super-mario-galaxy":"Super Mario Galaxy, Nintendo Wii, 2007","zelda-tears-of-the-kingdom":"The Legend of Zelda: Tears of the Kingdom, Nintendo Switch, 2023","god-of-war-ghost-of-sparta":"God of War: Ghost of Sparta, PlayStation Portable, 2010"},"open":"Open","close":"Close"}</script>
+<script src="download.js?v=3.0.0" defer></script>
+<script type="module" src="app.js?v=3.0.0"></script>
 </body>
 </html>

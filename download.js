@@ -21,13 +21,13 @@
       const asset = assets.find((a) => /_x64-setup\.exe$/.test(a.name));
       const version = String(release.tag_name || "").replace(/^v/, "");
       if (github(asset)) document.querySelectorAll(".dl-win").forEach((a) => { a.href = asset.browser_download_url; });
-      if (version && meta) meta.textContent = `${meta.dataset.version || "Version"} ${version} · ${meta.dataset.rest || ""}`;
+      if (version && meta) meta.textContent = `${meta.dataset.version || "Version"} ${version}, ${meta.dataset.rest || ""}`;
       if (!deck) return;
       const appimage = assets.find((a) => /_amd64\.AppImage$/.test(a.name));
       if (github(appimage)) {
         deck.href = appimage.browser_download_url;
         deck.removeAttribute("aria-disabled");
-        if (deckMeta) deckMeta.textContent = `Version ${version} · ${deckMeta.dataset.ready || ""}`;
+        if (deckMeta) deckMeta.textContent = `${(meta && meta.dataset.version) || "Version"} ${version}, ${deckMeta.dataset.ready || ""}`;
       } else {
         deck.setAttribute("aria-disabled", "true");
         deck.removeAttribute("href");

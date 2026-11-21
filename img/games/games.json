@@ -1,0 +1,224 @@
+[
+ {
+  "slug": "super-mario-galaxy",
+  "title": "Super Mario Galaxy",
+  "year": 2007,
+  "platform": "wii",
+  "platformName": "Nintendo Wii",
+  "media": "disc",
+  "size": [
+   136,
+   191,
+   14
+  ],
+  "disc": true,
+  "label": false,
+  "manual": true,
+  "palette": [
+   "#757879",
+   "#4f545c",
+   "#f73735",
+   "#f9d943",
+   "#1b1811"
+  ],
+  "sources": {
+   "front": "libretro",
+   "full": "gametdb",
+   "back": "launchbox",
+   "spine": "launchbox",
+   "disc": "gametdb"
+  }
+ },
+ {
+  "slug": "zelda-tears-of-the-kingdom",
+  "title": "The Legend of Zelda: Tears of the Kingdom",
+  "year": 2023,
+  "platform": "switch",
+  "platformName": "Nintendo Switch",
+  "media": "card",
+  "size": [
+   105,
+   170,
+   11
+  ],
+  "disc": false,
+  "label": true,
+  "manual": false,
+  "palette": [
+   "#7a8f95",
+   "#8aaea3",
+   "#fc2c1f",
+   "#ffffe7",
+   "#211d11"
+  ],
+  "sources": {
+   "full": "gametdb",
+   "back": "launchbox",
+   "front": "launchbox",
+   "spine": "launchbox"
+  }
+ },
+ {
+  "slug": "elden-ring",
+  "title": "Elden Ring",
+  "year": 2022,
+  "platform": "pc",
+  "platformName": "PC",
+  "media": "disc",
+  "size": [
+   135,
+   190,
+   14
+  ],
+  "disc": true,
+  "label": false,
+  "manual": false,
+  "palette": [
+   "#d3c87f",
+   "#41533c",
+   "#fee78c",
+   "#0b1403",
+   "#000000"
+  ],
+  "sources": {
+   "front": "steamgriddb"
+  }
+ },
+ {
+  "slug": "pokemon-black",
+  "title": "Pokémon Black Version",
+  "year": 2011,
+  "platform": "ds",
+  "platformName": "Nintendo DS",
+  "media": "card",
+  "size": [
+   137,
+   125,
+   14
+  ],
+  "disc": false,
+  "label": true,
+  "manual": false,
+  "palette": [
+   "#60686e",
+   "#5e5f5e",
+   "#fcc90c",
+   "#1b9dd6",
+   "#000000"
+  ],
+  "sources": {
+   "front": "libretro",
+   "back": "launchbox",
+   "spine": "launchbox"
+  }
+ },
+ {
+  "slug": "zelda-ocarina-of-time-3d",
+  "title": "The Legend of Zelda: Ocarina of Time 3D",
+  "year": 2011,
+  "platform": "3ds",
+  "platformName": "Nintendo 3DS",
+  "media": "card",
+  "size": [
+   137,
+   125,
+   14
+  ],
+  "disc": false,
+  "label": true,
+  "manual": true,
+  "palette": [
+   "#c5b6cb",
+   "#879646",
+   "#f5a100",
+   "#153cfd",
+   "#000000"
+  ],
+  "sources": {
+   "front": "libretro",
+   "full": "gametdb",
+   "back": "launchbox",
+   "spine": "launchbox"
+  }
+ },
+ {
+  "slug": "god-of-war-ghost-of-sparta",
+  "title": "God of War: Ghost of Sparta",
+  "year": 2010,
+  "platform": "psp",
+  "platformName": "PlayStation Portable",
+  "media": "umd",
+  "size": [
+   104,
+   180,
+   14
+  ],
+  "disc": true,
+  "label": false,
+  "manual": false,
+  "palette": [
+   "#a0988f",
+   "#884844",
+   "#d00000",
+   "#f1b80f",
+   "#0f0402"
+  ],
+  "sources": {
+   "front": "libretro",
+   "back": "launchbox",
+   "spine": "launchbox"
+  }
+ },
+ {
+  "slug": "mario-kart-world",
+  "title": "Mario Kart World",
+  "year": 2025,
+  "platform": "switch2",
+  "platformName": "Nintendo Switch 2",
+  "media": "card",
+  "size": [
+   105,
+   170,
+   11
+  ],
+  "disc": false,
+  "label": true,
+  "manual": false,
+  "palette": [
+   "#9b5376",
+   "#b28863",
+   "#ffd800",
+   "#0125f8",
+   "#000000"
+  ],
+  "sources": {
+   "front": "launchbox"
+  }
+ },
+ {
+  "slug": "stardew-valley",
+  "title": "Stardew Valley",
+  "year": 2016,
+  "platform": "pc",
+  "platformName": "PC",
+  "media": "disc",
+  "size": [
+   135,
+   190,
+   14
+  ],
+  "disc": true,
+  "label": false,
+  "manual": false,
+  "palette": [
+   "#ccae79",
+   "#655d26",
+   "#fadf00",
+   "#ca361e",
+   "#292009"
+  ],
+  "sources": {
+   "front": "steamgriddb"
+  }
+ }
+]
