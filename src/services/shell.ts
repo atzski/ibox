@@ -17,6 +17,8 @@ export const HELP = {
   steamgriddbKey: "https://www.steamgriddb.com/profile/preferences/api",
   steamAccount: "https://store.steampowered.com/account/",
   support: "https://buymeacoffee.com/atzski",
+  /** Serveur Discord de la communauté (invitation permanente). */
+  discord: "https://discord.gg/xg6uQbYGZK",
   /** Page des versions : installeur à télécharger si la mise à jour intégrée échoue. */
   releases: "https://github.com/atzski/ibox/releases/latest",
 } as const;

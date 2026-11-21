@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "0.1.112",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "globe", title: "La communauté iBox sur Discord", text: "iBox a maintenant son serveur Discord : aide, nouvelles versions, état d’iNetbox en direct et idées pour la suite. Rejoignez-le depuis Paramètres, Système, À propos." },
+    ],
+  },
+  {
     version: "0.1.111",
     date: "2026-11-20",
     highlights: [

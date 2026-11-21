@@ -143,8 +143,9 @@ pub fn shell_hide(app: AppHandle) {
 
 /// Pages d'aide ouvertes dans le navigateur par l'assistant de configuration.
 /// Liste fermée : aucune adresse venant d'ailleurs n'est ouverte.
-const HELP_PAGES: [&str; 7] = [
+const HELP_PAGES: [&str; 8] = [
     "https://github.com/atzski/ibox/releases/latest",
+    "https://discord.gg/xg6uQbYGZK",
     "https://retroachievements.org/settings",
     "https://iidb.iisu.network/",
     "https://buymeacoffee.com/atzski",

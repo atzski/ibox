@@ -170,6 +170,14 @@ export function SystemPage() {
           </div>
           <Button variant="primary" icon="sparkle" onClick={() => void shellApi.openHelp(HELP.support)}>Offrir un café</Button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-4 rounded-2xl border-none bg-[linear-gradient(135deg,#E3E6FF,#D6DBFF)] p-4">
+          <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#5865F2] text-[1.3rem] font-bold text-white shadow-sm" aria-hidden>D</span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[1.1rem] text-[#1e2150]">Communauté iBox</p>
+            <p className="text-[0.85rem] text-[#3b3f6e]">Rejoignez le serveur Discord : aide, nouvelles versions, état d'iNetbox et idées pour iBox.</p>
+          </div>
+          <Button variant="primary" icon="globe" onClick={() => void shellApi.openHelp(HELP.discord)}>Rejoindre le Discord</Button>
+        </div>
         <div className="flex flex-wrap gap-2 border-none pt-4">
           <Button icon="lock" onClick={() => setLegal(true)}>
             Mentions légales et confidentialité

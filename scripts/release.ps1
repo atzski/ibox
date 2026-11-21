@@ -57,6 +57,21 @@ function Get-Highlights([string]$version) {
   @($items | ForEach-Object { [pscustomobject]@{ Title = $_.Groups["t"].Value; Text = $_.Groups["x"].Value } })
 }
 
+# Traduction anglaise des nouveautés (clés françaises de src/i18n/en.ts) ; $null s'il en manque une.
+function Get-EnglishHighlights($highlights) {
+  $en = Get-Content -Raw -Encoding UTF8 "$root\src\i18n\en.ts"
+  $dict = @{}
+  foreach ($m in [regex]::Matches($en, '"((?:[^"\\]|\\.)*)":\s*"((?:[^"\\]|\\.)*)"')) {
+    $dict[[regex]::Unescape($m.Groups[1].Value)] = [regex]::Unescape($m.Groups[2].Value)
+  }
+  $out = @()
+  foreach ($h in $highlights) {
+    if (-not $dict.ContainsKey($h.Title) -or -not $dict.ContainsKey($h.Text)) { return $null }
+    $out += [pscustomobject]@{ Title = $dict[$h.Title]; Text = $dict[$h.Text] }
+  }
+  $out
+}
+
 # ——— Analyse des fuites d'informations personnelles ———
 function Get-Needles {
   $list = [Collections.Generic.List[string]]::new()
@@ -252,6 +267,13 @@ if (-not $Publish) {
     "", "## Installation", "",
     "Téléchargez **$name** ci-dessous (Windows 10 et 11, 64 bits).",
     "Si iBox est déjà installé, la mise à jour est proposée automatiquement.")
+  # Section anglaise tirée de src/i18n/en.ts (reprise par le bot Discord atzski/ibox-bot).
+  $english = Get-EnglishHighlights $highlights
+  if ($english) {
+    $notes += @("", "## What's new", "") + ($english | ForEach-Object { "- **$($_.Title)**: $($_.Text)" })
+  } else {
+    Write-Warning "Traduction anglaise incomplète dans src/i18n/en.ts : notes publiées sans section « What's new »."
+  }
   if ($Linux) {
     # notes de la version Steam Deck : docs/STEAMDECK-NOTES.md (à relire à chaque version Linux)
     $deckNotes = Get-Content -Raw -Encoding UTF8 "$root\docs\STEAMDECK-NOTES.md"
