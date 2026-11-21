@@ -1,0 +1,125 @@
+{
+ "example": true,
+ "players": [
+  {
+   "name": "Mochi",
+   "avatar": "img/showcase/mochi-avatar.webp",
+   "media": "img/showcase/mochi.webp",
+   "poster": "img/showcase/mochi.webp",
+   "tag": {
+    "fr": "Thème iBox · cosy et pastel",
+    "en": "iBox theme · cosy pastels"
+   }
+  },
+  {
+   "name": "Nox",
+   "avatar": "img/showcase/nox-avatar.webp",
+   "media": "img/showcase/nox.webp",
+   "poster": "img/showcase/nox.webp",
+   "tag": {
+    "fr": "Thème Lagon · océans et pirates",
+    "en": "Lagoon theme · oceans and pirates"
+   }
+  },
+  {
+   "name": "Pixel",
+   "avatar": "img/showcase/pixel-avatar.webp",
+   "media": "img/showcase/pixel.webp",
+   "poster": "img/showcase/pixel.webp",
+   "tag": {
+    "fr": "Thème Pêche · rétro Nintendo",
+    "en": "Peach theme · retro Nintendo"
+   }
+  },
+  {
+   "name": "Luma",
+   "avatar": "img/showcase/luma-avatar.webp",
+   "media": "img/showcase/luma-nuit.webp",
+   "poster": "img/showcase/luma-nuit.webp",
+   "tag": {
+    "fr": "Thème Lavande, de nuit · RPG",
+    "en": "Lavender theme, by night · RPGs"
+   }
+  },
+  {
+   "name": "Sora",
+   "avatar": "img/showcase/sora-avatar.webp",
+   "media": "img/showcase/sora.webp",
+   "poster": "img/showcase/sora.webp",
+   "tag": {
+    "fr": "Thème Forêt · aventure",
+    "en": "Forest theme · adventure"
+   }
+  },
+  {
+   "name": "Kiwi",
+   "avatar": "img/showcase/kiwi-avatar.webp",
+   "media": "img/showcase/kiwi.webp",
+   "poster": "img/showcase/kiwi.webp",
+   "tag": {
+    "fr": "Thème Sakura · mascottes et shonen",
+    "en": "Sakura theme · mascots and shonen"
+   }
+  },
+  {
+   "name": "Rio",
+   "avatar": "img/showcase/rio-avatar.webp",
+   "media": "img/showcase/rio.webp",
+   "poster": "img/showcase/rio.webp",
+   "tag": {
+    "fr": "Thème Océan · course",
+    "en": "Ocean theme · racing"
+   }
+  },
+  {
+   "name": "Juno",
+   "avatar": "img/showcase/juno-avatar.webp",
+   "media": "img/showcase/juno.webp",
+   "poster": "img/showcase/juno.webp",
+   "tag": {
+    "fr": "Thème Agrume · soirées coop",
+    "en": "Citrus theme · co-op nights"
+   }
+  },
+  {
+   "name": "Bento",
+   "avatar": "img/showcase/bento-avatar.webp",
+   "media": "img/showcase/bento-nuit.webp",
+   "poster": "img/showcase/bento-nuit.webp",
+   "tag": {
+    "fr": "Thème Brume, de nuit · horreur",
+    "en": "Mist theme, by night · horror"
+   }
+  },
+  {
+   "name": "Opale",
+   "avatar": "img/showcase/opale-avatar.webp",
+   "media": "img/showcase/opale.webp",
+   "poster": "img/showcase/opale.webp",
+   "tag": {
+    "fr": "Thème Bonbon · roguelikes",
+    "en": "Candy theme · roguelikes"
+   }
+  },
+  {
+   "name": "Zéphyr",
+   "avatar": "img/showcase/zephyr-avatar.webp",
+   "media": "img/showcase/zephyr.webp",
+   "poster": "img/showcase/zephyr.webp",
+   "tag": {
+    "fr": "Thème Sable · action exigeante",
+    "en": "Sand theme · tough action"
+   }
+  },
+  {
+   "name": "Cléo",
+   "avatar": "img/showcase/cleo-avatar.webp",
+   "media": "img/showcase/cleo.webp",
+   "poster": "img/showcase/cleo.webp",
+   "tag": {
+    "fr": "Thème Aurore · jeux narratifs",
+    "en": "Dawn theme · story games"
+   }
+  }
+ ]
+}

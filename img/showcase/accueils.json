@@ -1,0 +1,255 @@
+{
+ "note": "Vraies captures de l'application iBox (1600 x 900). Les pseudos et les joueurs sont inventés : ce sont des exemples d'accueils personnalisés, pas de vrais utilisateurs.",
+ "accueils": [
+  {
+   "id": "mochi",
+   "pseudo": "Mochi",
+   "theme": "ibox",
+   "themeNom": "iBox",
+   "mode": "clair",
+   "idee": "Joueuse cosy : fermes, pêche tranquille et puzzles du dimanche, sous un ciel du matin.",
+   "idea_en": "Cosy player: farms, quiet fishing and Sunday puzzles under a morning sky.",
+   "collections": [
+    "Animal Crossing",
+    "Petits bonheurs",
+    "Au fil de l'eau",
+    "Puzzles du dimanche",
+    "À deux sur le canapé",
+    "Kirby"
+   ],
+   "images": {
+    "accueil": "mochi.webp",
+    "collections": "mochi-collections.webp"
+   }
+  },
+  {
+   "id": "nox",
+   "pseudo": "Nox",
+   "theme": "lagon",
+   "themeNom": "Lagon",
+   "mode": "clair",
+   "idee": "Plongeur et pirate : abysses, voiles au vent et parties de pêche, jusqu'aux étoiles.",
+   "idea_en": "Diver and pirate: the deep, full sails and fishing trips, all the way to the stars.",
+   "collections": [
+    "Sous la surface",
+    "Cap au large",
+    "Pêche tranquille",
+    "Très loin d'ici"
+   ],
+   "images": {
+    "accueil": "nox.webp",
+    "collections": "nox-collections.webp",
+    "nuit": "nox-nuit.webp",
+    "nuitCollections": "nox-nuit-collections.webp"
+   }
+  },
+  {
+   "id": "pixel",
+   "pseudo": "Pixel",
+   "theme": "peche",
+   "themeNom": "Pêche",
+   "mode": "clair",
+   "idee": "Nostalgique des cartouches : Mario, Wario, Hyrule et consoles de poche, en sprites animés.",
+   "idea_en": "Cartridge nostalgia: Mario, Wario, Hyrule and handhelds, in animated sprites.",
+   "collections": [
+    "Mario",
+    "Plombier à tout faire",
+    "Hyrule",
+    "Dans la poche",
+    "Wario",
+    "Pokémon"
+   ],
+   "images": {
+    "accueil": "pixel.webp",
+    "collections": "pixel-collections.webp"
+   }
+  },
+  {
+   "id": "luma",
+   "pseudo": "Luma",
+   "theme": "lavande",
+   "themeNom": "Lavande",
+   "mode": "nuit",
+   "idee": "Rêveuse de RPG : cristaux, tour par tour et ciels étoilés, sur fond de galaxie.",
+   "idea_en": "RPG dreamer: crystals, turn-based battles and starry skies on a galaxy backdrop.",
+   "collections": [
+    "Lumière",
+    "Final Fantasy",
+    "Pixels et grands destins",
+    "Dans les étoiles",
+    "Encore cent heures"
+   ],
+   "images": {
+    "nuit": "luma-nuit.webp"
+   }
+  },
+  {
+   "id": "sora",
+   "pseudo": "Sora",
+   "theme": "foret",
+   "themeNom": "Forêt",
+   "mode": "clair",
+   "idee": "Aventurier des grands espaces : Hyrule, survie en forêt, sommets à gravir et monstres à chasser.",
+   "idea_en": "Explorer of the great outdoors: Hyrule, forest survival, peaks to climb and monsters to hunt.",
+   "collections": [
+    "The Legend of Zelda",
+    "Hyrule",
+    "Survivre dehors",
+    "Toujours plus haut",
+    "Monster Hunter",
+    "Tombeaux et reliques"
+   ],
+   "images": {
+    "accueil": "sora.webp",
+    "collections": "sora-collections.webp",
+    "nuit": "sora-nuit.webp",
+    "nuitCollections": "sora-nuit-collections.webp"
+   }
+  },
+  {
+   "id": "kiwi",
+   "pseudo": "Kiwi",
+   "theme": "sakura",
+   "themeNom": "Sakura",
+   "mode": "clair",
+   "idee": "Cœur rose bonbon : mascottes toutes douces, duels de cartes et héros de shonen.",
+   "idea_en": "Candy-pink heart: soft mascots, card duels and shonen heroes.",
+   "collections": [
+    "Tout doux",
+    "Dragon Ball",
+    "Shonen",
+    "Yu-Gi-Oh!",
+    "Japon rêvé",
+    "Attrapez-les tous"
+   ],
+   "images": {
+    "accueil": "kiwi.webp",
+    "collections": "kiwi-collections.webp"
+   }
+  },
+  {
+   "id": "rio",
+   "pseudo": "Rio",
+   "theme": "ocean",
+   "themeNom": "Océan",
+   "mode": "clair",
+   "idee": "Pilote dans l'âme : karts, circuits, routes sans fin et sport du dimanche.",
+   "idea_en": "Born racer: karts, circuits, endless roads and Sunday sports.",
+   "collections": [
+    "Mario Kart",
+    "Pied au plancher",
+    "Arcade et turbo",
+    "Sur la route",
+    "Sport du dimanche",
+    "TrackMania"
+   ],
+   "images": {
+    "accueil": "rio.webp",
+    "collections": "rio-collections.webp",
+    "nuit": "rio-nuit.webp",
+    "nuitCollections": "rio-nuit-collections.webp"
+   }
+  },
+  {
+   "id": "juno",
+   "pseudo": "Juno",
+   "theme": "agrume",
+   "themeNom": "Agrume",
+   "mode": "clair",
+   "idee": "Reine des soirées : coop sur le canapé, mini-jeux, bastons entre amis et fous rires.",
+   "idea_en": "Queen of game nights: couch co-op, mini-games, friendly brawls and laughs.",
+   "collections": [
+    "Soirée canapé",
+    "Super Smash Bros.",
+    "À deux, sinon rien",
+    "Fous rires garantis",
+    "LEGO",
+    "Baston entre amis"
+   ],
+   "images": {
+    "accueil": "juno.webp"
+   }
+  },
+  {
+   "id": "bento",
+   "pseudo": "Bento",
+   "theme": "brume",
+   "themeNom": "Brume",
+   "mode": "nuit",
+   "idee": "Amateur de frissons : survival horror, petites frayeurs et cassettes maudites, lumière éteinte.",
+   "idea_en": "Thrill seeker: survival horror, little frights and cursed tapes, lights off.",
+   "collections": [
+    "Petites frayeurs",
+    "Little Nightmares",
+    "Ne te retourne pas",
+    "Cassettes du samedi soir",
+    "Raccoon City"
+   ],
+   "images": {
+    "nuit": "bento-nuit.webp"
+   }
+  },
+  {
+   "id": "opale",
+   "pseudo": "Opale",
+   "theme": "bonbon",
+   "themeNom": "Bonbon",
+   "mode": "clair",
+   "idee": "Accro aux « encore une partie » : roguelikes, jeux de cartes et indés aux couleurs acidulées.",
+   "idea_en": "Hooked on one more run: roguelikes, card games and bright-coloured indies.",
+   "collections": [
+    "Encore une run",
+    "Hades",
+    "Cartes et jetons",
+    "Seule contre mille",
+    "Couleurs vives"
+   ],
+   "images": {
+    "accueil": "opale.webp"
+   }
+  },
+  {
+   "id": "zephyr",
+   "pseudo": "Zéphyr",
+   "theme": "sable",
+   "themeNom": "Sable",
+   "mode": "clair",
+   "idee": "Chevalier têtu : feux de camp, parades au millimètre et boss recommencés cent fois.",
+   "idea_en": "Stubborn knight: bonfires, pixel-perfect parries and bosses retried a hundred times.",
+   "collections": [
+    "Dark Souls",
+    "L'Entre-terre",
+    "Lames et parades",
+    "Petits mais costauds",
+    "Hollow Knight",
+    "Un jour, je les finirai"
+   ],
+   "images": {
+    "accueil": "zephyr.webp",
+    "collections": "zephyr-collections.webp",
+    "nuit": "zephyr-nuit.webp",
+    "nuitCollections": "zephyr-nuit-collections.webp"
+   }
+  },
+  {
+   "id": "cleo",
+   "pseudo": "Cléo",
+   "theme": "aurore",
+   "themeNom": "Aurore",
+   "mode": "clair",
+   "idee": "Amoureuse des histoires : jeux narratifs, choix déchirants et grand spectacle, au coucher du soleil.",
+   "idea_en": "Story lover: narrative games, heartbreaking choices and blockbusters at sunset.",
+   "collections": [
+    "Arcadia Bay",
+    "Mes films interactifs",
+    "Tomb Raider",
+    "Petites larmes",
+    "Grand spectacle"
+   ],
+   "images": {
+    "accueil": "cleo.webp",
+    "collections": "cleo-collections.webp"
+   }
+  }
+ ]
+}

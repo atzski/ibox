@@ -13799,11 +13799,12 @@ var Ku = [
 		["#5fd3a5", "#1f8f78"]
 	]
 ];
-function qu(e, t, n, r, i) {
-	let a = Math.round(512 / r), [o, s] = Pu(512, a);
-	s.fillStyle = Fu(s, 512, a, [[0, t[0]], [1, t[1]]]), s.fillRect(0, 0, 512, a), s.fillStyle = "rgba(255,255,255,.16)", s.beginPath(), s.arc(419.84, a * .28, 235.52, 0, 7), s.fill(), s.beginPath(), s.arc(51.2, a * .9, 174.08, 0, 7), s.fill(), s.fillStyle = "rgba(255,255,255,.92)";
-	let c = a * .56, l = 102.4;
-	return n % 4 == 0 ? Lu(s, 256, c, l * 1.25) : n % 4 == 1 ? (s.beginPath(), s.arc(256, c, l, 0, 7), s.fill()) : n % 4 == 2 ? (s.beginPath(), s.moveTo(256, c - l * 1.1), s.lineTo(368.64, c + l * .9), s.lineTo(256 - l * 1.1, c + l * .9), s.fill()) : (Iu(s, 153.6, c - l, l * 2, l * 2, l * .3), s.fill()), s.fillStyle = "#fff", s.fillRect(0, 0, 512, a * .115), i && s.drawImage(i, 16, a * .02, a * .075, a * .075), s.fillStyle = "#344459", s.font = `600 ${Math.round(a * .062)}px Fredoka`, s.textAlign = "left", s.fillText(e, 26 + a * .075, a * .08), o;
+function qu(e, t, n, r) {
+	let i = Math.round(512 / n), [a, o] = Pu(512, i);
+	o.fillStyle = Fu(o, 512, i, [[0, t[0]], [1, t[1]]]), o.fillRect(0, 0, 512, i), o.fillStyle = "rgba(255,255,255,.14)", o.beginPath(), o.arc(440.32, i * .3, 256, 0, 7), o.fill(), o.beginPath(), o.arc(30.72, i * .94, 184.32, 0, 7), o.fill(), r && (o.save(), o.shadowColor = "rgba(20,10,60,.35)", o.shadowBlur = 30, o.shadowOffsetY = 14, o.drawImage(r, 158.72, i * .3, 194.56, 194.56), o.restore()), o.fillStyle = "#fff", o.textAlign = "center";
+	let s = 77;
+	for (o.font = `600 ${s}px Fredoka`; o.measureText(e).width > 430.08;) s -= 4, o.font = `600 ${s}px Fredoka`;
+	return o.fillText(e, 256, i * .3 + 194.56 + s * 1.25), a;
 }
 function Ju(e, t, n, r) {
 	let i = /* @__PURE__ */ new Map();
@@ -13923,13 +13924,13 @@ function Zu() {
 async function Qu() {
 	let e = document.getElementById("story"), t = e && e.querySelector(".rig");
 	if (!t) return;
-	let n = {
-		tag: t.querySelector(".cover > i")?.textContent || "",
-		back: t.querySelector(".backart h5")?.textContent || "",
-		bullets: [...t.querySelectorAll(".backart li")].map((e) => e.textContent),
-		manual: t.querySelector(".booklet b")?.textContent || "",
-		disc: t.querySelector(".disc small")?.textContent || ""
-	}, [r, i, ...a] = await Promise.all([
+	let n = t.dataset, r = {
+		tag: n.tag || "",
+		back: n.back || "",
+		bullets: (n.bullets || "").split("|"),
+		manual: n.manual || "",
+		disc: n.disc || ""
+	}, [i, a, ...o] = await Promise.all([
 		ju("pc"),
 		Mu("logo.svg"),
 		...[
@@ -13939,131 +13940,170 @@ async function Qu() {
 		].map((e) => Mu(`img/${e}.webp`)),
 		document.fonts.load("600 60px \"Fredoka\""),
 		document.fonts.load("800 40px \"Nunito\"")
-	]), o = Yu(t, 26), s = r.clone(!0);
-	Ju(s, {
-		ART_FRONT: Vu(i, n),
-		ART_BACK: Hu(a, n),
-		ART_SPINE: Uu(i),
-		DISC_ART: Wu(i, n.disc)
-	}, o.renderer, !1);
-	let c = s.getObjectByName("Front"), l = s.getObjectByName("Card"), u = l.position.clone(), d = c.getObjectByName("Manual_Clip_T"), f = c.getObjectByName("Manual_Clip_B");
-	if (d && f) {
-		let e = (d.position.x + f.position.x) / 2, t = d.position.y - f.position.y + .002, r = Math.abs(e) * 2 * .88, a = new Ni({
+	]), s = Yu(t, 26), c = i.clone(!0);
+	Ju(c, {
+		ART_FRONT: Vu(a, r),
+		ART_BACK: Hu(o, r),
+		ART_SPINE: Uu(a),
+		DISC_ART: Wu(a, r.disc)
+	}, s.renderer, !1);
+	let l = c.getObjectByName("Front"), u = c.getObjectByName("Card"), d = u.position.clone(), f = l.getObjectByName("Manual_Clip_T"), p = l.getObjectByName("Manual_Clip_B");
+	if (f && p) {
+		let e = (f.position.x + p.position.x) / 2, t = f.position.y - p.position.y + .002, n = Math.abs(e) * 2 * .88, i = new Ni({
 			color: "#f3f1ea",
 			roughness: .8
-		}), s = new Ni({
-			map: Ru(Gu(i, n.manual), o.renderer),
+		}), o = new Ni({
+			map: Ru(Gu(a, r.manual), s.renderer),
 			roughness: .6
-		}), l = new gr(new xi(r, t, .0016), [
-			a,
-			a,
-			a,
-			a,
-			a,
-			s
+		}), c = new gr(new xi(n, t, .0016), [
+			i,
+			i,
+			i,
+			i,
+			i,
+			o
 		]);
-		l.position.set(e, (d.position.y + f.position.y) / 2, -.0021), c.add(l);
+		c.position.set(e, (f.position.y + p.position.y) / 2, -.0021), l.add(c);
 	}
-	let { holder: p, size: m } = Xu(s, !1), h = new zt();
-	h.add(p), o.scene.add(h);
-	let g = Zu();
-	g.rotation.x = -Math.PI / 2, o.scene.add(g), e.classList.add("gl-hero");
-	let _ = {
+	let { holder: m, size: h } = Xu(c, !1), g = new zt();
+	g.add(m), s.scene.add(g);
+	let _ = Zu();
+	_.rotation.x = -Math.PI / 2, s.scene.add(_), e.classList.add("gl-hero");
+	let v = {
 		x: 0,
 		y: 0,
 		sx: 0,
 		sy: 0
 	};
 	addEventListener("pointermove", (e) => {
-		_.x = e.clientX / innerWidth * 2 - 1, _.y = e.clientY / innerHeight * 2 - 1;
+		v.x = e.clientX / innerWidth * 2 - 1, v.y = e.clientY / innerHeight * 2 - 1;
 	}, { passive: !0 });
-	let v = Math.PI * .86, y = (t) => {
-		if (requestAnimationFrame(y), !o.isVisible() || !wu.classList.contains("story")) return;
-		o.fit();
-		let n = t / 1e3, r = Ou(e, "--move"), i = Ou(e, "--open"), a = Ou(e, "--out");
-		if (a >= 1) return;
-		let s = m.y / .62, d = s / 2 / Math.tan(o.camera.fov * Math.PI / 360);
-		o.camera.position.set(0, 0, d), o.camera.lookAt(0, 0, 0);
-		let f = s * o.camera.aspect;
-		_.sx += (_.x - _.sx) * .06, _.sy += (_.y - _.sy) * .06;
-		let p = 1 - r;
-		h.position.set((1 - r) * .21 * f + i * m.x * .5, -.02 * s + Math.sin(n * 1.3) * .004 * p - a * s * .55, -a * .25), h.rotation.set(.07 + i * .2 + a * .95 + _.sy * .12 * p, -.56 * p - r * Math.PI * 2 + _.sx * .22 * p + Math.sin(n * .9) * .03 * p, Math.sin(n * 1.1) * .012 * p), h.scale.setScalar(1 - a * .35), c.rotation.y = -v * i;
-		let b = Eu(i, .7, 1);
-		l.position.set(u.x, u.y + b * .004, u.z + b * .014 + a * .03), l.rotation.set(-b * .06, 0, n * .9 * b + i * Math.PI * 2), g.position.set(h.position.x - i * m.x * .5, -m.y * .6, -.02), g.scale.set(m.x * (1.7 + i * 1.5), m.x * .75, 1), g.material.opacity = Tu(1 - a * 2), o.renderer.render(o.scene, o.camera);
+	let y = Math.PI * .86, b = {
+		a: 0,
+		v: 0,
+		drag: null,
+		peek: 0,
+		peekTo: 0
 	};
-	requestAnimationFrame(y);
+	t.addEventListener("pointerdown", (e) => {
+		e.button || (b.drag = {
+			x: e.clientX,
+			moved: !1
+		}, t.setPointerCapture(e.pointerId));
+	}), t.addEventListener("pointermove", (e) => {
+		if (!b.drag) return;
+		let t = e.clientX - b.drag.x;
+		Math.abs(t) > 3 && (b.drag.moved = !0), b.drag.moved && (b.drag.x = e.clientX, b.v = Tu(t * .009, -.22, .22), b.a += t * .009);
+	});
+	let x = () => {
+		b.drag && (b.drag.moved || (b.peekTo = +!b.peekTo), b.drag = null);
+	};
+	t.addEventListener("pointerup", x), t.addEventListener("pointercancel", x);
+	let S = (t) => {
+		if (requestAnimationFrame(S), !s.isVisible() || !wu.classList.contains("story")) return;
+		s.fit();
+		let n = t / 1e3, r = Ou(e, "--move"), i = Ou(e, "--out");
+		b.drag || (b.a += b.v, b.v *= .95, Math.abs(b.v) < .002 && (b.a = Math.atan2(Math.sin(b.a), Math.cos(b.a)) * .97)), r > .02 && (b.peekTo = 0), b.peek += (b.peekTo - b.peek) * .09;
+		let a = Math.max(Ou(e, "--open"), b.peek * (1 - r));
+		if (s.renderer.domElement.style.visibility = i >= 1 ? "hidden" : "", i >= 1) return;
+		let o = h.y / .62, c = o / 2 / Math.tan(s.camera.fov * Math.PI / 360);
+		s.camera.position.set(0, 0, c), s.camera.lookAt(0, 0, 0);
+		let f = o * s.camera.aspect;
+		v.sx += (v.x - v.sx) * .06, v.sy += (v.y - v.sy) * .06;
+		let p = 1 - r;
+		g.position.set((1 - r) * .21 * f + a * h.x * .5 + b.peek * (1 - r) * h.x * .3, -.02 * o + Math.sin(n * 1.3) * .004 * p - i * o * 1.05, -i * .25), g.rotation.set(.07 + a * .2 + i * .95 + v.sy * .12 * p, -.56 * p + b.a * p - r * Math.PI * 2 + v.sx * .22 * p + Math.sin(n * .9) * .03 * p, Math.sin(n * 1.1) * .012 * p), g.scale.setScalar(1 - i * .35), l.rotation.y = -y * a;
+		let m = Eu(a, .7, 1);
+		u.position.set(d.x, d.y + m * .004, d.z + m * .014 + i * .03), u.rotation.set(-m * .06, 0, n * .9 * m + a * Math.PI * 2), _.position.set(g.position.x - a * h.x * .5, -h.y * .6, -.02), _.scale.set(h.x * (1.7 + a * 1.5), h.x * .75, 1), _.material.opacity = Tu(1 - i * 2), s.renderer.render(s.scene, s.camera);
+	};
+	requestAnimationFrame(S);
 }
 async function $u() {
 	let e = document.getElementById("shelf"), t = e && e.querySelector(".shelf-stage");
 	if (!t) return;
-	let n = e.querySelector(".scene"), r = [...e.querySelectorAll(".shelf-names p")], i = await Mu("logo.svg");
+	let n = await Mu("logo.svg");
 	await document.fonts.load("600 40px \"Fredoka\"");
-	let a = Yu(t, 24);
-	wu.classList.add("gl"), dispatchEvent(new Event("resize"));
-	let o = new gr(new xi(6, .012, .3), new Ni({
+	let r = Yu(t, 24), i = new gr(new xi(6, .012, .3), new Ni({
 		color: "#f3efe8",
 		roughness: .7
 	}));
-	o.position.set(0, -.006, -.02), a.scene.add(o);
-	let s = new zt();
-	a.scene.add(s);
-	let c = [];
-	await Promise.all(Ku.map(async ([e, t, n, r], o) => {
+	i.position.set(0, -.006, -.02), r.scene.add(i);
+	let a = new zt();
+	r.scene.add(a);
+	let o = [];
+	await Promise.all(Ku.map(async ([e, t, i, s], c) => {
 		let l = (await ju(e)).clone(!0), u = l.getObjectByName("Art_Front");
 		u.geometry.computeBoundingBox();
 		let d = u.geometry.boundingBox, f = (d.max.x - d.min.x) / (d.max.y - d.min.y) || .71, [p, m] = Pu(64, 512);
-		m.fillStyle = Fu(m, 64, 512, [[0, r[0]], [1, r[1]]], 0), m.fillRect(0, 0, 64, 512);
+		m.fillStyle = Fu(m, 64, 512, [[0, s[0]], [1, s[1]]], 0), m.fillRect(0, 0, 64, 512);
 		let h = {
-			ART_FRONT: qu(t, r, o, f, i),
+			ART_FRONT: qu(t, s, f, n),
 			ART_SPINE: p,
-			fill: r[1]
+			fill: s[1]
 		};
-		n === "disc" && (h.DISC_ART = Wu(i, t, [
-			r[0],
+		i === "disc" && (h.DISC_ART = Wu(n, t, [
+			s[0],
 			"#ffffff",
-			r[1],
-			r[0]
-		])), Ju(l, h, a.renderer, !0);
+			s[1],
+			s[0]
+		])), Ju(l, h, r.renderer, !0);
 		let { holder: g, size: _ } = Xu(l, !0), v = new zt();
-		v.add(g), s.add(v);
+		v.add(g), a.add(v);
 		let y = Zu();
 		y.rotation.x = -Math.PI / 2, y.position.y = 5e-4, y.scale.set(_.x * 1.5, .12, 1), v.add(y);
 		let b = l.getObjectByName("Card");
-		c[o] = {
+		o[c] = {
 			group: v,
 			holder: g,
 			size: _,
 			front: l.getObjectByName("Front"),
 			card: b,
 			home: b ? b.position.clone() : null,
-			media: n,
+			media: i,
 			openAngle: e.startsWith("switch") ? Math.PI * .97 : e === "ps1" ? Math.PI * .8 : Math.PI * .86
 		};
 	})), e.classList.add("ready");
-	let l = -1, u = (e) => {
-		if (requestAnimationFrame(u), !a.isVisible()) return;
-		a.fit();
-		let t = e / 1e3, i = wu.classList.contains("story"), o = c.length - 1, s = i ? Tu((Ou(n, "--p") - .06) / .86) * o : (1 - Math.cos(t * .22)) * .5 * o, d = a.camera.aspect < 1;
-		a.camera.position.set(0, .16, d ? 1.5 : 1.05), a.camera.lookAt(0, .092, 0), c.forEach((e, n) => {
-			let r = n - s, i = 1 - Eu(Math.abs(r), 0, 1);
+	let s = o.length - 1, c = matchMedia("(prefers-reduced-motion: reduce)"), l = 0, u = null, d = () => Tu(Number(t.dataset.index) || 0, 0, s);
+	t.addEventListener("pointerdown", (e) => {
+		e.button || (u = {
+			x: e.clientX,
+			from: l,
+			moved: !1
+		});
+	}), addEventListener("pointermove", (e) => {
+		if (!u) return;
+		let n = e.clientX - u.x;
+		!u.moved && Math.abs(n) < 6 || (u.moved = !0, l = Tu(u.from - n / (t.clientWidth * .17), -.3, s + .3));
+	});
+	let f = () => {
+		if (!u) return;
+		let e = u.moved;
+		u = null, e && t.dispatchEvent(new CustomEvent("ibox-shelf", { detail: Math.round(Tu(l, 0, s)) }));
+	};
+	addEventListener("pointerup", f), addEventListener("pointercancel", f);
+	let p = (e) => {
+		if (requestAnimationFrame(p), !r.isVisible()) return;
+		r.fit();
+		let t = c.matches ? 0 : e / 1e3;
+		u && u.moved || (l = c.matches ? d() : l + (d() - l) * .085);
+		let n = r.camera.aspect < 1;
+		r.camera.position.set(0, .15, n ? 1.35 : .74), r.camera.lookAt(0, .1, 0), o.forEach((e, n) => {
+			let r = n - l, i = 1 - Eu(Math.abs(r), 0, 1);
 			e.group.position.set(r * .2 + Math.sign(r) * Eu(Math.abs(r), 0, 1) * .07, i * .012, i * .16), e.group.rotation.y = Du(1.02, -.32, i) + Math.sin(t * .8 + n) * .02 * i;
 			let a = Eu(i, .72, 1);
 			if (e.front.rotation.y = -e.openAngle * a * .62, e.card) {
 				let n = Eu(i, .86, 1);
 				e.media === "card" ? (e.card.position.set(e.home.x, e.home.y + n * .02, e.home.z + n * .03), e.card.rotation.y = Math.sin(t * 1.2) * .3 * n, e.card.scale.setScalar(1 + n * .3)) : (e.card.position.set(e.home.x, e.home.y + n * .008, e.home.z + n * .022), e.card.rotation.set(-n * .1, 0, e.media === "umd" ? 0 : t * .9 * n));
 			}
-		});
-		let f = Math.round(s);
-		f !== l && (l = f, r.forEach((e, t) => e.classList.toggle("on", t === f))), a.renderer.render(a.scene, a.camera);
+		}), r.renderer.render(r.scene, r.camera);
 	};
-	requestAnimationFrame(u);
+	requestAnimationFrame(p);
 }
 var ed = (e) => e().catch((e) => console.warn("iBox : scène 3D indisponible, version simple conservée.", e));
 wu.classList.contains("story") && ed(Qu);
-var td = document.getElementById("shelf");
+var td = document.getElementById("boitiers");
 if (td) {
 	let e = new IntersectionObserver(([t]) => {
 		t.isIntersecting && (e.disconnect(), ed($u));
-	}, { rootMargin: "150% 0px" });
-	e.observe(document.querySelector("#themes") || td), e.observe(document.querySelector("#story .steps-col") || td);
+	}, { rootMargin: "120% 0px" });
+	e.observe(td);
 }
