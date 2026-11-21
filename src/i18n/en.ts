@@ -1761,6 +1761,9 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "Des captures d’écran en plein écran": "Screenshots in full screen",
+  "Le raccourci de capture fige maintenant l’image avec la même technique que les clips vidéo, pour ne plus donner une image noire avec les jeux en plein écran exclusif. L’ancienne méthode reste en secours si la nouvelle n’est pas disponible sur votre PC.":
+    "The capture shortcut now freezes the picture with the same technique as video clips, so games in exclusive full screen no longer give a black image. The previous method remains as a fallback if the new one is not available on your PC.",
   "Le lecteur réduit tient sur les grands écrans": "The compact player fits big screens",
   "Sur un écran 1440p ou 4K, la barre du lecteur réduit de Music in the Box grandit avec le texte : le titre s’affiche en entier au lieu de quelques lettres, et la pochette comme les boutons gardent leurs proportions.": "On a 1440p or 4K screen, the Music in the Box compact player bar now grows with the text: the title shows in full instead of a few letters, and the cover and buttons keep their proportions.",
   "Un lecteur réduit": "A compact player",
@@ -3759,4 +3762,6 @@ export const EN: Record<string, string> = {
   // Bibliothèque et accueil
   "Joués récemment": "Recently played",
   "jeu dans la collection": "game in the collection",
+  "Tous les jeux en attente ont été traités. Relancez « Compléter les images des jeux ».":
+    "All pending games have been handled. Run “Complete game images” again.",
 };

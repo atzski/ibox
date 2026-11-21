@@ -67,10 +67,15 @@ Reste avant la 1.0, par priorité :
 1. Certificat de signature de code (SmartScreen) : principal frein à l'installation chez un nouvel utilisateur.
 2. E-mails sur Render (`RESEND_API_KEY`, `MAIL_FROM`) : sans eux, « mot de passe oublié » ne marche pas.
 3. Serveur iNetbox en veille (offre gratuite Render) : premier appel lent après inactivité ; offre payante ou réveil planifié.
-4. Installateur en français seulement (`nsis.languages`) : ajouter l'anglais avec la traduction complète.
-5. Images de la Communauté en `bytea` sur Neon : passer à un stockage objet (R2) avant d'avoir du monde.
-6. Pas d'intégration continue : lancer `tsc`, `vitest` et `cargo test` à chaque publication (au moins dans `release.ps1`).
-7. Entretien : `SettingsScreen.tsx` (~1 400 lignes) à découper par catégorie ; fenêtres toast/overlay qui chargent tout le paquet commun.
+4. Images de la Communauté en `bytea` sur Neon : passer à un stockage objet (R2) avant d'avoir du monde.
+5. Entretien, au fil de l'eau : `MusicWindow.tsx` (~2 350 lignes), `CollectionsRow.tsx` (~1 430), `RemotePlayOnline.tsx` (~1 180) à découper quand on y touche.
+
+Réglé depuis l'audit (vérifié le 21/11/2026) :
+- Installateur en anglais et en français (`nsis.languages`).
+- `release.ps1` refuse de construire si `tsc`, `vitest` ou `cargo test` échoue (`-SkipTests` pour l'urgence).
+- `SettingsScreen.tsx` découpé par catégorie (`screens/settings/`) ; fenêtres toast, overlay, bandeau et musique chargées à la demande (`main.tsx`).
+- Traductions oubliées : `src/i18n/coverage.test.ts` échoue sur tout nouveau texte français sans traduction (retards assumés dans `coverage.known.json`).
+- Capture d'écran de l'overlay par Windows Graphics Capture (`capture.rs::grab_wgc`), GDI en repli : plus d'image noire en plein écran exclusif (à confirmer sur un vrai jeu).
 
 Stabilité (phase 1), 18/11/2026 :
 - Windows « N » (Europe) : Media Foundation chargé à la demande (`/DELAYLOAD`, build.rs) ; iBox démarre sans le Media Feature Pack, clips et Remote Play l'expliquent.

@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.7",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "sparkle", title: "Des captures d’écran en plein écran", text: "Le raccourci de capture fige maintenant l’image avec la même technique que les clips vidéo, pour ne plus donner une image noire avec les jeux en plein écran exclusif. L’ancienne méthode reste en secours si la nouvelle n’est pas disponible sur votre PC." },
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-11-21",
     highlights: [

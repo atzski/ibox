@@ -132,6 +132,59 @@ fn grab(max_w: Option<u32>) -> Option<(u32, u32, Vec<u8>)> {
 #[cfg(not(windows))]
 fn grab(_max_w: Option<u32>) -> Option<(u32, u32, Vec<u8>)> { None }
 
+/// Image de l'écran principal par Windows Graphics Capture (celle des clips) : elle voit aussi
+/// les jeux en plein écran exclusif, que GDI rend noirs. `None` si WGC est indisponible.
+#[cfg(windows)]
+fn grab_wgc() -> Option<(u32, u32, Vec<u8>)> {
+    use crate::remote_play::capture::{d3d::Device, wgc::{Capture as Wgc, Next}, windows_build, Options, Target};
+    use windows::Win32::Graphics::Direct3D11::{D3D11_CPU_ACCESS_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING};
+    let device = Device::create().ok()?;
+    let options = Options { cursor: false, borderless: true, require_borderless: false };
+    let mut capture = Wgc::start(&device, Target::PrimaryMonitor, options, windows_build()).ok()?;
+    let deadline = std::time::Instant::now() + Duration::from_millis(700);
+    let frame = loop {
+        match capture.next(Duration::from_millis(150)).ok()? {
+            Next::Frame(frame) => break frame,
+            Next::Timeout if std::time::Instant::now() < deadline => continue,
+            _ => return None,
+        }
+    };
+    let (w, h) = frame.size;
+    unsafe {
+        // copie vers une texture lisible par le processeur, puis BGRA → RGB
+        let mut desc = D3D11_TEXTURE2D_DESC::default();
+        frame.texture.GetDesc(&mut desc);
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        desc.Usage = D3D11_USAGE_STAGING;
+        desc.BindFlags = 0;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+        desc.MiscFlags = 0;
+        let mut staging = None;
+        device.device.CreateTexture2D(&desc, None, Some(&mut staging)).ok()?;
+        let staging = staging?;
+        device.context.CopyResource(&staging, &frame.texture);
+        let mut map = D3D11_MAPPED_SUBRESOURCE::default();
+        device.context.Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut map)).ok()?;
+        let mut rgb = Vec::with_capacity((w * h * 3) as usize);
+        for y in 0..h as usize {
+            let row = std::slice::from_raw_parts((map.pData as *const u8).add(y * map.RowPitch as usize), w as usize * 4);
+            for px in row.chunks_exact(4) { rgb.extend_from_slice(&[px[2], px[1], px[0]]); }
+        }
+        device.context.Unmap(&staging, 0);
+        Some((w, h, rgb))
+    }
+}
+#[cfg(not(windows))]
+fn grab_wgc() -> Option<(u32, u32, Vec<u8>)> { None }
+
+/// Capture en pleine taille : WGC d'abord, GDI en repli (Windows anciens, pilote sans WGC).
+fn grab_screen() -> Option<(u32, u32, Vec<u8>)> {
+    grab_wgc().or_else(|| grab(None))
+}
+
 pub fn encode_png(w: u32, h: u32, rgb: &[u8]) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     {
@@ -204,7 +257,7 @@ pub(crate) fn on_hotkey(app: &AppHandle) {
         return;
     }
     let game = GAME.lock().ok().and_then(|g| g.clone());
-    let shot = grab(None).and_then(|(w, h, rgb)| encode_png(w, h, &rgb).ok());
+    let shot = grab_screen().and_then(|(w, h, rgb)| encode_png(w, h, &rgb).ok());
     if let Ok(mut p) = PENDING.lock() { *p = shot.map(|png| Shot { png, game, at: now() }); }
     show(app);
 }
@@ -509,6 +562,20 @@ pub async fn community_media(app: AppHandle, id: String, thumb: Option<bool>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Vraie capture WGC de l'écran principal (demande une session graphique) :
+    /// `cargo test --lib capture::tests::ecran_par_wgc -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    #[cfg(windows)]
+    fn ecran_par_wgc() {
+        let (w, h, rgb) = grab_wgc().expect("WGC indisponible");
+        assert!(w >= 640 && h >= 480, "taille {w}×{h}");
+        assert_eq!(rgb.len(), (w * h * 3) as usize);
+        let lit = rgb.iter().filter(|v| **v > 8).count();
+        println!("WGC : {w}×{h}, {} % d'octets non noirs", lit * 100 / rgb.len());
+        assert!(lit > 0, "image entièrement noire");
+    }
 
     #[test]
     fn names_are_safe() {
