@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.6",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "disc", title: "Le lecteur réduit tient sur les grands écrans", text: "Sur un écran 1440p ou 4K, la barre du lecteur réduit de Music in the Box grandit avec le texte : le titre s’affiche en entier au lieu de quelques lettres, et la pochette comme les boutons gardent leurs proportions." },
+    ],
+  },
+  {
     version: "1.0.5",
     date: "2026-11-21",
     highlights: [

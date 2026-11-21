@@ -265,6 +265,16 @@ export const music = {
   play: (item: { videoId?: string; playlistId?: string; index?: number }) => ytm<boolean>("playItem", item),
 };
 
+/**
+ * Taille de la barre réduite (dessinée pour une police racine de 16 px). Son contenu est en
+ * rem et grandit avec l'écran (≈ 23 px en 2560 px logiques) : la barre grandit d'autant,
+ * sans jamais rapetisser, sinon le titre n'a plus la place que de quelques lettres.
+ */
+export function compactSize(rem: number, w = 340, h = 76): { w: number; h: number } {
+  const k = Number.isFinite(rem) && rem > 16 ? rem / 16 : 1;
+  return { w: Math.round(w * k), h: Math.round(h * k) };
+}
+
 /** Position par défaut du mini-lecteur : bord droit, à mi-hauteur. */
 export const DEFAULT_POSITION = { x: 1, y: 0.5 } as const;
 /** Marge entre la carte et les bords de l'écran (px). */

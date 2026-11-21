@@ -1761,6 +1761,8 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "Le lecteur réduit tient sur les grands écrans": "The compact player fits big screens",
+  "Sur un écran 1440p ou 4K, la barre du lecteur réduit de Music in the Box grandit avec le texte : le titre s’affiche en entier au lieu de quelques lettres, et la pochette comme les boutons gardent leurs proportions.": "On a 1440p or 4K screen, the Music in the Box compact player bar now grows with the text: the title shows in full instead of a few letters, and the cover and buttons keep their proportions.",
   "Un lecteur réduit": "A compact player",
   "Music in the Box se replie en une petite barre : pochette, titre qui défile, précédent, pause, suivant et progression. Bouton dans le lecteur, Menu à la manette ou R au clavier ; LB et RB changent de titre, et iBox s’en souvient à la prochaine ouverture.": "Music in the Box folds into a small bar: cover, scrolling title, previous, pause, next and progress. Use the button in the player, Menu on a controller or R on the keyboard; LB and RB change songs, and iBox remembers it next time.",
   "Des vidéos dans la recherche": "Videos in the search",

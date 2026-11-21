@@ -1,9 +1,9 @@
 import { EASE as EASES, SPRING, TWEEN } from "@/motion/tokens";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { animate, AnimatePresence, motion, useAnimationFrame, useMotionValue, useSpring, useTransform } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { DEFAULT_POSITION, formatTime, loadPlaylist, lyricsLineAt, lyricsProgress, lyricsSynced, music, parseLaunches, placeCard, positionAt, positionOf, pushLaunch, radioOf, seekBy, upNext, type Album, type AlbumPage, type Artist, type ArtistPage, type Launch, type Lyrics, type MusicAction, type MusicState, type Playlist, type QueueItem, type Track } from "@/services/musicBox";
+import { DEFAULT_POSITION, compactSize, formatTime, loadPlaylist, lyricsLineAt, lyricsProgress, lyricsSynced, music, parseLaunches, placeCard, positionAt, positionOf, pushLaunch, radioOf, seekBy, upNext, type Album, type AlbumPage, type Artist, type ArtistPage, type Launch, type Lyrics, type MusicAction, type MusicState, type Playlist, type QueueItem, type Track } from "@/services/musicBox";
 import { sound } from "@/services/sound";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { PadKeyboard } from "@/components/shell/PadKeyboard";
@@ -505,8 +505,10 @@ export function MusicWindow() {
 
   const tint = useDominantColor(n?.artwork ?? null);
   const expanded = view !== "mini";
-  const W = expanded ? BIG_W : compact ? COMPACT_W : MINI_W;
-  const H = expanded ? Math.min(BIG_H_MAX, screen.h - 48) : compact ? COMPACT_H : miniH;
+  // la barre réduite suit la police racine (qui grandit avec la largeur de l'écran)
+  const small = useMemo(() => compactSize(parseFloat(getComputedStyle(document.documentElement).fontSize), COMPACT_W, COMPACT_H), [screen.w]);
+  const W = expanded ? BIG_W : compact ? small.w : MINI_W;
+  const H = expanded ? Math.min(BIG_H_MAX, screen.h - 48) : compact ? small.h : miniH;
   const place = moving ?? placeCard(position, W, H, screen.w, screen.h);
 
   // déplacer la carte par le haut ; vers un autre écran, la fenêtre suit la souris
@@ -877,7 +879,7 @@ function CompactBar({ n, tint, live, act, onExpand, onMove, dragged }: {
         animate="rest"
         whileHover="hover"
         whileTap={{ scale: 0.92 }}
-        className="ibox-focusable group relative size-[52px] flex-none overflow-hidden rounded-[0.95rem] bg-black/30 ring-1 ring-white/15 [--ring-radius:0.95rem]"
+        className="ibox-focusable group relative size-[3.25rem] flex-none overflow-hidden rounded-[0.95rem] bg-black/30 ring-1 ring-white/15 [--ring-radius:0.95rem]"
         style={{ boxShadow: n ? `0 10px 24px -10px ${tint}` : undefined }}
       >
         <motion.div className="absolute inset-0" animate={reduced() ? undefined : { scale: n && !n.playing ? 0.92 : 1 }} transition={SPRING.smooth}>

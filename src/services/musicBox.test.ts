@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatTime, sameTracks, moveFocus, placeCard, positionAt, positionOf, upNext, type MusicState, type QueueItem } from "./musicBox";
+import { compactSize, formatTime, sameTracks, moveFocus, placeCard, positionAt, positionOf, upNext, type MusicState, type QueueItem } from "./musicBox";
 
 const state = (playing: boolean): MusicState => ({
   at: 1_000,
@@ -160,5 +160,16 @@ describe("sameTracks", () => {
   it("garde de vraies vidéos", () => {
     expect(sameTracks([t("a"), t("c")], [t("a"), t("b")])).toBe(false);
     expect(sameTracks([], [])).toBe(false);
+  });
+});
+
+describe("compactSize", () => {
+  it("garde la taille dessinée jusqu'à 16 px de police racine", () => {
+    expect(compactSize(16)).toEqual({ w: 340, h: 76 });
+    expect(compactSize(14.9)).toEqual({ w: 340, h: 76 });
+    expect(compactSize(Number.NaN)).toEqual({ w: 340, h: 76 });
+  });
+  it("grandit avec la police d'un grand écran", () => {
+    expect(compactSize(22.872)).toEqual({ w: 486, h: 109 });
   });
 });
