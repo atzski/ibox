@@ -221,7 +221,7 @@
   requestAnimationFrame(frame);
 
   // Scènes 3D (Three.js, 170 Ko compressés) : chargées après coup, la page vit sans elles.
-  const loadScenes = () => import("./scene.js?v=1").catch(() => undefined);
+  const loadScenes = () => import("./scene.js?v=2").catch(() => undefined);
   if ("requestIdleCallback" in window) requestIdleCallback(loadScenes, { timeout: 2500 }); else setTimeout(loadScenes, 1200);
 
   // Reflet qui suit le pointeur sur les cartes de fonctions.

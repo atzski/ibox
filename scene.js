@@ -13815,10 +13815,10 @@ function Ju(e, t, n, r) {
 			e.material = r ? new Pi({
 				name: o,
 				map: Ru(r, n),
-				roughness: .5,
-				clearcoat: .45,
-				clearcoatRoughness: .26,
-				envMapIntensity: .6,
+				roughness: .55,
+				clearcoat: .3,
+				clearcoatRoughness: .3,
+				envMapIntensity: .35,
 				alphaTest: o === "CARD_LABEL" ? .5 : 0,
 				polygonOffset: !0,
 				polygonOffsetFactor: -2
@@ -13850,10 +13850,10 @@ function Ju(e, t, n, r) {
 					name: o,
 					color: "#ffffff",
 					transparent: !0,
-					opacity: .09,
+					opacity: .05,
 					roughness: .06,
 					depthWrite: !1,
-					clearcoat: 1,
+					clearcoat: .7,
 					clearcoatRoughness: .08
 				})) : o === "DISC" ? i.set(o, new Ni({
 					name: o,
@@ -13876,10 +13876,10 @@ function Yu(e, t) {
 		alpha: !0,
 		powerPreference: "high-performance"
 	});
-	n.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)), n.outputColorSpace = ae, n.toneMapping = 4, n.toneMappingExposure = 1.08, n.domElement.className = "gl", e.append(n.domElement);
+	n.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)), n.outputColorSpace = ae, n.toneMapping = 7, n.toneMappingExposure = .92, n.domElement.className = "gl", e.append(n.domElement);
 	let r = new qt(), i = new ko(n);
-	r.environment = i.fromScene(new Su(), .03).texture, i.dispose(), r.add(new Ba("#ffffff", .4));
-	let a = new za("#fffaf2", 1.5);
+	r.environment = i.fromScene(new Su(), .03).texture, i.dispose(), r.add(new Ba("#ffffff", .18));
+	let a = new za("#fffaf2", 1.05);
 	a.position.set(3, 4, 5), r.add(a);
 	let o = new za("#b9a6e8", .9);
 	o.position.set(-4, 1.5, -3), r.add(o);
