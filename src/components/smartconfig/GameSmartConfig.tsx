@@ -203,7 +203,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
           data-focusable
           aria-label="Ouvrir l'univers SmartConfig"
           title="Univers SmartConfig"
-          onClick={() => { sound.play("open"); go({ name: "smartconfig" }); }}
+          onClick={() => { sound.play("enter"); go({ name: "smartconfig" }); }}
           className="ibox-focusable ibox-chip grid size-9 shrink-0 place-items-center rounded-full [--ring-radius:999px]"
         >
           <Icon name="history" size="1.05em" />

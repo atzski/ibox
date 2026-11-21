@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { isLinux } from "@/services/platform";
 import { useLibrary } from "@/services/library";
@@ -97,19 +98,22 @@ export function MetadataPanel() {
       await fn();
       if (ok) setMessage({ tone: "ok", text: ok });
       refreshStatus();
+      return true;
     } catch (e) {
       sound.play("error");
       setMessage({ tone: "error", text: e instanceof Error ? e.message : String(e) });
+      return false;
     }
   };
 
   const saveKey = async () => {
     setSavingKey(true);
-    await run(async () => {
+    const ok = await run(async () => {
       await metadataApi.setKey("steamgriddb", key);
       setKey("");
     }, isLinux() ? "Clé vérifiée et enregistrée sur cet appareil." : "Clé vérifiée et enregistrée dans le Gestionnaire d'identifiants Windows.");
     setSavingKey(false);
+    if (ok) saved();
     // les jeux encore sans jaquette sont relancés aussitôt (jaquette, fond, logo)
     const missing = useLibrary
       .getState()

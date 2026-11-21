@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { useState, type FormEvent } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -107,7 +108,7 @@ export function InetboxPanel() {
           </Button>
         </div>
       )}
-      <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); const name = new FormData(e.currentTarget).get("name"); void s.act("profile", { displayName: name }); }}>
+      <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); const name = new FormData(e.currentTarget).get("name"); void s.act("profile", { displayName: name }).then((ok) => ok && saved()); }}>
         <label className="flex-1 space-y-1 font-bold text-ink"><span>Nom</span><input data-focusable name="name" className={field} defaultValue={s.user.displayName} maxLength={40} required disabled={disabled} /></label><Button type="submit" icon="check" disabled={disabled}>Enregistrer</Button>
       </form>
       {s.blocks.length > 0 && <section><h3 className="mb-1 font-bold text-ink">Bloqués</h3>{s.blocks.map((b) => <div key={b.id} className="flex items-center justify-between gap-3 py-1.5 text-ink"><span className="font-semibold">{b.displayName}</span><Button disabled={disabled} onClick={() => void s.act("unblock", undefined, b.id)}>Débloquer</Button></div>)}</section>}

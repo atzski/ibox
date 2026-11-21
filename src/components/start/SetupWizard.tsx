@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -309,7 +310,7 @@ function KeyCard({
               const text = await save(key.trim());
               setKey("");
               setMsg({ ok: true, text });
-              sound.play("confirm");
+              saved();
             } catch (e) {
               setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
               sound.play("error");

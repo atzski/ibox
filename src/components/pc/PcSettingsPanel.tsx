@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { useEffect, useMemo, useState } from "react";
 import { isLinux } from "@/services/platform";
 import { isHidden, pcApi, sourceInfo, type PcConnector, type PcSyncSummary } from "@/services/pc";
@@ -242,12 +243,12 @@ function SteamKey({ has, onChange }: { has: boolean; onChange: () => void }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
-  const run = async (fn: () => Promise<string>) => {
+  const run = async (fn: () => Promise<string>, done: () => void = () => sound.play("select")) => {
     setBusy(true);
     setMsg(null);
     try {
       const text = await fn();
-      sound.play("select");
+      done();
       setMsg({ tone: "ok", text });
       onChange();
     } catch (e) {
@@ -297,7 +298,7 @@ function SteamKey({ has, onChange }: { has: boolean; onChange: () => void }) {
                   const n = await pcApi.setSteamKey(key);
                   setKey("");
                   return `Clé vérifiée par Steam : ${n} jeu${n > 1 ? "x" : ""} possédé${n > 1 ? "s" : ""}.`;
-                })
+                }, saved)
               }
             >
               {busy ? "Vérification…" : "Enregistrer"}

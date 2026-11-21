@@ -68,7 +68,7 @@ export function UserSwitcher() {
         aria-label="Changer d’utilisateur"
         title="Changer d’utilisateur"
         onClick={() => {
-          sound.play(open ? "back" : "open");
+          sound.play(open ? "back" : "profile");
           setOpen((v) => !v);
         }}
         className="ibox-focusable ibox-lift inline-flex h-10 items-center gap-1 rounded-full bg-white/60 px-3 text-ink-soft shadow-xs ring-1 ring-black/5 backdrop-blur hover:text-ink [--ring-radius:999px]"

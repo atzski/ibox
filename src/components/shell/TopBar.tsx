@@ -66,7 +66,7 @@ export function TopBar() {
             <button
               data-focusable
               onClick={() => {
-                sound.play("open");
+                sound.play("profile");
                 setEditing(true);
               }}
               aria-label={`Profil de ${profile} — modifier`}
@@ -121,7 +121,7 @@ export function TopBar() {
             data-focusable
             aria-label="Accueil"
             onClick={() => {
-              sound.play("back");
+              sound.play("home");
               useNav.getState().home();
             }}
             className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-blue [--ring-radius:999px]"
@@ -146,7 +146,7 @@ export function TopBar() {
             data-focusable
             aria-label="Paramètres"
             onClick={() => {
-              sound.play("select");
+              sound.play("settings");
               go({ name: "settings" });
             }}
             className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-orange [--ring-radius:999px]"

@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -419,7 +420,7 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
           if (!name.trim() || name.trim() === group.name) return;
           void run(async () => {
             upsert(await call<ChatGroup>("renameGroup", { name: name.trim() }, group.id));
-            sound.play("confirm");
+            saved();
           });
         }}
       >

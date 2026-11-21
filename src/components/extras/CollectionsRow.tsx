@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { SPRING, TWEEN } from "@/motion/tokens";
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useState, type FormEvent, useRef } from "react";
@@ -490,7 +491,7 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
         next[`${kind}Stamp`] = Date.now();
       }
       setStyle(id, next);
-      sound.play("select");
+      saved();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1038,7 +1039,7 @@ function OrderEditor({ collection, games, onClose }: { collection: Collection; g
         <button type="button" data-focusable disabled={index === ordered.length - 1} aria-label={`Descendre ${game.title}`} onClick={() => move(index, 1)} className="ibox-focusable rounded-full bg-white px-3 py-1 disabled:opacity-30">↓</button>
       </div>)}
     </div>
-    <div className="mt-4 flex justify-end"><Button variant="primary" icon="check" onClick={() => { setStyle(collection.id, { ...useCollectionStyles.getState().styles[collection.id], gameOrder: ordered.map((g) => g.dbId!).filter((id) => id !== undefined) }); onClose(); }}>Enregistrer</Button></div>
+    <div className="mt-4 flex justify-end"><Button variant="primary" icon="check" onClick={() => { setStyle(collection.id, { ...useCollectionStyles.getState().styles[collection.id], gameOrder: ordered.map((g) => g.dbId!).filter((id) => id !== undefined) }); saved(); onClose(); }}>Enregistrer</Button></div>
   </Modal>;
 }
 
@@ -1271,7 +1272,7 @@ function GiphyPicker({ onPicked }: { onPicked: (url: string) => void }) {
     await invoke("provider_key_set", { provider: "giphy", key });
     setKey("");
     setHasKey(true);
-    sound.play("select");
+    saved();
   });
   if (hasKey === null) return <p role="status" className="text-[0.8rem] text-ink-soft">Chargement…</p>;
   if (!hasKey) return (
@@ -1352,7 +1353,7 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
   const save = async () => {
     if (!pick && decor) {
       setStyle(decor.id, { ...useCollectionStyles.getState().styles[decor.id], decorSize: size });
-      sound.play("select");
+      saved();
       return onClose();
     }
     if (!pick) return;
@@ -1364,7 +1365,7 @@ function DecorEditor({ decor, onClose }: { decor: Collection | null; onClose: ()
       if (pick.kind === "url") await invoke("collection_art_set", { id, kind: "icon", url: pick.url });
       else await invoke("collection_art_import", new Uint8Array(await pick.file.arrayBuffer()), { headers: { "x-id": String(id), "x-kind": "icon" } });
       setStyle(id, { ...useCollectionStyles.getState().styles[id], decor: true, iconStamp: Date.now(), decorSize: size });
-      sound.play("select");
+      saved();
       onClose();
     } catch (err) {
       if (created !== undefined) await remove(created).catch(() => undefined);

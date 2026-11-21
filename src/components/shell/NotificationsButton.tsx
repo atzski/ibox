@@ -63,7 +63,7 @@ export function NotificationsButton() {
         aria-expanded={open}
         aria-label={unread ? `Notifications, ${unread} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
         onClick={() => {
-          sound.play(open ? "close" : "open");
+          sound.play(open ? "close" : "bell");
           setOpen((v) => !v);
         }}
         className="ibox-focusable ibox-lift relative grid h-12 w-12 place-items-center rounded-full ibox-chip tone-yellow [--ring-radius:999px]"

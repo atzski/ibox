@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "./Button";
@@ -25,7 +26,7 @@ export function ShortcutField({ value, defaultValue, taken, onChange, label }: {
       }
       const combo = comboFromEvent(e);
       if (!combo) return;
-      sound.play("select");
+      saved();
       setRecording(false);
       onChange(combo);
     };

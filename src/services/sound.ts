@@ -4,9 +4,12 @@ import { useSettings } from "./settings";
  * Sons d'interface d'iBox.
  *
  * Une seule famille sonore, entièrement synthétisée (Web Audio, aucun fichier, aucun son
- * officiel) : des lames de verre et de bois accordées sur la gamme pentatonique de ré majeur,
- * avec une courte résonance commune. La hiérarchie va du plus discret (déplacement, simple
- * appui) au plus présent (confirmation, succès, lancement) ; l'erreur reste douce, dans le grave.
+ * officiel), accordée sur la gamme pentatonique de ré majeur. Chaque signal est fait de couches :
+ * un contact feutré (souffle très bref), un corps grave qui donne la sensation d'appui, puis une
+ * ou plusieurs notes chaudes (verre, bois, carillon), le tout dans une courte résonance commune.
+ * La hiérarchie va du plus discret (déplacement, simple appui) au plus présent (confirmation,
+ * enregistrement, lancement) ; l'erreur reste douce, dans le grave. Les grandes destinations
+ * (accueil, paramètres, amis, notifications, profil, recherche…) ont chacune leur signature.
  * Les sons répétés varient légèrement (hauteur, niveau) pour ne pas fatiguer.
  *
  * Un fichier peut remplacer n'importe quelle cue via `registerSoundFile`.
@@ -14,7 +17,9 @@ import { useSettings } from "./settings";
  */
 export const SOUND_CUES = [
   // navigation
-  "move", "tap", "select", "confirm", "back", "open", "close", "tab", "view",
+  "move", "tap", "select", "confirm", "save", "back", "open", "close", "tab", "view",
+  // destinations
+  "home", "settings", "friends", "bell", "profile", "search", "menu", "enter", "power", "minimize",
   // états
   "toggle", "on", "off", "favorite", "unfavorite", "delete", "error",
   // événements
@@ -27,12 +32,14 @@ export type SoundCue = (typeof SOUND_CUES)[number];
 /** Partiels d'un timbre : [rapport de fréquence, niveau relatif, durée relative]. */
 type Partial3 = readonly [number, number, number];
 const TIMBRES = {
-  /** Lame de verre : claire, ronde, partiels de carillon vite éteints. */
-  glass: [[1, 1, 1], [2, 0.22, 0.5], [2.76, 0.1, 0.3], [5.4, 0.05, 0.14]],
+  /** Lame de verre : claire et ronde, sans partiel aigu qui pique. */
+  glass: [[1, 1, 1], [2, 0.2, 0.5], [2.76, 0.07, 0.3]],
   /** Carillon : le verre, doublé d'une voix à peine désaccordée qui fait scintiller la queue. */
-  chime: [[1, 1, 1], [1.004, 0.4, 1], [2, 0.2, 0.55], [2.76, 0.12, 0.35], [5.4, 0.05, 0.16]],
-  /** Lame de bois (marimba) : attaque nette, très courte. */
-  wood: [[1, 1, 1], [4, 0.16, 0.22], [9.2, 0.04, 0.1]],
+  chime: [[1, 1, 1], [1.004, 0.4, 1], [2, 0.18, 0.55], [2.76, 0.08, 0.35]],
+  /** Voix chaude : une octave grave sous la note lui donne du corps. */
+  warm: [[1, 1, 1], [0.5, 0.3, 0.8], [2, 0.2, 0.5], [3, 0.06, 0.3]],
+  /** Lame de bois (marimba) : attaque nette, très courte, posée sur son octave grave. */
+  wood: [[1, 1, 1], [0.5, 0.2, 0.5], [4, 0.12, 0.2]],
   /** Voix feutrée : retours, fermetures, extinctions. */
   soft: [[1, 1, 1], [2, 0.1, 0.45]],
   /** Voix creuse (partiels impairs) : l'erreur, reconnaissable sans être agressive. */
@@ -70,13 +77,15 @@ export interface Noise {
 
 export type Voice = Tone | Noise;
 
-// Gamme pentatonique de ré majeur (ré, mi, fa dièse, la, si).
-const Fs4 = 369.99, D5 = 587.33, Fs5 = 739.99, A5 = 880, B5 = 987.77;
-const D6 = 1174.66, E6 = 1318.51, Fs6 = 1479.98, A6 = 1760, D7 = 2349.32;
+// Gamme pentatonique de ré majeur (ré, mi, fa dièse, la, si), du médium grave à l'aigu doux.
+const D4 = 293.66, Fs4 = 369.99, A4 = 440, B4 = 493.88, D5 = 587.33, E5 = 659.26, Fs5 = 739.99;
+const A5 = 880, B5 = 987.77, D6 = 1174.66, Fs6 = 1479.98, A6 = 1760;
 
 const note = (freq: number, at: number, dur: number, gain: number, timbre: Timbre = "glass", extra: Partial<Tone> = {}): Tone => ({ freq, at, dur, gain, timbre, ...extra });
-/** Contact du maillet : un grain de souffle très bref qui précise l'attaque. */
-const tick = (at: number, gain = 0.03, freq = 3600): Noise => ({ noise: true, at, dur: 0.012, gain, filter: "highpass", freq });
+/** Contact : un grain de souffle feutré (médium, jamais sifflant) qui précise l'attaque. */
+const tick = (at: number, gain = 0.022, freq = 1900): Noise => ({ noise: true, at, dur: 0.016, gain, filter: "bandpass", freq, q: 0.9, attack: 0.003 });
+/** Corps : un petit choc grave qui donne la sensation d'appuyer sur quelque chose. */
+const body = (at: number, gain = 0.07, from = 190, to = 105): Tone => ({ freq: to, from: from / to, glide: 0.045, at, dur: 0.085, gain, timbre: "soft", attack: 0.004 });
 const click = (at: number, gain = 0.2, freq = 2800): Noise => ({ noise: true, at, dur: 0.022, gain, filter: "highpass", freq });
 const thump = (at: number, gain = 0.2, from = 140, to = 80): Tone => ({ freq: to, from: from / to, glide: 0.07, at, dur: 0.1, gain, timbre: "soft", attack: 0.003 });
 const whoosh = (at: number, dur: number, from: number, to: number, gain = 0.08): Noise => ({
@@ -86,57 +95,83 @@ const whoosh = (at: number, dur: number, from: number, to: number, gain = 0.08):
 export const VOICES: Record<SoundCue, Voice[]> = {
   // ——— navigation ———
   // Déplacement : le plus discret, une lame de bois effleurée.
-  move: [tick(0, 0.022), note(A5, 0, 0.07, 0.085, "wood")],
-  // Appui par défaut de tout élément cliquable : une petite bulle.
-  tap: [tick(0, 0.02, 3000), note(D5, 0, 0.1, 0.11, "wood", { from: 1.35, glide: 0.028 })],
-  // Sélection : quarte montante.
-  select: [tick(0, 0.025), note(A5, 0, 0.16, 0.12), note(D6, 0.055, 0.28, 0.14)],
+  move: [tick(0, 0.016), note(D5, 0, 0.065, 0.07, "wood")],
+  // Appui par défaut de tout élément cliquable : un « toc » grave et rond.
+  tap: [tick(0, 0.022, 1600), body(0, 0.1, 210, 115), note(A4, 0, 0.09, 0.085, "warm", { from: 1.18, glide: 0.022 })],
+  // Sélection : l'appui, puis une quinte qui monte.
+  select: [tick(0), body(0, 0.07), note(D5, 0, 0.15, 0.105, "warm"), note(A5, 0.06, 0.28, 0.115)],
   // Confirmation : l'accord de ré égrené, plus présent.
-  confirm: [tick(0, 0.03), note(A5, 0, 0.18, 0.12, "chime"), note(D6, 0.05, 0.22, 0.12, "chime"), note(Fs6, 0.1, 0.42, 0.13, "chime")],
+  confirm: [tick(0, 0.025), body(0, 0.08), note(D5, 0, 0.18, 0.1, "warm"), note(Fs5, 0.05, 0.2, 0.1, "chime"), note(A5, 0.1, 0.4, 0.115, "chime"), note(D6, 0.1, 0.4, 0.04, "soft")],
+  // Enregistrement : un coup de tampon feutré, puis deux notes qui se posent.
+  save: [
+    whoosh(0, 0.09, 1400, 500, 0.03), tick(0, 0.03, 1500), body(0, 0.14, 230, 100),
+    note(D5, 0, 0.12, 0.07, "warm"), note(A5, 0.07, 0.22, 0.1, "chime"), note(D6, 0.14, 0.5, 0.11, "chime"),
+  ],
   // Retour : la sélection à l'envers, feutrée.
-  back: [note(D6, 0, 0.12, 0.1, "soft"), note(A5, 0.055, 0.22, 0.115, "soft")],
+  back: [note(A5, 0, 0.12, 0.09, "soft"), note(D5, 0.055, 0.22, 0.11, "warm"), body(0.055, 0.05)],
   // Ouverture d'une fenêtre : un souffle et trois notes qui montent.
-  open: [whoosh(0, 0.2, 500, 2200, 0.03), note(D5, 0, 0.14, 0.085), note(A5, 0.045, 0.16, 0.095), note(D6, 0.09, 0.36, 0.115)],
+  open: [whoosh(0, 0.2, 400, 1800, 0.03), note(A4, 0, 0.14, 0.085, "warm"), note(D5, 0.045, 0.16, 0.09, "warm"), note(A5, 0.09, 0.36, 0.105)],
   // Fermeture : la même phrase qui redescend, dans le temps de la sortie (160 ms).
-  close: [whoosh(0, 0.14, 2000, 600, 0.022), note(D6, 0, 0.1, 0.075, "soft"), note(A5, 0.04, 0.12, 0.085, "soft"), note(D5, 0.08, 0.2, 0.1, "soft")],
+  close: [whoosh(0, 0.14, 1700, 500, 0.022), note(A5, 0, 0.1, 0.07, "soft"), note(D5, 0.04, 0.12, 0.085, "soft"), note(A4, 0.08, 0.2, 0.1, "warm")],
   // Onglet, tri, segment : deux lames de bois rapprochées.
-  tab: [tick(0, 0.02), note(B5, 0, 0.06, 0.085, "wood"), note(E6, 0.04, 0.13, 0.095, "wood")],
+  tab: [tick(0, 0.018), note(Fs5, 0, 0.06, 0.08, "wood"), note(A5, 0.04, 0.13, 0.085, "wood")],
   // Changement de vue : balayage d'air et deux notes.
-  view: [whoosh(0, 0.24, 500, 2000, 0.06), note(E6, 0.04, 0.14, 0.08), note(A6, 0.11, 0.32, 0.085)],
+  view: [whoosh(0, 0.24, 450, 1800, 0.055), note(E5, 0.04, 0.14, 0.085, "warm"), note(B5, 0.11, 0.32, 0.085)],
+
+  // ——— destinations ———
+  // Accueil : trois notes qui redescendent se poser sur le ré, comme on rentre chez soi.
+  home: [note(A5, 0, 0.1, 0.08), note(Fs5, 0.05, 0.12, 0.085), note(D5, 0.1, 0.34, 0.11, "warm"), note(D4, 0.1, 0.3, 0.05, "soft"), body(0.1, 0.08)],
+  // Paramètres : un cliquet, trois crans de bois dont le dernier sonne.
+  settings: [tick(0, 0.03, 2200), note(B4, 0, 0.05, 0.07, "wood"), tick(0.04, 0.026, 2200), note(B4, 0.04, 0.05, 0.07, "wood"), tick(0.08, 0.03, 2200), note(E5, 0.08, 0.2, 0.1, "warm")],
+  // Amis : deux voix à la tierce, un petit « coucou ».
+  friends: [body(0, 0.05), note(D5, 0, 0.14, 0.08), note(Fs5, 0, 0.14, 0.07), note(Fs5, 0.075, 0.3, 0.085), note(A5, 0.075, 0.3, 0.08)],
+  // Notifications : une clochette, deux coups rapprochés.
+  bell: [tick(0, 0.02, 2400), note(D6, 0, 0.34, 0.085, "chime"), note(A5, 0, 0.3, 0.06, "chime"), note(D6, 0.07, 0.3, 0.05, "chime")],
+  // Profil : un accord chaleureux roulé.
+  profile: [body(0, 0.06), note(Fs5, 0, 0.14, 0.085, "warm"), note(A5, 0.04, 0.16, 0.085), note(D6, 0.08, 0.3, 0.07, "soft")],
+  // Recherche : un souffle qui monte et une note qui s'ouvre.
+  search: [whoosh(0, 0.16, 700, 2600, 0.045), note(E5, 0.03, 0.1, 0.075, "glass", { from: 0.85, glide: 0.05 }), note(B5, 0.09, 0.26, 0.09)],
+  // Menu rapide : un appui franc et un accord de mi qui se déplie.
+  menu: [tick(0), body(0, 0.09, 220, 120), note(B4, 0, 0.1, 0.085, "warm"), note(E5, 0.04, 0.12, 0.085), note(B5, 0.08, 0.26, 0.07, "soft")],
+  // Entrée dans une rubrique (bibliothèque, consoles, communauté) : un élan vers l'avant.
+  enter: [whoosh(0, 0.22, 350, 2000, 0.05), body(0, 0.08), note(D5, 0, 0.12, 0.09, "warm"), note(A5, 0.05, 0.14, 0.09), note(D6, 0.1, 0.32, 0.08)],
+  // Alimentation : une quinte grave qui descend, longue et posée.
+  power: [whoosh(0, 0.25, 1500, 300, 0.04), note(A4, 0, 0.18, 0.1, "warm"), note(D4, 0.09, 0.45, 0.12, "warm"), body(0.09, 0.08, 140, 75)],
+  // Réduction de la fenêtre : un souffle et une note qui s'affaissent.
+  minimize: [whoosh(0, 0.16, 1800, 400, 0.035), note(A5, 0, 0.09, 0.07, "soft"), note(D5, 0.05, 0.2, 0.09, "soft", { from: 1.12, glide: 0.08 })],
 
   // ——— états ———
   // Bascule sans état connu : une goutte.
-  toggle: [tick(0, 0.02), note(Fs6, 0, 0.14, 0.11, "glass", { from: 0.8, glide: 0.04 })],
-  // Interrupteur allumé : quinte montante ; éteint : quinte descendante, feutrée.
-  on: [tick(0, 0.025), note(A5, 0, 0.08, 0.095), note(E6, 0.045, 0.22, 0.125)],
-  off: [note(E6, 0, 0.08, 0.085, "soft"), note(A5, 0.045, 0.2, 0.105, "soft")],
-  // Favori : une étincelle qui grimpe ; retiré : deux notes qui se posent.
-  favorite: [note(D6, 0, 0.2, 0.085, "chime"), note(Fs6, 0.035, 0.2, 0.085, "chime"), note(A6, 0.07, 0.26, 0.09, "chime"), note(D7, 0.105, 0.48, 0.095, "chime")],
-  unfavorite: [note(A6, 0, 0.1, 0.065, "soft"), note(D6, 0.05, 0.24, 0.095, "soft")],
-  // Suppression : tierce descendante et petit choc sourd.
-  delete: [note(Fs5, 0, 0.1, 0.105, "soft"), note(D5, 0.06, 0.22, 0.115, "soft"), thump(0.06, 0.09, 150, 85)],
+  toggle: [tick(0, 0.018), body(0, 0.05), note(A5, 0, 0.14, 0.1, "glass", { from: 0.8, glide: 0.04 })],
+  // Interrupteur allumé : déclic et quarte montante ; éteint : quarte descendante, feutrée.
+  on: [tick(0, 0.03, 1700), body(0, 0.09, 240, 130), note(Fs5, 0, 0.08, 0.085, "warm"), note(B5, 0.045, 0.22, 0.11)],
+  off: [tick(0, 0.022, 1300), note(B5, 0, 0.08, 0.075, "soft"), note(Fs5, 0.045, 0.2, 0.095, "warm"), body(0.045, 0.07, 170, 95)],
+  // Favori : une étincelle qui grimpe, posée sur un ré chaud ; retiré : deux notes qui se posent.
+  favorite: [note(D5, 0, 0.3, 0.05, "warm"), note(A5, 0, 0.2, 0.08, "chime"), note(D6, 0.035, 0.2, 0.08, "chime"), note(Fs6, 0.07, 0.26, 0.08, "chime"), note(A6, 0.105, 0.46, 0.075, "chime")],
+  unfavorite: [note(D6, 0, 0.1, 0.06, "soft"), note(A5, 0.05, 0.24, 0.09, "soft")],
+  // Suppression : tierce grave descendante et choc sourd.
+  delete: [whoosh(0, 0.1, 1200, 400, 0.025), note(Fs4, 0, 0.1, 0.11, "warm"), note(D4, 0.06, 0.22, 0.12, "warm"), body(0.06, 0.11, 150, 80)],
   // Erreur : deux coups graves identiques, doux mais sans équivoque.
   error: [
-    note(Fs4, 0, 0.13, 0.16, "hollow", { from: 1.035, glide: 0.05, attack: 0.006 }),
-    note(Fs4, 0.115, 0.22, 0.15, "hollow", { from: 1.035, glide: 0.05, attack: 0.006 }),
-    thump(0, 0.07, 130, 90),
+    body(0, 0.08, 150, 90), note(Fs4, 0, 0.13, 0.16, "hollow", { from: 1.035, glide: 0.05, attack: 0.006 }),
+    body(0.115, 0.07, 150, 90), note(Fs4, 0.115, 0.22, 0.15, "hollow", { from: 1.035, glide: 0.05, attack: 0.006 }),
   ],
 
   // ——— événements ———
   // Notification : carillon à deux notes, longue queue.
-  notify: [note(D6, 0, 0.5, 0.115, "chime"), note(A6, 0.09, 0.72, 0.105, "chime")],
+  notify: [note(D5, 0, 0.4, 0.04, "warm"), note(A5, 0, 0.5, 0.11, "chime"), note(D6, 0.09, 0.72, 0.1, "chime")],
   // Message reçu : deux petits coups sur la même note.
-  message: [tick(0, 0.02), note(B5, 0, 0.09, 0.09, "wood"), note(B5, 0.085, 0.3, 0.1, "chime")],
-  // Tâche réussie : l'arpège complet, posé sur son octave.
+  message: [tick(0, 0.02), note(Fs5, 0, 0.09, 0.09, "wood"), note(Fs5, 0.085, 0.3, 0.1, "chime")],
+  // Tâche réussie : l'arpège complet, posé sur son octave grave.
   success: [
-    note(D6, 0, 0.25, 0.095, "chime"), note(Fs6, 0.07, 0.25, 0.095, "chime"), note(A6, 0.14, 0.3, 0.1, "chime"),
-    note(D7, 0.21, 0.8, 0.11, "chime"), note(D6, 0.21, 0.8, 0.05, "soft"),
+    body(0, 0.07), note(D5, 0, 0.25, 0.09, "chime"), note(Fs5, 0.07, 0.25, 0.09, "chime"), note(A5, 0.14, 0.3, 0.095, "chime"),
+    note(D6, 0.21, 0.8, 0.105, "chime"), note(D4, 0.21, 0.7, 0.06, "warm"),
   ],
   // Lancement d'un jeu : la signature d'iBox, un envol puis un accord qui s'ouvre.
   launch: [
-    whoosh(0, 0.45, 300, 3000, 0.05),
-    note(D5, 0, 0.2, 0.09), note(A5, 0.07, 0.2, 0.09), note(D6, 0.13, 0.2, 0.095), note(Fs6, 0.18, 0.2, 0.095), note(A6, 0.22, 0.24, 0.095),
-    note(D6, 0.28, 0.9, 0.06, "chime"), note(A6, 0.28, 0.9, 0.07, "chime"), note(D7, 0.28, 0.95, 0.08, "chime"),
+    whoosh(0, 0.45, 250, 2600, 0.05), body(0, 0.1),
+    note(D4, 0, 0.2, 0.09, "warm"), note(A4, 0.07, 0.2, 0.09, "warm"), note(D5, 0.13, 0.2, 0.09, "warm"), note(Fs5, 0.18, 0.2, 0.09), note(A5, 0.22, 0.24, 0.09),
+    note(D5, 0.28, 0.9, 0.06, "chime"), note(A5, 0.28, 0.9, 0.07, "chime"), note(D6, 0.28, 0.95, 0.075, "chime"), note(Fs6, 0.34, 0.8, 0.035, "chime"),
   ],
 
   // ——— boîtiers et carnets ———
@@ -173,7 +208,11 @@ export const VOICES: Record<SoundCue, Voice[]> = {
 };
 
 /** Part de résonance : presque sec pour les gestes répétés, plus ample pour les événements. */
-const WET: Partial<Record<SoundCue, number>> = { move: 0.04, tap: 0.05, tab: 0.07, toggle: 0.08, error: 0.06, notify: 0.2, success: 0.2, favorite: 0.18, launch: 0.22, confirm: 0.16 };
+const WET: Partial<Record<SoundCue, number>> = {
+  move: 0.04, tap: 0.05, tab: 0.07, toggle: 0.08, settings: 0.07, error: 0.06,
+  confirm: 0.16, save: 0.16, home: 0.14, friends: 0.14, enter: 0.14, power: 0.16,
+  bell: 0.18, favorite: 0.18, notify: 0.2, success: 0.2, launch: 0.22,
+};
 const DEFAULT_WET = 0.11;
 /** Variation aléatoire de hauteur (centièmes de demi-ton) des sons les plus répétés. */
 const DRIFT: Partial<Record<SoundCue, number>> = { move: 14, tap: 14, tab: 8, toggle: 8, on: 5, off: 5, select: 5, back: 5, page: 0 };
@@ -196,6 +235,25 @@ function whiteNoise(ctx: BaseAudioContext): AudioBuffer {
   return buf;
 }
 
+const warmths = new WeakMap<BaseAudioContext, AudioNode>();
+/** Couleur commune : un peu plus de grave, un peu moins d'aigu, pour une tonalité chaude. */
+function warmth(ctx: BaseAudioContext): AudioNode {
+  let node = warmths.get(ctx);
+  if (!node) {
+    const low = ctx.createBiquadFilter();
+    low.type = "lowshelf";
+    low.frequency.value = 220;
+    low.gain.value = 2.5;
+    const high = ctx.createBiquadFilter();
+    high.type = "highshelf";
+    high.frequency.value = 4500;
+    high.gain.value = -3.5;
+    low.connect(high).connect(ctx.destination);
+    warmths.set(ctx, (node = low));
+  }
+  return node;
+}
+
 const rooms = new WeakMap<BaseAudioContext, ConvolverNode>();
 /** Résonance commune : une petite pièce claire (0,4 s), calculée une fois par contexte. */
 function room(ctx: BaseAudioContext): ConvolverNode {
@@ -216,7 +274,7 @@ function room(ctx: BaseAudioContext): ConvolverNode {
     conv = ctx.createConvolver();
     conv.normalize = true;
     conv.buffer = ir;
-    conv.connect(ctx.destination);
+    conv.connect(warmth(ctx));
     rooms.set(ctx, conv);
   }
   return conv;
@@ -226,7 +284,7 @@ function room(ctx: BaseAudioContext): ConvolverNode {
 export function soundOutput(ctx: BaseAudioContext, volume: number, cue: SoundCue): AudioNode {
   const out = ctx.createGain();
   out.gain.value = volume;
-  out.connect(ctx.destination);
+  out.connect(warmth(ctx));
   const send = ctx.createGain();
   send.gain.value = WET[cue] ?? DEFAULT_WET;
   out.connect(send).connect(room(ctx));

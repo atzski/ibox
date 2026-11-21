@@ -70,7 +70,7 @@ export function FriendsButton() {
         aria-expanded={open}
         aria-label={`Amis${onlineCount ? `, ${onlineCount} en ligne` : ""}${incoming ? `, ${incoming} invitation${incoming > 1 ? "s" : ""}` : ""}`}
         onClick={() => {
-          sound.play(open ? "close" : "open");
+          sound.play(open ? "close" : "friends");
           if (!open) setTarget(null);
           setOpen((v) => !v);
         }}

@@ -129,7 +129,7 @@ class InputControllerImpl {
         if (!commands.menu && !this.isMainRoot()) return false;
         commands.setMenu(false);
         if (useNav.getState().stack.length > 1) {
-          sound.play("back");
+          sound.play("home");
           useNav.getState().home();
         }
         return true;

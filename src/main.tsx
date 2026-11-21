@@ -9,12 +9,15 @@ import { restorePortableSettings } from "./services/portableBackup";
 import { attachCrashLog } from "./services/crashLog";
 import { loadPlatform } from "./services/platform";
 import { sound } from "./services/sound";
+import { attachSaved } from "./services/saved";
 import { ErrorBoundary, RootFallback } from "./components/shell/ErrorBoundary";
 
 // erreurs non rattrapées de cette fenêtre : notées dans logs/crash.log
 attachCrashLog();
 // tout ce qui se clique a un son, même sans cue dédiée (voir services/sound.ts)
 sound.attachClicks();
+// et tout enregistrement réussi sa pastille « Enregistré » (voir services/saved.ts)
+attachSaved();
 
 // Outils de vérification en développement uniquement (absents du build de production)
 if (import.meta.env.DEV) {

@@ -139,7 +139,7 @@ export function HomeScreen() {
                 data-focusable
                 data-focus-id="all-platforms"
                 onClick={() => {
-                  sound.play("select");
+                  sound.play("enter");
                   go({ name: "platforms" });
                 }}
                 // verre dépoli aux couleurs du thème : dégradé qui glisse lentement, reflet et icône en relief

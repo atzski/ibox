@@ -61,7 +61,7 @@ function QuickMenu({ onClose }: { onClose: () => void }) {
   const side = useSettings((s) => s.gamepadConfirm);
   const route = useRoute();
   const open = (d: (typeof DESTINATIONS)[number]) => {
-    sound.play("select");
+    sound.play(d.action === "search" ? "search" : d.route?.name === "home" ? "home" : d.route?.name === "settings" ? "settings" : "enter");
     if (d.action === "search") return useCommands.getState().setSearch(true);
     onClose();
     if (!d.route) return;

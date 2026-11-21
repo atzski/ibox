@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { BannerFromGame } from "./BannerFromGame";
 import { LastPlayedChip, useLastPlayed } from "./LastPlayed";
 import { SteamAvatarPicker } from "./SteamAvatarPicker";
@@ -47,7 +48,7 @@ export function ProfileModal({ onClose }: { onClose: () => void }) {
     useSettings.setState({ profileName: name.trim() || "Joueur", profileAvatar: avatar, profileBio: bio.trim(),
       profileAccent: accent, avatarFavorites: favorites,
       profileGame: game, profileFeaturedGames: selectedGames, profileBannerImage: banner });
-    sound.play("select");
+    saved();
     onClose();
     const selected = games.find((item) => item.id === game);
     if (selected?.dbId !== undefined && !selected.media?.some((media) => media.kind === "logo" && media.slot === 0)) {

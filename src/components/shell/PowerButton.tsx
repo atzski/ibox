@@ -42,7 +42,7 @@ export function PowerButton() {
         title="Éteindre iBox"
         onClick={() => {
           if (!useSettings.getState().confirmQuit && !playing) return shutdown();
-          sound.play("open");
+          sound.play("power");
           setAsking(true);
         }}
         className="ibox-focusable ibox-lift grid h-12 w-12 place-items-center rounded-full ibox-chip tone-red [--ring-radius:999px]"
@@ -99,7 +99,7 @@ export function MinimizeButton() {
   if (!isTauri() || gameMode) return null;
 
   const minimize = () => {
-    sound.play("back");
+    sound.play("minimize");
     if (reduced) {
       void shellApi.minimize();
       return;

@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { syncRaProgress } from "@/services/achievementProgress";
 import { useEffect, useMemo, useState } from "react";
 import { shellApi, type UpdateInfo, HELP } from "@/services/shell";
@@ -352,6 +353,7 @@ function RetroAchievementsKey() {
         useSettings.getState().set("raUsername", username.trim());
         setKey("");
         setResult("Progression synchronisée.");
+        if (!connected) saved();
       } catch (error) { setResult(String(error)); }
       finally { setBusy(false); }
     }}>{connected ? "Synchroniser" : "Enregistrer et synchroniser"}</Button>

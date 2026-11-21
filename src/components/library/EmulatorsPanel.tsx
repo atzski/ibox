@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { PLATFORMS, getPlatform } from "@/domain/platforms";
@@ -489,7 +490,7 @@ export function EmulatorModal({ emu, onClose, onSaved }: { emu: Emulator; onClos
     try {
       const args = await launcherApi.splitArgs(argsText);
       await launcherApi.update(emu.id, { name, args, fullscreen: emu.fullscreen, cores });
-      sound.play("select");
+      saved();
       onSaved();
       onClose();
     } catch (e) {

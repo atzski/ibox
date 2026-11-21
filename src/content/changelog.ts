@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.2",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "sparkle", title: "Des sons plus chauds et plus tactiles", text: "L’appui sur un bouton descend d’une octave : un « toc » grave et rond au lieu d’une note aiguë. Chaque signal est maintenant fait de couches (un contact feutré, un corps grave, puis la note) et toute la palette est plus chaude." },
+      { icon: "key", title: "Un signal quand c’est enregistré", text: "Tous les boutons Enregistrer répondent de la même façon : un son dédié et une pastille « Enregistré » dont la coche se trace au-dessus du bouton, même si la fenêtre se referme aussitôt." },
+      { icon: "grid", title: "Chaque destination a sa signature", text: "Accueil, Paramètres, Amis, Notifications, Profil, Recherche, menu rapide, réduction et extinction ont chacun leur propre son, et l’entrée dans une rubrique a son élan." },
+    ],
+  },
+  {
     version: "1.0.1",
     date: "2026-11-21",
     highlights: [

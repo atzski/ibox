@@ -1,3 +1,4 @@
+import { saved } from "@/services/saved";
 import { SPRING } from "@/motion/tokens";
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
@@ -544,7 +545,7 @@ export function CorrectionModal({ game, onClose }: { game: Game; onClose: () => 
     setError(null);
     try {
       await correctGame(game, { title: title.trim(), platformId, region: region ?? null });
-      sound.play("select");
+      saved();
       onClose();
     } catch (e) {
       sound.play("error");

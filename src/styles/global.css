@@ -850,3 +850,72 @@ html[data-motion="reduced"] .ibox-organize-wiggle {
 html[data-motion="reduced"] .ibox-platforms-glow {
   animation: none;
 }
+
+/* Pastille « Enregistré » (services/saved.ts) : se pose au-dessus du bouton, puis s'efface */
+.ibox-saved {
+  position: fixed;
+  z-index: 300;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.95rem 0.4rem 0.45rem;
+  border-radius: 999px;
+  background: var(--ibox-white);
+  color: var(--ibox-ink);
+  font-size: 0.88rem;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 12px 30px -12px rgba(30, 40, 70, 0.5), 0 0 0 1px color-mix(in srgb, var(--ibox-mint-deep) 28%, transparent);
+  translate: -50% -100%;
+  transform-origin: 50% 100%;
+  animation:
+    ibox-saved-in var(--dur-spring) var(--ease-spring) both,
+    ibox-saved-out 280ms ease-in 1150ms forwards;
+}
+.ibox-saved-below {
+  translate: -50% 0;
+  transform-origin: 50% 0;
+}
+.ibox-saved-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: var(--ibox-mint-deep);
+  color: var(--ibox-white);
+  animation: ibox-saved-pop var(--dur-spring) var(--ease-spring) 60ms both;
+}
+.ibox-saved-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--ibox-mint-deep);
+  animation: ibox-saved-ring 620ms ease-out 120ms both;
+}
+.ibox-saved-mark path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ibox-saved-check 260ms ease-out 180ms forwards;
+}
+@keyframes ibox-saved-in {
+  from { opacity: 0; scale: 0.7; }
+  to { opacity: 1; scale: 1; }
+}
+@keyframes ibox-saved-out {
+  to { opacity: 0; scale: 0.96; }
+}
+@keyframes ibox-saved-pop {
+  from { scale: 0.3; }
+  to { scale: 1; }
+}
+@keyframes ibox-saved-ring {
+  from { opacity: 0.7; scale: 1; }
+  to { opacity: 0; scale: 2.4; }
+}
+@keyframes ibox-saved-check {
+  to { stroke-dashoffset: 0; }
+}
