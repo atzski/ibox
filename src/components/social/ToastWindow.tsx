@@ -103,7 +103,8 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
   const left = useRef(duration);
   const platform = toast.platformId ? getPlatform(toast.platformId)?.shortName : undefined;
 
-  useEffect(() => { sound.play("open"); }, []);
+  // message d'ami : deux petits coups ; succès débloqué : l'arpège ; le reste : le carillon
+  useEffect(() => { sound.play(toast.kind === "message" ? "message" : toast.link?.kind === "achievements" ? "success" : "notify"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (paused) return;
     const start = performance.now();

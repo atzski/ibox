@@ -14,7 +14,7 @@ export function DeleteProfileModal({ profile, onClose }: { profile: LocalProfile
   const [busy, setBusy] = useState(false);
   const confirm = () => {
     setBusy(true);
-    sound.play("back");
+    sound.play("delete");
     void deleteProfile(profile.id).finally(onClose);
   };
   return (

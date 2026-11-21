@@ -49,7 +49,7 @@ export function CollectionsModal({ game, onClose }: { game: Game; onClose: () =>
               aria-checked={member}
               disabled={!!rule}
               onClick={() => {
-                sound.play("toggle");
+                sound.play(member ? "off" : "on");
                 void run(() => setGame(c.id, dbId, !member));
               }}
               className="ibox-focusable flex items-center gap-3 rounded-2xl bg-cream-deep/60 px-4 py-3 text-left [--ring-radius:1rem]"

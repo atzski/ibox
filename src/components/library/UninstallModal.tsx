@@ -47,7 +47,7 @@ export function UninstallModal({ game, onClose }: { game: Game; onClose: () => v
     try {
       const done = await uninstallApi.run(target);
       if (done.done) {
-        sound.play("back");
+        sound.play("delete");
         await reload();
         onClose();
         if (done.removed) back();

@@ -10,6 +10,16 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.1",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "sparkle", title: "Un nouveau design sonore", text: "Tous les sons d’iBox ont été refaits : des lames de verre et de bois, douces et précises, accordées entre elles pour former une seule famille. Le déplacement reste discret, la validation est plus présente, l’erreur reste douce." },
+      { icon: "grid", title: "Tout ce qui se clique répond", text: "Chaque bouton, onglet, case ou lien a maintenant son signal, même dans les panneaux qui restaient muets. Les fenêtres ont un son d’ouverture et un son de fermeture accordés à leur animation." },
+      { icon: "trophy", title: "Des signaux qui se reconnaissent", text: "Interrupteur allumé ou éteint, favori ajouté ou retiré, suppression, notification, message d’un ami, tâche terminée, lancement d’un jeu : chacun a désormais son propre son." },
+      { icon: "power", title: "Plus de claquement parasite", text: "Un petit claquement pouvait parfois accompagner l’ouverture d’un boîtier ou le rangement d’un disque : il a disparu. Les sons se taisent toujours quand iBox est masqué, et suivent le volume choisi dans Paramètres, Son." },
+    ],
+  },
+  {
     version: "1.0.0",
     date: "2026-11-21",
     highlights: [

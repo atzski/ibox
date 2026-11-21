@@ -39,6 +39,7 @@ export function Modal({
   const requestClose = useCallback(() => {
     if (timer.current !== undefined) return;
     setClosing(true);
+    sound.play("close");
     timer.current = window.setTimeout(() => closeRef.current(), DUR.exit * 1000);
   }, []);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -48,7 +49,7 @@ export function Modal({
     sound.play("open");
     const off = input.onBack(() => {
       requestClose();
-      return true;
+      return "quiet";
     });
     const id = requestAnimationFrame(() => input.focusInitial());
     return () => {
@@ -91,10 +92,7 @@ export function Modal({
           <button
             data-focusable
             aria-label="Fermer"
-            onClick={() => {
-              sound.play("back");
-              requestClose();
-            }}
+            onClick={requestClose}
             className="ibox-focusable ibox-chip grid h-10 w-10 shrink-0 place-items-center rounded-full [--ring-radius:999px]"
           >
             <Icon name="plus" className="rotate-45" />

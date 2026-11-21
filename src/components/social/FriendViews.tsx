@@ -112,7 +112,7 @@ export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetF
         actions={friend && <div className="mt-3 flex flex-wrap justify-center gap-2">
           <Chip onClick={onChat} icon="sparkle" label="Message" autoFocus />
           <Chip
-            onClick={() => { sound.play("toggle"); void act(friend.favorite ? "unfavorite" : "favorite", undefined, friend.id); }}
+            onClick={() => { sound.play(friend.favorite ? "unfavorite" : "favorite"); void act(friend.favorite ? "unfavorite" : "favorite", undefined, friend.id); }}
             icon="star"
             label={friend.favorite ? "Favori" : "Ajouter aux favoris"}
             active={friend.favorite}
@@ -257,7 +257,7 @@ export function ChatView({ friend }: { friend: InetFriend }) {
           setItems(r.items);
           lastAt.current = Math.max(0, ...r.items.map((m) => m.createdAt));
         } else {
-          if (r.items.some((m) => !m.mine)) sound.play("toggle");
+          if (r.items.some((m) => !m.mine)) sound.play("message");
           merge(r.items);
         }
         setTyping(!!r.typing);
@@ -393,7 +393,7 @@ export function LibraryShareToggle({ tile = false }: { tile?: boolean }) {
   const act = useInetbox((s) => s.act);
   if (!user || !supported) return null;
   const on = !!user.privacy.shareLibrary;
-  if (tile) return <SettingTile icon="shelf" label="Mes jeux" state={on ? "Visibles" : "Cachés"} on={on} disabled={busy} onClick={() => { sound.play("toggle"); void act("profile", { shareLibrary: !on }); }} tint="#3E8FD6" title={on ? "Vos amis voient quels jeux vous avez en commun" : "Vos jeux restent privés"} />;
+  if (tile) return <SettingTile icon="shelf" label="Mes jeux" state={on ? "Visibles" : "Cachés"} on={on} disabled={busy} onClick={() => { sound.play(on ? "off" : "on"); void act("profile", { shareLibrary: !on }); }} tint="#3E8FD6" title={on ? "Vos amis voient quels jeux vous avez en commun" : "Vos jeux restent privés"} />;
   return (
     <button
       data-focusable
@@ -402,7 +402,7 @@ export function LibraryShareToggle({ tile = false }: { tile?: boolean }) {
       aria-label="Montrer mes jeux à mes amis"
       title={on ? "Vos amis voient quels jeux vous avez en commun" : "Vos jeux restent privés"}
       disabled={busy}
-      onClick={() => { sound.play("toggle"); void act("profile", { shareLibrary: !on }); }}
+      onClick={() => { sound.play(on ? "off" : "on"); void act("profile", { shareLibrary: !on }); }}
       className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs [--ring-radius:999px] disabled:opacity-45 ${on ? "bg-[#E3F5EC] text-ink" : "bg-white/80 text-ink-soft"}`}
     >
       <Icon name="shelf" size="1.1em" />

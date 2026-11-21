@@ -41,7 +41,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       aria-checked={checked}
       aria-label={label}
       onClick={() => {
-        sound.play("toggle");
+        sound.play(checked ? "off" : "on");
         onChange(!checked);
       }}
       className={`ibox-focusable relative h-8 w-14 shrink-0 rounded-full transition-colors duration-300 [--ring-radius:999px] ${checked ? "bg-[var(--accent-deep)]" : "bg-ink/15"}`}

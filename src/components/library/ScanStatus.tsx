@@ -34,7 +34,7 @@ export function ScanStatus() {
   const done = !scan.running && (scan.summary || scan.error);
   useEffect(() => {
     if (!done) return;
-    sound.play(scan.error ? "error" : "select");
+    sound.play(scan.error ? "error" : "success");
     const id = window.setTimeout(dismiss, scan.error ? 9000 : 6500);
     return () => window.clearTimeout(id);
   }, [done, scan.error, dismiss]);

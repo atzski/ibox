@@ -113,7 +113,7 @@ export function HomeScreen() {
     setSetting("homeBlocks", next);
   };
   const toggleBlock = (i: number) => {
-    sound.play("toggle");
+    sound.play(blocks[i]?.visible ? "off" : "on");
     setSetting("homeBlocks", blocks.map((b, k) => (k === i ? { ...b, visible: !b.visible } : b)));
   };
 

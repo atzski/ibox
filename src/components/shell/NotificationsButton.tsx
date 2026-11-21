@@ -146,7 +146,7 @@ export function NotificationsButton() {
                   <button
                     aria-label="Retirer cette notification"
                     tabIndex={-1}
-                    onClick={(event) => { event.stopPropagation(); sound.play("back"); useNotifications.getState().remove(n.id); }}
+                    onClick={(event) => { event.stopPropagation(); sound.play("delete"); useNotifications.getState().remove(n.id); }}
                     className="absolute top-2 right-2 grid size-6 place-items-center rounded-full text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 hover:bg-black/5"
                   >
                     <Icon name="x" size="0.8em" />

@@ -431,7 +431,7 @@ function FriendRow({ friend, connected, open, onToggle, onProfile, onChat }: {
                 {!faded && <InviteToPlay friend={friend} />}
                 {social && (
                   <SmallAction icon="star" label={friend.favorite ? "Retirer des favoris" : "Favori"} disabled={busy}
-                    onClick={() => { sound.play("toggle"); void act(friend.favorite ? "unfavorite" : "favorite", undefined, friend.id); }} />
+                    onClick={() => { sound.play(friend.favorite ? "unfavorite" : "favorite"); void act(friend.favorite ? "unfavorite" : "favorite", undefined, friend.id); }} />
                 )}
                 <SmallAction icon="x" label="Retirer" disabled={busy} onClick={() => setConfirm("remove")} />
                 <SmallAction icon="lock" label="Bloquer" disabled={busy} onClick={() => setConfirm("block")} />

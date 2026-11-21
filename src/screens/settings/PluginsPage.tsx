@@ -36,7 +36,7 @@ export function PluginsPage() {
   }, []);
   useEffect(() => load(true), [load]);
 
-  const run = async (id: string, job: () => Promise<PluginList>, done: "toggle" | "select" = "select") => {
+  const run = async (id: string, job: () => Promise<PluginList>, done: "on" | "off" | "confirm" | "delete" = "confirm") => {
     setBusy(id);
     setError(null);
     try {
@@ -71,7 +71,7 @@ export function PluginsPage() {
           installed.map((p) => (
             <PluginCard key={p.id} plugin={p} busy={busy === p.id} confirm={confirm?.id === p.id ? confirm.action : null}>
               <div className="flex flex-wrap items-center gap-2">
-                <Toggle label={`Activer ${p.name}`} checked={!!p.installed?.enabled} onChange={(v) => void run(p.id, () => setPluginEnabled(p.id, v), "toggle")} />
+                <Toggle label={`Activer ${p.name}`} checked={!!p.installed?.enabled} onChange={(v) => void run(p.id, () => setPluginEnabled(p.id, v), v ? "on" : "off")} />
                 {p.update && p.available && (
                   <Button variant="primary" icon="download" disabled={!!busy} onClick={() => setConfirm({ id: p.id, action: "install" })}>
                     Mettre à jour
@@ -90,7 +90,7 @@ export function PluginsPage() {
                   action={confirm.action}
                   busy={busy === p.id}
                   onCancel={() => setConfirm(null)}
-                  onConfirm={() => void run(p.id, () => (confirm.action === "install" ? installPlugin(p.id) : uninstallPlugin(p.id)))}
+                  onConfirm={() => void run(p.id, () => (confirm.action === "install" ? installPlugin(p.id) : uninstallPlugin(p.id)), confirm.action === "install" ? "confirm" : "delete")}
                 />
               )}
             </PluginCard>

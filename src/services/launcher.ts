@@ -156,7 +156,7 @@ export const useLauncher = create<LauncherState>((set, get) => ({
     const { launchAnimation, motion } = useSettings.getState();
     const reduced = motion === "reduced" || (motion === "system" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     set({ phase: launchAnimation && !reduced ? "animating" : "starting", current: { gameId, title }, error: null, lastEnded: null });
-    sound.play("open");
+    sound.play("launch");
     // L'animation (boîtier qui se ferme, disque mis en valeur) précède le démarrage
     if (launchAnimation && !reduced) await new Promise((r) => setTimeout(r, 1500));
     set({ phase: "starting" });

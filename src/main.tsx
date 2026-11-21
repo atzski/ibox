@@ -8,10 +8,13 @@ import { defaultLang, startTranslation } from "./i18n";
 import { restorePortableSettings } from "./services/portableBackup";
 import { attachCrashLog } from "./services/crashLog";
 import { loadPlatform } from "./services/platform";
+import { sound } from "./services/sound";
 import { ErrorBoundary, RootFallback } from "./components/shell/ErrorBoundary";
 
 // erreurs non rattrapées de cette fenêtre : notées dans logs/crash.log
 attachCrashLog();
+// tout ce qui se clique a un son, même sans cue dédiée (voir services/sound.ts)
+sound.attachClicks();
 
 // Outils de vérification en développement uniquement (absents du build de production)
 if (import.meta.env.DEV) {

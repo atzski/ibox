@@ -34,7 +34,7 @@ export function MetaStatus() {
 
   useEffect(() => {
     if (!done) return;
-    sound.play(meta.error ? "error" : "select");
+    sound.play(meta.error ? "error" : "success");
     const id = window.setTimeout(dismiss, meta.error ? 9000 : 7000);
     return () => window.clearTimeout(id);
   }, [done, meta.error, dismiss]);

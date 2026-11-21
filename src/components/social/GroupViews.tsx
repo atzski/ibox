@@ -87,7 +87,7 @@ function FriendPicker({ friends, picked, room, onToggle }: { friends: InetFriend
             aria-checked={on}
             disabled={full}
             onClick={() => {
-              sound.play("toggle");
+              sound.play(on ? "off" : "on");
               onToggle(f.id);
             }}
             className={`ibox-focusable flex items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-colors disabled:opacity-45 [--ring-radius:1rem] ${on ? "bg-accent-soft ring-2 ring-accent/70" : "bg-cream-deep/70 hover:bg-cream-deep"}`}
@@ -130,7 +130,7 @@ export function NewGroupView({ onCreated }: { onCreated: (id: string) => void })
     setError(null);
     try {
       const g = await call<ChatGroup>("createGroup", { name: (name.trim() || fallbackName).slice(0, 40), memberIds: picked });
-      sound.play("open");
+      sound.play("confirm");
       upsert(g);
       onCreated(g.id);
     } catch (e) {
@@ -212,7 +212,7 @@ export function GroupChatView({ group, onLeft }: { group: ChatGroup; onLeft: () 
           setItems(r.items);
           lastAt.current = Math.max(0, ...r.items.map((m) => m.createdAt));
         } else {
-          if (r.items.some((m) => !m.mine)) sound.play("toggle");
+          if (r.items.some((m) => !m.mine)) sound.play("message");
           merge(r.items);
         }
         setTyping(r.typing ?? []);
@@ -419,7 +419,7 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
           if (!name.trim() || name.trim() === group.name) return;
           void run(async () => {
             upsert(await call<ChatGroup>("renameGroup", { name: name.trim() }, group.id));
-            sound.play("toggle");
+            sound.play("confirm");
           });
         }}
       >
@@ -466,7 +466,7 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
               onClick={() =>
                 void run(async () => {
                   upsert(await call<ChatGroup>("addGroupMembers", { memberIds: picked }, group.id));
-                  sound.play("open");
+                  sound.play("confirm");
                   setPicked([]);
                   setAdding(false);
                 })
@@ -491,7 +491,7 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
               onClick={() =>
                 void run(async () => {
                   await call("leaveGroup", undefined, group.id);
-                  sound.play("back");
+                  sound.play("delete");
                   remove(group.id);
                   onLeft();
                 })

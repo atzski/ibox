@@ -207,7 +207,7 @@ export function PcGameSheet({ game }: { game: Game }) {
             <Button
               size="lg"
               tone="yellow"
-              cue="toggle"
+              cue={favorite ? "unfavorite" : "favorite"}
               aria-pressed={favorite}
               aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
               title={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}

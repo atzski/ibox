@@ -77,7 +77,7 @@ export const GameCard = memo(function GameCard({
           if (key !== "x" && key !== "f") return;
           e.preventDefault();
           if (key === "f") {
-            sound.play("toggle");
+            sound.play(favorite ? "unfavorite" : "favorite");
             void useLibrary.getState().toggleFavorite(game);
             return;
           }

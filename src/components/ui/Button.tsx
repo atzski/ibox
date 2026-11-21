@@ -68,7 +68,7 @@ export function Segmented<T extends string>({
   options,
   onChange,
   label,
-  cue = "toggle",
+  cue = "tab",
 }: {
   value: T;
   options: { value: T; label: string; icon?: IconName }[];

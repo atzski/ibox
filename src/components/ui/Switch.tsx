@@ -20,7 +20,7 @@ export function Switch({
       aria-label={label}
       disabled={disabled}
       onClick={() => {
-        sound.play("toggle");
+        sound.play(checked ? "off" : "on");
         onChange(!checked);
       }}
       className={`ibox-focusable relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-50 [--ring-radius:999px] ${checked ? "bg-mint-deep" : "bg-ink/15"}`}

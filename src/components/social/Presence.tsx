@@ -38,7 +38,7 @@ export function PresencePicker({ wide = false }: { wide?: boolean }) {
   const visible = user.privacy.shareOnline;
   const set = (v: boolean) => {
     if (v === visible || busy) return;
-    sound.play("toggle");
+    sound.play(v ? "on" : "off");
     void act("profile", { shareOnline: v });
   };
   return (
@@ -105,7 +105,7 @@ export function GameShareToggle({ tile = false }: { tile?: boolean }) {
   const on = user.privacy.shareGame;
   const disabled = busy || !user.privacy.shareOnline || (cooling && !on);
   const toggle = () => {
-    sound.play("toggle");
+    sound.play(on ? "off" : "on");
     void act("profile", { shareGame: !on });
   };
   if (tile) return <SettingTile icon="gamepad" label="Ma partie" state={on ? "Visible" : "Cachée"} on={on} disabled={disabled} onClick={toggle} tint="#3FA578" title={on ? "Vos amis voient votre jeu" : "Votre jeu reste caché"} />;
@@ -118,7 +118,7 @@ export function GameShareToggle({ tile = false }: { tile?: boolean }) {
       title={on ? "Vos amis voient votre jeu" : "Votre jeu reste caché"}
       disabled={disabled}
       onClick={() => {
-        sound.play("toggle");
+        sound.play(on ? "off" : "on");
         void act("profile", { shareGame: !on });
       }}
       className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs ring-1 [--ring-radius:999px] disabled:cursor-not-allowed ${on ? "bg-mint-soft text-ink ring-mint-deep/40" : "bg-white text-ink-soft ring-ink/15"}`}
@@ -132,11 +132,11 @@ export function GameShareToggle({ tile = false }: { tile?: boolean }) {
 export function DoNotDisturbToggle({ tile = false }: { tile?: boolean }) {
   const on = useSettings((s) => !!s.doNotDisturb);
   const set = useSettings((s) => s.set);
-  if (tile) return <SettingTile icon="clock" label="Ne pas déranger" state={on ? "Activé" : "Désactivé"} on={on} onClick={() => { sound.play("toggle"); set("doNotDisturb", !on); }} tint="#8A72D8" title="Masque les pop-ups et garde les notifications dans le centre iBox." />;
+  if (tile) return <SettingTile icon="clock" label="Ne pas déranger" state={on ? "Activé" : "Désactivé"} on={on} onClick={() => { sound.play(on ? "off" : "on"); set("doNotDisturb", !on); }} tint="#8A72D8" title="Masque les pop-ups et garde les notifications dans le centre iBox." />;
   return (
     <button type="button" data-focusable role="switch" aria-checked={on}
       title="Masque les pop-ups et garde les notifications dans le centre iBox."
-      onClick={() => { sound.play("toggle"); set("doNotDisturb", !on); }}
+      onClick={() => { sound.play(on ? "off" : "on"); set("doNotDisturb", !on); }}
       className={`ibox-focusable flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.8rem] font-bold shadow-xs ring-1 [--ring-radius:999px] ${on ? "bg-lavender-soft text-ink ring-ink/25" : "bg-white text-ink-soft ring-ink/15"}`}>
       <Icon name="clock" size="1.1em" />
       Ne pas déranger

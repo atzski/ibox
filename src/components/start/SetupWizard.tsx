@@ -49,7 +49,7 @@ export function SetupWizard() {
     setI(Math.max(0, Math.min(STEPS.length - 1, n)));
   };
   const finish = () => {
-    sound.play("select");
+    sound.play("success");
     useSettings.getState().set("setupDone", true);
     useSession.getState().choose();
     // première actualisation : les jeux des dossiers ajoutés, puis leurs jaquettes
@@ -309,7 +309,7 @@ function KeyCard({
               const text = await save(key.trim());
               setKey("");
               setMsg({ ok: true, text });
-              sound.play("select");
+              sound.play("confirm");
             } catch (e) {
               setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
               sound.play("error");
@@ -400,7 +400,7 @@ function Switch({ checked, onChange, label, note }: { checked: boolean; onChange
       role="switch"
       aria-checked={checked}
       onClick={() => {
-        sound.play("toggle");
+        sound.play(checked ? "off" : "on");
         onChange(!checked);
       }}
       className="ibox-focusable flex w-full items-center gap-4 rounded-2xl bg-cream-deep/60 p-4 text-left [--ring-radius:1rem]"

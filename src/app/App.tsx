@@ -24,6 +24,7 @@ import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shell
 import { useSettings } from "@/services/settings";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
 import { music, MENU_TRACK } from "@/services/music";
+import { sound } from "@/services/sound";
 import { input } from "@/input/InputController";
 import { attachGamepads } from "@/input/gamepad";
 import { FlightLayer, preload3D } from "@/three/lazy";
@@ -169,8 +170,9 @@ export function App() {
   useEffect(() => {
     let off: () => void = () => undefined;
     let alive = true;
-    void shellApi.visible().then((v) => music.setBackground(v === false), () => undefined);
-    void shellApi.onVisibility((v) => music.setBackground(!v)).then((f) => (alive ? (off = f) : f()));
+    const setBackground = (hidden: boolean) => { music.setBackground(hidden); sound.setBackground(hidden); };
+    void shellApi.visible().then((v) => setBackground(v === false), () => undefined);
+    void shellApi.onVisibility((v) => setBackground(!v)).then((f) => (alive ? (off = f) : f()));
     // Linux (Steam Deck) : jamais de démarrage automatique (il lancerait iBox à chaque Mode Bureau)
     if (!import.meta.env.DEV && !isLinux() && !useSettings.getState().autostartOffered) {
       void shellApi.autostartSet(true).then(() => useSettings.getState().set("autostartOffered", true), () => undefined);

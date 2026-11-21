@@ -80,6 +80,8 @@ export const notify = (n: Omit<Notice, "id" | "at" | "read">) => {
     /* réglages illisibles : on notifie */
   }
   useNotifications.getState().push(n);
+  // un signal discret dans iBox (fenêtre cachée : la carte en bas à droite joue le sien)
+  void import("./sound").then(({ sound }) => sound.play(linkOf(n)?.kind === "achievements" ? "success" : "notify")).catch(() => undefined);
   forwardToScreen(n);
 };
 

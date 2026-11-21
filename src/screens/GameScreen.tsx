@@ -262,7 +262,7 @@ function GameSheet({ game }: { game: Game }) {
           />
           {/* outils du jeu : une couleur par action, en grille régulière */}
           <div className="mt-4 grid grid-cols-3 gap-2 [&>button]:w-full [&>button]:px-3 [&>button]:text-[0.9rem]">
-            <Button tone="yellow" cue="toggle" aria-pressed={favorite} onClick={() => void toggleFavorite(game)}>
+            <Button tone="yellow" cue={favorite ? "unfavorite" : "favorite"} aria-pressed={favorite} onClick={() => void toggleFavorite(game)}>
               <Icon name="star" filled={favorite} />
               {favorite ? "Favori" : "Favoris"}
             </Button>

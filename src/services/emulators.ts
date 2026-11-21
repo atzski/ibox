@@ -195,7 +195,7 @@ export const useEmulators = create<EmulatorsState>((set, get) => ({
       const p = e.payload;
       set((s) => ({ progress: { ...s.progress, [p.packageId]: p } }));
       if (p.stage === "done") {
-        void import("./sound").then(({ sound }) => sound.play("open"));
+        void import("./sound").then(({ sound }) => sound.play("success"));
         if (p.version) set((s) => ({ latest: { ...s.latest, [p.packageId]: { version: p.version, at: Date.now() } } }));
         const next = chained[p.packageId];
         if (next) {

@@ -83,7 +83,7 @@ function PlayerSheet({ target, onClose }: { target: PlayerTarget; onClose: () =>
     const ok = action === "invite" ? await act("invite", { accountId: target.id }) : await act("accept", undefined, target.id);
     setWorking(false);
     if (ok) {
-      sound.play("toggle");
+      sound.play("confirm");
       setPlayer((p) => (p ? { ...p, relation: next } : p));
     } else setError(useInetbox.getState().error ?? "Action impossible pour le moment.");
   };
