@@ -20,7 +20,7 @@
       const assets = release.assets || [];
       const asset = assets.find((a) => /_x64-setup\.exe$/.test(a.name));
       const version = String(release.tag_name || "").replace(/^v/, "");
-      if (github(asset)) button.href = asset.browser_download_url;
+      if (github(asset)) document.querySelectorAll(".dl-win").forEach((a) => { a.href = asset.browser_download_url; });
       if (version && meta) meta.textContent = `${meta.dataset.version || "Version"} ${version} · ${meta.dataset.rest || ""}`;
       if (!deck) return;
       const appimage = assets.find((a) => /_amd64\.AppImage$/.test(a.name));
