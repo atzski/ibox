@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { forwardRef, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -127,7 +128,7 @@ export const MentionField = forwardRef<HTMLInputElement, {
             initial={{ opacity: 0, y: above ? 8 : -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: above ? 6 : -6, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            transition={SPRING.snappy}
             className={`absolute left-0 z-30 w-[16rem] overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(30,40,70,0.5)] ring-1 ring-black/5 ${above ? "bottom-[calc(100%+0.6rem)]" : "top-[calc(100%+0.6rem)]"}`}
           >
             {matches.map((f, i) => (

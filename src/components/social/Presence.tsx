@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useSettings } from "@/services/settings";
 import { motion } from "motion/react";
 import { useInetbox, type InetFriend } from "@/services/inetbox";
@@ -46,7 +47,7 @@ export function PresencePicker({ wide = false }: { wide?: boolean }) {
         aria-hidden
         className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full shadow-sm ring-1 ${visible ? "bg-mint-soft ring-mint-deep/40" : "bg-white ring-ink/25"}`}
         animate={{ x: visible ? 0 : "100%" }}
-        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        transition={SPRING.snappy}
       />
       {[
         { v: true, label: "En ligne" },
@@ -85,7 +86,7 @@ export function SettingTile({ icon, label, state, on, onClick, disabled, title, 
           <Icon name={icon} size="0.95rem" />
         </span>
         <span aria-hidden className="relative h-4 w-7 rounded-full transition-colors" style={{ background: on ? tint : "#D5DAE2" }}>
-          <motion.span className="absolute top-0.5 left-0.5 size-3 rounded-full bg-white shadow-sm" animate={{ x: on ? 12 : 0 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} />
+          <motion.span className="absolute top-0.5 left-0.5 size-3 rounded-full bg-white shadow-sm" animate={{ x: on ? 12 : 0 }} transition={SPRING.snappy} />
         </span>
       </span>
       <span className="line-clamp-2 w-full text-[0.8rem] leading-tight font-bold text-ink">{label}</span>

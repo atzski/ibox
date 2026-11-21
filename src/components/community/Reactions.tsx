@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -152,8 +153,8 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
       layout
       initial={{ opacity: 0, y: 10, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.15 } }}
-      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      exit={{ opacity: 0, scale: 0.94, transition: TWEEN.exit }}
+      transition={SPRING.snappy}
       className={`group flex items-start gap-2.5 ${isReply ? "ml-10" : ""}`}
     >
       <PlayerLink player={{ id: c.authorId, name: c.authorName, avatar: c.avatar }} className="shrink-0">
@@ -248,7 +249,7 @@ export function Comments({ shareId, onCount }: { shareId: string; onCount: (n: n
         </div>
         <motion.button key={sent} type="submit" data-focusable disabled={busy || !text.trim()} aria-label="Envoyer"
           initial={sent ? { scale: 1.25, rotate: -25 } : false} animate={{ scale: 1, rotate: 0 }} whileTap={{ scale: 0.88 }}
-          transition={{ type: "spring", stiffness: 420, damping: 16 }}
+          transition={SPRING.pop}
           className="ibox-focusable grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#4A5BEA] to-[#8A4FE0] text-white shadow-md transition-opacity disabled:opacity-40 [--ring-radius:999px]">
           <Icon name="chevronRight" size="1.2rem" />
         </motion.button>

@@ -1,3 +1,4 @@
+import { EASE, SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -84,11 +85,11 @@ export function ConfigsModal({ game, onClose, open: openFirst, playAfter }: { ga
     >
       <AnimatePresence mode="wait" initial={false}>
         {selected ? (
-          <motion.div key="detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }}>
+          <motion.div key="detail" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={TWEEN.fast}>
             <ConfigDetail game={game} rec={selected} emulator={emulator} onBack={() => setSelected(null)} onDone={onClose} playAfter={playAfter} />
           </motion.div>
         ) : (
-          <motion.div key="list" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }}>
+          <motion.div key="list" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={TWEEN.fast}>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <ModePicker value={mode} onChange={setMode} withManual />
               <Button icon="reset" disabled={sc?.searching || mode === "manual"} onClick={() => void search(game.dbId, mode)}>
@@ -138,7 +139,7 @@ function ModeStage({ mode, phase, children }: { mode: ScMode; phase: "loading" |
     <motion.div
       initial={false}
       animate={{ height }}
-      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 260, damping: 32 }}
+      transition={reduced ? { duration: 0 } : SPRING.smooth}
       className="overflow-clip [overflow-clip-margin:10px]"
     >
       <div ref={inner}>
@@ -155,7 +156,7 @@ function ModeStage({ mode, phase, children }: { mode: ScMode; phase: "loading" |
             initial="enter"
             animate="center"
             exit="exit"
-            transition={reduced ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            transition={reduced ? { duration: 0 } : { duration: 0.22, ease: EASE.out }}
             onAnimationComplete={() => { dir.current = 0; }}
           >
             {children}
@@ -241,7 +242,7 @@ function ConfigCard({ rec, index, suggested, onOpen }: { rec: Recommendation; in
       onClick={onOpen}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 26, delay: Math.min(index, 6) * 0.04 }}
+      transition={{ ...SPRING.smooth, delay: Math.min(index, 6) * 0.04 }}
       className={`ibox-focusable group flex w-full items-center gap-4 rounded-[1.2rem] bg-white p-4 text-left shadow-[0_10px_24px_-18px_rgba(30,40,70,0.5)] ring-1 [--ring-radius:1.2rem] ${suggested ? "ring-2 ring-[var(--tone-green-ink)]" : "ring-[var(--ibox-line)]"}`}
     >
       <div className="min-w-0 flex-1">

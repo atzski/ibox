@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -132,7 +133,7 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
       initial={{ x: 60, y: 8, opacity: 0, scale: 0.94 }}
       animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
       exit={{ x: 70, opacity: 0, scale: 0.96, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
-      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      transition={SPRING.snappy}
       whileHover={{ y: -2 }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -165,7 +166,7 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
               className="relative"
               initial={{ y: -6, opacity: 0 }}
               animate={toast.kind === "update" ? { y: [0, 3, 0], opacity: 1 } : { y: 0, opacity: 1 }}
-              transition={toast.kind === "update" ? { y: { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }, opacity: { duration: 0.3 } } : { type: "spring", stiffness: 300, damping: 18 }}
+              transition={toast.kind === "update" ? { y: { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }, opacity: { duration: 0.3 } } : SPRING.pop}
             >
               <Icon name={look.icon} size="2.1rem" />
             </motion.span>

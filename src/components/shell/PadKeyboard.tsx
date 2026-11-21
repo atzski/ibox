@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
@@ -118,7 +119,7 @@ function KeyboardPanel({ field, onClose }: { field: Field; onClose: () => void }
       <motion.div
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+        transition={SPRING.snappy}
         className="w-[min(46rem,100%)] rounded-[1.6rem] bg-cream p-4 shadow-lg ring-1 ring-white/70"
       >
         <div className="mb-3 flex items-center gap-3 rounded-2xl bg-white px-4 py-3">

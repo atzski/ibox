@@ -1,3 +1,4 @@
+import { EASE, SPRING } from "@/motion/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import type { ConsoleInfo } from "@/domain/platformCatalog";
@@ -440,7 +441,7 @@ function Success({ name, onDismiss }: { name: string; onDismiss: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-4 rounded-xl bg-mint-soft px-4 py-3" role="status">
       <span className="relative grid size-11 place-items-center rounded-full bg-mint-deep text-white">
-        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14 }}>
+        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={SPRING.pop}>
           <Icon name="check" size="1.3em" />
         </motion.span>
         {dots.map((d, i) => (
@@ -449,7 +450,7 @@ function Success({ name, onDismiss }: { name: string; onDismiss: () => void }) {
             className="absolute size-1.5 rounded-full bg-mint-deep"
             initial={{ x: 0, y: 0, opacity: 1 }}
             animate={{ x: Math.cos(d.a) * d.d, y: Math.sin(d.a) * d.d, opacity: 0 }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.9, ease: EASE.out }}
           />
         ))}
       </span>

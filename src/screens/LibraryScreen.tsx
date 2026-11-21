@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary, countByPlatform, isFavorite } from "@/services/library";
@@ -146,8 +147,9 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
     <div className="flex h-full flex-col px-[3rem] pb-3" style={themeVars(platform)}>
       <motion.div
         initial={false}
-        animate={hidden ? { height: 0, opacity: 0, y: -18, filter: "blur(6px)" } : { height: "auto", opacity: 1, y: 0, filter: "blur(0px)" }}
-        transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 210, damping: 30, mass: 0.9 }}
+        // pas de flou : sur un en-tête aussi large il se recalcule à chaque image pendant le défilement
+        animate={hidden ? { height: 0, opacity: 0, y: -18 } : { height: "auto", opacity: 1, y: 0 }}
+        transition={reduced ? { duration: 0 } : SPRING.gentle}
         inert={hidden}
         className={hidden ? "shrink-0 overflow-hidden" : "shrink-0"}
       >
@@ -319,7 +321,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22 }}
+                transition={TWEEN.fast}
                 data-cover-scroll-root
                 onScroll={onGridScroll}
                 className="absolute inset-0 overflow-y-auto"
@@ -345,7 +347,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={TWEEN.base}
                 className="absolute inset-0 overflow-hidden rounded-xl shadow-sm"
               >
                 <ShelfView key={query.trim() ? "search" : "all"} games={visible} mixed={!!query.trim()} returnGameId={shelfGameId} reduced={reduced} dark={dark} onOpen={(g) => go({ name: "game", gameId: g.id }, g.id)} />

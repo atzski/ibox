@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary } from "@/services/library";
@@ -49,7 +50,7 @@ export function ScanStatus() {
             initial={{ opacity: 0, y: 20, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16 }}
-            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            transition={SPRING.snappy}
             role="status"
             aria-live="polite"
             className="pointer-events-auto flex w-[26rem] items-center gap-4 rounded-xl bg-white px-5 py-4 shadow-lg"
@@ -81,7 +82,7 @@ export function ScanStatus() {
                   <motion.div
                     className="h-full rounded-full bg-sky"
                     animate={{ width: ratio !== undefined ? `${Math.max(4, ratio * 100)}%` : "30%" }}
-                    transition={{ duration: 0.3 }}
+                    transition={TWEEN.base}
                   />
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { EASE, SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import type { Platform } from "@/domain/types";
@@ -109,7 +110,7 @@ export function ConsoleHeader({
       key={id}
       initial={{ opacity: 0, y: reduced ? 0 : 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 220, damping: 26 }}
+      transition={SPRING.gentle}
       className="relative isolate mt-1 flex h-[9.5rem] items-center justify-between gap-6 overflow-hidden rounded-xl px-7 shadow-sm"
       style={{ background: deep }}
     >
@@ -119,7 +120,7 @@ export function ConsoleHeader({
         draggable={false}
         initial={{ scale: reduced ? 1 : 1.06 }}
         animate={{ scale: 1 }}
-        transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 1.1, ease: EASE.out }}
         className="absolute inset-0 -z-10 h-full w-full object-cover object-[center_40%]"
       />
       <span className="pointer-events-none absolute inset-0 -z-10" style={{ background: veil }} />

@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -59,7 +60,7 @@ export function ProfileGate() {
       className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[color-mix(in_oklab,var(--ibox-cream)_72%,transparent)] backdrop-blur-xl"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.25 } }}
+      exit={{ opacity: 0, transition: TWEEN.exit }}
       data-nav-root
     >
       <motion.img src="/logo.svg" alt="iBox" width={64} height={64} initial={{ y: -12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.05 }} />
@@ -72,7 +73,7 @@ export function ProfileGate() {
             className="relative"
             initial={{ opacity: 0, y: 18, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.08 + i * 0.05, type: "spring", stiffness: 260, damping: 22 }}
+            transition={{ delay: 0.08 + i * 0.05, ...SPRING.smooth }}
           >
             <button
               data-focusable

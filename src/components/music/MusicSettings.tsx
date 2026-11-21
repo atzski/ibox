@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { motion } from "motion/react";
 import { Group, Row, Toggle } from "@/screens/settings/ui";
@@ -108,7 +109,7 @@ function PositionPicker({ value, onChange }: { value: { x: number; y: number }; 
           className="absolute flex items-start gap-1.5 rounded-[14%_14%_14%_14%/16%_16%_16%_16%] bg-[rgba(20,24,40,0.86)] p-[1.2%] ring-1 ring-white/20 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.8)]"
           style={{ width: `${CARD_W * 100}%`, height: `${CARD_H * 100}%` }}
           animate={{ left, top, scale: drag ? 1.06 : 1 }}
-          transition={drag ? { duration: 0 } : { type: "spring", stiffness: 340, damping: 30 }}
+          transition={drag ? { duration: 0 } : SPRING.smooth}
         >
           <Logo size={16} still />
           <div className="mt-[4%] flex flex-1 flex-col gap-1">

@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
@@ -247,7 +248,7 @@ export function ManualReader({ game, manual, onClose, onManage }: { game: Game; 
           <motion.div
             initial={reduced ? false : { scale: 0.62, y: 50, rotateX: 12, opacity: 0 }}
             animate={{ scale: 1, y: 0, rotateX: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 140, damping: 20 }}
+            transition={SPRING.gentle}
             style={{ transformStyle: "preserve-3d" }}
           >
             <div

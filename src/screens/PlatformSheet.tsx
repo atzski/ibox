@@ -1,3 +1,4 @@
+import { EASE } from "@/motion/tokens";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { consoleInfo, localizeSpec, type ConsoleInfo } from "@/domain/platformCatalog";
@@ -101,7 +102,7 @@ function Sheet({ info }: { info: ConsoleInfo }) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+        transition={{ duration: 0.45, ease: EASE.out, delay: 0.05 }}
         className="min-h-0 overflow-y-auto pt-2 pr-[3rem] pb-12"
       >
         <div className="text-[0.8rem] font-bold tracking-[0.14em] text-ink-soft uppercase">

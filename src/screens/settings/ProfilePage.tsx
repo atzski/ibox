@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { listProfiles, switchProfile, useSession } from "@/services/profiles";
@@ -91,7 +92,7 @@ function ProfileCollectionStats() {
           key={t.label}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 * i, type: "spring", stiffness: 260, damping: 24 }}
+          transition={{ delay: 0.05 * i, ...SPRING.smooth }}
           className="flex items-center gap-3 rounded-2xl bg-cream-deep/70 px-4 py-3"
         >
           <span className="grid size-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-accent-text">

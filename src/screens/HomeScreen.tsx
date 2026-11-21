@@ -1,3 +1,4 @@
+import { EASE, SPRING } from "@/motion/tokens";
 import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
 import { HomeQuickBar } from "@/components/home/HomeQuickBar";
 import { AnimatePresence, motion } from "motion/react";
@@ -221,7 +222,7 @@ export function HomeScreen() {
             initial={{ opacity: 0, y: -12, height: 0 }}
             animate={{ opacity: 1, y: 0, height: "auto" }}
             exit={{ opacity: 0, y: -12, height: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            transition={SPRING.smooth}
             className="sticky top-0 z-30 px-[3rem] pt-3"
           >
             <div className="flex items-center gap-4 rounded-2xl bg-[var(--accent-deep)] px-5 py-3 text-on-accent shadow-lg">
@@ -241,7 +242,7 @@ export function HomeScreen() {
       <div className="flex flex-col gap-2 pt-3">
         {blocks.map((b, i) =>
           editing ? (
-            <motion.div key={b.id} layout={!reduced} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+            <motion.div key={b.id} layout={!reduced} transition={SPRING.smooth}>
               <BlockEditor
                 id={b.id}
                 visible={b.visible}
@@ -261,7 +262,7 @@ export function HomeScreen() {
                 layout={!reduced}
                 initial={{ opacity: 0, y: reduced ? 0 : 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 240, damping: 26, delay: reduced ? 0 : Math.min(i, 5) * 0.05 }}
+                transition={{ ...SPRING.smooth, delay: reduced ? 0 : Math.min(i, 5) * 0.05 }}
                 className={b.id === "hero" ? "py-3" : ""}
               >
                 {render(b.id)}
@@ -360,7 +361,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 26 }}
+      transition={SPRING.smooth}
       className="ibox-sweep relative isolate flex h-[21rem] flex-col overflow-hidden rounded-xl p-6 text-[#ffffff] shadow-md [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]"
       style={{ ...themeVars(platform), background: deep }}
     >
@@ -374,7 +375,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
             draggable={false}
             initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
             animate={{ opacity: 0.92, scale: 1 }}
-            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 1.2, ease: EASE.out }}
             className="ibox-kenburns h-full w-full object-cover object-[center_30%]"
           />
         ) : (
@@ -383,7 +384,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
             key={game.id}
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.95 }}
-            transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 1.2, ease: EASE.out }}
             className={`absolute inset-[-8%] blur-[5px] saturate-[1.15] ${reduced ? "" : "ibox-kenburns"}`}
           >
             {cover && <img src={cover} alt="" draggable={false} className="h-full w-full object-cover object-[center_25%]" />}
@@ -565,7 +566,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 26, delay: 0.06 }}
+      transition={{ ...SPRING.smooth, delay: 0.06 }}
     >
       <button
         data-focusable
@@ -589,7 +590,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
               initial={{ opacity: 0, scale: reduced ? 1 : 1.06 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 1.1, ease: EASE.out }}
               className={`pointer-events-none absolute inset-0 -z-10 h-full w-full object-cover object-[center_30%] saturate-[1.25] ${featuredHero ? "blur-[1px]" : "scale-125 blur-[10px]"} ${reduced ? "" : "ibox-kenburns"}`}
             />
           )}

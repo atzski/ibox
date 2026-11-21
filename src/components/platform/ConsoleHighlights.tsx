@@ -1,3 +1,4 @@
+import { EASE } from "@/motion/tokens";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Game, Platform } from "@/domain/types";
@@ -93,7 +94,7 @@ export function ConsoleHighlights({ platform, games }: { platform: Platform; gam
             initial={{ opacity: 0, y: reduced ? 0 : -8, scale: reduced ? 1 : 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: reduced ? 0 : -4, transition: { duration: reduced ? 0 : 0.12 } }}
-            transition={{ duration: reduced ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: reduced ? 0 : 0.24, ease: EASE.out }}
             className="absolute top-full left-0 mt-2 w-max max-w-full origin-top-left rounded-xl bg-white p-3 shadow-lg"
           >
             <div className="flex gap-3 overflow-x-auto p-2">

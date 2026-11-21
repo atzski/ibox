@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
@@ -38,7 +39,7 @@ export function ProgressRing({ value, size = 64, stroke = 7, color = GOLD, track
           strokeDasharray={c}
           initial={{ strokeDashoffset: c }}
           animate={{ strokeDashoffset: c * (1 - v) }}
-          transition={{ type: "spring", stiffness: 60, damping: 16 }}
+          transition={SPRING.drift}
         />
       </svg>
       <span className="absolute inset-0 grid place-items-center">{children ?? <b className="font-display text-ink" style={{ fontSize: size * 0.26 }}>{Math.round(v * 100)}%</b>}</span>
@@ -57,7 +58,7 @@ export function StripeBar({ value, color = GOLD, height = 12, label }: { value: 
         style={{ backgroundColor: color }}
         initial={{ width: 0 }}
         animate={{ width: `${Math.max(v > 0 ? 4 : 0, v * 100)}%` }}
-        transition={{ type: "spring", stiffness: 55, damping: 16 }}
+        transition={SPRING.drift}
       />
     </div>
   );
@@ -129,7 +130,7 @@ export function AchievementTile({ a, players, index }: { a: RaAchievement; playe
         initial={{ opacity: 0, y: 16, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         whileHover={{ y: -4 }}
-        transition={{ delay: Math.min(index, 30) * 0.02, type: "spring", stiffness: 340, damping: 24 }}
+        transition={{ delay: Math.min(index, 30) * 0.02, ...SPRING.smooth }}
         onClick={() => { sound.play("open"); setOpen(true); }}
         className={`ibox-focusable group relative flex flex-col items-center rounded-[1.6rem] px-3 pt-4 pb-3 text-center shadow-sm [--ring-radius:26px] ${earned ? "bg-white" : "bg-white/55"}`}
       >
@@ -139,7 +140,7 @@ export function AchievementTile({ a, players, index }: { a: RaAchievement; playe
           </span>
         )}
         <span
-          className={`relative grid size-[5.4rem] place-items-center rounded-full p-1.5 ${earned && tier !== "common" ? "ibox-shine" : ""}`}
+          className={`relative grid size-[5.4rem] place-items-center rounded-full p-1.5 ${earned && tier !== "common" ? "ibox-shine-loop" : ""}`}
           style={{ background: earned ? `conic-gradient(from 210deg, ${GOLD_SOFT}, ${GOLD}, #FFF6CF, ${GOLD})` : "linear-gradient(140deg,#E7EAF0,#CDD3DD)" }}
         >
           {secret ? (
@@ -174,8 +175,8 @@ function AchievementDetail({ a, players, onClose }: { a: RaAchievement; players:
       <div className="flex flex-col items-center text-center">
         <motion.span
           initial={{ scale: 0.3, rotate: -20, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 240, damping: 13 }}
-          className={`grid size-40 place-items-center rounded-full p-2.5 shadow-lg ${earned ? "ibox-shine" : ""}`}
+          transition={SPRING.pop}
+          className={`grid size-40 place-items-center rounded-full p-2.5 shadow-lg ${earned ? "ibox-shine-loop" : ""}`}
           style={{ background: earned ? `conic-gradient(from 210deg, ${GOLD_SOFT}, ${GOLD}, #FFF6CF, ${GOLD})` : "linear-gradient(140deg,#E7EAF0,#CDD3DD)" }}
         >
           {secret ? (
@@ -262,7 +263,7 @@ export function AchievementsCard({ game, inline = false, compact = false }: { ga
         onClick={go}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 280, damping: 26, delay: 0.25 }}
+        transition={{ ...SPRING.smooth, delay: 0.25 }}
         whileHover={{ scale: 1.03 }}
         title={steam ? "Succès Steam" : "Succès RetroAchievements"}
         className="ibox-focusable z-20 flex items-center gap-2 rounded-full bg-white/70 py-1 pr-3.5 pl-1 text-left shadow-[0_8px_20px_-14px_rgba(30,40,70,0.6)] ring-1 ring-black/5 backdrop-blur [--ring-radius:999px]"
@@ -284,7 +285,7 @@ export function AchievementsCard({ game, inline = false, compact = false }: { ga
       onClick={go}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 24, delay: 0.25 }}
+      transition={{ ...SPRING.smooth, delay: 0.25 }}
       whileHover={{ y: -3 }}
       title={steam ? "Succès Steam" : "Succès RetroAchievements"}
       className={`ibox-focusable z-20 flex w-[19rem] items-center gap-3 rounded-[1.6rem] bg-white/95 p-3 pr-4 text-left shadow-[0_16px_34px_-18px_rgba(30,40,70,0.55)] ring-1 ring-black/5 backdrop-blur [--ring-radius:26px] ${inline ? "" : "absolute right-[3.6rem] bottom-8"}`}

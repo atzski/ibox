@@ -1,3 +1,4 @@
+import { EASE } from "@/motion/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import type { ConsoleInfo } from "@/domain/platformCatalog";
 
@@ -65,7 +66,7 @@ export function AmbienceHalo({ info, intensity = 1, center = "50% 42%" }: { info
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.9, ease: EASE.out }}
           style={{
             background: [
               `radial-gradient(ellipse 55% 50% at ${center}, color-mix(in oklab, ${a.glow} ${pct(30)}, transparent) 0%, transparent 72%)`,

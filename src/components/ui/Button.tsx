@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { useReducedMotion } from "@/app/shellState";
@@ -105,7 +106,7 @@ export function Segmented<T extends string>({
                 aria-hidden
                 layoutId={pill}
                 className="ibox-btn-primary absolute inset-0 rounded-full"
-                transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34, mass: 0.8 }}
+                transition={reduced ? { duration: 0 } : SPRING.snappy}
               />
             )}
             <span className="relative inline-flex items-center gap-1.5">

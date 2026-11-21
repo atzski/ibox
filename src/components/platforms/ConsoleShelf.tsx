@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { ConsoleInfo } from "@/domain/platformCatalog";
@@ -48,7 +49,7 @@ export function ConsoleShelf({
   const index = Math.max(0, list.findIndex((c) => c.id === activeId));
   // largeur d'une place sur l'étagère : la console du centre garde ses proportions
   const slot = Math.min(width * 0.42, 38 * 16);
-  const spring = reduced ? { duration: 0.15 } : { type: "spring" as const, stiffness: 120, damping: 22, mass: 0.9 };
+  const spring = reduced ? { duration: 0.15 } : SPRING.gentle;
 
   return (
     <div ref={box} className="relative h-full w-full overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_9%,black_91%,transparent)]">

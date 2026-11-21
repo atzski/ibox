@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useId, useRef, useState } from "react";
 import { input } from "@/input/InputController";
 import { AnimatePresence, motion } from "motion/react";
@@ -161,7 +162,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         whileTap={{ scale: 0.97 }}
-        transition={{ type: "spring", stiffness: 340, damping: 26 }}
+        transition={SPRING.smooth}
         className={`ibox-focusable group tone-${b.tone} relative inline-flex h-10 max-w-full items-center gap-2 rounded-full bg-white/70 py-1 pr-3 pl-1 ring-1 backdrop-blur-sm transition-[background-color,box-shadow] duration-200 [--ring-radius:999px] hover:bg-white/90 ${
           shown ? "bg-white/90 ring-[color-mix(in_srgb,var(--tone)_45%,transparent)]" : "ring-[var(--ibox-line)]"
         } ${inviting ? "shadow-[0_0_0_4px_color-mix(in_srgb,var(--tone)_16%,transparent),0_6px_18px_-8px_var(--tone)]" : ""}`}
@@ -176,7 +177,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
           <Icon name={b.icon} size="0.95em" className={`shrink-0 ${badge === "searching" ? "ibox-sc-pulse" : ""}`} />
           <span className="truncate">{SHORT[badge]}</span>
         </span>
-        <motion.span aria-hidden animate={{ rotate: shown ? 90 : 0 }} transition={{ type: "spring", stiffness: 380, damping: 26 }} className="shrink-0 text-ink-soft">
+        <motion.span aria-hidden animate={{ rotate: shown ? 90 : 0 }} transition={SPRING.snappy} className="shrink-0 text-ink-soft">
           <Icon name="chevronRight" size="0.95em" />
         </motion.span>
       </motion.button>
@@ -189,7 +190,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
             initial={{ opacity: 0, height: 0, y: -4 }}
             animate={{ opacity: 1, height: "auto", y: 0 }}
             exit={{ opacity: 0, height: 0, y: -4 }}
-            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            transition={SPRING.smooth}
             className="overflow-hidden"
           >
           <div className={`tone-${b.tone} mt-2 rounded-[1.3rem] bg-[linear-gradient(150deg,color-mix(in_srgb,var(--tone)_10%,var(--ibox-white)),var(--ibox-white)_70%)] p-3.5 ring-1 ring-[var(--ibox-line)] backdrop-blur-sm`}>

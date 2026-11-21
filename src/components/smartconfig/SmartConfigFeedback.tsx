@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState } from "react";
 import { input } from "@/input/InputController";
 import { createPortal } from "react-dom";
@@ -123,7 +124,7 @@ export function SmartConfigFeedback() {
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 16 }}
-          transition={{ type: "spring", stiffness: 320, damping: 28 }}
+          transition={SPRING.smooth}
           data-nav-group="sc-feedback"
           className="fixed right-[3rem] bottom-16 z-40 w-[27rem] max-w-[calc(100vw-6rem)] overflow-hidden rounded-[1.5rem] bg-white shadow-lg ring-1 ring-[color-mix(in_srgb,var(--accent)_25%,transparent)]"
         >

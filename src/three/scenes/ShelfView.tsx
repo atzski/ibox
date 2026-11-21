@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { FrameCap } from "../FrameCap";
 import { useGraphics } from "@/services/graphics";
@@ -464,7 +465,7 @@ function Backdrop({ game, tint }: { game: Game; tint: string }) {
             className="absolute -inset-[15%]"
             initial={{ opacity: 0 }}
             animate={{ opacity: layer.wide ? 0.9 : 0.7 }}
-            exit={{ opacity: 0, transition: { duration: 0.16 } }}
+            exit={{ opacity: 0, transition: TWEEN.exit }}
             transition={{ duration: 0.35, ease: "easeOut" }}
             style={{ backgroundImage: `url(${layer.url})`, backgroundSize: "cover", backgroundPosition: "center", filter: layer.wide ? "blur(3px) saturate(1.1)" : "blur(28px)" }}
           />
@@ -804,7 +805,7 @@ export function ShelfView({
                       <motion.span
                         layoutId={reduced ? undefined : "flow-tab"}
                         className="absolute inset-0 rounded-full bg-[#ebebf0]"
-                        transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                        transition={SPRING.snappy}
                       />
                     )}
                     <span className="relative">{s.platform.shortName}</span>
@@ -840,7 +841,7 @@ export function ShelfView({
             aria-selected
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
+            exit={{ opacity: 0, y: -4, transition: TWEEN.exit }}
             transition={{ duration: 0.45, ease: [0.22, 0.9, 0.25, 1] }}
             className="max-w-[min(64rem,90%)]"
           >
@@ -894,7 +895,7 @@ function ConsoleLogoBanner({ platform }: { platform: Platform }) {
       initial={{ opacity: 0, y: -90, scale: 0.85 }}
       animate={{ opacity: 1, y: -30, scale: 1 }}
       exit={{ opacity: 0, y: 70, scale: 0.92, filter: "blur(6px)" }}
-      transition={{ type: "spring", stiffness: 170, damping: 18, mass: 0.9 }}
+      transition={SPRING.gentle}
     >
       <motion.div
         className="relative -translate-y-1/2"

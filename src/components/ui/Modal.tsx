@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { DUR, SPRING, TWEEN } from "@/motion/tokens";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { input } from "@/input/InputController";
@@ -9,7 +10,9 @@ import { sound } from "@/services/sound";
  * Fenêtre modale navigable au clavier et à la manette :
  * - devient la racine de navigation (le focus ne s'échappe pas) ;
  * - Échap / Retour la ferme ;
- * - le focus revient à l'élément d'origine à la fermeture.
+ * - le focus revient à l'élément d'origine à la fermeture ;
+ * - elle se retire en douceur : la demande de fermeture joue la sortie, puis prévient le parent
+ *   (un parent qui la démonte lui-même la retire aussitôt, comme avant).
  */
 export function Modal({
   title,
@@ -31,12 +34,20 @@ export function Modal({
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const [closing, setClosing] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const requestClose = useCallback(() => {
+    if (timer.current !== undefined) return;
+    setClosing(true);
+    timer.current = window.setTimeout(() => closeRef.current(), DUR.exit * 1000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     sound.play("open");
     const off = input.onBack(() => {
-      closeRef.current();
+      requestClose();
       return true;
     });
     const id = requestAnimationFrame(() => input.focusInitial());
@@ -45,7 +56,7 @@ export function Modal({
       cancelAnimationFrame(id);
       if (previous?.isConnected) requestAnimationFrame(() => previous.focus({ preventScroll: true }));
     };
-  }, []);
+  }, [requestClose]);
 
   return createPortal(
     <motion.div
@@ -54,17 +65,18 @@ export function Modal({
       aria-modal="true"
       aria-label={title}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      style={layer ? { zIndex: layer } : undefined}
+      animate={{ opacity: closing ? 0 : 1 }}
+      transition={closing ? TWEEN.exit : TWEEN.base}
+      style={layer ? { zIndex: layer, pointerEvents: closing ? "none" : undefined } : closing ? { pointerEvents: "none" } : undefined}
       className="fixed inset-0 z-50 grid place-items-center bg-[color-mix(in_oklab,var(--ibox-ink)_22%,transparent)] p-8 backdrop-blur-[3px]"
       onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        initial={{ opacity: 0, y: 18, scale: 0.97 }}
+        animate={closing ? { opacity: 0, y: 8, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+        transition={closing ? TWEEN.exit : { ...SPRING.smooth, opacity: TWEEN.fast }}
         className="flex max-h-full flex-col overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
         style={{ width }}
       >
@@ -81,7 +93,7 @@ export function Modal({
             aria-label="Fermer"
             onClick={() => {
               sound.play("back");
-              onClose();
+              requestClose();
             }}
             className="ibox-focusable ibox-chip grid h-10 w-10 shrink-0 place-items-center rounded-full [--ring-radius:999px]"
           >

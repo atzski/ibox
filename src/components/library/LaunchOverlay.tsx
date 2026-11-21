@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLauncher } from "@/services/launcher";
@@ -72,14 +73,14 @@ export function LaunchOverlay() {
                   className="absolute top-[2.5rem] left-1/2 h-[17rem] w-[17rem] rounded-full shadow-lg"
                   initial={{ x: "-50%", opacity: 0, rotate: 0 }}
                   animate={{ x: "8%", opacity: 1, rotate: 360 }}
-                  transition={{ x: { delay: 0.35, type: "spring", stiffness: 120, damping: 16 }, opacity: { delay: 0.35 }, rotate: { duration: 2.4, repeat: Infinity, ease: "linear" } }}
+                  transition={{ x: { delay: 0.35, ...SPRING.gentle }, opacity: { delay: 0.35 }, rotate: { duration: 2.4, repeat: Infinity, ease: "linear" } }}
                 />
               )}
               <motion.div
                 className="absolute top-0 left-1/2 w-[15rem]"
                 initial={{ x: "-50%", y: 30, scale: 0.85, rotateY: 0 }}
                 animate={{ x: "-95%", y: 0, scale: 1, rotateY: 10 }}
-                transition={{ type: "spring", stiffness: 160, damping: 20 }}
+                transition={SPRING.gentle}
                 style={{ perspective: 900 }}
               >
                 <CoverImage game={game} className="shadow-lg" rounded="rounded-[0.9rem]" />

@@ -1,3 +1,4 @@
+import { TWEEN } from "@/motion/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CONSOLES, type ConsoleInfo } from "@/domain/platformCatalog";
@@ -217,7 +218,7 @@ export function PlatformsScreen() {
                   key={active.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  exit={{ opacity: 0, transition: TWEEN.exit }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
                   className="mt-3 flex flex-col items-center text-center"
                 >

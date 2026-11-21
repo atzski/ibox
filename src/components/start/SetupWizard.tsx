@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -93,8 +94,8 @@ export function SetupWizard() {
               custom={dir}
               initial={{ opacity: 0, x: dir * 28 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: dir * -20, transition: { duration: 0.12 } }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              exit={{ opacity: 0, x: dir * -20, transition: TWEEN.exit }}
+              transition={SPRING.smooth}
             >
               {step.id === "welcome" && <Welcome />}
               {step.id === "profile" && <ProfileStep />}
@@ -192,7 +193,7 @@ function Welcome() {
     <div className="flex flex-col items-center pt-2 text-center">
       <LanguagePicker />
       <div className="h-5" />
-      <motion.img src="/logo.svg" alt="" width={96} height={96} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220, damping: 16 }} />
+      <motion.img src="/logo.svg" alt="" width={96} height={96} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING.pop} />
       <h2 className="mt-6 font-display text-[2.6rem] font-semibold text-ink">Bienvenue dans iBox</h2>
       <p className="mt-3 max-w-[34rem] text-[1.05rem] font-semibold text-ink-soft">
         Tous vos jeux, consoles et PC, réunis dans une seule bibliothèque. Quelques étapes pour tout mettre en place — chacune peut être passée et
@@ -409,7 +410,7 @@ function Switch({ checked, onChange, label, note }: { checked: boolean; onChange
         <p className="text-[0.88rem] font-semibold text-ink-soft">{note}</p>
       </div>
       <span className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? "bg-[var(--accent)]" : "bg-ink/15"}`}>
-        <motion.span className="absolute top-1 size-5 rounded-full bg-white shadow" animate={{ left: checked ? 26 : 4 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} />
+        <motion.span className="absolute top-1 size-5 rounded-full bg-white shadow" animate={{ left: checked ? 26 : 4 }} transition={SPRING.snappy} />
       </span>
     </button>
   );
@@ -456,7 +457,7 @@ function Done() {
         className="grid size-24 place-items-center rounded-full bg-[var(--accent)] text-white"
         initial={{ scale: 0.6 }}
         animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 14 }}
+        transition={SPRING.pop}
       >
         <Icon name="check" size={48} />
       </motion.span>

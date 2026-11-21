@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -102,7 +103,7 @@ export function OverlayWindow() {
             initial={{ opacity: 0, y: -40, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -30, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 340, damping: 30 }}
+            transition={SPRING.smooth}
             className="absolute top-10 left-1/2 w-[min(46rem,92vw)] -translate-x-1/2 rounded-[2rem] bg-[rgba(20,24,40,0.86)] p-5 text-white shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] ring-1 ring-white/10 backdrop-blur-xl"
           >
             <div className="flex items-center gap-3">

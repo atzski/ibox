@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -81,7 +82,7 @@ export function UserSwitcher() {
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            transition={SPRING.snappy}
             className="absolute top-12 left-0 z-40 w-64 origin-top-left rounded-2xl bg-white p-2 shadow-[0_20px_40px_-18px_rgba(30,40,70,0.55)] ring-1 ring-black/5"
             data-nav-group="user-switch"
           >

@@ -1,3 +1,4 @@
+import { EASE, SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { input } from "@/input/InputController";
 import { AnimatePresence, motion } from "motion/react";
@@ -75,7 +76,7 @@ export function SmartConfigScreen({ tab: initial }: { tab?: Tab }) {
                 <div key={i} className="relative h-1.5 w-40 rounded-full bg-white/25">
                   <motion.span className="absolute top-1/2 size-4 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
                     initial={{ left: "10%" }} animate={{ left: [`10%`, `${to * 100}%`, `${(to - 0.12) * 100}%`, `${to * 100}%`] }}
-                    transition={{ duration: 3.2 + i * 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.3 + i * 0.25 }} />
+                    transition={{ duration: 3.2 + i * 0.6, ease: EASE.out, delay: 0.3 + i * 0.25 }} />
                 </div>
               ))}
             </div>
@@ -84,7 +85,7 @@ export function SmartConfigScreen({ tab: initial }: { tab?: Tab }) {
         <div className="relative flex flex-wrap items-end justify-between gap-5">
           <div>
             <div className="text-[0.75rem] font-extrabold tracking-[0.18em] text-[#F4F4F6]/80 uppercase">iBox SmartConfig</div>
-            <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={SPRING.smooth}
               className="mt-1 font-display text-[2.3rem] leading-tight font-semibold" data-no-i18n>Less configuration. More gaming.</motion.h1>
             <p className="mt-1 max-w-[38rem] text-[0.95rem] font-semibold text-[#F4F4F6]/88">
               Des réglages d'émulateur adaptés à votre PC, jeu par jeu. Aperçu exact avant chaque changement, sauvegarde automatique, retour en arrière à tout moment.
@@ -111,7 +112,7 @@ export function SmartConfigScreen({ tab: initial }: { tab?: Tab }) {
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+        <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={TWEEN.fast}>
           {tab === "hardware" && <HardwareView />}
           {tab === "games" && <GamesView entries={optimized} error={historyError} loading={!history && !historyError} onChanged={loadHistory} onHistory={() => setTab("history")} />}
           {tab === "history" && <HistoryView entries={history} error={historyError} onChanged={loadHistory} />}
@@ -197,7 +198,7 @@ const DEVICE: Record<string, string> = { desktop: "PC de bureau", laptop: "PC po
 
 function HwCard({ index, icon, tone, title, tier, lines }: { index: number; icon: IconName; tone: Tone; title: string; tier?: Tier; lines: (string | number | false | null | undefined)[] }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 24, delay: index * 0.05 }}
+    <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...SPRING.smooth, delay: index * 0.05 }}
       className={`tone-${tone} relative overflow-hidden rounded-[1.4rem] bg-white p-5 shadow-[0_14px_30px_-22px_rgba(30,40,70,0.55)] ring-1 ring-[var(--ibox-line)]`}>
       <span aria-hidden className="absolute -top-10 -right-10 size-28 rounded-full bg-[color-mix(in_srgb,var(--tone)_12%,transparent)]" />
       <div className="relative flex items-center gap-3">
@@ -257,7 +258,7 @@ function OptimizedCard({ entry, game, index, onChanged }: { entry: Entry; game?:
   const title = game?.title ?? `Jeu n° ${entry.gameId}`;
   const platform = game ? getPlatform(game.platformId) : undefined;
   return (
-    <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 24, delay: Math.min(index, 8) * 0.04 }}
+    <motion.div initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ ...SPRING.smooth, delay: Math.min(index, 8) * 0.04 }}
       className="flex flex-col gap-3 rounded-[1.4rem] bg-white p-4 shadow-[0_14px_30px_-22px_rgba(30,40,70,0.55)] ring-1 ring-[var(--ibox-line)]">
       <div className="flex items-center gap-3">
         <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-ink/8">{game && <CoverImage game={game} className="size-full object-cover" />}</div>

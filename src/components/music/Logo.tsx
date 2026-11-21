@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import logo from "@/assets/music/logo.png";
 
@@ -16,7 +17,7 @@ export function Logo({ size = 36, playing, still }: { size?: number; playing?: b
       draggable={false}
       initial={still ? false : { scale: 0.7, opacity: 0 }}
       animate={playing ? { scale: 1, opacity: 1, y: [0, -1.5, 0] } : { scale: 1, opacity: 1, y: 0 }}
-      transition={playing ? { y: { duration: 1.8, repeat: Infinity, ease: "easeInOut" }, default: { type: "spring", stiffness: 420, damping: 22 } } : { type: "spring", stiffness: 420, damping: 22 }}
+      transition={playing ? { y: { duration: 1.8, repeat: Infinity, ease: "easeInOut" }, default: SPRING.pop } : SPRING.pop}
       className="flex-none select-none"
     />
   );

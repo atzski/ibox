@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Comments, ReactionBar } from "@/components/community/Reactions";
@@ -60,7 +61,7 @@ export function CommunityScreen() {
         <div className="relative flex flex-wrap items-end justify-between gap-5">
           <div>
             <div className="text-[0.75rem] font-extrabold tracking-[0.18em] text-white/75 uppercase">Hub de la communauté</div>
-            <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={SPRING.smooth}
               className="mt-1 font-display text-[2.3rem] leading-tight font-semibold">Vos meilleurs moments</motion.h1>
             <p className="mt-1 max-w-[36rem] text-[0.95rem] font-semibold text-white/85">
               À tout moment, appuyez sur <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">Alt</kbd> + <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">E</kbd>: l’overlay iBox fige l’écran ; en pleine partie, il garde aussi les 12 dernières secondes en clip.
@@ -78,7 +79,7 @@ export function CommunityScreen() {
         </div>
       </div>
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+        <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={TWEEN.fast}>
           {tab === "feed" ? <Feed onMine={() => setTab("mine")} /> : <Mine />}
         </motion.div>
       </AnimatePresence>
@@ -176,13 +177,13 @@ function SharedCard({ item, index, people, onOpen, onReact }: { item: SharedCapt
       initial={{ opacity: 0, y: 24, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       whileHover={{ y: -4 }}
-      transition={{ type: "spring", stiffness: 260, damping: 24, delay: Math.min(index, 8) * 0.05 }}
+      transition={{ ...SPRING.smooth, delay: Math.min(index, 8) * 0.05 }}
       className="group flex flex-col overflow-hidden rounded-[1.4rem] bg-white text-left shadow-[0_14px_30px_-20px_rgba(30,40,70,0.55)]"
     >
       <button data-focusable onClick={() => { sound.play("open"); onOpen(); }} className="ibox-focusable text-left [--ring-radius:1.4rem]">
       <div className="relative aspect-video bg-ink/10">
         {url ? (
-          <motion.img src={url} alt="" initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.45 }}
+          <motion.img src={url} alt="" initial={{ opacity: 0, scale: 1.04 }} animate={{ opacity: 1, scale: 1 }} transition={TWEEN.base}
             className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : (
           <div className="ibox-shimmer size-full" />
@@ -339,7 +340,7 @@ function Viewer({ source, title, subtitle, caption, onClose, children, after }: 
         {url && "local" in source && source.local.endsWith(".mp4") ? (
           <video src={url} controls autoPlay playsInline className="mx-auto max-h-[52vh] w-auto" />
         ) : url ? (
-          <motion.img src={url} alt="" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35 }} className="mx-auto max-h-[52vh] w-auto object-contain" />
+          <motion.img src={url} alt="" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={TWEEN.base} className="mx-auto max-h-[52vh] w-auto object-contain" />
         ) : (
           <div className="ibox-shimmer aspect-video opacity-30" />
         )}

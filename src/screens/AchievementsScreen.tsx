@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -102,7 +103,7 @@ export function AchievementsScreen({ gameId }: { gameId?: string }) {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -12 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={SPRING.smooth}
         >
           {view.kind === "hub" && <Hub user={user} steamGames={steamGames} onGame={openEntry} />}
           {view.kind === "game" && <GamePage user={user} source={view.source} id={view.id} onBack={() => setView({ kind: "hub" })} />}
@@ -118,8 +119,8 @@ function Onboarding() {
     <div className="grid h-full place-items-center px-[3rem]">
       <div className="max-w-[36rem] rounded-[2.2rem] bg-white p-9 text-center shadow-lg">
         <motion.span
-          initial={{ scale: 0.4, rotate: -14 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 220, damping: 12 }}
-          className="ibox-shine mx-auto grid size-24 place-items-center rounded-[1.8rem] text-[#6B4700] shadow-md"
+          initial={{ scale: 0.4, rotate: -14 }} animate={{ scale: 1, rotate: 0 }} transition={SPRING.pop}
+          className="ibox-shine-loop mx-auto grid size-24 place-items-center rounded-[1.8rem] text-[#6B4700] shadow-md"
           style={{ background: `linear-gradient(140deg, ${GOLD_SOFT}, ${GOLD})` }}
         >
           <Icon name="trophy" size="3rem" />
@@ -251,7 +252,7 @@ function TrophyRoomHero({ user, profile, entries, awards, error, onRefresh }: {
           {/* toujours la photo du profil iBox, quel que soit le compte de succès relié */}
           <span className="-mt-8 block rounded-[1.8rem] bg-white p-1 shadow-lg"><Avatar size={104} choice={avatar} name={name} /></span>
           <motion.span
-            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.3 }}
+            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ ...SPRING.pop, delay: 0.3 }}
             className="absolute -right-2 -bottom-2 grid size-10 place-items-center rounded-full font-display text-white shadow-md ring-[3px] ring-white"
             style={{ background: "linear-gradient(140deg, #FF7A59, #E8433A)" }}
             title={`Niveau ${level}`}
@@ -381,7 +382,7 @@ function RecentRow({ recent, live, loading, onGame }: { recent?: RaRecent[]; liv
                 className="ibox-focusable relative flex w-[10.5rem] shrink-0 snap-start flex-col items-center rounded-[1.5rem] bg-white px-3 pt-4 pb-3 text-center shadow-sm [--ring-radius:24px]"
               >
                 {fresh && <span className="absolute -top-2 rounded-full bg-[#E8433A] px-2.5 py-0.5 text-[0.6rem] font-extrabold tracking-wider text-white uppercase shadow-sm">Nouveau !</span>}
-                <span className={`grid size-[4.6rem] place-items-center rounded-full p-1.5 ${fresh ? "ibox-shine" : ""}`} style={{ background: `conic-gradient(from 210deg, ${GOLD_SOFT}, ${GOLD}, #FFF6CF, ${GOLD})` }}>
+                <span className={`grid size-[4.6rem] place-items-center rounded-full p-1.5 ${fresh ? "ibox-shine-loop" : ""}`} style={{ background: `conic-gradient(from 210deg, ${GOLD_SOFT}, ${GOLD}, #FFF6CF, ${GOLD})` }}>
                   <img src={raBadge(a.badge)} alt="" className={`size-full rounded-full ${fresh ? "ibox-badge-pop" : ""}`} />
                 </span>
                 <span data-no-i18n className="mt-2 line-clamp-2 text-[0.82rem] leading-tight font-bold text-ink">{a.title}</span>
@@ -472,10 +473,10 @@ function Showcase({ awards, entries, onGame }: { awards?: RaAward[]; entries: En
         <div className="flex flex-wrap gap-3">
           {shown.slice(0, 48).map((a, i) => (
             <motion.button key={a.key} data-focusable
-              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02, type: "spring", stiffness: 300, damping: 18 }}
+              initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02, ...SPRING.pop }}
               whileHover={{ y: -4, rotate: -3 }}
               onClick={() => onGame(a.source, a.id)} title={`${a.title} · ${formatDate(a.at)}`}
-              className={`ibox-focusable relative rounded-[1.2rem] p-1 [--ring-radius:20px] ${a.gold ? "ibox-shine" : ""}`}
+              className={`ibox-focusable relative rounded-[1.2rem] p-1 [--ring-radius:20px] ${a.gold ? "ibox-shine-loop" : ""}`}
               style={{ background: a.gold ? `conic-gradient(from 210deg, ${GOLD_SOFT}, ${GOLD}, #FFF6CF, ${GOLD})` : "linear-gradient(140deg,#D6F5E5,#4CC48A)" }}>
               {a.icon ? <img src={a.icon} alt={a.title} loading="lazy" className={`rounded-[0.9rem] object-cover ${a.source === "steam" ? "h-14 w-[7.4rem]" : "size-14"}`} /> : <span className="grid size-14 place-items-center rounded-[0.9rem] bg-white"><Icon name="trophy" /></span>}
             </motion.button>

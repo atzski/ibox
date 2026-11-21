@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
 import { VersionPicker, VersionsModal, familyOf, preferredVersion } from "@/components/game/Versions";
@@ -195,7 +196,7 @@ function GameSheet({ game }: { game: Game }) {
       <motion.aside
         initial={{ opacity: 0, x: -24 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ type: "spring", stiffness: 260, damping: 28, delay: 0.05 }}
+        transition={{ ...SPRING.smooth, delay: 0.05 }}
         className="-mx-3 flex min-h-0 flex-col overflow-y-auto px-3 pt-2 pb-3"
       >
         <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[0.82rem] font-bold text-accent-text">
@@ -324,7 +325,7 @@ function GameSheet({ game }: { game: Game }) {
       <motion.section
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 26 }}
+        transition={SPRING.gentle}
         className="relative min-h-0 overflow-hidden rounded-xl"
         style={{
           // verre : le fond d'écran du jeu reste visible, à peine voilé
@@ -488,7 +489,7 @@ function GameTitle({ game }: { game: Game }) {
         style={trimStyle(info)}
         initial={{ opacity: 0, y: reduced ? 0 : 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 200, damping: 24, delay: 0.08 }}
+        transition={{ ...SPRING.gentle, delay: 0.08 }}
         className={`block max-h-[7rem] max-w-[90%] object-contain object-left [@media(max-height:860px)]:max-h-[3.6rem] ${info.tone === "light" ? "drop-shadow-[0_3px_12px_rgba(20,28,45,0.55)]" : "drop-shadow-[0_6px_16px_rgba(20,30,50,0.2)]"}`}
       />
       <h1 className="mt-2 text-[1.55rem] leading-tight font-semibold text-ink [@media(max-height:860px)]:mt-1 [@media(max-height:860px)]:text-[1.15rem]">{game.title}</h1>
@@ -628,7 +629,7 @@ export function Dock({ children }: { children: ReactNode }) {
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 26, delay: 0.25 }}
+      transition={{ ...SPRING.smooth, delay: 0.25 }}
       data-nav-group="inspect-dock"
       className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white/90 p-1.5 shadow-lg backdrop-blur-sm"
     >

@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { animate, AnimatePresence, motion, useAnimationFrame, useMotionValue, useSpring, useTransform } from "motion/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -19,7 +20,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 /** Animations réduites (réglage d'iBox) : tout devient instantané ou presque. */
 const reduced = () => document.documentElement.dataset.motion === "reduced";
 /** Ressort de la carte : net, sans rebond (position et taille bougent ensemble). */
-const CARD_SPRING = { type: "spring", stiffness: 300, damping: 34, mass: 0.9 } as const;
+const CARD_SPRING = SPRING.smooth;
 
 type View = "mini" | "lists" | "queue" | "search";
 type Tab = Exclude<View, "mini">;
@@ -773,7 +774,7 @@ function IconTabs<T extends string>({ value, onChange, items, small }: { value: 
             {active && (
               <motion.span
                 layoutId={id}
-                transition={reduced() ? { duration: 0 } : { type: "spring", stiffness: 460, damping: 36 }}
+                transition={reduced() ? { duration: 0 } : SPRING.snappy}
                 className="absolute inset-0 rounded-full bg-[color-mix(in_srgb,var(--tone)_55%,transparent)] shadow-[inset_0_-3px_0_color-mix(in_srgb,var(--tone)_60%,transparent)]"
               />
             )}
@@ -801,7 +802,7 @@ function Player({ n, tint, live, onSeek, act }: {
         className="relative size-[208px] overflow-hidden rounded-[1.6rem] bg-black/30 ring-1 ring-white/15"
         style={{ boxShadow: `0 22px 50px -18px ${tint}` }}
         animate={reduced() ? undefined : { scale: n.playing ? 1 : 0.96 }}
-        transition={{ type: "spring", stiffness: 260, damping: 26 }}
+        transition={SPRING.smooth}
       >
         <AnimatePresence initial={false}>
           <motion.div key={n.id} initial={{ opacity: 0, scale: 1.06 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.45, ease: EASE }} className="absolute inset-0">
@@ -845,7 +846,7 @@ function Player({ n, tint, live, onSeek, act }: {
             className="ibox-focusable ibox-btn ibox-btn-primary grid size-14 place-items-center rounded-full [--ring-radius:999px]"
           >
             <AnimatePresence mode="wait" initial={false}>
-              <motion.svg key={n.playing ? "pause" : "play"} width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={{ duration: 0.14 }}>
+              <motion.svg key={n.playing ? "pause" : "play"} width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={TWEEN.micro}>
                 {n.playing ? (
                   <>
                     <rect x="6" y="5" width="4" height="14" rx="1.4" fill="currentColor" />
@@ -898,7 +899,7 @@ function Heart({ liked, onClick }: { liked: boolean; onClick: () => void }) {
         key={String(liked)}
         initial={liked && !reduced() ? { scale: 0.3 } : false}
         animate={{ scale: [null, 1.25, 1] }}
-        transition={{ type: "spring", stiffness: 520, damping: 12 }}
+        transition={SPRING.pop}
         width="18"
         height="18"
         viewBox="0 0 24 24"
@@ -955,7 +956,7 @@ function Toggle({ label, active, hidden, badge, onClick, children }: { label: st
       </svg>
       <AnimatePresence>
         {badge && (
-          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: "spring", stiffness: 520, damping: 18 }} className="absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-[var(--accent)] text-[0.6rem] font-extrabold text-[var(--ibox-on-accent)]">
+          <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={SPRING.pop} className="absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full bg-[var(--accent)] text-[0.6rem] font-extrabold text-[var(--ibox-on-accent)]">
             {badge}
           </motion.span>
         )}
@@ -1029,7 +1030,7 @@ function VolumeBar({ value, onChange }: { value: number; onChange: (v: number) =
   const end = () => {
     if (pending.current != null) send(pending.current, true);
     // l'élastique revient en rebondissant
-    void animate(stretch, 1, { type: "spring", stiffness: 520, damping: 11 });
+    void animate(stretch, 1, SPRING.pop);
     release.current = window.setTimeout(() => setLocal(null), 900);
   };
   const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -1076,7 +1077,7 @@ function VolumeBar({ value, onChange }: { value: number; onChange: (v: number) =
           style={{ left: knob }}
           initial={knock ? { scale: 1.5 } : false}
           animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 520, damping: 14 }}
+          transition={SPRING.pop}
         />
       </div>
       <span aria-hidden="true" className="w-[18px] flex-none" />
@@ -1102,12 +1103,12 @@ function Speaker({ level, knock }: { level: number; knock: number }) {
       aria-hidden="true"
       initial={knock && !reduced() ? { rotate: -12 } : false}
       animate={{ rotate: [null, 10, -6, 0] }}
-      transition={{ duration: 0.45 }}
+      transition={TWEEN.base}
     >
       <path d="M11 5L6 9H2v6h4l5 4z" fill="currentColor" fillOpacity={0.25} />
-      <motion.path d="M15.5 8.5a5 5 0 0 1 0 7" animate={{ opacity: waves >= 1 ? 1 : 0, pathLength: waves >= 1 ? 1 : 0 }} transition={{ duration: 0.2 }} />
-      <motion.path d="M18.5 5.5a9 9 0 0 1 0 13" animate={{ opacity: waves >= 2 ? 1 : 0, pathLength: waves >= 2 ? 1 : 0 }} transition={{ duration: 0.2 }} />
-      <motion.path d="M16 9.5l5 5M21 9.5l-5 5" animate={{ opacity: waves === 0 ? 1 : 0 }} transition={{ duration: 0.15 }} />
+      <motion.path d="M15.5 8.5a5 5 0 0 1 0 7" animate={{ opacity: waves >= 1 ? 1 : 0, pathLength: waves >= 1 ? 1 : 0 }} transition={TWEEN.fast} />
+      <motion.path d="M18.5 5.5a9 9 0 0 1 0 13" animate={{ opacity: waves >= 2 ? 1 : 0, pathLength: waves >= 2 ? 1 : 0 }} transition={TWEEN.fast} />
+      <motion.path d="M16 9.5l5 5M21 9.5l-5 5" animate={{ opacity: waves === 0 ? 1 : 0 }} transition={TWEEN.micro} />
     </motion.svg>
   );
 }
@@ -1266,7 +1267,7 @@ function Card({ list, index, onClick }: { list: Playlist; index: number; onClick
 function DetailHeader({ image, round, title, subtitle, onPlay, playLabel }: { image: string | null; round?: boolean; title: string; subtitle?: string; onPlay: () => void; playLabel: string }) {
   return (
     <div className="flex items-center gap-4">
-      <motion.div initial={reduced() ? false : { scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 320, damping: 26 }} className={`size-20 flex-none overflow-hidden ring-1 ring-white/10 ${round ? "rounded-full" : "rounded-2xl"}`}>
+      <motion.div initial={reduced() ? false : { scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING.smooth} className={`size-20 flex-none overflow-hidden ring-1 ring-white/10 ${round ? "rounded-full" : "rounded-2xl"}`}>
         <Thumb src={image} fill />
       </motion.div>
       <div className="min-w-0 flex-1">

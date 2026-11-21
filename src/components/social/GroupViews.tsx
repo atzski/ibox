@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -303,7 +304,7 @@ export function GroupChatView({ group, onLeft }: { group: ChatGroup; onLeft: () 
                 layout="position"
                 initial={{ opacity: 0, y: 8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                transition={SPRING.snappy}
                 className={`flex gap-2 ${m.mine ? "justify-end" : "justify-start"}`}
               >
                 {!m.mine && (
@@ -408,7 +409,7 @@ function MembersPanel({ group, onLeft, onClose }: { group: ChatGroup; onLeft: ()
       initial={{ height: 0, opacity: 0 }}
       animate={{ height: "auto", opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={TWEEN.fast}
       className="mx-4 mb-2 max-h-[55%] shrink-0 overflow-y-auto rounded-2xl bg-cream-deep/70 p-3"
     >
       <form

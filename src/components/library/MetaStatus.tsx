@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useState } from "react";
 import { formatPlayTime, useLauncher } from "@/services/launcher";
 import { AnimatePresence, motion } from "motion/react";
@@ -49,7 +50,7 @@ export function MetaStatus() {
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 16 }}
-          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          transition={SPRING.snappy}
           role="status"
           aria-live="polite"
           className="pointer-events-auto flex w-[26rem] items-center gap-4 rounded-xl bg-white px-5 py-4 shadow-lg"
@@ -83,7 +84,7 @@ export function MetaStatus() {
                 <motion.div
                   className="h-full rounded-full bg-lavender"
                   animate={{ width: ratio !== undefined && p?.phase === "games" ? `${Math.max(4, ratio * 100)}%` : "18%" }}
-                  transition={{ duration: 0.3 }}
+                  transition={TWEEN.base}
                 />
               </div>
             )}

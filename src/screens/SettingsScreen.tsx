@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { InetboxPanel } from "@/components/social/InetboxPanel";
 import { isLinux } from "@/services/platform";
 import { useEffect, useRef, useState } from "react";
@@ -172,7 +173,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
                     <motion.span
                       layoutId={reduced ? undefined : "settings-pill"}
                       className="absolute inset-0 rounded-2xl bg-white shadow-[0_8px_20px_-12px_rgba(30,40,70,0.45)]"
-                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      transition={SPRING.snappy}
                     />
                   )}
                   <span
@@ -195,7 +196,7 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
           key={cat}
           initial={{ opacity: 0, x: reduced ? 0 : 24 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ type: "spring", stiffness: 340, damping: 32 }}
+          transition={SPRING.smooth}
         >
           <PageHeader category={current} />
           <CategoryPage id={cat} />

@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { Achievements } from "@/components/game/Achievements";
 import { JinglePicker } from "@/components/game/JinglePicker";
 import { playJingle, stopJingle } from "@/services/jingles";
@@ -98,7 +99,7 @@ export function PcGameSheet({ game }: { game: Game }) {
   const enter = (delay: number) => ({
     initial: { opacity: 0, y: reduced ? 0 : 18 },
     animate: { opacity: 1, y: 0 },
-    transition: { type: "spring" as const, stiffness: 240, damping: 26, delay: reduced ? 0 : delay },
+    transition: { ...SPRING.smooth, delay: reduced ? 0 : delay },
   });
 
   return (
@@ -108,7 +109,7 @@ export function PcGameSheet({ game }: { game: Game }) {
         // arrivée en vol depuis l'étagère : la visionneuse ne bouge pas, le boîtier s'y pose
         initial={{ opacity: 0, scale: reduced || arriving ? 1 : 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 26 }}
+        transition={SPRING.gentle}
         className="flex min-h-0 flex-col gap-4 pt-2 pb-3"
       >
         <PcCase game={game} spec={spec} controller={controller} open={open} setOpen={setOpen} discOut={discOut} setDiscOut={setDiscOut} accent={accent} reduced={reduced} />

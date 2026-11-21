@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { PLAYER_COLORS, useGamepad } from "@/input/gamepad";
@@ -38,7 +39,7 @@ export function PlayersIndicator() {
         layout
         initial={{ scale: 0 }}
         animate={{ scale: on ? 1.12 : 1 }}
-        transition={{ type: "spring", stiffness: 500, damping: 22 }}
+        transition={SPRING.pop}
         className={`grid ${size} place-items-center rounded-full px-2 font-display text-[0.82rem] font-semibold text-white shadow-xs`}
         style={{ background: color(slot), boxShadow: on ? `0 0 0 3px color-mix(in oklab, ${color(slot)} 35%, transparent)` : undefined }}
       >
@@ -95,7 +96,7 @@ export function PlayersIndicator() {
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            transition={SPRING.snappy}
             className="absolute top-14 right-0 z-50 w-72 origin-top-right rounded-2xl bg-white p-2 shadow-[0_20px_40px_-18px_rgba(30,40,70,0.55)] ring-1 ring-black/5"
           >
             <div className="px-2 pt-1 pb-2 text-[0.7rem] font-extrabold tracking-[0.14em] text-ink-soft uppercase">{players.length} manettes</div>
@@ -134,7 +135,7 @@ export function PlayerJoinedOverlay() {
           initial={{ opacity: 0, y: -40, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -24, scale: 0.9 }}
-          transition={{ type: "spring", stiffness: 380, damping: 22 }}
+          transition={SPRING.pop}
           className="pointer-events-none fixed top-6 left-1/2 z-[80] -translate-x-1/2"
         >
           <div className="flex items-center gap-4 rounded-[2rem] bg-white py-3 pr-7 pl-3 shadow-[0_20px_44px_-18px_rgba(20,30,60,0.55)]">

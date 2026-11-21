@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -316,7 +317,7 @@ export function ChatView({ friend }: { friend: InetFriend }) {
           <p className="pt-10 text-center text-[0.9rem] font-bold text-ink-soft">Dites bonjour à {friend.displayName} !</p>
         ) : items.map((m) => (
           <motion.div key={m.id} layout="position" initial={{ opacity: 0, y: 8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 520, damping: 32 }} className={`flex flex-col ${m.mine ? "items-end" : "items-start"}`}>
+            transition={SPRING.snappy} className={`flex flex-col ${m.mine ? "items-end" : "items-start"}`}>
             <button
               type="button"
               tabIndex={m.failed ? 0 : -1}

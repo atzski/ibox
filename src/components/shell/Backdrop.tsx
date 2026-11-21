@@ -1,3 +1,4 @@
+import { EASE } from "@/motion/tokens";
 import { useSettings } from "@/services/settings";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValue, useSpring } from "motion/react";
@@ -85,7 +86,7 @@ export function Backdrop({ home = false }: { home?: boolean }) {
     return () => window.removeEventListener("pointermove", onMove);
   }, [px, py, reduced]);
 
-  const transition = { duration: 1.1, ease: [0.22, 1, 0.36, 1] } as const;
+  const transition = { duration: 1.1, ease: EASE.out } as const;
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden bg-cream">
@@ -210,7 +211,7 @@ function PresetBackdrop({ preset, reduced, dark }: { preset: HomePreset; reduced
       initial={{ opacity: 0 }}
       animate={{ opacity: dark && !preset.dark ? 0.55 : 0.92 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: reduced ? 0 : 0.8, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: reduced ? 0 : 0.8, ease: EASE.out }}
     >
       <div
         className={`absolute inset-0 ${preset.drift && !preset.pattern && !reduced ? "ibox-pattern-drift" : ""}`}
@@ -239,7 +240,7 @@ function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false, soft = f
       initial={{ opacity: 0 }}
       animate={{ opacity }}
       exit={{ opacity: 0 }}
-      transition={{ duration: reduced ? 0 : 0.65, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: reduced ? 0 : 0.65, ease: EASE.out }}
     >
       <div className="h-full w-full" style={{ transform: hero ? (blur ? "scale(1.04)" : undefined) : "scale(1.25)" }}>
         <img

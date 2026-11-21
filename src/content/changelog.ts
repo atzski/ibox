@@ -10,6 +10,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.0",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "sparkle", title: "iBox 1.0 : tout bouge d’un seul geste", text: "Chaque animation d’iBox a été revue et suit désormais le même langage de mouvement : des ressorts doux pour ce qui répond à vos gestes, des fondus courts pour le reste. Écrans, cartes, menus et boutons se posent au lieu de sauter." },
+      { icon: "grid", title: "Des écrans qui s’enchaînent", text: "Avancer fait entrer l’écran suivant en profondeur, revenir fait reculer le précédent. À l’ouverture, le décor arrive d’abord puis l’interface monte se poser." },
+      { icon: "front", title: "Des jaquettes plus vivantes", text: "Une jaquette suit le pointeur de près puis revient se poser comme un ressort, et son reflet ne passe qu’au moment où vous la choisissez." },
+      { icon: "copy", title: "Des fenêtres qui se retirent en douceur", text: "Les fenêtres de dialogue se ferment maintenant avec une courte sortie au lieu de disparaître d’un coup." },
+      { icon: "power", title: "Plus léger pour la carte graphique", text: "Des animations qui tournaient en continu sans être vues ont été retirées, et le réglage Animations réduites (Paramètres, Affichage) est mieux respecté." },
+    ],
+  },
+  {
     version: "0.1.113",
     date: "2026-11-21",
     highlights: [

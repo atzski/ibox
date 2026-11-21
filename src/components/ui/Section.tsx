@@ -1,3 +1,4 @@
+import { CASCADE, SPRING, TWEEN } from "@/motion/tokens";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "./Icon";
@@ -66,7 +67,7 @@ export function ShelfRow({
           onScroll={measure}
           initial="hidden"
           animate="show"
-          variants={{ show: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } } }}
+          variants={CASCADE}
           className={wrap
             ? "flex flex-wrap gap-x-5 gap-y-7 px-[3rem] pt-5 pb-7"
             : "no-scrollbar flex gap-5 overflow-x-auto scroll-smooth px-[3rem] pt-5 pb-7 [scroll-padding-inline:3rem]"}
@@ -97,7 +98,7 @@ function ScrollArrow({ side, visible, onClick }: { side: "left" | "right"; visib
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.85 }}
-          transition={{ duration: 0.2 }}
+          transition={TWEEN.fast}
           className={`ibox-scroll-arrow absolute top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-ink shadow-md backdrop-blur-sm transition-[opacity,transform] hover:scale-110 hover:bg-white active:scale-95 ${
             side === "left" ? "left-3" : "right-3"
           }`}
@@ -115,6 +116,7 @@ export function EmptyState({ icon, title, body, children }: { icon: ReactNode; t
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ ...SPRING.smooth, opacity: TWEEN.base }}
       className="mx-auto flex max-w-[34rem] flex-col items-center py-16 text-center"
     >
       <div className="mb-6 grid h-32 w-32 place-items-center rounded-[2.5rem] bg-white text-accent-text shadow-md">

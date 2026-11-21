@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
 import { useReducedMotion } from "@/app/shellState";
@@ -70,7 +71,7 @@ export function AchievementShowcase({ highlight, accent }: { highlight: Achievem
             style={{ background: `linear-gradient(90deg, ${from}, ${to})`, boxShadow: `0 0 14px -2px ${from}` }}
             initial={{ width: reduced ? `${pct}%` : "0%" }}
             animate={{ width: `${Math.max(pct, earned > 0 ? 4 : 0)}%` }}
-            transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.15 }}
+            transition={{ ...SPRING.drift, delay: 0.15 }}
           >
             {/* reflet du haut et éclat qui passe */}
             <span aria-hidden className="absolute inset-x-1 top-[2px] h-[35%] rounded-full bg-white/45" />

@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useState, type FormEvent, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -250,7 +251,7 @@ function GridSlot({ id, row, col, span, organizing, dragging, highlight, onStart
   const [landing, setLanding] = useState(false);
   const settle = () => {
     // vitesse remise à zéro : la carte se pose sans reprendre l'élan du geste
-    const spring = { type: "spring", stiffness: 420, damping: 34, velocity: 0 } as const;
+    const spring = { ...SPRING.snappy, velocity: 0 } as const;
     x.jump(x.get());
     y.jump(y.get());
     void animate(x, 0, spring);
@@ -273,7 +274,7 @@ function GridSlot({ id, row, col, span, organizing, dragging, highlight, onStart
       ref={box}
       data-collection-id={id}
       layout={dragging || landing ? false : "position"}
-      transition={{ layout: { type: "spring", stiffness: 420, damping: 34 } }}
+      transition={{ layout: SPRING.snappy }}
       variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
       drag={organizing}
       dragMomentum={false}
@@ -769,7 +770,7 @@ function CollectionShelf({ collection, games, onClose }: { collection: Collectio
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.25 }}
+      transition={TWEEN.fast}
     >
       <div className="flex items-center gap-4 pb-4 text-[#f3f5fb]">
         <button

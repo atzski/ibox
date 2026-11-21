@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { requirePlatform } from "@/domain/platforms";
@@ -68,7 +69,7 @@ export function StatsPanel() {
                 style={{ opacity: s ? 1 : 0.18 }}
                 initial={{ height: 0 }}
                 animate={{ height: `${Math.max(4, (s / max) * 92)}px` }}
-                transition={{ delay: 0.15 + i * 0.02, type: "spring", stiffness: 200, damping: 24 }}
+                transition={{ delay: 0.15 + i * 0.02, ...SPRING.gentle }}
               />
               <span className="text-[0.62rem] font-bold text-ink-faint">{DAY[new Date(`${day}T12:00:00`).getDay()]}</span>
             </div>

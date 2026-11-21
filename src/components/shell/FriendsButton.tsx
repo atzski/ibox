@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { invoke } from "@tauri-apps/api/core";
 import { useLauncher } from "@/services/launcher";
 import { useMediaUrl } from "@/art/useMediaUrl";
@@ -192,7 +193,7 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
         initial={{ x: reduced ? 0 : "105%", opacity: reduced ? 0 : 1 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: reduced ? 0 : "105%", opacity: reduced ? 0 : 1 }}
-        transition={{ type: "spring", stiffness: 380, damping: 38 }}
+        transition={SPRING.snappy}
         className="absolute top-3 right-3 bottom-3 flex w-[min(27rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.8rem] bg-white/94 shadow-[0_24px_60px_-20px_rgba(30,40,70,0.5)] ring-1 ring-white/70 backdrop-blur-xl"
       >
         <header className="flex items-center gap-2 px-5 pt-5 pb-3">
@@ -231,7 +232,7 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
               initial={{ opacity: 0, x: reduced ? 0 : view === "list" ? -18 : 18 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
+              transition={TWEEN.fast}
               className="flex min-h-0 flex-1 flex-col"
             >
               {(view === "list" || (view === "chat" && !friend) || (view === "group" && !group)) && (
@@ -407,7 +408,7 @@ function FriendRow({ friend, connected, open, onToggle, onProfile, onChat }: {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={TWEEN.fast}
             className="overflow-hidden"
           >
             {confirm ? (

@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState } from "react";
 import { useRemoteLatency } from "@/components/extras/PerfOverlay";
 import { createPortal } from "react-dom";
@@ -894,7 +895,7 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
             aria-label="Menu de la session"
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            transition={SPRING.snappy}
             className="w-[min(30rem,calc(100vw-2rem))] rounded-[1.75rem] bg-[#16161c]/85 p-6 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-[#fff]/10 backdrop-blur-2xl"
           >
             <div className="flex items-start gap-3">

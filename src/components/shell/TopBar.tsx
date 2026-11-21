@@ -1,3 +1,4 @@
+import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
@@ -48,7 +49,7 @@ export function TopBar() {
     <motion.header
       initial={false}
       animate={{ height: immersive ? "3.6rem" : "5.25rem" }}
-      transition={{ type: "spring", stiffness: 260, damping: 32 }}
+      transition={SPRING.smooth}
       className="relative z-20 flex shrink-0 items-center gap-4 px-[3rem]"
     >
       <AnimatePresence mode="popLayout" initial={false}>
@@ -57,7 +58,8 @@ export function TopBar() {
             key="brand"
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -12 }}
+            exit={{ opacity: 0, x: -12, transition: TWEEN.exit }}
+            transition={{ ...SPRING.smooth, opacity: TWEEN.fast }}
             className="flex items-center gap-3"
           >
             <UserSwitcher />
@@ -80,7 +82,8 @@ export function TopBar() {
             key="crumb"
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 12 }}
+            exit={{ opacity: 0, x: 12, transition: TWEEN.exit }}
+            transition={{ ...SPRING.smooth, opacity: TWEEN.fast }}
             className="flex min-w-0 items-center gap-3"
           >
             <button
@@ -103,7 +106,7 @@ export function TopBar() {
         <motion.div
           initial={false}
           animate={immersive ? { opacity: 0, y: -14, filter: "blur(4px)" } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ type: "spring", stiffness: 260, damping: 30 }}
+          transition={SPRING.smooth}
           style={{ pointerEvents: immersive ? "none" : undefined }}
           inert={immersive}
           className="flex items-center gap-3"
@@ -129,7 +132,7 @@ export function TopBar() {
         <motion.div
           initial={false}
           animate={immersive ? { opacity: 0, y: -14, filter: "blur(4px)" } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ type: "spring", stiffness: 260, damping: 30, delay: immersive ? 0 : 0.05 }}
+          transition={{ ...SPRING.smooth, delay: immersive ? 0 : 0.05 }}
           style={{ pointerEvents: immersive ? "none" : undefined }}
           inert={immersive}
           className="flex items-center gap-3"

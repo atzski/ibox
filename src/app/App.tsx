@@ -18,6 +18,7 @@ import { PlayerJoinedOverlay } from "@/components/shell/Players";
 import { attachInetbox } from "@/services/inetbox";
 import { InetboxModal } from "@/components/social/InetboxPanel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { EASE, SPRING, TWEEN } from "@/motion/tokens";
 import { rememberedFocus, routeKey, useNav, useRoute, type Route } from "./navigation";
 import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shellState";
 import { useSettings } from "@/services/settings";
@@ -127,14 +128,21 @@ function ScreenHost({ route }: { route: Route }) {
   );
 }
 
-// Transitions d'écran : sortie très brève, entrée douce (glissé léger). Uniquement
-// opacité et transformations (calculées par la carte graphique) : pas de flou plein
-// écran, trop coûteux quand on navigue vite.
-const EASE = [0.22, 1, 0.36, 1] as const;
+// Transitions d'écran : une seule idée de profondeur. Avancer, c'est entrer dans l'écran
+// suivant (il arrive de la droite, légèrement en retrait, et se pose) ; revenir, c'est
+// reculer (l'écran précédent revient de la gauche, à peine agrandi). La sortie est très
+// brève pour que la navigation rapide reste immédiate ; l'entrée est un ressort, donc une
+// nouvelle navigation l'interrompt sans à-coup. Uniquement opacité et transformations
+// (calculées par la carte graphique) : pas de flou plein écran.
 const screenVariants = {
-  enter: (dir: number) => ({ opacity: dir < 0 ? 0.45 : 0, x: dir < 0 ? -8 : 24 }),
-  center: { opacity: 1, x: 0, scale: 1, transition: { duration: 0.3, ease: EASE } },
-  exit: (dir: number) => ({ opacity: 0, x: dir < 0 ? 6 : -14, transition: { duration: dir < 0 ? 0.07 : 0.11, ease: "easeIn" as const } }),
+  enter: (dir: number) => (dir < 0 ? { opacity: 0, x: -18, scale: 1.012 } : { opacity: 0, x: 30, scale: 0.988 }),
+  center: { opacity: 1, x: 0, scale: 1, transition: { ...SPRING.smooth, opacity: TWEEN.fast } },
+  exit: (dir: number) => ({
+    opacity: 0,
+    x: dir < 0 ? 12 : -16,
+    scale: dir < 0 ? 0.992 : 1.006,
+    transition: { duration: dir < 0 ? 0.09 : 0.12, ease: EASE.in },
+  }),
 };
 
 export function App() {
@@ -310,7 +318,15 @@ export function App() {
   return (
     <MotionConfig reducedMotion={reduced ? "always" : "never"}>
       <Backdrop home={route.name === "home"} />
-      <div data-nav-root data-nav-main className="relative flex h-full flex-col">
+      {/* arrivée dans iBox : le décor d'abord, puis l'interface qui monte se poser */}
+      <motion.div
+        data-nav-root
+        data-nav-main
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...SPRING.gentle, delay: 0.12, opacity: { ...TWEEN.slow, delay: 0.12 } }}
+        className="relative flex h-full flex-col"
+      >
         <TopBar />
         {libraryError && route.name !== "settings" && (
           <div role="alert" className="mx-8 mb-2 flex items-center justify-between gap-4 rounded-lg bg-peach-soft p-3 text-ink">
@@ -338,7 +354,7 @@ export function App() {
           </AnimatePresence>
         </main>
         <HintBar />
-      </div>
+      </motion.div>
       <BackgroundJobs />
       <AnimatePresence>
         {!setupDone ? <SetupWizard key="setup" /> : (askProfile || gateForced) && !profileChosen ? <ProfileGate key="gate" /> : null}

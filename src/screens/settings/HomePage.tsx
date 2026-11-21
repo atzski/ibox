@@ -1,3 +1,4 @@
+import { SPRING } from "@/motion/tokens";
 import { useMemo } from "react";
 import { motion } from "motion/react";
 import { useSettings } from "@/services/settings";
@@ -29,7 +30,7 @@ export function HomePage() {
             <motion.div
               layout
               key={b.id}
-              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              transition={SPRING.snappy}
               className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${b.visible ? "bg-cream-deep/70" : "bg-cream-deep/35"}`}
             >
               <span className="grid size-8 place-items-center rounded-full bg-white text-[0.85rem] font-extrabold text-ink-soft">{i + 1}</span>
