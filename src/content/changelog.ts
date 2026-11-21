@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.4",
+    date: "2026-11-21",
+    highlights: [
+      { icon: "disc", title: "Des paroles synchronisées avec la musique", text: "Dans le panneau Music in the Box, les paroles suivent maintenant le titre ligne par ligne : la ligne chantée grandit et s’éclaire, les autres s’estompent. Cliquez sur une ligne pour y amener la lecture. Avec le plugin Music in the Box 1.0.4 ; les clips vidéo, sans horaires, gardent un défilement estimé." },
+    ],
+  },
+  {
     version: "1.0.3",
     date: "2026-11-21",
     highlights: [

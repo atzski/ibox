@@ -3699,6 +3699,10 @@ export const EN: Record<string, string> = {
   "Et {0} parties plus anciennes.": "And {0} older sessions.",
   "Seules les parties lancées depuis iBox sont notées.": "Only sessions launched from iBox are recorded.",
 
+  // Notes de la version 1.0.4
+  "Des paroles synchronisées avec la musique": "Lyrics in sync with the music",
+  "Dans le panneau Music in the Box, les paroles suivent maintenant le titre ligne par ligne : la ligne chantée grandit et s’éclaire, les autres s’estompent. Cliquez sur une ligne pour y amener la lecture. Avec le plugin Music in the Box 1.0.4 ; les clips vidéo, sans horaires, gardent un défilement estimé.": "In the Music in the Box panel, lyrics now follow the song line by line: the line being sung grows and lights up, the others fade. Click a line to jump there. With the Music in the Box plugin 1.0.4; music videos, which have no timings, keep an estimated scroll.",
+
   // Notes de la version 1.0.3
   "Une recherche qui trouve tout": "A search that finds everything",
   "La recherche (touche /, bouton Select) retrouve vos jeux avec leur jaquette, les consoles, vos collections, les pages des Paramètres et des actions. Elle comprend les initiales (« mk8 »), les sigles (« GC ») et une faute de frappe. Entrée ouvre le meilleur résultat, X lance le jeu.": "Search (the / key, the Select button) now finds your games with their cover, consoles, your collections, Settings pages and actions. It understands initials (“mk8”), short names (“GC”) and a typo. Enter opens the best result, X launches the game.",
@@ -3729,6 +3733,9 @@ export const EN: Record<string, string> = {
   "Tout ce que vous avez aimé, à la suite": "Everything you liked, back to back",
   "Écouté récemment": "Played recently",
   "Position dans le titre": "Position in the song",
+  "Aller à cette ligne": "Jump to this line",
+  "Reprendre le suivi": "Follow the song again",
+  "Paroles non synchronisées pour ce titre : le défilement est estimé.": "Lyrics are not synced for this song: scrolling is estimated.",
   "Musique en cours": "Now playing",
   "Ouvrir Music in the Box : {0}": "Open Music in the Box: {0}",
   "Ouvrir Music in the Box": "Open Music in the Box",
