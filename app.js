@@ -34,9 +34,15 @@ const near = (el, margin, run) => {
   addEventListener("scroll", () => {
     const y = scrollY;
     top.classList.toggle("scrolled", y > 8);
-    if (Math.abs(y - last) > 6) { top.classList.toggle("away", y > last && y > 240 && !top.contains(document.activeElement)); last = y; }
+    if (Math.abs(y - last) > 6) { top.classList.toggle("away", y > last && y > 240 && !top.contains(document.activeElement) && !top.classList.contains("open")); last = y; }
   }, { passive: true });
   top.addEventListener("focusin", () => top.classList.remove("away"));
+  // menu des écrans étroits : un bouton, Échap pour refermer, fermé dès qu'on choisit une section
+  const menu = $(".menu", top);
+  const open = (on) => { top.classList.toggle("open", on); menu.setAttribute("aria-expanded", String(on)); menu.textContent = data.menu[on ? 1 : 0]; };
+  menu.addEventListener("click", () => open(!top.classList.contains("open")));
+  $("nav", top).addEventListener("click", (e) => { if (e.target.closest("a")) open(false); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && top.classList.contains("open")) { open(false); menu.focus(); } });
 }
 
 // ---------- onglets (flèches, Début, Fin) ----------
@@ -68,7 +74,7 @@ function tablist(list, select) {
   if (full()) {
     scenes()
       .then((m) => m.createHero(stage, { slugs: data.hero, still, onFocus: (game) => { caption.textContent = game ? data.labels[game.slug] : stage.dataset.idle; } }))
-      .then((api) => { stage.classList.add("ready"); window.iboxHero = api; })
+      .then((api) => { stage.classList.add("ready"); root.dataset.hero = "ready"; window.iboxHero = api; })
       .catch(simplify);
   }
 }
@@ -133,7 +139,12 @@ function tablist(list, select) {
       stage.classList.add("ready");
       return made;
     })
-    .catch((error) => { loading = null; console.warn("iBox : visionneuse 3D indisponible.", error); viewer.classList.remove("can"); }));
+    .catch((error) => {
+      // échec dit clairement, avec un nouvel essai : les rendus fixes restent en place
+      loading = null;
+      console.warn("iBox : visionneuse 3D indisponible.", error);
+      $(".viewer-error", viewer).hidden = false;
+    }));
 
   const tabs = tablist($(".viewer-tabs", viewer), (tab) => {
     current = data.games.find((g) => g.slug === tab.dataset.slug);
@@ -150,15 +161,33 @@ function tablist(list, select) {
   openBtn.addEventListener("click", () => api?.toggleOpen());
   outBtn.addEventListener("click", () => api?.toggleOut());
   $('[data-act="turn"]', viewer).addEventListener("click", () => api?.turn());
+  $('[data-act="reset"]', viewer).addEventListener("click", () => api?.reset());
   $(".viewer-load", viewer).addEventListener("click", start);
+  $(".viewer-retry", viewer).addEventListener("click", () => { $(".viewer-error", viewer).hidden = true; start(); });
   if (full()) near(viewer, "80% 0px", start);
 }
 
 // ---------- exemples de configuration ----------
 {
-  const box = $(".examples");
+  const box = $(".demos");
   tablist($(".examples-tabs", box), (tab) => {
     $$("[data-id]", $(".examples-panel", box)).forEach((el) => el.classList.toggle("on", el.dataset.id === tab.dataset.id));
+  });
+}
+
+// ---------- application réelle : un écran, trois séquences ----------
+{
+  const video = $("video", $("#reel-panel"));
+  tablist($(".reel-tabs"), (tab) => {
+    const name = tab.dataset.video;
+    if (video.dataset.name === name) return;
+    video.dataset.name = name;
+    video.pause();
+    video.poster = `video/${name}.webp`;
+    $("source", video).src = `video/${name}.mp4`;
+    video.setAttribute("aria-label", tab.dataset.alt);
+    video.load();
+    if (!still) video.play().catch(() => undefined);
   });
 }
 

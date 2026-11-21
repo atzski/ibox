@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>iBox — vos jeux PC et consoles dans de vrais boîtiers 3D</title>
 <meta name="description" content="iBox réunit vos jeux PC et consoles dans une bibliothèque visuelle : de vrais boîtiers 3D à manipuler, vos émulateurs installés et réglés pour vous. Gratuit et open source, pour Windows et Steam Deck (en essai).">
 <meta name="theme-color" content="#F6F3EC">
@@ -13,16 +13,17 @@
 <link rel="alternate" hreflang="en" href="en.html">
 <link rel="preload" href="fonts/fraunces.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=3.0.0">
+<link rel="stylesheet" href="style.css?v=4.0.0">
 <script>(function(d,m){var c=d.classList;c.add("js");var still=m("(prefers-reduced-motion: reduce)").matches,small=m("(max-width: 700px)").matches||m("(max-height: 560px)").matches,weak=(navigator.hardwareConcurrency||8)<4||(navigator.deviceMemory||8)<4;if(still)c.add("still");c.add(small||weak?"lite":"full");if(!small&&!weak&&!still)c.add("pin")})(document.documentElement,function(q){return matchMedia(q)})</script>
 </head>
 <body>
 <a class="skip" href="#main">Aller au contenu</a>
 <header class="top"><div class="wrap">
   <a class="brand" href="index.html"><img src="logo.svg" alt="" width="30" height="30"><span translate="no">iBox</span></a>
-  <nav aria-label="Sections"><a href="#boitier">Le boîtier</a><a href="#formats">Formats</a><a href="#bibliotheque">Bibliothèque</a><a href="#fonctions">Fonctions</a></nav>
+  <nav id="nav" aria-label="Sections"><a href="#boitier">Le boîtier</a><a href="#bibliotheque">Bibliothèque</a><a href="#formats">Formats</a><a href="#fonctions">Fonctions</a><a class="nav-lang" href="en.html" hreflang="en" lang="en">English</a></nav>
   <a class="lang" href="en.html" hreflang="en" lang="en">English</a>
   <a class="btn small" href="#telecharger">Télécharger</a>
+  <button type="button" class="menu" aria-expanded="false" aria-controls="nav">Menu</button>
 </div></header>
 
 <main id="main">
@@ -36,7 +37,7 @@
     </div>
   </div>
   <div class="hero-stage" data-idle="Cinq jeux, cinq formats de boîtier, tels qu’iBox les affiche.">
-    <img class="poster" src="img/render/hero.webp" width="2400" height="1040" alt="Cinq boîtiers de jeux posés côte à côte : Stardew Valley sur PC, Pokémon Black sur DS, Super Mario Galaxy sur Wii, The Legend of Zelda: Tears of the Kingdom sur Switch et God of War: Ghost of Sparta sur PSP" fetchpriority="high">
+    <picture class="poster"><source media="(max-width: 700px)" srcset="img/render/hero-mobile.webp" width="1350" height="1350"><img src="img/render/hero.webp" width="2400" height="1040" alt="Cinq boîtiers de jeux posés côte à côte : Stardew Valley sur PC, Pokémon Black sur DS, Super Mario Galaxy sur Wii, The Legend of Zelda: Tears of the Kingdom sur Switch et God of War: Ghost of Sparta sur PSP" fetchpriority="high"></picture>
   </div>
   <div class="wrap hero-foot"><p class="hero-caption" aria-live="polite">Cinq jeux, cinq formats de boîtier, tels qu’iBox les affiche.</p><p class="hero-hint">Survolez un boîtier, faites-le tourner, cliquez pour l’ouvrir.</p></div>
 </section>
@@ -58,6 +59,14 @@
   </div>
 </section>
 
+<section class="library dark" id="bibliotheque" aria-labelledby="library-h">
+  <div class="wrap">
+    <div class="head"><h2 id="library-h">Tous vos jeux, une seule collection.</h2><p>Vos jeux Steam, Epic Games et GOG rejoignent ceux de vos consoles. Vous composez les collections, iBox pose les boîtiers sur l’étagère.</p></div>
+    <figure class="clip wide"><div class="clip-frame"><video muted loop playsinline preload="none" poster="video/collection-tour.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : une collection de jeux Mario défile, chaque jeu dans son boîtier 3D"><source src="video/collection-tour.mp4" type="video/mp4"></video><button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div><figcaption><b>Enregistré dans iBox</b> Une collection Mario : Wii, DS, 3DS et Switch côte à côte, chacun dans son boîtier.</figcaption></figure>
+    <div class="details"><figure class="detail a"><img src="img/detail-shelf.webp" width="866" height="380" loading="lazy" alt="Détail d’une capture d’iBox : l’étagère de l’accueil, avec les boîtiers en 3D"><figcaption>Sur l’accueil, vos jeux sont posés sur l’étagère, en volume.</figcaption></figure><figure class="detail b"><img src="img/detail-case.webp" width="490" height="560" loading="lazy" alt="Détail d’une capture d’iBox : le boîtier PC d’Elden Ring et ses commandes"><figcaption>Sur chaque fiche, le boîtier se tourne, s’ouvre et se referme.</figcaption></figure></div>
+  </div>
+</section>
+
 <section class="formats" id="formats" aria-labelledby="formats-h">
   <div class="wrap">
     <div class="head"><h2 id="formats-h">Chaque console a son format.</h2><p>Sept formats de boîtier, modélisés à leurs dimensions réelles. Choisissez un jeu et prenez-le en main.</p></div>
@@ -69,48 +78,14 @@
           <h3 aria-live="polite" translate="no">Super Mario Galaxy</h3>
           <p class="viewer-sub">Nintendo Wii, 2007</p>
           <dl><div><dt>Boîtier</dt><dd data-k="size">136 × 191 × 14 mm</dd></div><div><dt>Support</dt><dd data-k="media">disque</dd></div></dl>
-          <div class="viewer-actions"><button type="button" class="chip" data-act="open" aria-pressed="false">Ouvrir</button><button type="button" class="chip" data-act="out" aria-pressed="false">Sortir le disque</button><button type="button" class="chip" data-act="turn">Retourner</button></div>
+          <div class="viewer-actions"><button type="button" class="chip" data-act="open" aria-pressed="false">Ouvrir</button><button type="button" class="chip" data-act="out" aria-pressed="false">Sortir le disque</button><button type="button" class="chip" data-act="turn">Retourner</button><button type="button" class="chip quiet" data-act="reset">Vue d’origine</button></div>
           <button type="button" class="btn ghost viewer-load">Manipuler en 3D</button>
+          <p class="fine viewer-error" role="status" hidden>La scène 3D n’a pas pu se charger. <button type="button" class="link viewer-retry">Réessayer</button></p>
           <p class="fine viewer-drag">Faites glisser pour tourner le boîtier.</p>
         </div>
       </div>
     </div>
     <p class="systems"><span>iBox reconnaît 26 consoles, en plus de vos jeux PC :</span> Atari 2600, NES, Master System, Mega Drive, Game Boy, Super Nintendo, Game Gear, Jaguar, PlayStation, Saturn, Nintendo 64, Game Boy Color, Dreamcast, PlayStation 2, GameCube, Game Boy Advance, Xbox, DS, PSP, Xbox 360, Wii, PlayStation 3, 3DS, Wii U, Switch, Switch 2. Les boîtiers GameCube, PlayStation et PlayStation 2 sont eux aussi modélisés dans l’application.</p>
-  </div>
-</section>
-
-<section class="library dark" id="bibliotheque" aria-labelledby="library-h">
-  <div class="wrap">
-    <div class="head"><h2 id="library-h">Tous vos jeux, une seule collection.</h2><p>Vos jeux Steam, Epic Games et GOG rejoignent ceux de vos consoles. Vous les rangez par collections, iBox les pose sur l’étagère.</p></div>
-    <figure class="clip wide">
-    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/collection-tour.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : une collection de jeux Mario défile, chaque jeu dans son boîtier 3D"><source src="video/collection-tour.mp4" type="video/mp4"></video>
-      <button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div>
-    <figcaption><b>Enregistré dans iBox</b> Une collection Mario : Wii, DS, 3DS et Switch côte à côte, chacun dans son boîtier.</figcaption>
-  </figure>
-    <div class="library-second">
-      <figure class="clip ">
-    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/game-case.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : la fiche de Super Mario Galaxy, son boîtier qui s’ouvre et son manuel"><source src="video/game-case.mp4" type="video/mp4"></video>
-      <button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div>
-    <figcaption><b>Enregistré dans iBox</b> La fiche d’un jeu : le boîtier tourne, s’ouvre, et le manuel d’origine se feuillette.</figcaption>
-  </figure>
-      <figure class="clip ">
-    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/platforms.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : les consoles défilent, de la GameCube à la PlayStation 3"><source src="video/platforms.mp4" type="video/mp4"></video>
-      <button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div>
-    <figcaption><b>Enregistré dans iBox</b> Les consoles : chacune a sa fiche, son histoire et son émulateur.</figcaption>
-  </figure>
-    </div>
-  </div>
-</section>
-
-<section class="examples" aria-labelledby="examples-h">
-  <div class="wrap">
-    <div class="head"><h2 id="examples-h">Une bibliothèque qui vous ressemble.</h2><p>Douze palettes, un mode nuit, des collections illustrées à votre goût. Voici quatre exemples de configuration, capturés dans iBox.</p></div>
-    <div class="examples-tabs" role="tablist" aria-label="Exemples de configuration"><button type="button" role="tab" id="ex-retro" aria-controls="ex-panel" aria-selected="true" data-id="retro">Rétro Nintendo</button><button type="button" role="tab" id="ex-pc" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="pc">Bibliothèque PC</button><button type="button" role="tab" id="ex-rpg" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="rpg">Collection RPG</button><button type="button" role="tab" id="ex-generations" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="generations">Plusieurs générations</button></div>
-    <div class="examples-panel" id="ex-panel" role="tabpanel" aria-labelledby="ex-retro">
-      <div class="examples-frame"><img class="on" data-id="retro" src="img/examples/retro.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Rétro Nintendo »"><img data-id="pc" src="img/examples/pc.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Bibliothèque PC »"><img data-id="rpg" src="img/examples/rpg.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Collection RPG »"><img data-id="generations" src="img/examples/generations.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Plusieurs générations »"></div>
-      <div class="examples-text"><p class="on" data-id="retro">Palette Pêche. Mario, Hyrule, Wario et les consoles de poche, chacun sa collection.</p><p data-id="pc">Palette Sable. Les jeux Steam rangés par séries, les plus exigeants en tête.</p><p data-id="rpg">Palette Lavande, de nuit. Final Fantasy, pixel art et épopées de cent heures.</p><p data-id="generations">Palette Forêt. Zelda de la Wii à la Switch, sur la même étagère.</p></div>
-    </div>
-    <p class="fine">Exemples de configuration réalisés pour cette page. Ce ne sont pas des comptes de joueurs.</p>
   </div>
 </section>
 
@@ -125,16 +100,22 @@
   </div>
 </section>
 
-<section class="living" aria-labelledby="living-h">
+<section class="real" id="application" aria-labelledby="real-h">
   <div class="wrap">
-    <div class="head"><h2 id="living-h">Une place dans votre salon.</h2><p>En plein écran sur la télévision ou dans vos mains, c’est la même bibliothèque.</p></div>
-    <figure class="clip wide">
-    <div class="clip-frame"><video muted loop playsinline preload="none" poster="video/home-collections.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : l’accueil défile, de l’étagère aux collections puis aux consoles"><source src="video/home-collections.mp4" type="video/mp4"></video>
-      <button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div>
-    <figcaption><b>Enregistré dans iBox</b> L’accueil d’iBox : l’étagère, la dernière partie et vos collections.</figcaption>
-  </figure>
-    <div class="living-cols"><div><h3>Windows</h3><p>Windows 10 et 11, 64 bits. La version complète : bibliothèque, émulateurs, overlay en jeu et Remote Play.</p></div><div><h3>Steam Deck<span class="tag">En essai</span></h3><p>Une AppImage pensée pour le Mode Jeu : une seule fenêtre, les commandes du Deck, iBox dans votre bibliothèque Steam.</p></div></div>
-    <p class="fine">Encore réservé à Windows : héberger une partie Remote Play, l’overlay en jeu et les boutiques sans version Linux (EA, Ubisoft, Xbox, Battle.net).</p>
+    <div class="head"><h2 id="real-h">La vraie application, filmée telle quelle.</h2><p>Aucune maquette sur cette page. Ces séquences sont enregistrées dans iBox, sur une vraie bibliothèque.</p></div>
+    <div class="reel">
+      <div class="clip-frame" id="reel-panel" role="tabpanel" aria-labelledby="reel-game-case"><video muted loop playsinline preload="none" poster="video/game-case.webp" width="1280" height="720" aria-label="Enregistrement d’iBox : la fiche de Super Mario Galaxy, son boîtier qui s’ouvre et son manuel"><source src="video/game-case.mp4" type="video/mp4"></video><button type="button" class="clip-toggle" data-play="Lire" data-pause="Mettre en pause" aria-label="Mettre en pause" hidden><span aria-hidden="true"></span></button></div>
+      <div class="reel-tabs" role="tablist" aria-label="Séquences enregistrées"><button type="button" role="tab" id="reel-game-case" aria-controls="reel-panel" aria-selected="true" data-video="game-case" data-alt="Enregistrement d’iBox : la fiche de Super Mario Galaxy, son boîtier qui s’ouvre et son manuel"><b>La fiche d’un jeu</b><span>Le boîtier tourne, s’ouvre, et le manuel d’origine se feuillette.</span></button><button type="button" role="tab" id="reel-platforms" aria-controls="reel-panel" aria-selected="false" tabindex="-1" data-video="platforms" data-alt="Enregistrement d’iBox : les consoles défilent, de la GameCube à la PlayStation 3"><b>Les consoles</b><span>Chacune a sa fiche, son histoire et son émulateur.</span></button><button type="button" role="tab" id="reel-home-collections" aria-controls="reel-panel" aria-selected="false" tabindex="-1" data-video="home-collections" data-alt="Enregistrement d’iBox : l’accueil défile, de l’étagère aux collections puis aux consoles"><b>L’accueil</b><span>L’étagère, la dernière partie, puis vos collections.</span></button></div>
+    </div>
+    <div class="demos">
+      <div class="demos-head"><h3>Une bibliothèque qui vous ressemble<span class="tag">Démonstration</span></h3><p>Douze palettes, un mode nuit, des collections illustrées à votre goût. Ces quatre bibliothèques ont été montées pour cette page et capturées dans iBox.</p></div>
+      <div class="examples-tabs" role="tablist" aria-label="Exemples de configuration"><button type="button" role="tab" id="ex-retro" aria-controls="ex-panel" aria-selected="true" data-id="retro">Rétro Nintendo</button><button type="button" role="tab" id="ex-pc" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="pc">Bibliothèque PC</button><button type="button" role="tab" id="ex-rpg" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="rpg">Collection RPG</button><button type="button" role="tab" id="ex-generations" aria-controls="ex-panel" aria-selected="false" tabindex="-1" data-id="generations">Plusieurs générations</button></div>
+      <div class="examples-panel" id="ex-panel" role="tabpanel" aria-labelledby="ex-retro">
+        <div class="examples-frame"><img class="on" data-id="retro" src="img/examples/retro.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Rétro Nintendo »"><img data-id="pc" src="img/examples/pc.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Bibliothèque PC »"><img data-id="rpg" src="img/examples/rpg.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Collection RPG »"><img data-id="generations" src="img/examples/generations.webp" width="1600" height="784" loading="lazy" alt="Capture d’iBox, exemple de configuration « Plusieurs générations »"></div>
+        <div class="examples-text"><p class="on" data-id="retro">Palette Pêche. Mario, Hyrule, Wario et les consoles de poche, chacun sa collection.</p><p data-id="pc">Palette Sable. Les jeux Steam rangés par séries, les plus exigeants en tête.</p><p data-id="rpg">Palette Lavande, de nuit. Final Fantasy, pixel art et épopées de cent heures.</p><p data-id="generations">Palette Forêt. Zelda de la Wii à la Switch, sur la même étagère.</p></div>
+      </div>
+      <p class="fine">Bibliothèques de démonstration : ce ne sont pas des comptes de joueurs.</p>
+    </div>
   </div>
 </section>
 
@@ -147,18 +128,20 @@
       <div><a class="btn ghost" id="download-deck" href="https://github.com/atzski/ibox/releases/latest">Télécharger pour Steam Deck</a><p class="fine" id="download-deck-meta" data-ready="AppImage, Steam Deck et Linux 64 bits" data-soon="Bientôt disponible : la version Steam Deck est en essai.">AppImage, Steam Deck et Linux 64 bits</p></div>
     </div>
     <p class="get-free">Gratuit et open source, sous licence MIT. Sans compte, sans publicité.</p>
+    <div class="get-platforms"><div><h3>Windows</h3><p>Windows 10 et 11, 64 bits. La version complète : bibliothèque, émulateurs, overlay en jeu et Remote Play.</p></div><div><h3>Steam Deck<span class="tag">En essai</span></h3><p>Une AppImage pensée pour le Mode Jeu : une seule fenêtre, les commandes du Deck, iBox dans votre bibliothèque Steam.</p></div></div>
+    <p class="fine get-limits">Encore réservé à Windows : héberger une partie Remote Play, l’overlay en jeu et les boutiques sans version Linux (EA, Ubisoft, Xbox, Battle.net).</p>
   </div>
 </section>
 </main>
 
 <footer class="foot dark"><div class="wrap">
-  <a class="brand" href="index.html"><img src="logo.svg" alt="" width="26" height="26"><span>iBox</span></a>
+  <a class="brand" href="index.html"><img src="logo.svg" alt="" width="26" height="26"><span translate="no">iBox</span></a>
   <ul><li><a href="https://github.com/atzski/ibox">Code source</a></li><li><a href="https://github.com/atzski/ibox/releases">Toutes les versions</a></li><li><a href="https://github.com/atzski/ibox/blob/main/docs/GUIDE.md">Guide</a></li><li><a href="https://discord.gg/xg6uQbYGZK">Discord</a></li><li><a href="https://github.com/atzski/ibox/blob/main/LICENSE">Licence MIT</a></li><li><a href="confidentialite.html">Confidentialité et mentions légales</a></li><li><a href="credits.html">Crédits</a></li><li><a href="en.html" hreflang="en" lang="en">English</a></li></ul>
   <p class="fine">Les jeux, jaquettes et marques montrés sur cette page appartiennent à leurs éditeurs. iBox ne fournit aucun jeu.</p>
   <p class="fine">© 2026 iBox</p>
 </div></footer>
-<script type="application/json" id="site-data">{"hero":["stardew-valley","pokemon-black","super-mario-galaxy","zelda-tears-of-the-kingdom","god-of-war-ghost-of-sparta"],"story":"super-mario-galaxy","games":[{"slug":"super-mario-galaxy","title":"Super Mario Galaxy","sub":"Nintendo Wii, 2007","size":"136 × 191 × 14 mm","media":"disque","out":"Sortir le disque","back":"Ranger le disque"},{"slug":"zelda-tears-of-the-kingdom","title":"The Legend of Zelda: Tears of the Kingdom","sub":"Nintendo Switch, 2023","size":"105 × 170 × 11 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"elden-ring","title":"Elden Ring","sub":"PC, 2022","size":"135 × 190 × 14 mm","media":"disque","out":"Sortir le disque","back":"Ranger le disque"},{"slug":"pokemon-black","title":"Pokémon Black Version","sub":"Nintendo DS, 2011","size":"137 × 125 × 14 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"zelda-ocarina-of-time-3d","title":"The Legend of Zelda: Ocarina of Time 3D","sub":"Nintendo 3DS, 2011","size":"137 × 125 × 14 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"god-of-war-ghost-of-sparta","title":"God of War: Ghost of Sparta","sub":"PlayStation Portable, 2010","size":"104 × 180 × 14 mm","media":"UMD","out":"Sortir l’UMD","back":"Ranger l’UMD"},{"slug":"mario-kart-world","title":"Mario Kart World","sub":"Nintendo Switch 2, 2025","size":"105 × 170 × 11 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"}],"labels":{"stardew-valley":"Stardew Valley, PC, 2016","pokemon-black":"Pokémon Black Version, Nintendo DS, 2011","super-mario-galaxy":"Super Mario Galaxy, Nintendo Wii, 2007","zelda-tears-of-the-kingdom":"The Legend of Zelda: Tears of the Kingdom, Nintendo Switch, 2023","god-of-war-ghost-of-sparta":"God of War: Ghost of Sparta, PlayStation Portable, 2010"},"open":"Ouvrir","close":"Fermer"}</script>
-<script src="download.js?v=3.0.0" defer></script>
-<script type="module" src="app.js?v=3.0.0"></script>
+<script type="application/json" id="site-data">{"hero":["stardew-valley","pokemon-black","super-mario-galaxy","zelda-tears-of-the-kingdom","god-of-war-ghost-of-sparta"],"story":"super-mario-galaxy","games":[{"slug":"super-mario-galaxy","title":"Super Mario Galaxy","sub":"Nintendo Wii, 2007","size":"136 × 191 × 14 mm","media":"disque","out":"Sortir le disque","back":"Ranger le disque"},{"slug":"zelda-tears-of-the-kingdom","title":"The Legend of Zelda: Tears of the Kingdom","sub":"Nintendo Switch, 2023","size":"105 × 170 × 11 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"elden-ring","title":"Elden Ring","sub":"PC, 2022","size":"135 × 190 × 14 mm","media":"disque","out":"Sortir le disque","back":"Ranger le disque"},{"slug":"pokemon-black","title":"Pokémon Black Version","sub":"Nintendo DS, 2011","size":"137 × 125 × 14 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"zelda-ocarina-of-time-3d","title":"The Legend of Zelda: Ocarina of Time 3D","sub":"Nintendo 3DS, 2011","size":"137 × 125 × 14 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"},{"slug":"god-of-war-ghost-of-sparta","title":"God of War: Ghost of Sparta","sub":"PlayStation Portable, 2010","size":"104 × 180 × 14 mm","media":"UMD","out":"Sortir l’UMD","back":"Ranger l’UMD"},{"slug":"mario-kart-world","title":"Mario Kart World","sub":"Nintendo Switch 2, 2025","size":"105 × 170 × 11 mm","media":"carte de jeu","out":"Sortir la carte","back":"Ranger la carte"}],"labels":{"stardew-valley":"Stardew Valley, PC, 2016","pokemon-black":"Pokémon Black Version, Nintendo DS, 2011","super-mario-galaxy":"Super Mario Galaxy, Nintendo Wii, 2007","zelda-tears-of-the-kingdom":"The Legend of Zelda: Tears of the Kingdom, Nintendo Switch, 2023","god-of-war-ghost-of-sparta":"God of War: Ghost of Sparta, PlayStation Portable, 2010"},"open":"Ouvrir","close":"Fermer","menu":["Menu","Fermer"]}</script>
+<script src="download.js?v=4.0.0" defer></script>
+<script type="module" src="app.js?v=4.0.0"></script>
 </body>
 </html>

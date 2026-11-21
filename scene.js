@@ -13841,33 +13841,33 @@ function Ku(e = .5, t = "10,12,20") {
 	}));
 	return o.rotation.x = -Math.PI / 2, o;
 }
-var qu = (e) => Math.tan(e.fov * Math.PI / 360);
-async function Ju(e, { slugs: t, still: n = !1, onFocus: r } = {}) {
-	let i = await zu(), a = t.map((e) => i.find((t) => t.slug === e)).filter(Boolean), o = Gu(e, {
+var qu = (e) => Math.tan(e.fov * Math.PI / 360), Ju = .012, Yu = (e, t = .996) => e / 1e3 * t / (1 - t), Xu = (e, t, n = .55) => e * t * n / (t + n * Math.abs(e));
+async function Zu(e, { slugs: t, still: n = !1, onFocus: r, wide: i = .92, tall: a = .84 } = {}) {
+	let o = await zu(), s = t.map((e) => o.find((t) => t.slug === e)).filter(Boolean), c = Gu(e, {
 		fov: 24,
 		shadows: !0,
 		exposure: 1.02
-	}), s = await Promise.all(a.map((e) => Wu(e, o.renderer, {
+	}), l = await Promise.all(s.map((e) => Wu(e, c.renderer, {
 		lite: !0,
 		onFloor: !0,
 		still: n
-	}))), c = .034, l = s.reduce((e, t) => e + t.size.x, 0) + c * (s.length - 1), u = (s.length - 1) / 2, d = -l / 2, f = s.map((e, t) => {
+	}))), u = .013, d = (l.length - 1) / 2, f = (e) => .54 - (e - d) * .075, p = l.map((e, t) => e.size.x * Math.cos(f(t)) + e.size.z * Math.sin(f(t))), m = p.reduce((e, t) => e + t, 0) + u * (l.length - 1), h = -m / 2, g = l.map((e, t) => {
 		let n = {
-			x: d + e.size.x / 2,
-			z: -Math.abs(t - u) * .016,
-			ry: .5 - (t - u) * .085
+			x: h + p[t] / 2,
+			z: -Math.abs(t - d) * .034,
+			ry: f(t)
 		};
-		d += e.size.x + c;
+		h += p[t] + u;
 		let r = {
-			x: (t - u) * .0165,
+			x: (t - d) * .0165,
 			z: 0,
 			ry: Math.PI / 2
 		}, i = new zt();
 		i.add(e.group);
 		let a = new gr(new xi(e.size.x, e.size.y, e.size.z * 2.2), new ir({ visible: !1 }));
 		a.position.y = e.size.y / 2, a.userData.index = t, i.add(a);
-		let s = Ku(.42);
-		return s.position.y = 6e-4, s.scale.set(e.size.x * 1.25, e.size.z * 6, 1), i.add(s), o.scene.add(i), {
+		let o = Ku(.42);
+		return o.position.y = 6e-4, o.scale.set(e.size.x * 1.25, e.size.z * 6, 1), i.add(o), c.scene.add(i), {
 			...e,
 			pivot: i,
 			hit: a,
@@ -13881,77 +13881,82 @@ async function Ju(e, { slugs: t, still: n = !1, onFocus: r } = {}) {
 			openTo: 0,
 			shift: 0
 		};
-	}), p = new gr(new Si(4, 4), new Ci({ opacity: .2 }));
-	p.rotation.x = -Math.PI / 2, p.receiveShadow = !0, o.scene.add(p), o.key.position.set(.35, .75, .55), o.key.castShadow = !0, o.key.shadow.mapSize.set(2048, 2048), Object.assign(o.key.shadow.camera, {
+	}), _ = new gr(new Si(4, 4), new Ci({ opacity: .2 }));
+	_.rotation.x = -Math.PI / 2, _.receiveShadow = !0, c.scene.add(_), c.key.position.set(.35, .75, .55), c.key.castShadow = !0, c.key.shadow.mapSize.set(2048, 2048), Object.assign(c.key.shadow.camera, {
 		left: -.6,
 		right: .6,
 		top: .5,
 		bottom: -.3,
 		near: .1,
 		far: 3
-	}), o.key.shadow.bias = -4e-4, o.key.shadow.normalBias = .002, o.key.shadow.radius = 5;
-	let m = Math.max(...f.map((e) => e.size.y)), h = new co(), g = new G(2, 2), _ = {
+	}), c.key.shadow.bias = -4e-4, c.key.shadow.normalBias = .002, c.key.shadow.radius = 5;
+	let v = Math.max(...g.map((e) => e.size.y)), y = new co(), b = new G(2, 2), x = {
 		x: 0,
 		y: 0
-	}, v = -1, y = null, b = 0, x = 0, S = () => {
-		h.setFromCamera(g, o.camera);
-		let e = h.intersectObjects(f.map((e) => e.hit), !1)[0];
+	}, S = -1, C = null, w = 0, T = 0, E = () => {
+		y.setFromCamera(b, c.camera);
+		let e = y.intersectObjects(g.map((e) => e.hit), !1)[0];
 		return e ? e.object.userData.index : -1;
-	}, C = (t) => {
+	}, D = (t) => {
 		let n = e.getBoundingClientRect();
-		g.set((t.clientX - n.left) / n.width * 2 - 1, -((t.clientY - n.top) / n.height) * 2 + 1);
-	}, w = (t) => {
-		t !== v && (v = t, e.style.cursor = t < 0 ? "" : "grab", r?.(t < 0 ? null : f[t].game));
+		b.set((t.clientX - n.left) / n.width * 2 - 1, -((t.clientY - n.top) / n.height) * 2 + 1);
+	}, O = (t) => {
+		t !== S && (S = t, e.style.cursor = t < 0 ? "" : "grab", r?.(t < 0 ? null : g[t].game));
 	};
 	e.addEventListener("pointermove", (e) => {
-		if (C(e), y) {
-			let t = e.clientX - y.x;
-			Math.abs(t) > 4 && (y.moved = !0), y.moved && (f[y.i].spinTo = y.from + t * .012);
-		} else e.pointerType === "mouse" && w(S());
+		if (D(e), C) {
+			let t = e.clientX - C.x;
+			Math.abs(t) > 10 && (C.moved = !0), C.moved && (g[C.i].spinTo = C.from + t * Ju);
+			let n = Math.max(1, e.timeStamp - C.t);
+			C.v = C.v * .4 + (e.clientX - C.last) / n * 600, C.last = e.clientX, C.t = e.timeStamp;
+		} else e.pointerType === "mouse" && O(E());
 	}), e.addEventListener("pointerleave", () => {
-		g.set(2, 2), y || w(-1);
+		b.set(2, 2), C || O(-1);
 	}), e.addEventListener("pointerdown", (t) => {
 		if (t.button) return;
-		C(t);
-		let n = S();
-		n < 0 || (w(n), y = {
+		D(t);
+		let n = E();
+		n < 0 || (O(n), C = {
 			i: n,
 			x: t.clientX,
-			from: f[n].spinTo,
-			moved: !1
+			from: g[n].spinTo,
+			moved: !1,
+			v: 0,
+			last: t.clientX,
+			t: t.timeStamp
 		}, e.setPointerCapture(t.pointerId), e.style.cursor = "grabbing");
 	});
-	let T = () => {
-		if (!y) return;
-		let t = f[y.i];
-		if (y.moved) t.spinTo = Math.round(t.spinTo / Math.PI) * Math.PI;
+	let k = () => {
+		if (!C) return;
+		let t = g[C.i];
+		if (C.moved) t.spinTo = Math.round((t.spinTo + Yu(C.v) * Ju) / Math.PI) * Math.PI;
 		else {
 			let e = !t.openTo;
-			f.forEach((e) => {
+			g.forEach((e) => {
 				e.openTo = 0;
 			}), t.openTo = +!!e, e && (t.spinTo = Math.round(t.spinTo / (Math.PI * 2)) * Math.PI * 2);
 		}
-		y = null, e.style.cursor = v < 0 ? "" : "grab";
+		C = null, e.style.cursor = S < 0 ? "" : "grab";
 	};
-	e.addEventListener("pointerup", T), e.addEventListener("pointercancel", T);
-	let E = (e, t) => {
-		b || (b = t);
-		let r = n ? 9 : t - b, i = qu(o.camera);
-		x = Nu(x, +!!f.some((e) => e.openTo), 5, e);
-		let a = Math.max(l / .88 / (2 * i * o.camera.aspect), m / .74 / (2 * i)) * (1 + x * .13);
-		_.x = Nu(_.x, ku(g.x, -1, 1) * (g.x > 1.5 ? 0 : 1), 3, e), _.y = Nu(_.y, ku(g.y, -1, 1) * (g.y > 1.5 ? 0 : 1), 3, e), o.camera.position.set(_.x * .03, m * .66 + _.y * .012, a), o.camera.lookAt(0, m * .43, 0);
-		let s = f.findIndex((e) => e.openTo);
-		f.forEach((n, i) => {
-			let a = Mu((r - .25 - Math.abs(i - u) * .11) / 1.5), o = i === v || y && y.i === i;
-			n.lift = Nu(n.lift, +!!o, 9, e), n.open = Nu(n.open, n.openTo, 6, e), n.spin = Nu(n.spin, n.spinTo, 8, e), n.shift = Nu(n.shift, s < 0 ? 0 : f[s].size.x * (i < s ? -.46 : .4), 6, e), n.pivot.position.set(ju(n.shelf.x, n.rest.x, a) + n.shift, n.lift * .006, ju(n.shelf.z, n.rest.z, a) + n.lift * .03 + n.open * .04), n.pivot.rotation.y = ju(n.shelf.ry, n.rest.ry, a) * (1 - n.open * .75) - n.lift * .14 * (1 - n.open) + n.spin, n.pose(n.open, Au(n.open, .75, 1), 0, t);
+	e.addEventListener("pointerup", k), e.addEventListener("pointercancel", k);
+	let A = (e, t) => {
+		w || (w = t);
+		let r = n ? 9 : t - w, o = qu(c.camera);
+		T = Nu(T, +!!g.some((e) => e.openTo), 5, e);
+		let s = Math.max(m / i / (2 * o * c.camera.aspect), v / a / (2 * o)) * (1 + T * .16);
+		x.x = Nu(x.x, ku(b.x, -1, 1) * (b.x > 1.5 ? 0 : 1), 3, e), x.y = Nu(x.y, ku(b.y, -1, 1) * (b.y > 1.5 ? 0 : 1), 3, e), c.camera.position.set(x.x * .03, v * .6 + x.y * .012, s), c.camera.lookAt(0, v * .46, 0);
+		let l = g.findIndex((e) => e.openTo);
+		g.forEach((n, i) => {
+			let a = Mu((r - .25 - Math.abs(i - d) * .11) / 1.5), o = i === S || C && C.i === i;
+			n.lift = Nu(n.lift, +!!o, 9, e), n.open = Nu(n.open, n.openTo, 6, e), n.spin = Nu(n.spin, n.spinTo, 8, e), n.shift = Nu(n.shift, l < 0 ? 0 : g[l].size.x * (i < l ? -.46 : .4), 6, e), n.pivot.position.set(ju(n.shelf.x, n.rest.x, a) + n.shift, n.lift * .006, ju(n.shelf.z, n.rest.z, a) + n.lift * .03 + n.open * .04), n.pivot.rotation.y = ju(n.shelf.ry, n.rest.ry, a) * (1 - n.open * .75) - n.lift * .14 * (1 - n.open) + n.spin, n.pose(n.open, Au(n.open, .75, 1), 0, t);
 		});
 	};
-	return o.run(E), {
-		snap: () => o.snap(() => E(.016, 99)),
-		games: a
+	return c.run(A), {
+		snap: () => c.snap(() => A(.016, 99)),
+		games: s
 	};
 }
-async function Yu(e, { slug: t, still: n = !1 } = {}) {
+async function Qu(e, { slug: t, still: n = !1 } = {}) {
 	let r = (await zu()).find((e) => e.slug === t), i = Gu(e, {
 		fov: 24,
 		exposure: 1.05
@@ -13997,7 +14002,7 @@ async function Yu(e, { slug: t, still: n = !1 } = {}) {
 		game: r
 	};
 }
-async function Xu(e, { still: t = !1, onChange: n } = {}) {
+async function $u(e, { still: t = !1, onChange: n } = {}) {
 	let r = await zu(), i = Gu(e, {
 		fov: 24,
 		exposure: 1.02
@@ -14012,7 +14017,7 @@ async function Xu(e, { still: t = !1, onChange: n } = {}) {
 		};
 	})), a.get(e)), s = Ku(.3);
 	s.rotation.x = 0, i.scene.add(s);
-	let c = .191, l = 0, u = {
+	let c = .191, l = [-.55, .6], u = 0, d = {
 		current: null,
 		leaving: null,
 		yaw: -.48,
@@ -14023,71 +14028,79 @@ async function Xu(e, { still: t = !1, onChange: n } = {}) {
 		openTo: 0,
 		outTo: 0,
 		token: 0
-	}, d = null;
+	}, f = null;
 	e.addEventListener("pointerdown", (t) => {
-		t.button || (d = {
+		t.button || (f = {
 			x: t.clientX,
 			y: t.clientY,
-			yaw: u.yawTo,
-			pitch: u.pitchTo,
-			last: t.clientX
-		}, u.vel = 0, e.setPointerCapture(t.pointerId));
+			yaw: d.yawTo,
+			pitch: d.pitchTo,
+			last: t.clientX,
+			t: t.timeStamp
+		}, d.vel = 0, e.setPointerCapture(t.pointerId));
 	}), e.addEventListener("pointermove", (e) => {
-		d && (u.yawTo = d.yaw + (e.clientX - d.x) * .011, u.pitchTo = ku(d.pitch + (e.clientY - d.y) * .006, -.55, .6), u.vel = (e.clientX - d.last) * .011, d.last = e.clientX);
+		if (!f) return;
+		d.yawTo = f.yaw + (e.clientX - f.x) * .011;
+		let t = f.pitch + (e.clientY - f.y) * .006, n = ku(t, l[0], l[1]);
+		d.pitchTo = n + Xu(t - n, .5), d.vel = d.vel * .4 + (e.clientX - f.last) / Math.max(1, e.timeStamp - f.t) * 600, f.t = e.timeStamp, f.last = e.clientX;
 	});
-	let f = () => {
-		d = null;
+	let p = () => {
+		f && (f = null, d.yawTo += ku(Yu(d.vel) * .011, -Math.PI * 1.5, Math.PI * 1.5), d.vel = 0, d.pitchTo = ku(d.pitchTo, l[0], l[1]));
 	};
-	e.addEventListener("pointerup", f), e.addEventListener("pointercancel", f), e.addEventListener("keydown", (e) => {
+	e.addEventListener("pointerup", p), e.addEventListener("pointercancel", p), e.addEventListener("keydown", (e) => {
 		let t = {
 			ArrowLeft: [-.35, 0],
 			ArrowRight: [.35, 0],
 			ArrowUp: [0, -.15],
 			ArrowDown: [0, .15]
 		}[e.key];
-		t && (e.preventDefault(), u.yawTo += t[0], u.pitchTo = ku(u.pitchTo + t[1], -.55, .6));
+		t && (e.preventDefault(), d.yawTo += t[0], d.pitchTo = ku(d.pitchTo + t[1], -.55, .6));
 	});
-	let p = (e, n) => {
-		let r = qu(i.camera), a = i.camera.aspect > 1, o = c / (l || (a ? .6 : .5)) / (2 * r), f = 2 * r * o * i.camera.aspect, p = u.current;
-		i.camera.position.set(0, 0, o * (1 + (p?.open ?? 0) * .12 - (p && p.game.media === "card" ? p.out * .3 : 0))), i.camera.lookAt(0, 0, 0), d || (u.yawTo += u.vel, u.vel *= .04 ** e), u.yaw = t ? u.yawTo : Nu(u.yaw, u.yawTo, 12, e), u.pitch = t ? u.pitchTo : Nu(u.pitch, u.pitchTo, 12, e);
-		let m = u.current;
-		m && (m.x = t ? 0 : Nu(m.x, 0, 6.5, e), m.open = t ? u.openTo : Nu(m.open, u.openTo, 6, e), m.out = t ? u.outTo : Nu(m.out, u.outTo * +(m.open > .7), 6, e), m.pivot.visible = !0, m.pivot.position.set(m.x * f * .7 + m.open * m.size.x * .46, t ? 0 : Math.sin(n * 1.05) * .0016, 0), m.pivot.rotation.set(u.pitch + m.open * .12, u.yaw + m.x * 1.6, 0), m.pose(m.open, m.out, m.out, n), s.position.set(m.pivot.position.x - m.open * m.size.x * .46, -.11842, 0), s.scale.set(m.size.x * (1.7 + m.open * 1.5), c * .075, 1), s.material.opacity = 1 - Math.abs(m.x));
-		let h = u.leaving;
-		h && (h.x = Nu(h.x, -1.5, 5, e), h.pivot.position.x = h.x * f * .7, h.pivot.rotation.y += e * 2.2, (h.x < -1.3 || t) && (h.pivot.visible = !1, u.leaving = null));
+	let m = (e, n) => {
+		let r = qu(i.camera), a = i.camera.aspect > 1, o = c / (u || (a ? .6 : .5)) / (2 * r), l = 2 * r * o * i.camera.aspect, p = d.current;
+		i.camera.position.set(0, 0, o * (1 + (p?.open ?? 0) * .12 - (p && p.game.media === "card" ? p.out * .3 : 0))), i.camera.lookAt(0, 0, 0), d.yaw = t ? d.yawTo : Nu(d.yaw, d.yawTo, f ? 28 : 7, e), d.pitch = t ? d.pitchTo : Nu(d.pitch, d.pitchTo, 12, e);
+		let m = d.current;
+		m && (m.x = t ? 0 : Nu(m.x, 0, 6.5, e), m.open = t ? d.openTo : Nu(m.open, d.openTo, 6, e), m.out = t ? d.outTo : Nu(m.out, d.outTo * +(m.open > .7), 6, e), m.pivot.visible = !0, m.pivot.position.set(m.x * l * .7 + m.open * m.size.x * .46, t ? 0 : Math.sin(n * 1.05) * .0016, 0), m.pivot.rotation.set(d.pitch + m.open * .12, d.yaw + m.x * 1.6, 0), m.pose(m.open, m.out, m.out, n), s.position.set(m.pivot.position.x - m.open * m.size.x * .46, -.11842, 0), s.scale.set(m.size.x * (1.7 + m.open * 1.5), c * .075, 1), s.material.opacity = 1 - Math.abs(m.x));
+		let h = d.leaving;
+		h && (h.x = Nu(h.x, -1.5, 5, e), h.pivot.position.x = h.x * l * .7, h.pivot.rotation.y += e * 2.2, (h.x < -1.3 || t) && (h.pivot.visible = !1, d.leaving = null));
 	};
-	i.run(p);
-	let m = {
+	i.run(m);
+	let h = {
 		games: r,
 		async show(e, { instant: r = !1 } = {}) {
-			let i = ++u.token, a = await o(e);
-			i === u.token && a !== u.current && (u.leaving && (u.leaving.pivot.visible = !1), u.leaving = r ? null : u.current, r && u.current && (u.current.pivot.visible = !1), u.leaving && (u.leaving.open = 0, u.leaving.out = 0, u.leaving.pose(0, 0, 0, 0)), a.x = r || t ? 0 : 1.4, a.open = 0, a.out = 0, u.current = a, u.openTo = 0, u.outTo = 0, u.yawTo = -.48, u.pitchTo = .08, u.vel = 0, r && (u.yaw = u.yawTo, u.pitch = u.pitchTo), n?.(m.status()));
+			let i = ++d.token, a = await o(e);
+			i === d.token && a !== d.current && (d.leaving && (d.leaving.pivot.visible = !1), d.leaving = r ? null : d.current, r && d.current && (d.current.pivot.visible = !1), d.leaving && (d.leaving.open = 0, d.leaving.out = 0, d.leaving.pose(0, 0, 0, 0)), a.x = r || t ? 0 : 1.4, a.open = 0, a.out = 0, d.current = a, d.openTo = 0, d.outTo = 0, d.yawTo = -.48, d.pitchTo = .08, d.vel = 0, r && (d.yaw = d.yawTo, d.pitch = d.pitchTo), n?.(h.status()));
 		},
 		preload: (e) => o(e),
 		toggleOpen() {
-			u.openTo = +!u.openTo, u.openTo ? m.face() : u.outTo = 0, n?.(m.status());
+			d.openTo = +!d.openTo, d.openTo ? h.face() : d.outTo = 0, n?.(h.status());
 		},
 		toggleOut() {
-			u.outTo = +!u.outTo, u.outTo && (u.openTo = 1, m.face()), n?.(m.status());
+			d.outTo = +!d.outTo, d.outTo && (d.openTo = 1, h.face()), n?.(h.status());
 		},
 		face() {
-			u.yawTo = Math.round((u.yawTo + .2) / (Math.PI * 2)) * Math.PI * 2 - .2, u.pitchTo = .1, u.vel = 0;
+			d.yawTo = Math.round((d.yawTo + .2) / (Math.PI * 2)) * Math.PI * 2 - .2, d.pitchTo = .1, d.vel = 0;
 		},
 		turn() {
-			u.yawTo += Math.PI, u.vel = 0;
+			d.yawTo += Math.PI, d.vel = 0;
+		},
+		reset() {
+			d.openTo = 0, d.outTo = 0, d.vel = 0, d.pitchTo = .08, d.yawTo = Math.round((d.yawTo + .48) / (Math.PI * 2)) * Math.PI * 2 - .48, n?.(h.status());
 		},
 		status: () => ({
-			slug: u.current?.game.slug,
-			open: !!u.openTo,
-			out: !!u.outTo
+			slug: d.current?.game.slug,
+			open: !!d.openTo,
+			out: !!d.outTo,
+			yaw: Math.round(d.yaw * 100) / 100
 		}),
 		snap: (e = -.48) => {
-			l = .72;
+			u = .72;
 			let t = i.snap(() => {
-				u.yaw = u.yawTo = e, u.pitch = .08, p(.016, .4);
+				d.yaw = d.yawTo = e, d.pitch = .08, m(.016, .4);
 			});
-			return l = 0, t;
+			return u = 0, t;
 		}
 	};
-	return m;
+	return h;
 }
-export { Ju as createHero, Yu as createStory, Xu as createViewer, zu as loadGames };
+export { Zu as createHero, Qu as createStory, $u as createViewer, zu as loadGames };
