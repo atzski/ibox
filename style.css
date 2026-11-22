@@ -11,7 +11,7 @@
 @property --ibox-peach { syntax: "<color>"; inherits: true; initial-value: #f5c4ac; }
 
 :root {
-  color-scheme: light;
+  color-scheme: only light;
   --ibox-cream: #f8f7f3;
   --ibox-cream-deep: #f1efe8;
   --ibox-sky: #8ccdf1;
