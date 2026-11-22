@@ -392,6 +392,7 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 
 /* ---------- page introuvable ---------- */
 .lost { min-height: 100svh; display: grid; place-items: center; background: var(--ibox-cream); text-align: center; }
+.lost main[hidden] { display: none; }
 .lost main { display: grid; justify-items: center; gap: 18px; padding: 40px var(--pad); }
 .lost h1 { font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1; max-width: 16ch; }
 .lost p { color: var(--ink-soft); font-size: 1.15rem; }
