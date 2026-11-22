@@ -111,15 +111,18 @@ h2 { font-size: clamp(2.6rem, 6vw, 6.2rem); line-height: 0.96; letter-spacing: -
 /* ---------- fonds d'ambiance : la grande illustration d'un jeu, floutée sous un voile (comme dans iBox) ---------- */
 .hero, .formats { isolation: isolate; }
 .ambient { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
-.ambient i { position: absolute; inset: -4%; background: center / cover no-repeat; opacity: 0; transform: scale(1.04); transition: opacity 1.1s var(--ease-out), transform 1.6s var(--ease-out); }
-.ambient i.on { opacity: 1; transform: none; animation: breathe 38s ease-in-out infinite alternate; }
+.ambient i { position: absolute; inset: -6%; background: center / cover no-repeat; opacity: 0; transform: scale(1.06); transition: opacity 1.6s var(--ease-out), transform 1.6s var(--ease-out); will-change: transform, opacity; }
+.ambient i.on { opacity: 1; transform: none; animation: breathe 16s ease-in-out infinite alternate; }
 /* l'illustration dérive lentement, comme une caméra qui flotte */
-@keyframes breathe { from { transform: scale(1.04) translate(-1.2%, -0.8%); } to { transform: scale(1.14) translate(1.4%, 1%); } }
+@keyframes breathe { from { transform: scale(1.06) translate(-2.6%, -1.6%) rotate(-0.6deg); } to { transform: scale(1.2) translate(2.6%, 1.8%) rotate(0.6deg); } }
+/* passages de jeu floutés : sous les illustrations, même dérive lente */
+.ambient video { position: absolute; left: -6%; top: -6%; width: 112%; height: 112%; object-fit: cover; opacity: 0; transition: opacity 1.6s var(--ease-out); pointer-events: none; }
+.ambient video.on { opacity: 1; animation: breathe 16s ease-in-out infinite alternate; }
 .ambient::after { content: ""; position: absolute; inset: 0; background: var(--veil); }
 .hero { --veil: radial-gradient(75% 65% at 18% 18%, color-mix(in srgb, var(--ibox-cream) 82%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 40%, transparent) 55%, transparent 80%), linear-gradient(180deg, rgba(22, 26, 37, 0) 55%, rgba(22, 26, 37, 0.22) 100%); }
 .story { --veil: linear-gradient(180deg, rgba(22, 26, 52, 0.66) 0%, rgba(22, 26, 52, 0.38) 50%, rgba(30, 28, 70, 0.6) 100%); }
 .formats { --veil: linear-gradient(180deg, color-mix(in srgb, #fbf6ea 80%, transparent) 0%, color-mix(in srgb, #fbf6ea 30%, transparent) 45%, color-mix(in srgb, #fbf6ea 55%, transparent) 100%); }
-.features { --veil: linear-gradient(90deg, color-mix(in srgb, var(--ibox-cream) 86%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 66%, transparent) 45%, color-mix(in srgb, var(--ibox-cream) 30%, transparent) 100%); }
+.features { --veil: radial-gradient(55% 60% at 16% 30%, color-mix(in srgb, var(--ibox-cream) 80%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 55%, transparent) 45%, transparent 80%), linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 10%, transparent), color-mix(in srgb, var(--ibox-cream) 10%, transparent)); }
 .get { --veil: radial-gradient(60% 70% at 50% 62%, rgba(255, 244, 230, 0.86) 0%, rgba(255, 240, 222, 0.55) 60%, rgba(255, 236, 216, 0.2) 100%); }
 
 /* ---------- accueil : l'étagère ---------- */
@@ -199,8 +202,8 @@ h2 { font-size: clamp(2.6rem, 6vw, 6.2rem); line-height: 0.96; letter-spacing: -
 .lineup-info span { color: var(--ink-soft); align-self: center; }
 
 /* ---------- un fond pour chaque humeur : l'illustration d'un jeu, en fondu ---------- */
-.colors { isolation: isolate; padding-bottom: clamp(56px, 7vw, 110px); --veil: linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 78%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 20%, transparent) 45%, color-mix(in srgb, var(--ibox-cream) 40%, transparent) 100%); }
-.colors .ambient i { transition: opacity 1.2s var(--ease-out), transform 2s var(--ease-out); }
+.colors { isolation: isolate; padding-bottom: clamp(56px, 7vw, 110px); --veil: radial-gradient(60% 55% at 22% 30%, color-mix(in srgb, var(--ibox-cream) 78%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 45%, transparent) 50%, transparent 82%), radial-gradient(40% 40% at 78% 34%, color-mix(in srgb, var(--ibox-cream) 55%, transparent) 0%, transparent 80%); }
+.colors .ambient i { transition: opacity 1.2s var(--ease-out), transform 1.6s var(--ease-out); }
 .colors-stage { position: relative; height: clamp(240px, 28vw, 440px); }
 .colors-stage .poster { object-fit: contain; }
 /* la barre ne sert qu'au clavier : elle n'apparaît que quand on y entre avec Tab */
@@ -215,7 +218,7 @@ h2 { font-size: clamp(2.6rem, 6vw, 6.2rem); line-height: 0.96; letter-spacing: -
 .colors-now { text-align: center; margin-top: 16px; font-size: 1.15rem; min-height: 1.5em; }
 
 /* ---------- des collections à votre image : un avatar par exemple, son pseudo au survol ---------- */
-.collections { isolation: isolate; padding-bottom: clamp(60px, 8vw, 120px); --veil: linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 82%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 45%, transparent) 45%, color-mix(in srgb, var(--ibox-cream) 60%, transparent) 100%); }
+.collections { isolation: isolate; padding-bottom: clamp(60px, 8vw, 120px); --veil: radial-gradient(38% 34% at 76% 20%, color-mix(in srgb, var(--ibox-cream) 82%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 40%, transparent) 55%, transparent 85%), radial-gradient(60% 45% at 22% 16%, color-mix(in srgb, var(--ibox-cream) 80%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 45%, transparent) 50%, transparent 82%), linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--ibox-cream) 25%, transparent) 100%); }
 .col-tabs { display: flex; flex-wrap: wrap; gap: 14px; padding: 40px var(--pad) 0; max-width: 1680px; margin: 0 auto 26px; }
 .col-tabs button { position: relative; width: 64px; height: 64px; border-radius: 50%; transition: transform var(--base) var(--ease-spring); }
 .avatar { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: linear-gradient(140deg, var(--a), var(--b)); color: #fff; font-size: 1.9rem; box-shadow: 0 0 0 3px #fff, var(--shadow-md); transition: box-shadow var(--fast); }
@@ -341,7 +344,7 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 
 /* mouvement réduit : les fondus restent, les déplacements et les défilements automatiques s'arrêtent */
 @media (prefers-reduced-motion: reduce) {
-  .story::before, .colors::before, .features::before, .get::before, .marquee > div, .pop, .ambient i.on { animation: none !important; }
+  .story::before, .colors::before, .features::before, .get::before, .marquee > div, .pop, .ambient i.on, .ambient video { animation: none !important; }
   .js [data-split] .w > span, .js [data-reveal] { transform: none !important; }
   .js [data-split] .w > span { opacity: 0; transition: opacity 0.3s !important; }
   .js [data-split].in .w > span { opacity: 1; }
@@ -349,3 +352,6 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 }
 .story.fallback { height: auto !important; }
 .story.fallback .story-pin { display: none !important; }
+
+/* sur petit écran le texte occupe toute la largeur : voile uniforme */
+@media (max-width: 760px) { .features, .colors, .collections { --veil: linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 66%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 58%, transparent) 100%); } }
