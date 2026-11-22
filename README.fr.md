@@ -12,6 +12,8 @@ Windows 10 et 11 (64 bits) · Gratuit et open source
 
 <sub>Aussi sur <a href="#aussi-sur-steam-deck"><strong>Steam Deck</strong></a> (en essai)</sub>
 
+<sub>Découvrez iBox sur son <a href="https://atzski.github.io/ibox/"><strong>site</strong></a></sub>
+
 <sub>Rejoignez la communauté sur <a href="https://discord.gg/xg6uQbYGZK"><strong>Discord</strong></a></sub>
 
 <sub><a href="README.md">English</a> · Français</sub>
