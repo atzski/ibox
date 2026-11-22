@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-page="mitb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Music in the Box — a plugin for iBox</title>
+<meta name="description" content="Control YouTube Music or any Windows music player without leaving your game. A plugin for iBox, also available as a standalone app.">
+<meta name="theme-color" content="#F8F7F3">
+<meta property="og:title" content="Music in the Box — a plugin for iBox">
+<meta property="og:description" content="Control YouTube Music or any Windows music player without leaving your game. A plugin for iBox, also available as a standalone app.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="iBox">
+<meta property="og:url" content="https://atzski.github.io/ibox/music-in-the-box-en.html">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://atzski.github.io/ibox/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Music in the Box — a plugin for iBox">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://atzski.github.io/ibox/music-in-the-box-en.html">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="icon" href="img/icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/music-in-the-box-en.html">
+<link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/music-in-the-box.html">
+<link rel="alternate" hreflang="x-default" href="https://atzski.github.io/ibox/music-in-the-box.html">
+<link rel="preload" href="fonts/cal-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css?v=5.0.2">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="en.html"><img src="logo.svg" alt="" width="30" height="30"><span translate="no">iBox</span></a>
+  <nav aria-label="Sections"><a href="en.html#fonctions" data-silent>Features</a><a href="plugins-en.html" data-silent aria-current="page">Plugins</a></nav>
+  <button type="button" class="pill icon" data-sound aria-pressed="false" aria-label="Turn iBox sounds on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z" fill="currentColor"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <a class="pill lang" href="music-in-the-box.html" hreflang="fr" lang="fr" data-silent>FR</a>
+  <a class="pill go" href="en.html#telecharger" data-silent>Download</a>
+</header>
+
+<main id="main">
+<section class="mitb-hero" aria-labelledby="mitb-h">
+  <div class="ambient" aria-hidden="true"><i class="on" style="background-image:url(img/bg/cyberpunk-2077.webp)"></i><i></i></div>
+  <div class="mitb-copy">
+    <img class="mitb-logo" src="img/plugins/music-in-the-box.png" alt="" width="120" height="120">
+    <p class="mitb-name" translate="no">Music in the Box</p>
+    <h1 id="mitb-h" data-split>Your music, over your game.</h1>
+    <p data-reveal>Control YouTube Music, or any Windows music player, without leaving your game. One shortcut, and a glass panel slides over the action.</p>
+    <div class="actions" data-reveal><a class="btn coral" href="https://github.com/atzski/ibox/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Install in iBox</span></a><a class="btn ghost" href="https://github.com/atzski/music-in-the-box/releases/latest">Standalone app</a></div>
+    <p class="fine" data-reveal>In iBox: Settings › Plugins. Free and open source, Windows 10 and 11.</p>
+  </div>
+</section>
+
+<section class="mitb-demo" id="demo" aria-labelledby="demo-h">
+  <div class="ambient" aria-hidden="true"><i class="on" style="background-image:url(img/bg/hollow-knight.webp)"></i><i></i></div>
+  <div class="head"><h2 id="demo-h" data-split>Try it.</h2><p data-reveal>The real panel, over a real game: click, search, open the lyrics. Alt+C closes and reopens it.</p></div>
+  <div class="screen" data-src="mitb/index.html?lang=en" style="--poster:url(mitb/scene/hollow-knight.webp)">
+    <iframe title="Interactive Music in the Box demo" tabindex="0" loading="lazy"></iframe>
+  </div>
+  <div class="screen-bar">
+    <div class="scenes" role="radiogroup" aria-label="Game behind the panel"><button type="button" role="radio" aria-checked="true" data-scene="hollow-knight">Hollow Knight</button><button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene="stardew-valley">Stardew Valley</button><button type="button" role="radio" aria-checked="false" tabindex="-1" data-scene="elden-ring">Elden Ring</button></div>
+    <button type="button" class="screen-toggle"><kbd>Alt</kbd><kbd>C</kbd><span>Open or close</span></button>
+  </div>
+  <p class="screen-note fine">Demo: the library is an example, no music is played.</p>
+</section>
+
+<section class="mitb-points" aria-label="Music in the Box">
+  <div class="points"><div class="point" data-reveal><h3>Mid-game</h3><p>Alt+C on the keyboard, or View + Y on a controller. The panel takes over while it is open and hands control back as soon as it closes.</p></div><div class="point" data-reveal><h3>Glass that follows the game</h3><p>It blurs what is behind it and takes on the colours of the cover art. It never shows up in your captures.</p></div><div class="point" data-reveal><h3>All your music</h3><p>Playlists, Up next, lyrics and search in YouTube Music. Without an account, it controls Spotify, Deezer or a browser tab.</p></div></div>
+  <p class="fine mitb-legal">Music in the Box is not affiliated with YouTube or Google.</p>
+</section>
+</main>
+
+<footer class="foot" data-silent>
+  <a class="brand" href="en.html"><img src="logo.svg" alt="" width="26" height="26"><span translate="no">iBox</span></a>
+  <ul><li><a href="https://github.com/atzski/ibox">Source code</a></li><li><a href="https://github.com/atzski/ibox/releases">Releases</a></li><li><a href="https://github.com/atzski/ibox/blob/main/docs/GUIDE.md">Guide</a></li><li><a href="https://discord.gg/xg6uQbYGZK">Discord</a></li><li><a href="plugins-en.html">Plugins</a></li><li><a href="privacy.html">Privacy and legal notice</a></li><li><a href="credits.html">Credits</a></li><li><a href="music-in-the-box.html" hreflang="fr" lang="fr">Français</a></li></ul>
+  <p class="fine">The games, cover art and trademarks shown belong to their publishers. iBox does not provide any game. © 2026 iBox.</p>
+</footer>
+<script type="application/json" id="site-data">{"sound":{"on":"Turn iBox sounds on","off":"Turn iBox sounds off"},"cycle":{"demo":["hollow-knight","stardew-valley","elden-ring"]}}</script>
+<script type="module" src="assets/sub.js?v=5.0.2"></script>
+</body>
+</html>

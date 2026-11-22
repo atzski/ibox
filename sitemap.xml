@@ -2,5 +2,9 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url><loc>https://atzski.github.io/ibox/</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/en.html"/></url>
   <url><loc>https://atzski.github.io/ibox/en.html</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/en.html"/></url>
+  <url><loc>https://atzski.github.io/ibox/plugins.html</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/plugins.html"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/plugins-en.html"/></url>
+  <url><loc>https://atzski.github.io/ibox/plugins-en.html</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/plugins.html"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/plugins-en.html"/></url>
+  <url><loc>https://atzski.github.io/ibox/music-in-the-box.html</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/music-in-the-box.html"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/music-in-the-box-en.html"/></url>
+  <url><loc>https://atzski.github.io/ibox/music-in-the-box-en.html</loc><xhtml:link rel="alternate" hreflang="fr" href="https://atzski.github.io/ibox/music-in-the-box.html"/><xhtml:link rel="alternate" hreflang="en" href="https://atzski.github.io/ibox/music-in-the-box-en.html"/></url>
   <url><loc>https://atzski.github.io/ibox/credits.html</loc></url>
 </urlset>

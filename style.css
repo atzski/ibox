@@ -320,7 +320,10 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
   .pad, .sounds { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
-  .top nav { display: none; }
+  /* sur téléphone, la barre ne garde que l'onglet Plugins (Fonctions est à un défilement) */
+  .top nav a:first-child { display: none; }
+  .top nav a, .top .pill { padding: 0 12px; }
+  .top > *, .top nav a { flex-shrink: 0; }
   :root { --sheet: 1.75rem; }
   .top { left: 12px; right: 12px; transform: none; justify-content: space-between; }
   .top.away { transform: translateY(calc(-100% - 24px)); }
@@ -363,8 +366,8 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 .story.fallback .story-pin { display: none !important; }
 
 /* bulles de verre dépoli, ajustées à chaque bloc de texte posé sur une vidéo */
-:is(.features, .colors, .collections) .head h2,
-:is(.features, .colors, .collections) .head p,
+:is(.features, .colors, .collections, .plugins, .mitb-demo) .head :is(h1, h2),
+:is(.features, .colors, .collections, .plugins, .mitb-demo) .head p,
 .features .feature-text, .features .feature-pair .feature {
   width: fit-content; max-width: 100%;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.52));
@@ -372,12 +375,12 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
   border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow: 0 12px 36px -14px rgba(36, 48, 70, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-:is(.features, .colors, .collections) .head h2 { padding: 0.16em 0.34em 0.2em; margin-left: -0.34em; border-radius: 0.42em; }
-:is(.features, .colors, .collections) .head p { padding: 0.8em 1em; border-radius: 1.25rem; color: var(--ink); }
+:is(.features, .colors, .collections, .plugins, .mitb-demo) .head :is(h1, h2) { padding: 0.16em 0.34em 0.2em; margin-left: -0.34em; border-radius: 0.42em; }
+:is(.features, .colors, .collections, .plugins, .mitb-demo) .head p { padding: 0.8em 1em; border-radius: 1.25rem; color: var(--ink); }
 .features .feature-text, .features .feature-pair .feature { padding: clamp(18px, 2vw, 26px) clamp(20px, 2.2vw, 30px); border-radius: 1.6rem; }
 .features .emu .feature-text { margin: 0 var(--pad) 0 max(var(--pad), calc((100% - 1680px) / 2 + var(--pad))); max-width: min(640px, calc(100% - 2 * var(--pad))); }
 .features .feature-text p, .features .feature-pair .feature p { color: var(--ink); }
-@media (max-width: 760px) { .features, .colors, .collections { --veil: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08)); } :root { --blend: 84px; } :is(.features, .colors, .collections) .head h2 { margin-left: 0; } }
+@media (max-width: 760px) { .features, .colors, .collections { --veil: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08)); } :root { --blend: 84px; } :is(.features, .colors, .collections, .plugins, .mitb-demo) .head :is(h1, h2) { margin-left: 0; } }
 
 /* le bas de chaque section s'efface sur la suivante : son contenu reste au-dessus du fondu */
 .colors, .collections, .features { padding-bottom: calc(var(--blend) + clamp(20px, 3vw, 48px)); }
@@ -396,3 +399,60 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 .lost main { display: grid; justify-items: center; gap: 18px; padding: 40px var(--pad); }
 .lost h1 { font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1; max-width: 16ch; }
 .lost p { color: var(--ink-soft); font-size: 1.15rem; }
+
+/* ---------- barre du haut : la page où l'on est ---------- */
+.top nav a[aria-current="page"] { background: color-mix(in srgb, var(--ibox-sky) 26%, transparent); }
+
+/* ---------- Plugins ---------- */
+.plugins { isolation: isolate; min-height: 100svh; padding-bottom: calc(var(--blend) + clamp(40px, 6vw, 90px)); --veil: linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 30%, transparent), color-mix(in srgb, var(--ibox-cream) 18%, transparent)); }
+.plugins h1, .mitb-hero h1 { font-size: clamp(2.9rem, 6.6vw, 7.4rem); line-height: 0.94; letter-spacing: -0.012em; }
+.plugin-list { list-style: none; max-width: 1100px; margin: 0 auto; padding: 0 var(--pad); }
+.plugin { display: grid; overflow: hidden; border-radius: clamp(22px, 2.4vw, 34px); text-decoration: none; color: var(--ink);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.56)); -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 30px 70px -30px rgba(36, 48, 70, 0.45); transition: transform var(--base) var(--ease-spring), box-shadow var(--base); }
+@media (hover: hover) and (pointer: fine) { .plugin:hover { transform: translateY(-6px); box-shadow: 0 40px 80px -30px rgba(36, 48, 70, 0.55); } }
+.plugin-shot { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.plugin-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: clamp(14px, 2vw, 26px); padding: clamp(18px, 2.4vw, 30px); }
+.plugin-logo { width: clamp(56px, 6vw, 76px); height: auto; filter: drop-shadow(0 10px 18px rgba(52, 68, 89, 0.25)); }
+.plugin b { display: block; font-weight: 400; font-size: clamp(1.6rem, 2.6vw, 2.4rem); line-height: 1.05; }
+.plugin-tag { display: block; margin-top: 4px; font-size: clamp(1.05rem, 1.4vw, 1.25rem); }
+.plugin .fine { display: block; margin-top: 6px; }
+.plugins-soon { text-align: center; margin-top: 22px; }
+@media (max-width: 760px) { .plugin-body { grid-template-columns: auto 1fr; } .plugin-body .btn { grid-column: 1 / -1; justify-self: start; } }
+
+/* ---------- Music in the Box ---------- */
+.mitb-hero { isolation: isolate; min-height: 100svh; display: grid; place-items: center; text-align: center; padding: 110px var(--pad) calc(var(--blend) + 40px);
+  --veil: radial-gradient(60% 55% at 50% 48%, color-mix(in srgb, var(--ibox-cream) 82%, transparent) 0%, color-mix(in srgb, var(--ibox-cream) 50%, transparent) 55%, color-mix(in srgb, var(--ibox-cream) 26%, transparent) 100%); }
+.mitb-copy { display: grid; justify-items: center; gap: clamp(12px, 1.6vw, 20px); max-width: 980px; }
+.mitb-logo { width: clamp(96px, 10vw, 140px); height: auto; filter: drop-shadow(0 18px 30px rgba(52, 68, 89, 0.3)); animation: float 6s ease-in-out infinite alternate; }
+@keyframes float { from { transform: translateY(-4px) rotate(-2deg); } to { transform: translateY(6px) rotate(2deg); } }
+.mitb-name { font-size: clamp(1.15rem, 1.6vw, 1.45rem); color: var(--ink-soft); }
+.mitb-copy > p:not(.mitb-name):not(.fine) { max-width: 40ch; font-size: clamp(1.1rem, 1.5vw, 1.4rem); line-height: 1.4; color: var(--ink-soft); }
+.mitb-copy .actions { justify-content: center; margin-top: 6px; }
+.mitb-demo { isolation: isolate; padding-bottom: calc(var(--blend) + clamp(30px, 4vw, 60px)); --veil: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.06)); }
+.screen { position: relative; max-width: 1440px; margin: 0 auto; overflow: hidden; border-radius: clamp(18px, 2.4vw, 34px);
+  background: #10131c var(--poster) center / cover no-repeat; box-shadow: 0 40px 90px -36px rgba(10, 14, 28, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.screen { width: calc(100% - 2 * var(--pad)); }
+.screen iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; opacity: 0; transition: opacity 0.6s var(--ease-out); }
+.screen.live iframe { opacity: 1; }
+.screen:focus-within { box-shadow: 0 40px 90px -36px rgba(10, 14, 28, 0.7), 0 0 0 3px var(--ink); }
+.screen-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; width: calc(100% - 2 * var(--pad)); max-width: 1440px; margin: 18px auto 0; }
+.scenes { display: flex; flex-wrap: wrap; gap: 8px; }
+.scenes button, .screen-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; font-size: 1.02rem; color: var(--ink);
+  background: rgba(255, 255, 255, 0.66); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 24px -14px rgba(36, 48, 70, 0.35); transition: background var(--fast), color var(--fast), transform var(--base) var(--ease-spring); }
+.scenes button[aria-checked="true"] { background: var(--ink); color: #fff; border-color: transparent; }
+@media (hover: hover) and (pointer: fine) { .scenes button:hover, .screen-toggle:hover { transform: translateY(-2px); } }
+.screen-toggle kbd { min-width: 26px; padding: 4px 6px; border-radius: 7px; background: var(--ink); color: #fff; font: inherit; font-size: 0.85rem; text-align: center; }
+.screen-note { width: calc(100% - 2 * var(--pad)); max-width: 1440px; margin: 12px auto 0; }
+.mitb-points { isolation: isolate; padding: calc(var(--blend) + clamp(30px, 4vw, 60px)) var(--pad) calc(var(--blend) + clamp(40px, 6vw, 90px)); background: linear-gradient(180deg, #e9f1f8 0%, #fbf6ea 50%, var(--ibox-cream) 100%); }
+.points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 24px); max-width: 1440px; margin: 0 auto; }
+.point { padding: clamp(20px, 2.4vw, 30px); border-radius: 1.75rem; background: color-mix(in srgb, #fff 80%, transparent); box-shadow: var(--shadow-md); }
+.point h3 { font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.05; }
+.point p { margin-top: 10px; line-height: 1.45; color: var(--ink-soft); }
+.mitb-legal { max-width: 1440px; margin: 22px auto 0; text-align: center; }
+@media (max-width: 760px) { .points { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .mitb-logo { animation: none; } }
+
+/* très petits écrans : le logo suffit à la marque, la place va à Plugins */
+@media (max-width: 400px) { .top .brand span { display: none; } .top nav a, .top .pill { padding: 0 11px; } }
