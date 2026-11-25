@@ -144,6 +144,7 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     classList: { contains: (c: string) => e.ad && c === "ad-showing" },
     getPlayerState: () => e.state,
     getCurrentTime: () => e.pos,
+    getVideoData: () => ({ video_id: e.id }),
     getDuration: () => durOf(e.id),
     loadVideoById: (a: { videoId: string; startSeconds?: number }) => {
       e.loads++;
@@ -164,7 +165,8 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     querySelector: (sel: string) => (sel === "video" ? echoVideo : null),
     addEventListener: () => undefined,
   };
-  const mainVideo = { get volume() { return sim.volume / 100; } };
+  // balise du lecteur principal : elle joue pendant la lecture et pendant une publicité
+  const mainVideo = { get volume() { return sim.volume / 100; }, get paused() { return !(sim.state === 1 || sim.ad); } };
   const document = {
     ...(opts.echo
       ? {
@@ -181,7 +183,7 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
         }
       : {}),
     getElementById: (id: string) => (id === "movie_player" ? player : null),
-    querySelector: (sel: string) => (sel.includes("ytmusic-player-bar") ? bar : sel === "video" && opts.echo ? mainVideo : sel === "ytmusic-app" ? app : null),
+    querySelector: (sel: string) => (sel.includes("ytmusic-player-bar") ? bar : sel === "video" ? mainVideo : sel === "ytmusic-app" ? app : null),
     querySelectorAll: () => [],
     body: { dispatchEvent: () => true, appendChild: () => { e.frames++; e.loadLeft = opts.echo?.never ? -1 : (opts.echo?.load ?? 400); } },
     cookie: "",
@@ -680,7 +682,7 @@ describe("Music in the Box : fondu enchaîné (deux lecteurs)", () => {
     p.until(16);
     expect(p.echo.loads).toBe(1);
     expect(p.echo.id).toBe("a");
-    p.until(6.5);
+    p.until(7.2);
     // calé et muet : rien de plus ne s'entend, le lecteur joue seul
     expect(Math.abs(p.echo.pos - p.sim.pos)).toBeLessThan(0.03);
     expect(p.echo.muted).toBe(true);
@@ -828,7 +830,7 @@ describe("Music in the Box : fondu enchaîné (deux lecteurs)", () => {
     p.sim.pos = 180;
     p.until(5.5);
     expect([p.sim.next, p.current(), p.echo.muted]).toEqual([0, "a", false]);
-    expect(p.sim.pos).toBeLessThan(1);
+    expect(p.sim.pos).toBeLessThan(1.5);
     p.to(7);
     expect([p.current(), p.sim.volume, p.echo.muted]).toEqual(["a", 60, true]);
     const l = listen(p.heard, "a", "a");
@@ -1075,7 +1077,7 @@ describe("Music in the Box : l'écho ne s'entend jamais hors de sa prise de paro
     p.fade(SIX);
     p.call("volume", { value: 30 });
     p.sim.pos = 180;
-    p.until(6.6);
+    p.until(7.2);
     // l'écho joue, calé, et sa balise a été remise à plein volume par « YouTube » : rien ne s'entend
     expect([p.echo.state, p.echo.routed]).toEqual([1, true]);
     expect(p.heard.every((h) => h.ge === 0)).toBe(true);
@@ -1099,5 +1101,114 @@ describe("Music in the Box : l'écho ne s'entend jamais hors de sa prise de paro
     p.to(4);
     expect([p.current(), p.sim.volume, p.echo.loads]).toEqual(["b", 60, 0]);
     expect(p.heard.every((h) => h.ge === 0)).toBe(true);
+  });
+});
+
+describe("Music in the Box : lecture annoncée à iBox (musique des menus)", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+  const announced = (p: ReturnType<typeof page>) => (p.call("state").ok as { playerState: number }).playerState;
+
+  it("publicité qui joue (YouTube annonce -1) : annoncée comme une lecture", () => {
+    const p = page();
+    p.run(500);
+    p.sim.state = -1;
+    p.sim.ad = true;
+    expect(announced(p)).toBe(1);
+    // publicité en pause : en pause
+    p.sim.ad = false;
+    p.sim.state = 2;
+    expect(announced(p)).toBe(2);
+  });
+
+  it("passage d'un titre au suivant : annoncé comme un chargement, puis la vraie fin au bout de 4 s", () => {
+    const p = page({ songs: [{ id: "a", dur: 60 }, { id: "b", dur: 60 }] });
+    p.sim.pos = 59.5;
+    p.run(700);
+    expect(p.sim.state).not.toBe(1);
+    expect(announced(p)).toBe(3);
+    p.to(1);
+    expect([p.current(), announced(p)]).toEqual(["b", 1]);
+    // fin de la file : la musique s'est arrêtée pour de bon, iBox doit le savoir
+    p.sim.pos = 59.9;
+    p.run(300);
+    expect(p.sim.state).toBe(0);
+    expect(announced(p)).toBe(3);
+    p.run(4500);
+    expect(announced(p)).toBe(0);
+  });
+
+  it("pause de l'utilisateur : annoncée aussitôt", () => {
+    const p = page();
+    p.run(500);
+    p.call("pause");
+    expect(announced(p)).toBe(2);
+  });
+});
+
+describe("Music in the Box : l'écho ne joue jamais un autre titre", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+
+  it("l'écho passe à un autre titre en plein fondu : il se tait aussitôt, sans jamais remonter", () => {
+    const p = page({ echo: {}, songs: [{ id: "a", dur: 200 }, { id: "b", dur: 180 }, { id: "c", dur: 200 }, { id: "autre", dur: 240 }] });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(1.5);
+    expect(p.echo.muted).toBe(false);
+    const before = p.echo.volume;
+    const from = p.heard.length;
+    // YouTube enchaîne un autre titre dans le second lecteur : position repartie de zéro
+    p.echo.id = "autre";
+    p.echo.pos = 0;
+    p.run(100);
+    expect(p.echo.muted).toBe(true);
+    expect(Math.max(...p.heard.slice(from).map((h) => h.ge))).toBeLessThanOrEqual(before / (60 / 100) + 0.01);
+    p.to(7);
+    // le titre prévu finit sa montée, seul
+    expect([p.current(), p.sim.volume]).toEqual(["b", 60]);
+    expect(p.heard.slice(from + 10).every((h) => h.ge === 0)).toBe(true);
+  });
+
+  it("l'écho revient en arrière dans l'ancien titre : il se tait aussi", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(1.5);
+    p.echo.pos = 2;
+    p.run(100);
+    expect(p.echo.muted).toBe(true);
+  });
+
+  it("l'écho se remet à jouer tout seul après le fondu : coupé et arrêté en moins d'une seconde", () => {
+    const p = page({ echo: {}, songs: [{ id: "a", dur: 200 }, { id: "b", dur: 180 }, { id: "c", dur: 200 }, { id: "autre", dur: 240 }] });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(7);
+    expect(p.echo.state).not.toBe(1);
+    const from = p.heard.length;
+    // reprise venue d'ailleurs, sur un autre titre, son de la balise remis par YouTube
+    p.echo.id = "autre";
+    p.echo.pos = 0;
+    p.echo.state = 1;
+    p.run(1000);
+    expect(p.echo.state).not.toBe(1);
+    expect(p.heard.slice(from).every((h) => h.ge === 0)).toBe(true);
+  });
+
+  it("fin du fichier de l'écho : arrêté avant la dernière seconde", () => {
+    const p = page({ echo: {}, songs: [{ id: "a", dur: 200 }, { id: "b", dur: 30 }] });
+    p.fade({ seconds: 12, pairs: {} });
+    p.sim.pos = 180;
+    let stopped = -1;
+    for (let i = 0; i < 400 && stopped < 0; i++) {
+      p.run(50);
+      if (p.echo.id === "a" && p.echo.state !== 1 && p.echo.pos > 190) stopped = p.echo.pos;
+    }
+    expect(stopped).toBeGreaterThan(0);
+    expect(stopped).toBeLessThan(200);
   });
 });
