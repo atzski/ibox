@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { contentRect, decodeHost, encode, fingerprintOf, MAX_HELD_KEYS, normalizePoint, packSdp, padWire, SCANCODES, unpackSdp, verificationCode, wheelUnits } from "./remotePlayGuest";
+import { describe, expect, it, vi } from "vitest";
+import { attachPad, contentRect, decodeHost, encode, fingerprintOf, LatencyTracker, MAX_HELD_KEYS, normalizePoint, sendReport, packSdp, padWire, SCANCODES, unpackSdp, verificationCode, wheelUnits } from "./remotePlayGuest";
 
 const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join(" ");
 
@@ -88,5 +88,120 @@ describe("échange manuel", () => {
     expect(fingerprintOf("a=fingerprint:sha-1 00:11")).toBeNull();
     // même valeur que transport::sdp::tests (Rust)
     expect(await verificationCode("A", "B")).toBe("0351 4052 4831");
+  });
+});
+
+describe("latence de l'image", () => {
+  it("messages de mesure : octets identiques à protocol.rs", () => {
+    expect(hex(encode.report(23_400, 9_100))).toBe("53 68 5b 00 00 8c 23 00 00");
+    const b = new Uint8Array(25);
+    const v = new DataView(b.buffer);
+    b[0] = 0x52;
+    v.setUint32(1, 0xdeadbeef, true);
+    v.setBigUint64(5, 1_795_000_000_000_000n, true);
+    v.setBigUint64(13, 1_795_000_000_004_200n, true);
+    v.setUint32(21, 3_900, true);
+    expect(decodeHost(b.buffer)).toEqual({ type: "timing", rtp: 0xdeadbeef, captureMicros: 1_795_000_000_000_000, sentMicros: 1_795_000_000_004_200, hostMicros: 3_900 });
+    // longueur différente : ignoré, comme tout message inconnu
+    expect(decodeHost(b.slice(0, 24).buffer)).toBeNull();
+  });
+
+  /** Hôte en avance de `skew` ms sur l'invité ; trajet aller `forward`, retour `back`. */
+  function scenario(skew: number, forward: number, back: number) {
+    const t = new LatencyTracker();
+    const host = 6; // capture → dernier paquet envoyé
+    const guest = 8; // réception → affichage
+    for (let i = 0; i < 5; i++) {
+      const capture = 1_000_000 + i * 250; // horloge de l'hôte
+      const sentHost = capture + host;
+      const received = sentHost + forward - skew; // horloge de l'invité
+      t.ping(forward + back);
+      t.timing({ rtp: 90 * i, captureMicros: capture * 1000, sentMicros: sentHost * 1000, hostMicros: host * 1000 }, received);
+      t.frame(90 * i, received, received + guest);
+    }
+    return t;
+  }
+
+  it("trajet symétrique : total exact quel que soit l'écart des horloges", () => {
+    for (const skew of [0, 5_000, -73_000]) {
+      const t = scenario(skew, 10, 10);
+      expect(t.clockOffsetMs()).toBeCloseTo(skew, 6);
+      const l = t.snapshot();
+      expect(l.totalMs).toBeCloseTo(24, 6);
+      expect(l.hostMs).toBeCloseTo(6, 6);
+      expect(l.networkMs).toBeCloseTo(10, 6);
+      expect(l.guestMs).toBeCloseTo(8, 6);
+    }
+  });
+
+  it("trajet asymétrique : erreur égale à la moitié de l'asymétrie, pas plus", () => {
+    // aller 14 ms, retour 6 ms : vrai total 28 ms, mesuré 24 ms
+    const l = scenario(1_234, 14, 6).snapshot();
+    expect(l.totalMs).toBeCloseTo(28 - (14 - 6) / 2, 6);
+    expect(l.guestMs).toBeCloseTo(8, 6);
+  });
+
+  it("hôte plus ancien (aucune mesure) : seule la part de l'invité est connue", () => {
+    const t = new LatencyTracker();
+    t.ping(20);
+    t.frame(1, 100, 109);
+    t.frame(2, 116, 127);
+    t.frame(3, 133, 143);
+    expect(t.hostTimed).toBe(false);
+    expect(t.snapshot()).toEqual({ totalMs: null, hostMs: null, networkMs: null, guestMs: 10 });
+  });
+
+  it("sans ping, pas d'écart d'horloge, donc pas de total inventé", () => {
+    const t = new LatencyTracker();
+    t.timing({ rtp: 7, captureMicros: 1_000_000, sentMicros: 1_006_000, hostMicros: 6_000 }, 1_016);
+    t.frame(7, 1_016, 1_024);
+    expect(t.snapshot().totalMs).toBeNull();
+  });
+
+  it("rapport envoyé à l'hôte seulement s'il a envoyé ses mesures", () => {
+    const sent: Uint8Array[] = [];
+    const session = { send: (_: "input" | "control", d: Uint8Array<ArrayBuffer>) => (sent.push(d), true) };
+    const old = new LatencyTracker();
+    old.frame(1, 100, 110);
+    sendReport(session, old);
+    expect(sent).toHaveLength(0);
+    sendReport(session, scenario(0, 10, 10));
+    expect(hex(sent[0])).toBe(hex(encode.report(24_000, 8_000)));
+  });
+});
+
+describe("commandes sur le canal non fiable", () => {
+  it("manette : un changement est répété deux fois aussitôt, puis toutes les 100 ms", () => {
+    vi.useFakeTimers();
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+    const pad = { id: "Manette", connected: true, buttons, axes: [0, 0, 0, 0] };
+    vi.stubGlobal("window", { setInterval, clearInterval });
+    vi.stubGlobal("navigator", { getGamepads: () => [pad] });
+    const sent: { at: number; seq: number; buttons: number }[] = [];
+    let seq = 0;
+    const started = performance.now();
+    const session = {
+      nextSeq: () => ++seq,
+      send: (_: "input" | "control", d: Uint8Array<ArrayBuffer>) => {
+        const v = new DataView(d.buffer);
+        sent.push({ at: Math.round(performance.now() - started), seq: v.getUint32(2, true), buttons: v.getUint16(6, true) });
+        return true;
+      },
+    };
+    const detach = attachPad(session);
+    vi.advanceTimersByTime(60);
+    // premier état, puis deux répétitions espacées de 8 ms : un paquet perdu ne coûte que 8 ms
+    expect(sent.map((s) => s.at)).toEqual([4, 12, 20]);
+    buttons[0] = { pressed: true, value: 1 }; // A
+    vi.advanceTimersByTime(60);
+    expect(sent.slice(3).map((s) => [s.at, s.buttons])).toEqual([[64, 0x1000], [72, 0x1000], [80, 0x1000]]);
+    // numéros de séquence toujours croissants : l'hôte refuse tout numéro déjà vu
+    expect(sent.map((s) => s.seq)).toEqual([1, 2, 3, 4, 5, 6]);
+    // au repos : un rappel toutes les 100 ms seulement
+    vi.advanceTimersByTime(200);
+    expect(sent.length).toBe(8);
+    detach();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });

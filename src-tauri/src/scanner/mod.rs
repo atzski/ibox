@@ -125,8 +125,10 @@ pub fn plausible_content(src: &mut dyn headers::Source, ext: &str) -> bool {
         }
         // .rom (mGBA) et .dmg (aussi les images disque macOS) : en-tête Game Boy obligatoire
         ".rom" | ".dmg" => headers::detect(src, ext).is_some(),
-        // un ISO de données ordinaire (Windows, Linux…) n'est pas un jeu
-        ".iso" => headers::detect(src, ext).is_some() || !iso9660(src),
+        // tout .iso est retenu : si son contenu ne désigne aucune console (disque de
+        // données, image d'une console sans signature lisible), il n'est rangé nulle
+        // part au hasard — la question est posée à l'utilisateur (`library::iso`)
+        ".iso" => true,
         ".chd" => starts(b"MComprHD"),
         ".cso" | ".ciso" => starts(b"CISO"),
         ".zso" => starts(b"ZISO"),
@@ -205,6 +207,21 @@ pub fn read_header(path: &Path) -> Option<headers::HeaderInfo> {
     headers::detect(&mut src, &ext)
 }
 
+/// Le fichier est-il un « .iso » (extension partagée par huit consoles) ?
+pub fn is_iso(path: &Path) -> bool {
+    formats::extension_of(path).as_deref() == Some(".iso")
+}
+
+/// Indice faible lu dans un .iso que les en-têtes n'ont pas identifié.
+pub fn iso_hint(path: &Path) -> Option<&'static str> {
+    if !is_iso(path) {
+        return None;
+    }
+    let file = File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+    headers::iso_hint(&mut headers::ReaderSource::new(file, size))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,14 +252,34 @@ mod tests {
     }
 
     #[test]
-    fn iso_de_donnees_refuse_iso_inconnu_garde() {
-        // ISO 9660 sans « PLAYSTATION » ni « PSP GAME » : un disque de données
+    fn tout_iso_est_retenu() {
+        // ISO 9660 sans signature de console (image reconstruite, disque de
+        // données…) : retenu, la console sera demandée
         let mut iso = vec![0u8; 0x9000];
         iso[0x8000] = 1;
         iso[0x8001..0x8006].copy_from_slice(b"CD001");
-        assert!(!check(iso, ".iso"));
-        // contenu indéchiffrable : proposé, mais « à vérifier » plus loin
+        assert!(check(iso.clone(), ".iso"));
+        // la même image en .img reste acceptée comme disque brut
+        assert!(check(iso, ".img"));
+        // contenu indéchiffrable : retenu aussi
         assert!(check(vec![0x42; 0x20000], ".iso"));
+    }
+
+    #[test]
+    fn indice_d_un_iso_lu_sur_disque() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut iso = vec![0u8; 0x9000];
+        iso[0x8000] = 1;
+        iso[0x8001..0x8006].copy_from_slice(b"CD001");
+        iso[0x8008..0x8013].copy_from_slice(b"PLAYSTATION");
+        let ps = tmp.path().join("Jeu.ISO");
+        std::fs::write(&ps, &iso).unwrap();
+        assert!(is_iso(&ps));
+        assert_eq!(iso_hint(&ps), Some("ps1"));
+        let other = tmp.path().join("Jeu.bin");
+        std::fs::write(&other, &iso).unwrap();
+        assert!(!is_iso(&other));
+        assert_eq!(iso_hint(&other), None, "l'indice ne vaut que pour les .iso");
     }
 
     #[test]

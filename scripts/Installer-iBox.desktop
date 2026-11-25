@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Installer iBox
+Name[en]=Install iBox
+Comment=Télécharge et installe iBox sur ce Steam Deck
+Comment[en]=Downloads and installs iBox on this Steam Deck
+# Ouvre un terminal, lance le script d'installation officiel (scripts/install-steamdeck.sh du dépôt
+# atzski/ibox) et attend une touche avant de fermer, pour laisser lire le résultat.
+Exec=bash -c 'curl -fsSL https://raw.githubusercontent.com/atzski/ibox/main/scripts/install-steamdeck.sh | bash; echo; read -r -n 1 -p "Appuyez sur une touche pour fermer / Press any key to close "'
+Terminal=true
+Icon=system-software-install
+Categories=Game;

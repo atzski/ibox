@@ -207,8 +207,13 @@ pub(crate) fn upload_share(meta: &[(&str, String)], mut bytes: Vec<u8>, thumb: O
     let response = client.post(url).bearer_auth(token).header("content-type", "application/octet-stream").body(bytes).send()
         .map_err(|_| err("NETWORK_ERROR", "iNetbox est injoignable."))?;
     let status = response.status();
+    let retry = response.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.trim().parse::<u64>().ok());
     let value: Value = response.json().unwrap_or(Value::Null);
     if status.is_success() { return Ok(value); }
+    // trois publications par jour (iNetbox 0.18.0) : l'attente vient du serveur, jamais son texte
+    if value["error"]["code"].as_str() == Some("DAILY_SHARE_LIMIT") {
+        return Err(Error { retry_after_seconds: retry, ..err("DAILY_SHARE_LIMIT", "Trois publications par jour au plus.") });
+    }
     Err(match status.as_u16() {
         401 => err("UNAUTHENTICATED", "Connectez-vous à iNetbox pour partager."),
         413 => err("TOO_LARGE", "Capture trop lourde pour être partagée."),
@@ -231,6 +236,20 @@ pub(crate) fn share_media(id: &str, thumb: bool) -> Result<Vec<u8>> {
     let image = bytes.starts_with(&[0x89, b'P', b'N', b'G']) || bytes.starts_with(b"GIF8") || (thumb && bytes.starts_with(&[0xff, 0xd8, 0xff]));
     if bytes.len() > 8 * 1024 * 1024 || !image { return Err(err("INVALID_RESPONSE", "Capture invalide.")); }
     Ok(bytes)
+}
+
+/// Amis du compte connecté (partage d'un clip par iClips : `share.rs`).
+pub(crate) fn friends(app: &AppHandle) -> std::result::Result<Vec<Value>, String> {
+    let snap = perform(app, "snapshot", Value::Null, None).map_err(|e| e.message)?;
+    Ok(snap["friends"].as_array().cloned().unwrap_or_default())
+}
+
+/// Message privé à un ami (lien d'un clip partagé par iClips), mêmes limites que la discussion.
+pub(crate) fn send_message(app: &AppHandle, friend: &str, body: &str) -> std::result::Result<(), String> {
+    if friend.len() != 36 || !friend.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') {
+        return Err("Ami inconnu.".into());
+    }
+    perform(app, "sendMessage", json!({ "friendId": friend, "body": body }), None).map(drop).map_err(|e| e.message)
 }
 
 fn perform(app: &AppHandle, action: &str, body: Value, id: Option<String>) -> Result<Value> {

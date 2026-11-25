@@ -18,6 +18,22 @@ pub fn window_label(id: &str) -> String {
     format!("plugin-{id}")
 }
 
+/// Libellé de l'écran plein d'un plugin (`screen` du manifeste). « : » n'entre dans aucun
+/// identifiant : pas de confusion possible avec la fenêtre d'un autre plugin.
+pub fn screen_label(id: &str) -> String {
+    format!("plugin-{id}:screen")
+}
+
+/// Fenêtre (ou écran) appartenant au plugin `id`.
+pub fn owns(label: &str, id: &str) -> bool {
+    label == window_label(id) || label == screen_label(id)
+}
+
+/// Fenêtre d'un plugin, quel qu'il soit : aucune commande d'iBox ne lui est ouverte (lib.rs).
+pub fn is_plugin_label(label: &str) -> bool {
+    label.starts_with("plugin-")
+}
+
 /// Adresse d'un fichier du plugin pour une fenêtre (`WebviewUrl::CustomProtocol`).
 pub fn url(id: &str, path: &str) -> String {
     if cfg!(windows) || cfg!(target_os = "android") {
@@ -44,6 +60,7 @@ pub fn mime(path: &str) -> &'static str {
         "mp3" => "audio/mpeg",
         "ogg" => "audio/ogg",
         "wav" => "audio/wav",
+        "mp4" => "video/mp4",
         _ => "application/octet-stream",
     }
 }
@@ -84,7 +101,7 @@ fn text(status: StatusCode, msg: &str) -> Response<Vec<u8>> {
 pub fn handle(app: &AppHandle, webview_label: &str, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let path = percent_decode(req.uri().path());
     let Some((id, file)) = split(&path) else { return text(StatusCode::BAD_REQUEST, "Adresse invalide.") };
-    if webview_label != window_label(id) {
+    if !owns(webview_label, id) {
         return text(StatusCode::FORBIDDEN, "Réservé à la fenêtre du plugin.");
     }
     let Some(active) = super::active(app.clone(), id) else { return text(StatusCode::NOT_FOUND, "Plugin absent ou désactivé.") };
@@ -99,6 +116,33 @@ pub fn handle(app: &AppHandle, webview_label: &str, req: &Request<Vec<u8>>) -> R
         };
         return respond(StatusCode::OK, "application/json", out.to_string().into_bytes(), None);
     }
+    if let Some(name) = file.strip_prefix("__clips/") {
+        if !active.allows("clips") {
+            return text(StatusCode::FORBIDDEN, "Permission clips manquante.");
+        }
+        let Some(path) = crate::capture::clip_path(app, name) else { return text(StatusCode::NOT_FOUND, "Clip introuvable.") };
+        let range = req.headers().get(header::RANGE).and_then(|v| v.to_str().ok());
+        return clip(&path, range);
+    }
+    // image figée à l'ouverture du panneau (iClips remplace l'overlay de capture)
+    if file == "__shot" {
+        if !active.allows("clips-capture") {
+            return text(StatusCode::FORBIDDEN, "Permission clips-capture manquante.");
+        }
+        return match crate::capture::frozen_png() {
+            Some(png) => respond(StatusCode::OK, "image/png", png, None),
+            None => text(StatusCode::NOT_FOUND, "Aucune image figée."),
+        };
+    }
+    if let Some(name) = file.strip_prefix("__thumbs/") {
+        if !active.allows("clips") {
+            return text(StatusCode::FORBIDDEN, "Permission clips manquante.");
+        }
+        return match crate::capture::clip_thumb_path(app, name).and_then(|p| std::fs::read(p).ok()) {
+            Some(bytes) => respond(StatusCode::OK, "image/jpeg", bytes, None),
+            None => text(StatusCode::NOT_FOUND, "Vignette introuvable."),
+        };
+    }
     match std::fs::read(active.dir.join(file)) {
         Ok(bytes) => {
             let m = mime(file);
@@ -107,6 +151,55 @@ pub fn handle(app: &AppHandle, webview_label: &str, req: &Request<Vec<u8>>) -> R
         }
         Err(_) => text(StatusCode::NOT_FOUND, "Fichier introuvable."),
     }
+}
+
+/// Plus grand morceau servi par réponse : la balise `<video>` redemande la suite.
+const CHUNK: u64 = 4 * 1024 * 1024;
+
+/// `Range: bytes=a-b`, `bytes=a-`, `bytes=-n` → (début, fin incluse), bornés au fichier et à
+/// `CHUNK`. `None` : demande hors du fichier.
+pub fn byte_range(header: Option<&str>, len: u64) -> Option<(u64, u64)> {
+    if len == 0 {
+        return None;
+    }
+    let (start, end) = match header.and_then(|h| h.trim().strip_prefix("bytes=")) {
+        None => (0, len - 1),
+        Some(spec) => {
+            let (a, b) = spec.split(',').next()?.trim().split_once('-')?;
+            match (a.trim(), b.trim()) {
+                ("", n) => {
+                    let n: u64 = n.parse().ok()?;
+                    (len.saturating_sub(n), len - 1)
+                }
+                (a, "") => (a.parse().ok()?, len - 1),
+                (a, b) => (a.parse().ok()?, b.parse::<u64>().ok()?.min(len - 1)),
+            }
+        }
+    };
+    (start <= end && start < len).then(|| (start, end.min(start + CHUNK - 1)))
+}
+
+/// Sert un clip par morceaux (lecture et déplacement dans la vidéo).
+fn clip(path: &std::path::Path, range: Option<&str>) -> Response<Vec<u8>> {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(path) else { return text(StatusCode::NOT_FOUND, "Clip introuvable.") };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    let Some((start, end)) = byte_range(range, len) else {
+        return Response::builder().status(StatusCode::RANGE_NOT_SATISFIABLE).header(header::CONTENT_RANGE, format!("bytes */{len}")).body(Vec::new()).unwrap_or_else(|_| Response::new(Vec::new()));
+    };
+    let mut body = vec![0u8; (end - start + 1) as usize];
+    if f.seek(SeekFrom::Start(start)).and_then(|_| f.read_exact(&mut body)).is_err() {
+        return text(StatusCode::INTERNAL_SERVER_ERROR, "Lecture impossible.");
+    }
+    Response::builder()
+        .status(StatusCode::PARTIAL_CONTENT)
+        .header(header::CONTENT_TYPE, match path.extension().and_then(|e| e.to_str()) { Some("gif") => "image/gif", Some("png") => "image/png", _ => "video/mp4" })
+        .header(header::ACCEPT_RANGES, "bytes")
+        .header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{len}"))
+        .header("X-Content-Type-Options", "nosniff")
+        .header(header::CACHE_CONTROL, "no-store")
+        .body(body)
+        .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
 fn percent_decode(s: &str) -> String {
@@ -141,6 +234,29 @@ mod tests {
         assert_eq!(split("/demo"), None);
         assert_eq!(split(&percent_decode("/demo/%2e%2e/x")), None);
         assert_eq!(percent_decode("/a%20b"), "/a b");
+    }
+
+    #[test]
+    fn plugin_windows_are_told_apart() {
+        assert!(owns("plugin-iclips", "iclips") && owns("plugin-iclips:screen", "iclips"));
+        assert!(!owns("plugin-iclips:screen", "iclips-x") && !owns("plugin-iclips-x", "iclips") && !owns("main", "iclips"));
+        assert!(is_plugin_label("plugin-iclips:screen") && !is_plugin_label("main") && !is_plugin_label("music"));
+    }
+
+    #[test]
+    fn byte_ranges_stay_inside_the_file() {
+        let mb = 1024 * 1024;
+        assert_eq!(byte_range(None, 100), Some((0, 99)));
+        assert_eq!(byte_range(Some("bytes=0-"), 100), Some((0, 99)));
+        assert_eq!(byte_range(Some("bytes=10-19"), 100), Some((10, 19)));
+        assert_eq!(byte_range(Some("bytes=90-500"), 100), Some((90, 99)));
+        assert_eq!(byte_range(Some("bytes=-10"), 100), Some((90, 99)));
+        assert_eq!(byte_range(Some("bytes=100-"), 100), None);
+        assert_eq!(byte_range(Some("bytes=20-10"), 100), None);
+        assert_eq!(byte_range(Some("bytes=x-"), 100), None);
+        assert_eq!(byte_range(None, 0), None);
+        // morceau de 4 Mo au plus
+        assert_eq!(byte_range(Some("bytes=0-"), 50 * mb), Some((0, 4 * mb - 1)));
     }
 
     #[test]

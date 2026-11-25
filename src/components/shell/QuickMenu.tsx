@@ -23,6 +23,7 @@ export const CONTROLS: { pad: PadKey[]; keys: string; label: string }[] = [
   { pad: ["west"], keys: "X", label: "Action rapide : jouer, rechercher" },
   { pad: ["north"], keys: "F", label: "Option : retourner le boîtier, favori" },
   { pad: ["rs"], keys: "Molette", label: "Défiler la page, tourner le boîtier" },
+  { pad: ["rsH"], keys: "− / +", label: "Jaquettes : reculer / avancer" },
   { pad: ["start"], keys: "F1", label: "Menu rapide" },
   { pad: ["select"], keys: "/", label: "Recherche" },
   { pad: ["guide"], keys: "—", label: "Accueil" },

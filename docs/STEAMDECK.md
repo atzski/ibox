@@ -685,6 +685,115 @@ dans un fichier privé (D4).
   gamescope, c'est l'overlay de Steam), les clips (Steam les enregistre lui-même), et les
   boutiques sans version Linux.
 
+### Mode performance et installation en une ligne (2026-11-24, à essayer sur un Deck)
+
+**Constat, mesuré** (aperçu 1280×800, Chrome sans fenêtre, processeur bridé ×4, puis rendu
+logiciel pour faire peser flous et ombres sur le processeur comme sur un petit GPU) :
+
+- L'accueil immobile repeignait à chaque image. Deux animations en étaient la cause : le reflet de
+  la tuile iBox Platforms et les squelettes de chargement, animés par `background-position` (jamais
+  confié à la carte graphique). Sans aucune animation, la peinture tombe à presque rien.
+- Les jaquettes pas encore à l'écran (plus loin dans une rangée, plus bas dans une grille) animaient
+  leur squelette sans fin.
+- Neuf à onze flous d'arrière-plan par écran, plus trois halos de 90 à 110 px de flou qui dérivent
+  en permanence derrière tout : sous WebKitGTK, chaque image recalcule ces flous.
+- L'étagère 3D était redessinée à 60 images par seconde même posée ; la visionneuse des fiches
+  ignorait le profil graphique (rythme de l'écran, définition ×2).
+- En Mode Jeu, la fenêtre d'iBox reste « visible » derrière le jeu : toute l'interface continuait de
+  s'animer pendant la partie.
+
+**Pour tout le monde, Windows compris** (rien ne change à l'écran) :
+
+- Reflet de la tuile iBox Platforms et squelettes de chargement déplacés par `transform` (même
+  image, même trajet) : `global.css`, `.ibox-platforms-glow-ink`, `.ibox-shimmer::after`.
+- Squelette animé seulement à l'approche de l'écran (`CoverImage`).
+- **Veille de l'interface** (`services/performance.ts`, `<html data-asleep>`) : fenêtre masquée,
+  document caché, ou jeu en cours sans qu'iBox ait le focus → animations CSS en pause, scènes 3D
+  à l'arrêt, plus de jaquette qui saute sur l'accueil. Un geste dans la fenêtre réveille aussitôt.
+- Animations coupées hors écran (`motion/offscreen.ts`) : les grandes cases de l'accueil quand on a
+  défilé plus bas.
+- Accueil : le compteur qui monte ne redessine plus l'étagère ; les animations de mise en page ne
+  sont mesurées que si l'ordre ou le contenu des sections change.
+
+**Mode performance** (`<html data-perf="lite">`, `styles/performance.css`) : Paramètres ›
+Apparence › Performances, trois positions. Automatique = activé sur une console portable : Steam
+Deck reconnu par son modèle (DMI, comme avant), ou machine annoncée par Steam (`SteamDeck=1`, champ
+`handheld` de `platform_info`). Ce qu'il change :
+
+| Sujet | Sans | Avec |
+| --- | --- | --- |
+| Flous d'arrière-plan (`backdrop-blur`) | 9 à 11 par écran | aucun ; surfaces à 92 % d'opacité |
+| Halos du fond, lueurs décoratives | filtre de flou de 14 à 110 px | même tache, par dégradé de masque |
+| Fond du jeu (jaquette ou illustration) | filtre de 7 à 60 px sur une image qui bouge | image réduite une fois (`art/soften.ts`), sans filtre |
+| Ombres | deux couches, jusqu'à 80 px ; fondu au survol | une couche, 22 px au plus ; posée d'un coup |
+| Anneau de focus | respire (repeint l'élément, jusqu'à l'écran entier pour l'étagère) | même anneau, immobile |
+| Inclinaison des jaquettes au pointeur | une couche graphique par jaquette | retirée (souris seulement) |
+| Étagère 3D | selon le profil | définition de l'écran, 60 im/s, **dessinée seulement quand elle bouge** (`three/activity.ts`) |
+| Visionneuse des fiches | rythme de l'écran, définition ×2 | suit le profil graphique |
+
+Le profil graphique « Automatique » devient « Steam Deck » quand le mode performance est actif
+sur une machine qui n'est pas un Deck. Les fondus de bord (masques de l'accueil et de son étagère)
+sont gardés : mesurés, les retirer ne gagnait rien. Les sélecteurs visent les noms des classes
+utilitaires (`[class*="backdrop-blur"]`…) : aucun composant n'a à connaître le mode.
+
+**Mesures, carte graphique du PC** (médianes de 3 / 2 / 2 passes ; « avant » = code de départ, « après » = mode performance éteint, « perf » = mode performance). Coûts par image dessinée, en millisecondes ; « peinture » = préparer l'image, « GPU » = la composer.
+
+| Scénario | Fil principal avant / après / perf | Peinture avant / après / perf | GPU avant / après / perf | Pire image avant / après / perf |
+| --- | --- | --- | --- | --- |
+| accueil immobile | 6,12 / 4,2 / 3,85 (−37 %) | 3,18 / 1,31 / 1,44 (−55 %) | 0,48 / 0,4 / 0,42 (−12 %) | 58 / 58 / 52 (−11 %) |
+| accueil navigation | 7,15 / 4,84 / 4 (−44 %) | 3,88 / 1,84 / 1,53 (−61 %) | 0,61 / 0,5 / 0,46 (−24 %) | 58 / 52 / 50 (−14 %) |
+| bibliothèque immobile | 2,88 / 2,34 / 1,56 (−46 %) | 0,15 / 0,12 / 0,11 (−27 %) | 0,1 / 0,08 / 0,02 (−83 %) | 8 / 6 / 12 (+47 %) |
+| bibliothèque navigation | 5,29 / 4,95 / 4,28 (−19 %) | 0,48 / 0,47 / 0,47 (−2 %) | 1,12 / 1,11 / 0,35 (−69 %) | 87 / 93 / 79 (−9 %) |
+| paramètres immobile | 2,5 / 2,54 / 1,52 (−39 %) | 0,77 / 0,81 / 0,23 (−70 %) | 0,6 / 0,52 / 0 (−100 %) | 12 / 18 / 6 (−46 %) |
+| paramètres défilement | 3,54 / 2,48 / 1,6 (−55 %) | 1,1 / 0,76 / 0,23 (−79 %) | 1,1 / 0,72 / 0,04 (−96 %) | 233 / 179 / 22 (−90 %) |
+| paramètres navigation | 5,77 / 5,83 / 5,22 (−9 %) | 1,63 / 1,64 / 1,62 (−0 %) | 0,76 / 0,74 / 0,78 (+3 %) | 262 / 260 / 262 (+0 %) |
+| fiche de jeu immobile | 7,13 / 3,04 / 2,52 (−65 %) | 0,18 / 0,11 / 0,11 (−39 %) | 0,63 / 0,16 / 0,14 (−77 %) | 25 / 14 / 10 (−58 %) |
+
+**Mesures, rendu logiciel** (`--disable-gpu` : flous et ombres retombent sur le processeur, comme sur un petit GPU ; 1 / 1 / 0 passes). Images par seconde obtenues et pire image.
+
+| Scénario | Images/s avant / après / perf | Pire image (ms) avant / après / perf | Images > 33 ms avant / après / perf |
+| --- | --- | --- | --- |
+| accueil immobile | 24,2 / 24,5 / — | 83 / 83 / — | 61 / 55 / — |
+| accueil navigation | 24,4 / 25,3 / — | 83 / 83 / — | 75 / 68 / — |
+| bibliothèque immobile | 48,7 / 48,7 / — | 33 / 33 / — | 9 / 12 / — |
+| bibliothèque navigation | 20,9 / 21,2 / — | 433 / 417 / — | 27 / 25 / — |
+| paramètres immobile | 53,7 / 53,5 / — | 50 / 33 / — | 9 / 12 / — |
+| paramètres défilement | 45,4 / 45,2 / — | 50 / 34 / — | 28 / 27 / — |
+| paramètres navigation | 35,4 / 36,6 / — | 250 / 267 / — | 31 / 31 / — |
+| fiche de jeu immobile | 26,7 / 26,9 / — | 50 / 67 / — | 52 / 48 / — |
+
+**Étagère 3D posée** (bibliothèque immobile) : temps GPU par seconde 23 / 19 / 4 ms (avant / après / perf) ; en rendu logiciel, fil principal occupé 74 / 73 / — %. Vérifié aussi dans l'aperçu : en mode performance, aucune image WebGL dessinée pendant 2 s d'étagère immobile, 200 images dans la seconde qui suit un appui sur la croix.
+
+**Recensement de l'écran** (accueil / Paramètres › Apparence) :
+
+| | Flous d'arrière-plan | Filtres de flou | Animations continues |
+| --- | --- | --- | --- |
+| avant | 9 / 10 | 9 / 33 | 27 / 16 |
+| après | 9 / 11 | 9 / 33 | 20 / 16 |
+| mode performance | 0 / 0 | 2 / 2 | 20 / 15 |
+
+
+**Installation** : `scripts/install-steamdeck.sh` et `scripts/Installer-iBox.desktop`, marche à
+suivre dans `docs/STEAMDECK-INSTALL.md`. Le script télécharge la dernière AppImage publiée,
+vérifie son empreinte SHA-256, la range sous un nom fixe (`~/Applications/iBox.AppImage`), crée
+raccourci et entrée de menu, et propose l'ajout à Steam par `steamos-add-to-steam` (l'outil de
+SteamOS, Steam ouvert, aucun fichier de Steam modifié). Essayé sous Ubuntu (WSL) contre un faux
+serveur de versions : installation, relance, empreinte fausse, version sans AppImage, adresse
+étrangère, Steam simulé, désinstallation, refus en administrateur.
+
+**Non vérifié, à essayer sur un vrai Deck** (`docs/STEAMDECK-TESTS.md`, sections 0 bis et 3) :
+
+- Tout gain réel : les mesures viennent de Chromium sur un PC, pas de WebKitGTK sur la puce du
+  Deck. Elles disent ce qui a été retiré, pas le nombre d'images par seconde obtenu.
+- Le rendu du mode performance sous WebKitGTK (masques en dégradé, `:has()`, propriétés
+  `translate` et `mask-image`), et la lisibilité des panneaux sans flou.
+- Le réveil de l'interface au retour d'un jeu en Mode Jeu (focus rendu par gamescope).
+- `SteamDeck=1` sur une console SteamOS autre que le Deck.
+- `steamos-add-to-steam` avec une entrée `.desktop` : nom et commande écrits par Steam, et donc
+  si « Ajouter iBox à Steam » retrouve ce raccourci pour y poser ses illustrations sans doublon.
+- `Installer-iBox.desktop` ouvert depuis Dolphin.
+
+
 ### Stratégie validée le 2026-11-18 (rien n'est publié)
 Décisions de l'utilisateur : FFmpeg LGPL seul en liaison dynamique, VA-API d'abord avec repli
 logiciel, mentions et sources fournies, brevets documentés à part, étagère 3D gardée avec un

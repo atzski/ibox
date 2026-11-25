@@ -668,6 +668,7 @@ pub async fn remote_play_invite(app: AppHandle, args: InviteArgs) -> Result<Stat
             frame_log: None,
             audio: cfg.audio != crate::remote_play::config::AudioSource::None,
             hide_discord_echo: cfg.hide_discord_echo,
+            responsive: cfg.quality == crate::remote_play::config::Quality::Latency,
         };
         let invite = ctx.api.create_invite(&args.friend_id, invite_mode(args.profile)).map_err(|e| e.message)?;
         let cancel = Arc::new(AtomicBool::new(false));

@@ -9,8 +9,8 @@ import type { AvatarChoice } from "./settings";
  */
 export interface LocalCapture { name: string; kind: "screenshot" | "clip"; game?: string | null; platformId?: string | null; at: number; size: number }
 /** Réglages des clips vidéo (voir `clips.rs`). */
-export interface ClipSettings { quality: "low" | "medium" | "high"; seconds: number; systemAudio: boolean; microphone: boolean }
-export const CLIP_SECONDS_CHOICES = [5, 10, 15, 20, 30] as const;
+export interface ClipSettings { quality: "low" | "medium" | "high" | "max"; seconds: number; systemAudio: boolean; microphone: boolean; systemVolume: number; micVolume: number; tracks: boolean; everywhere: boolean }
+export const CLIP_SECONDS_CHOICES = [5, 10, 15, 30, 60, 120] as const;
 
 export interface SharedCapture {
   id: string; kind: "screenshot" | "clip"; game: string | null; platformId: string | null; caption: string;
@@ -22,6 +22,21 @@ export interface ShareComment {
   /** Réponse : commentaire d'origine (un seul niveau). */
   parentId?: string | null;
 }
+
+/** Publications des dernières 24 heures (iNetbox 0.18.0 : trois par jour glissant). */
+export interface ShareQuota { limit: number; used: number; resetAt: number | null }
+
+/** Phrase sous le bouton Partager : places restantes, ou attente avant la prochaine publication. */
+export function quotaText(quota: ShareQuota | null, now: number): string | null {
+  if (!quota) return null;
+  const left = quota.limit - quota.used;
+  if (left > 0 || quota.resetAt === null) return left === 1 ? "Encore 1 publication possible aujourd’hui" : `Encore ${left} publications possibles aujourd’hui`;
+  const minutes = Math.max(1, Math.ceil((quota.resetAt - now) / 60_000));
+  return minutes < 60
+    ? `Trois publications par jour au plus : la prochaine sera possible dans ${minutes} min.`
+    : `Trois publications par jour au plus : la prochaine sera possible dans ${Math.ceil(minutes / 60)} h.`;
+}
+export const quotaFull = (quota: ShareQuota | null, now: number) => !!quota && quota.used >= quota.limit && quota.resetAt !== null && quota.resetAt > now;
 
 /** Réactions de la Communauté : clés stables côté serveur, émoji et nom côté iBox. */
 export const REACTIONS = [
@@ -48,11 +63,14 @@ export const captures = {
   remove: (name: string) => invoke<void>("captures_delete", { name }),
   folder: () => invoke<void>("captures_folder"),
   share: (name: string, caption?: string, mentions: string[] = []) => invoke<{ id: string }>("community_share", { name, caption: caption ?? null, mentions }),
-  settings: (clips: boolean, hotkey: boolean, clip: ClipSettings) => (isTauri() ? invoke<void>("capture_settings", { clips, hotkey, clip }) : Promise.resolve()),
+  settings: (clips: boolean, hotkey: boolean, clip: ClipSettings, outputDevice?: string | null, micDevice?: string | null) =>
+    (isTauri() ? invoke<void>("capture_settings", { clips, hotkey, clip, outputDevice: outputDevice ?? null, micDevice: micDevice ?? null }) : Promise.resolve()),
 };
 
 export const community = {
   feed: () => call<{ items: SharedCapture[] }>("shares").then((r) => r.items),
+  /** Publications du jour ; null avec un serveur plus ancien (sans limite quotidienne). */
+  quota: () => call<{ quota?: ShareQuota }>("shares").then((r) => r.quota ?? null),
   remove: (id: string) => call<void>("deleteShare", undefined, id),
   react: (id: string, emoji: ReactionKey | null) =>
     emoji ? call<ReactionSummary>("react", { emoji }, id) : call<ReactionSummary>("unreact", undefined, id),

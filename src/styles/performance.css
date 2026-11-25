@@ -1,0 +1,101 @@
+/*
+ * iBox — veille de l'interface et mode performance (`services/performance.ts`).
+ *
+ * Rien ici ne s'applique à l'apparence par défaut : chaque règle est gardée par
+ * `html[data-asleep]` (personne ne regarde iBox), `[data-offscreen]` (conteneur hors écran) ou
+ * `html[data-perf="lite"]` (Steam Deck, petites machines, Paramètres › Apparence › Performances).
+ *
+ * Le mode performance retire ce que WebKitGTK et les petits GPU recalculent à chaque image :
+ * flous d'arrière-plan, flous de décor, grandes ombres portées, anneau de focus animé. Formes,
+ * couleurs, mises en page et mouvements restent ceux d'iBox.
+ *
+ * Les fondus de bord (masques de l'accueil et de son étagère) sont gardés exprès : mesurés, ils ne
+ * coûtent rien de plus, et le masque de l'accueil réunit même ses couches en une seule.
+ *
+ * Les sélecteurs visent les classes utilitaires par leur nom (`[class*="backdrop-blur"]`) : un
+ * nouvel élément flouté est allégé sans rien ajouter ici, et aucun composant n'a à connaître le mode.
+ * Règles hors couche (`@layer`) : elles l'emportent sur les utilitaires Tailwind.
+ */
+
+/* ——— Veille : tout s'arrête quand personne ne regarde ——— */
+html[data-asleep] *,
+html[data-asleep] *::before,
+html[data-asleep] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ——— Animations hors écran (conteneurs marqués par `useOffscreenPause`) ——— */
+[data-offscreen],
+[data-offscreen] *,
+[data-offscreen] *::before,
+[data-offscreen] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ——— Mode performance ——— */
+
+/* 1. Flous d'arrière-plan : remplacés par des aplats translucides, un peu plus couvrants */
+html[data-perf="lite"] *,
+html[data-perf="lite"] *::before,
+html[data-perf="lite"] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+/* surfaces claires (cartes, barres, panneaux) : le « blanc » du thème, presque plein */
+html[data-perf="lite"] [class*="backdrop-blur"][class*="bg-white/"] {
+  background-color: color-mix(in oklab, var(--ibox-white) 92%, transparent) !important;
+}
+/* surfaces sombres (bandeaux posés sur une image ou une vidéo) */
+html[data-perf="lite"] [class*="backdrop-blur"][class*="bg-black/"] {
+  background-color: color-mix(in oklab, #000000 80%, transparent) !important;
+}
+/* voiles plein écran couleur crème (lancement, « Qui joue ? », première configuration) */
+html[data-perf="lite"] [class*="backdrop-blur"][class*="--ibox-cream"] {
+  background-color: color-mix(in oklab, var(--ibox-cream) 94%, transparent) !important;
+}
+/* tuile iBox Platforms : sans dépoli, le dégradé du thème porte seul la tuile */
+html[data-perf="lite"] .ibox-platforms-glow {
+  opacity: 0.86;
+}
+
+/* 2. Flous de décor (`blur-*`) : le filtre est retiré, saturation et luminosité restent */
+html[data-perf="lite"] :is([class^="blur-"], [class*=" blur-"]) {
+  --tw-blur: initial !important;
+}
+/* halos (disques et ellipses floutés) : même tache douce, dessinée par un dégradé de masque */
+html[data-perf="lite"] :is([class^="blur-"], [class*=" blur-"]):is(.rounded-full, [class*="rounded-[50%]"]) {
+  -webkit-mask-image: radial-gradient(ellipse closest-side, #000 18%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse closest-side, #000 18%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+}
+/* étagère 3D : fond du jeu (déjà réduit à quelques pixels, ou grande illustration) et halo du
+   boîtier choisi (déjà un dégradé) sans filtre ; ils sont recomposés à chaque image de la scène */
+html[data-perf="lite"] .ibox-shelf-soft {
+  filter: none !important;
+}
+
+/* 3. Ombres : une seule couche, moins étalée (les liserés et reliefs intérieurs restent) */
+html[data-perf="lite"] {
+  --shadow-sm: 0 2px 6px light-dark(rgba(52, 68, 89, 0.12), rgba(0, 0, 0, 0.4));
+  --shadow-md: 0 6px 14px -4px light-dark(rgba(52, 68, 89, 0.2), rgba(0, 0, 0, 0.5));
+  --shadow-lg: 0 10px 22px -8px light-dark(rgba(52, 68, 89, 0.3), rgba(0, 0, 0, 0.6));
+}
+/* grandes ombres écrites à la main (flou de 40 px et plus) : ramenées à l'ombre large du thème */
+html[data-perf="lite"] :is([class*="px_40px_"], [class*="px_48px_"], [class*="px_60px_"], [class*="px_70px_"], [class*="px_80px_"])[class*="shadow-["] {
+  --tw-shadow: var(--shadow-lg) !important;
+}
+/* l'ombre du survol et du focus se pose d'un coup : son fondu repeint la carte à chaque image */
+html[data-perf="lite"] .ibox-focusable {
+  transition-property: transform, background-color, outline-color, outline-offset;
+}
+
+/* 4. Focus : même anneau, immobile (sa respiration repeint tout l'élément à chaque image,
+      jusqu'à l'écran entier pour l'étagère) */
+html[data-perf="lite"][data-input="keyboard"] .ibox-focusable:focus {
+  animation: none;
+}
+
+/* 5. Jaquettes : pas d'inclinaison au pointeur. Son `perspective()` permanent donne à chaque
+      jaquette sa propre couche graphique, même immobile (des centaines dans une grille) */
+html[data-perf="lite"] .ibox-tilt {
+  transform: none;
+}

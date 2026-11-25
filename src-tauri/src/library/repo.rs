@@ -120,6 +120,7 @@ pub fn remove_folder(conn: &mut Connection, id: i64) -> Result<()> {
     tx.execute("DELETE FROM game_files WHERE folder_id = ?1", [id])?;
     tx.execute("DELETE FROM games WHERE id NOT IN (SELECT game_id FROM game_files)", [])?;
     tx.execute("DELETE FROM folders WHERE id = ?1", [id])?;
+    super::iso::drop_folder(&tx, id)?;
     tx.commit()?;
     Ok(())
 }
@@ -353,6 +354,8 @@ pub fn update_game(conn: &Connection, id: i64, patch: &GamePatch) -> Result<()> 
     }
     if let Some(p) = &patch.platform_id {
         conn.execute("UPDATE games SET platform_id = ?2 WHERE id = ?1", params![id, p])?;
+        // un .iso corrigé garde sa nouvelle console même si son dossier est retiré puis rajouté
+        super::iso::remember_game(conn, id, p)?;
     }
     if let Some(t) = &patch.title {
         let t = t.trim();

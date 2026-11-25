@@ -360,7 +360,7 @@ fn remember_foreground() {}
 /// (combo manette) : on attache le fil au fil de la fenêtre active le temps du changement.
 /// Pas de touche Alt simulée : elle ouvrirait la barre de menus de certains émulateurs.
 #[cfg(windows)]
-fn force_foreground(hwnd: isize) {
+pub(crate) fn force_foreground(hwnd: isize) {
     use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
     use windows_sys::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow};
     unsafe {
@@ -445,8 +445,10 @@ pub mod pad {
     }
 }
 
+/// Boutons XInput de toutes les manettes réunies ; `None` : aucune manette (ou XInput absent).
+/// Partagé avec le panneau des plugins (`plugins/panel.rs`).
 #[cfg(windows)]
-fn pad_thread(app: AppHandle) {
+pub(crate) fn xinput_buttons() -> Option<u16> {
     #[repr(C)]
     #[derive(Default, Clone, Copy)]
     struct Gamepad {
@@ -465,22 +467,33 @@ fn pad_thread(app: AppHandle) {
         pad: Gamepad,
     }
     type GetState = unsafe extern "system" fn(u32, *mut XState) -> u32;
-
-    std::thread::spawn(move || {
+    static GET: std::sync::OnceLock<Option<GetState>> = std::sync::OnceLock::new();
+    let get = (*GET.get_or_init(|| unsafe {
         use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
-        let get: GetState = unsafe {
-            let mut lib = LoadLibraryA(c"xinput1_4.dll".as_ptr() as _);
-            if lib.is_null() {
-                lib = LoadLibraryA(c"xinput9_1_0.dll".as_ptr() as _);
-            }
-            if lib.is_null() {
-                return;
-            }
-            match GetProcAddress(lib, c"XInputGetState".as_ptr() as _) {
-                Some(f) => std::mem::transmute::<unsafe extern "system" fn() -> isize, GetState>(f),
-                None => return,
-            }
-        };
+        let mut lib = LoadLibraryA(c"xinput1_4.dll".as_ptr() as _);
+        if lib.is_null() {
+            lib = LoadLibraryA(c"xinput9_1_0.dll".as_ptr() as _);
+        }
+        if lib.is_null() {
+            return None;
+        }
+        GetProcAddress(lib, c"XInputGetState".as_ptr() as _).map(|f| std::mem::transmute::<unsafe extern "system" fn() -> isize, GetState>(f))
+    }))?;
+    let mut now = 0u16;
+    let mut connected = false;
+    for slot in 0..4 {
+        let mut s = XState::default();
+        if unsafe { get(slot, &mut s) } == 0 {
+            connected = true;
+            now |= s.pad.buttons;
+        }
+    }
+    connected.then_some(now)
+}
+
+#[cfg(windows)]
+fn pad_thread(app: AppHandle) {
+    std::thread::spawn(move || {
         let mut before = 0u16;
         let mut combo_since: Option<Instant> = None;
         let mut combo_fired = false;
@@ -495,22 +508,13 @@ fn pad_thread(app: AppHandle) {
                 continue;
             };
             // toutes les manettes réunies : n'importe laquelle ouvre et pilote le panneau
-            let mut now = 0u16;
-            let mut connected = false;
-            for slot in 0..4 {
-                let mut s = XState::default();
-                if unsafe { get(slot, &mut s) } == 0 {
-                    connected = true;
-                    now |= s.pad.buttons;
-                }
-            }
-            if !connected {
+            let Some(now) = xinput_buttons() else {
                 // aucune manette : on vérifie une fois par seconde seulement
                 idle_checks += 1;
                 before = 0;
                 std::thread::sleep(Duration::from_millis(if idle_checks > 3 { 1000 } else { 100 }));
                 continue;
-            }
+            };
             idle_checks = 0;
 
             if now & combo == combo {

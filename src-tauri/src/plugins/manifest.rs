@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 /// Permissions connues. `webview:<origine https>` s'ajoute à cette liste.
 /// `backdrop` : image de la zone sous l'overlay (verre flouté), la fenêtre étant exclue des captures.
-pub const PERMISSIONS: [&str; 5] = ["overlay", "hotkey", "gamepad", "media-session", "backdrop"];
+/// `clips` : lire, renommer et supprimer les clips vidéo du profil (iClips).
+/// `clips-capture` : garder les dernières secondes de la partie en clip (iClips).
+/// `clips-edit` : créer de nouveaux clips à partir des siens (coupe, assemblage, GIF).
+pub const PERMISSIONS: [&str; 11] = ["overlay", "hotkey", "gamepad", "media-session", "backdrop", "clips", "clips-capture", "clips-edit", "clips-auto", "clips-share", "clips-settings"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +51,17 @@ fn default_width() -> u32 {
     460
 }
 
+/// Écran plein du plugin (le Studio d'iClips), ouvert depuis iBox dans sa propre fenêtre.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Screen {
+    /// Page du paquet (`ui/studio.html`).
+    pub entry: String,
+    /// Titre de la fenêtre (le nom du plugin sinon).
+    #[serde(default)]
+    pub title: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Webview {
@@ -76,6 +90,8 @@ pub struct Manifest {
     pub overlay: Option<Overlay>,
     #[serde(default)]
     pub webview: Option<Webview>,
+    #[serde(default)]
+    pub screen: Option<Screen>,
     /// Origines d'images autorisées par la CSP de la fenêtre (`https://*.ytimg.com`).
     #[serde(default)]
     pub images: Vec<String>,
@@ -275,6 +291,11 @@ impl Manifest {
                 }
             }
         }
+        if let Some(s) = &self.screen {
+            if !safe_path(&s.entry) || s.title.as_ref().is_some_and(|t| t.trim().is_empty() || t.len() > 60) {
+                return Err("Écran invalide.".into());
+            }
+        }
         if let Some(w) = &self.webview {
             let origin = self.webview_origin().ok_or("La permission webview manque.")?;
             let in_origin = w.url.strip_prefix("https://").is_some_and(|rest| {
@@ -340,6 +361,29 @@ mod tests {
         // un raccourci sans la permission hotkey
         assert!(with(|v| v["permissions"] = serde_json::json!(["overlay", "gamepad", "webview:https://music.youtube.com"])).is_err());
         assert!(with(|v| v["version"] = "1.0".into()).is_err());
+    }
+
+    #[test]
+    fn a_screen_is_a_safe_page_of_the_package() {
+        let ok = with(|v| { v["screen"] = serde_json::json!({ "entry": "ui/studio.html", "title": "iClips Studio" }); v["permissions"].as_array_mut().unwrap().push("clips".into()); }).unwrap();
+        assert_eq!(ok.screen.unwrap().entry, "ui/studio.html");
+        assert!(with(|v| v["screen"] = serde_json::json!({ "entry": "../studio.html" })).is_err());
+        assert!(with(|v| v["screen"] = serde_json::json!({ "entry": "ui/studio.html", "title": " " })).is_err());
+        assert!(with(|v| v["screen"] = serde_json::json!({ "title": "x" })).is_err());
+    }
+
+    #[test]
+    fn the_iclips_manifest_is_valid() {
+        let m = Manifest::parse(br#"{
+            "id": "iclips", "name": "iClips", "version": "0.4.0", "author": { "name": "atzski" },
+            "ibox": ">=1.0.8", "platforms": ["windows"],
+            "permissions": ["clips", "clips-capture", "clips-edit", "clips-auto", "clips-share", "clips-settings", "overlay", "gamepad"],
+            "screen": { "entry": "ui/studio.html", "title": "iClips Studio" },
+            "overlay": { "entry": "ui/panel.html", "side": "right", "width": 480, "padCombo": ["back", "x"] }
+        }"#).unwrap();
+        // iClips 0.7 : pas de raccourci à lui, celui de l'overlay d'iBox ouvre son panneau
+        assert!(m.overlay.as_ref().unwrap().hotkey.is_none());
+        assert!(m.has("clips-capture") && m.has("clips-auto"));
     }
 
     #[test]

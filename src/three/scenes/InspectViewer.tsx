@@ -9,6 +9,9 @@ import { useCaseTextures } from "../useCaseTextures";
 import { useManualTexture } from "../useManualTexture";
 import { InspectController } from "../inspectController";
 import { InspectStudio } from "./InspectStudio";
+import { FrameCap } from "../FrameCap";
+import { useGraphics } from "@/services/graphics";
+import { useInterfaceSleep } from "@/services/performance";
 import { cachedRect, tuneRenderer } from "../rendererTuning";
 import { damp } from "../springs";
 import { cameFromShelf, flightPending, rememberViewerPose, setFlightTarget, setViewerReady } from "../handoff";
@@ -208,6 +211,10 @@ export function InspectViewer(props: ViewerProps) {
   }, []);
   const [live, setLive] = useState(false);
   const markLive = useCallback(() => setLive(true), []);
+  // profil graphique (définition, plafond d'images) et veille de l'interface, comme l'étagère ;
+  // le boîtier garde son balancement d'attente : pas de mise au repos ici
+  const graphics = useGraphics();
+  const asleep = useInterfaceSleep((s) => s.asleep);
 
   // Outil de vérification en développement uniquement
   useEffect(() => {
@@ -294,13 +301,14 @@ export function InspectViewer(props: ViewerProps) {
       <Canvas
         flat
         shadows
-        frameloop={live ? "always" : "never"}
+        frameloop={!live || asleep ? "never" : graphics.fps ? "demand" : "always"}
         onCreated={({ gl }) => tuneRenderer(gl)}
-        dpr={[1, 2]}
+        dpr={graphics.profile === "quality" ? [1, 2] : graphics.dpr}
         camera={{ fov: 26, position: [0, 0.15, BASE_DISTANCE], near: 0.1, far: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         style={{ borderRadius: "inherit", touchAction: "none" }}
       >
+        {live && !asleep && graphics.fps && <FrameCap fps={graphics.fps} />}
         <Rig {...props} tint={tint} onCompiled={markLive} onManualPress={onOpenManual ? onManualPress : undefined} />
       </Canvas>
     </div>

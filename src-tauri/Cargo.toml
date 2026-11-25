@@ -1,6 +1,6 @@
 [package]
 name = "ibox"
-version = "1.0.7"
+version = "1.0.8"
 description = "iBox — bibliothèque de jeux et frontend d'émulation"
 edition = "2021"
 
@@ -50,7 +50,7 @@ tar = { version = "0.4", default-features = false }
 [target.'cfg(windows)'.dependencies]
 windows-native-keyring-store = "1.1.0"
 winreg = "0.56"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Media_MediaFoundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Graphics_Capture", "Foundation", "Media_Control", "Security_Authorization_AppCapabilityAccess", "Storage_Streams", "Graphics", "Graphics_DirectX", "Graphics_DirectX_Direct3D11", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Graphics_Gdi", "Win32_System_Performance", "Win32_System_Variant", "Win32_System_WinRT", "Win32_System_WinRT_Direct3D11", "Win32_System_WinRT_Graphics_Capture", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Foundation_Collections", "Globalization", "Media_SpeechRecognition", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Media_MediaFoundation", "Win32_Media_Audio", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Graphics_Capture", "Foundation", "Media_Control", "Security_Authorization_AppCapabilityAccess", "Storage_Streams", "Graphics", "Graphics_DirectX", "Graphics_DirectX_Direct3D11", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Graphics_Gdi", "Win32_System_Performance", "Win32_System_Variant", "Win32_System_WinRT", "Win32_System_WinRT_Direct3D11", "Win32_System_WinRT_Graphics_Capture", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_System_Ole", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell_PropertiesSystem", "Win32_Devices_FunctionDiscovery", "Win32_Media_Speech"] }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_Security_Cryptography", "Win32_UI_HiDpi", "Win32_System_RemoteDesktop", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_Networking_WinSock", "Win32_UI_Shell", "Win32_System_Power", "Win32_System_ProcessStatus", "Win32_System_Diagnostics_ToolHelp"] }
 # manettes virtuelles Remote Play : client ViGEmBus en Rust pur (MIT), utilisé seulement si le pilote est déjà installé
 vigem-client = { version = "0.1.4", features = ["unstable_xtarget_notification"] }
@@ -58,6 +58,8 @@ vigem-client = { version = "0.1.4", features = ["unstable_xtarget_notification"]
 str0m = { version = "0.25", default-features = false, features = ["wincrypto"] }
 # `#[implement]` (rappel COM de l'activation du son « sans Discord »), même version que `windows`
 windows-core = "0.62"
+# liste de phrases de « Clip ça ! » (`voice.rs`) : collections WinRT, même version que `windows`
+windows-collections = "0.3"
 
 [target.'cfg(not(windows))'.dependencies]
 # invité Remote Play du Steam Deck : même transport, cryptographie en Rust pur (rien à livrer

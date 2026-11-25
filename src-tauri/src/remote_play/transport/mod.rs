@@ -14,6 +14,8 @@
 // l'invité natif (`remote_play::guest`), compilé sous Linux
 #[cfg(windows)]
 pub mod host;
+#[cfg(all(test, windows))]
+pub mod link;
 #[cfg(windows)]
 pub mod peer;
 #[cfg(windows)]

@@ -178,6 +178,15 @@ function RemotePlayHostPage() {
             />
           </Row>
         )}
+        {config?.enabled && (
+          <Row label="Priorité à la réactivité" note="Désactivé par défaut. Quand votre connexion limite le débit, iBox garde plus de marge : les images sont plus légères et arrivent plus vite chez vos invités, mais elles sont un peu moins fines. Sans effet sur une connexion rapide.">
+            <Toggle
+              checked={config.quality === "latency"}
+              onChange={(on) => remotePlayApi.setConfig({ ...config, quality: on ? "latency" : "auto" }).then(setConfig, (e) => setError(String(e)))}
+              label="Priorité à la réactivité"
+            />
+          </Row>
+        )}
         <Row label="Connexions directes" note="En pair à pair, vos participants voient votre adresse IP (avertissement avant la première session). Aucun relais n'est utilisé. Verrouiller Windows coupe le partage.">
           <span />
         </Row>

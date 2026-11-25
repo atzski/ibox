@@ -21,12 +21,15 @@ export const MSG = {
   chat: 0x40,
   ping: 0x50,
   pong: 0x51,
+  timing: 0x52,
+  report: 0x53,
 } as const;
 
 export const MAX_HELD_KEYS = 16;
 
 const i16 = (v: number) => Math.max(-32768, Math.min(32767, Math.round(v))) + 0; // + 0 : pas de -0
 const u16 = (v: number) => Math.max(0, Math.min(65535, Math.round(v)));
+const u32 = (v: number) => Math.max(0, Math.min(0xffffffff, Math.round(v))) >>> 0;
 
 function message(type: number, size: number, fill: (v: DataView) => void): Uint8Array<ArrayBuffer> {
   const buf = new Uint8Array(1 + size);
@@ -70,16 +73,129 @@ export const encode = {
       v.setUint32(0, id >>> 0, true);
       v.setBigUint64(4, BigInt(Math.max(0, Math.floor(micros))), true);
     }),
+  /** Latence mesurée ici (µs), renvoyée à l'hôte qui a envoyé un `timing` : totale, puis part de l'invité. */
+  report: (totalMicros: number, guestMicros: number) =>
+    message(MSG.report, 8, (v) => {
+      v.setUint32(0, u32(totalMicros), true);
+      v.setUint32(4, u32(guestMicros), true);
+    }),
 };
 
-export type HostMessage = { type: "pong"; id: number; micros: number } | { type: "rumble"; pad: number; large: number; small: number };
+/** Mesure d'une image par l'hôte : temps RTP, capture et envoi du message (horloge murale de l'hôte,
+ * µs Unix), capture → dernier paquet remis au réseau (µs). */
+export interface HostTiming {
+  rtp: number;
+  captureMicros: number;
+  sentMicros: number;
+  hostMicros: number;
+}
+
+export type HostMessage =
+  | { type: "pong"; id: number; micros: number }
+  | { type: "rumble"; pad: number; large: number; small: number }
+  | ({ type: "timing" } & HostTiming);
 
 /** Messages hôte → invité (canal `control`) ; tout le reste est ignoré. */
 export function decodeHost(data: ArrayBuffer): HostMessage | null {
   const v = new DataView(data);
   if (v.byteLength === 13 && v.getUint8(0) === MSG.pong) return { type: "pong", id: v.getUint32(1, true), micros: Number(v.getBigUint64(5, true)) };
   if (v.byteLength === 4 && v.getUint8(0) === MSG.rumble && v.getUint8(1) < 4) return { type: "rumble", pad: v.getUint8(1), large: v.getUint8(2), small: v.getUint8(3) };
+  if (v.byteLength === 25 && v.getUint8(0) === MSG.timing)
+    return { type: "timing", rtp: v.getUint32(1, true), captureMicros: Number(v.getBigUint64(5, true)), sentMicros: Number(v.getBigUint64(13, true)), hostMicros: v.getUint32(21, true) };
   return null;
+}
+
+// ——— Latence mesurée de l'image (capture chez l'hôte → affichage ici) ———
+
+/** Médianes des dernières mesures, en ms ; `null` tant que la mesure n'existe pas. */
+export interface LatencyBreakdown {
+  /** Capture chez l'hôte → image remise à l'écran de l'invité. */
+  totalMs: number | null;
+  /** Chez l'hôte : capture → dernier paquet de l'image remis au réseau (mesuré par l'hôte). */
+  hostMs: number | null;
+  /** Réseau : envoi → image complète reçue (horloges alignées par les pings, voir `LatencyTracker`). */
+  networkMs: number | null;
+  /** Chez l'invité : image reçue → décodée → remise à l'écran (mesuré ici). */
+  guestMs: number | null;
+}
+
+const median = (v: number[]) => (v.length ? [...v].sort((a, b) => a - b)[v.length >> 1] : null);
+
+/**
+ * Assemble la latence de l'image à partir de mesures réelles : l'hôte date quelques images par
+ * seconde (`timing`), l'invité date la réception et l'affichage de chaque image. Les deux horloges
+ * diffèrent d'un écart inconnu ; il est estimé comme le fait NTP : le message de l'hôte le plus
+ * vite arrivé a mis la moitié du plus court aller-retour mesuré par les pings. L'erreur est donc
+ * au plus la moitié de l'asymétrie du trajet ; sur un même PC (écart nul) elle se vérifie
+ * directement. Toutes les heures sont en ms d'horloge murale (`performance.timeOrigin +
+ * performance.now()`).
+ */
+export class LatencyTracker {
+  private frames = new Map<number, [received: number, displayed: number]>();
+  private timings = new Map<number, HostTiming>();
+  private offsets: number[] = [];
+  private rtts: number[] = [];
+  private samples: { total: number; host: number; network: number; guest: number }[] = [];
+  private guestOnly: number[] = [];
+  /** L'hôte envoie-t-il ses mesures (hôte récent) ? */
+  hostTimed = false;
+
+  /** Une image vient d'être affichée. `rtp` : temps RTP de l'image (32 bits). */
+  frame(rtp: number, receivedMs: number, displayedMs: number) {
+    const guest = displayedMs - receivedMs;
+    if (!(guest >= 0 && guest < 10_000)) return;
+    this.guestOnly.push(guest);
+    if (this.guestOnly.length > 120) this.guestOnly.shift();
+    rtp >>>= 0;
+    this.frames.set(rtp, [receivedMs, displayedMs]);
+    if (this.frames.size > 240) this.frames.delete(this.frames.keys().next().value!);
+    this.resolve(rtp);
+  }
+
+  /** Mesure de l'hôte reçue à `receivedMs`. */
+  timing(t: HostTiming, receivedMs: number) {
+    this.hostTimed = true;
+    this.offsets.push(t.sentMicros / 1000 - receivedMs);
+    if (this.offsets.length > 120) this.offsets.shift();
+    this.timings.set(t.rtp >>> 0, t);
+    if (this.timings.size > 16) this.timings.delete(this.timings.keys().next().value!);
+    this.resolve(t.rtp >>> 0);
+  }
+
+  /** Aller-retour d'un ping sur `control`. */
+  ping(rttMs: number) {
+    if (!(rttMs >= 0)) return;
+    this.rtts.push(rttMs);
+    if (this.rtts.length > 60) this.rtts.shift();
+  }
+
+  /** Écart d'horloge estimé (hôte − invité), en ms. */
+  clockOffsetMs(): number | null {
+    if (!this.offsets.length || !this.rtts.length) return null;
+    return Math.max(...this.offsets) + Math.min(...this.rtts) / 2;
+  }
+
+  private resolve(rtp: number) {
+    const f = this.frames.get(rtp);
+    const t = this.timings.get(rtp);
+    const offset = this.clockOffsetMs();
+    if (!f || !t || offset === null) return;
+    this.timings.delete(rtp);
+    const capture = t.captureMicros / 1000;
+    const host = t.hostMicros / 1000;
+    const total = f[1] + offset - capture;
+    if (!(total >= 0 && total < 10_000)) return;
+    const guest = f[1] - f[0];
+    // le reste est le trajet ; jamais négatif malgré l'erreur d'estimation de l'écart d'horloge
+    const network = Math.max(0, total - host - guest);
+    this.samples.push({ total, host, network, guest });
+    if (this.samples.length > 12) this.samples.shift();
+  }
+
+  snapshot(): LatencyBreakdown {
+    const pick = (k: "total" | "host" | "network" | "guest") => median(this.samples.map((s) => s[k]));
+    return { totalMs: pick("total"), hostMs: pick("host"), networkMs: pick("network"), guestMs: pick("guest") ?? median(this.guestOnly) };
+  }
 }
 
 // ——— Clavier : KeyboardEvent.code → code de balayage (jeu 1, 0xE0xx = étendu) ———
@@ -228,6 +344,8 @@ export interface GuestStats {
   hardwareDecoder: boolean | null;
   /** Capture chez l'hôte → affichage prévu ici (requestVideoFrameCallback, horloge RTCP). */
   captureToDisplayMs: number | null;
+  /** Latence de l'image mesurée de bout en bout, avec sa répartition (`LatencyTracker`). */
+  latency: LatencyBreakdown;
   /** Le navigateur a-t-il accepté `jitterBufferTarget = 0` ? */
   minimalBuffer: boolean;
 }
@@ -243,7 +361,7 @@ interface Prev {
   decoded: number;
 }
 
-type VideoFrameMeta = { captureTime?: number; expectedDisplayTime: number };
+type VideoFrameMeta = { captureTime?: number; expectedDisplayTime: number; receiveTime?: number; rtpTimestamp?: number };
 type FrameCallbackVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: (now: number, meta: VideoFrameMeta) => void) => number };
 
 export class GuestSession {
@@ -260,6 +378,7 @@ export class GuestSession {
   private closed = false;
   private seq = 0;
   private readonly media = new MediaStream();
+  readonly tracker = new LatencyTracker();
 
   /** Numéro de séquence des entrées, commun à toute la session : l'hôte refuse tout numéro déjà vu
    * (un compteur qui repartirait de 1 après « Rendre les commandes » serait ignoré). */
@@ -371,10 +490,13 @@ export class GuestSession {
       if (sent !== undefined) {
         this.pingMs = performance.now() - sent;
         this.pings.delete(msg.id);
+        this.tracker.ping(this.pingMs);
       }
       this.lastPong = performance.now();
     } else if (msg?.type === "rumble") {
       this.onRumble?.(msg.pad, msg.large, msg.small);
+    } else if (msg?.type === "timing") {
+      this.tracker.timing(msg, performance.timeOrigin + performance.now());
     }
   }
 
@@ -386,6 +508,7 @@ export class GuestSession {
       this.pings.set(this.pingId, now);
       if (this.pings.size > 20) this.pings.delete(this.pings.keys().next().value!);
       this.send("control", encode.ping(this.pingId, now * 1000));
+      sendReport(this, this.tracker);
       // l'hôte répondait et se tait depuis 6 s (PC éteint, iBox fermé, session coupée) : fin
       if (this.lastPong && now - this.lastPong > 6000 && !this.closed) {
         this.lastPong = 0;
@@ -404,6 +527,9 @@ export class GuestSession {
         this.latency.push(meta.expectedDisplayTime - meta.captureTime);
         if (this.latency.length > 120) this.latency.shift();
       }
+      // réception et affichage de cette image, datés par le navigateur
+      if (typeof meta.receiveTime === "number" && typeof meta.rtpTimestamp === "number")
+        this.tracker.frame(meta.rtpTimestamp, performance.timeOrigin + meta.receiveTime, performance.timeOrigin + meta.expectedDisplayTime);
       v.requestVideoFrameCallback!(onFrame);
     };
     v.requestVideoFrameCallback(onFrame);
@@ -439,6 +565,7 @@ export class GuestSession {
       hardwareDecoder: null,
       captureToDisplayMs: this.latency.length ? [...this.latency].sort((a, b) => a - b)[this.latency.length >> 1] : null,
       minimalBuffer: this.minimalBuffer,
+      latency: this.tracker.snapshot(),
     };
     const s = inbound as Record<string, number | string | boolean | undefined> | null;
     if (!s) return out;
@@ -505,7 +632,19 @@ export class GuestSession {
   }
 }
 
+/** Renvoie à l'hôte la latence mesurée ici, seulement s'il envoie ses propres mesures (un hôte
+ * plus ancien ne connaît pas ce message et le compterait comme une entrée rejetée). */
+export function sendReport(session: Pick<GuestSession, "send">, tracker: LatencyTracker) {
+  const l = tracker.snapshot();
+  if (tracker.hostTimed && l.totalMs !== null && l.guestMs !== null) session.send("control", encode.report(l.totalMs * 1000, l.guestMs * 1000));
+}
+
 // ——— Entrées de l'invité ———
+
+/** Répétitions d'un état sur le canal non fiable après son dernier changement, et leur écart :
+ * un paquet perdu ne coûte plus que quelques ms au lieu d'attendre le renvoi périodique. */
+export const REPEATS = 2;
+export const REPEAT_MS = 8;
 
 /** `pointerrawupdate` : chaque mouvement de souris dès qu'il arrive, sans attendre l'image suivante
  * comme `pointermove` (Chromium les regroupe par image affichée). Repli sur `pointermove`. */
@@ -534,6 +673,7 @@ export function attachPad(
   let timer = 0;
   let lastPad = "";
   let lastSent = 0;
+  let repeats = 0;
   let name: string | null | undefined;
   const announce = (pad: Gamepad | undefined) => {
     const next = pad ? pad.id : null;
@@ -563,9 +703,12 @@ export function attachPad(
       const wire = padWire([...pad.buttons], pad.axes);
       const sig = JSON.stringify(wire);
       const now = performance.now();
-      // état complet : envoyé à chaque changement et toutes les 100 ms (canal non fiable)
-      if (sig !== lastPad || now - lastSent > 100) {
+      // état complet : envoyé à chaque changement, répété deux fois juste après (canal non
+      // fiable : un appui perdu attendait sinon le renvoi suivant), puis toutes les 100 ms
+      const changed = sig !== lastPad;
+      if (changed || (repeats > 0 && now - lastSent >= REPEAT_MS) || now - lastSent > 100) {
         session.send("input", encode.gamepad(0, session.nextSeq(), wire));
+        repeats = changed ? REPEATS : Math.max(0, repeats - 1);
         lastPad = sig;
         lastSent = now;
       }
@@ -603,9 +746,29 @@ export function attachInputs(
   // écouteurs typés : une surface reste un élément HTML
   const el: HTMLElement = video;
 
+  let lastPoint: [number, number] | null = null;
   const move = (e: PointerEvent) => {
     const p = normalizePoint(e.clientX, e.clientY, area());
-    if (p) session.send("input", encode.mouseAbs(next(), p[0], p[1]));
+    if (p) {
+      lastPoint = p;
+      session.send("input", encode.mouseAbs(next(), p[0], p[1]));
+    }
+  };
+  // Après un événement du canal fiable (touche, bouton), l'état courant est répété sur le canal
+  // non fiable : une touche relâchée dont le message s'est perdu est relâchée quand même, et ces
+  // paquets font constater la perte à SCTP, qui retransmet aussitôt au lieu d'attendre son délai.
+  const timers = new Set<number>();
+  const follow = (state: () => void) => {
+    for (let i = 1; i <= REPEATS; i++) {
+      const t = window.setTimeout(() => {
+        timers.delete(t);
+        state();
+      }, i * REPEAT_MS);
+      timers.add(t);
+    }
+  };
+  const sendPoint = () => {
+    if (lastPoint) session.send("input", encode.mouseAbs(next(), lastPoint[0], lastPoint[1]));
   };
   const BUTTONS = [0, 2, 1, 3, 4]; // navigateur (gauche, milieu, droit, précédent, suivant) → protocole
   const button = (down: boolean) => (e: PointerEvent) => {
@@ -613,6 +776,7 @@ export function attachInputs(
     if (b === undefined) return;
     move(e);
     session.send("control", encode.mouseButton(b, down));
+    follow(sendPoint);
     e.preventDefault();
   };
   const onDown = button(true);
@@ -635,6 +799,11 @@ export function attachInputs(
       held.add(code);
     } else held.delete(code);
     session.send("control", encode.key(code, down));
+    sendKeyState();
+    follow(sendKeyState);
+  };
+  const sendKeyState = () => {
+    session.send("input", encode.keyState(next(), [...held]));
   };
   const onKeyDown = key(true);
   const onKeyUp = key(false);
@@ -648,7 +817,7 @@ export function attachInputs(
     for (const b of pressed) session.send("control", encode.mouseButton(b, false));
     pressed.clear();
   };
-  const keyState = withKeys ? window.setInterval(() => session.send("input", encode.keyState(next(), [...held])), 250) : 0;
+  const keyState = withKeys ? window.setInterval(sendKeyState, 250) : 0;
   const trackDown = (e: PointerEvent) => {
     const b = BUTTONS[e.button];
     if (b !== undefined) pressed.add(b);
@@ -677,6 +846,8 @@ export function attachInputs(
   return () => {
     releaseAll();
     if (keyState) window.clearInterval(keyState);
+    timers.forEach((t) => window.clearTimeout(t));
+    timers.clear();
     detachPad?.();
     el.removeEventListener(MOVE_EVENT, move as EventListener);
     el.removeEventListener("pointerdown", trackDown);

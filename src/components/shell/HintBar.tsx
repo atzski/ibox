@@ -18,6 +18,9 @@ const PAD_OF: Record<string, PadKey> = {
   Fin: "r3",
   F1: "start",
   "/": "select",
+  // recul de la grille de jaquettes : stick droit vers la gauche ou la droite
+  "−": "rsH",
+  "+": "rsH",
 };
 
 const ARROWS = ["↑", "↓", "←", "→"];

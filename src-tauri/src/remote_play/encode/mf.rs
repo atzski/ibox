@@ -55,6 +55,8 @@ pub struct Packet {
     pub keyframe: bool,
     /// Envoi à l'encodeur → paquet disponible.
     pub encode_time: Option<Duration>,
+    /// Image capturée → envoi à l'encodeur (attente de cadence), renseignée par `pipeline`.
+    pub waited: Duration,
 }
 
 /// Démarre Media Foundation pour la durée de vie de l'objet (compteur interne à MF).
@@ -455,6 +457,11 @@ impl Encoder {
                 let thread = std::thread::Builder::new()
                     .name("rp-encoder-events".into())
                     .spawn(move || {
+                        // ce fil annonce chaque image encodée : en priorité normale, il attendait
+                        // son tour derrière le jeu sur un processeur chargé
+                        if !crate::remote_play::lever_off("events") {
+                            crate::remote_play::latency_critical_thread();
+                        }
                         let generator = generator;
                         loop {
                             let event = match generator.0.GetEvent(MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0)) {
@@ -763,7 +770,7 @@ impl Encoder {
             }
             None => self.in_flight.pop_front().map(|(_, at)| at.elapsed()),
         };
-        self.pending.push_back(Packet { data, pts, keyframe, encode_time });
+        self.pending.push_back(Packet { data, pts, keyframe, encode_time, waited: Duration::ZERO });
         Ok(())
     }
 }

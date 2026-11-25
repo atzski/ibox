@@ -7,12 +7,19 @@
 //! | `overlay.close` | `overlay` |
 //! | `media.state`, `media.control` | `media-session` |
 //! | `webview.call`, `webview.open`, `webview.status` | `webview:<origine>` |
+//! | `clips.list`, `clips.update` (`{name, title?, favorite?}`), `clips.delete` (`{name}`), `clips.thumb` (`{name, jpeg, duration?}`) | `clips` |
+//! | `clips.status`, `clips.save` | `clips-capture` |
+//! | `edit.render` (`{kind: "mp4", segments: [{name, start, end}], title?}` ou `{kind: "gif", name, start, end}`) | `clips-edit` |
+//! | `screen.open`, `screen.close` | un `screen` dans le manifeste |
+//!
+//! Les fichiers des clips se lisent par `GET /<id>/__clips/<nom>` (permission `clips`,
+//! `protocol.rs`). Événement `clips://changed` à chaque nouveau clip ([`notify`]).
 //!
 //! Le socle (fenêtre overlay, raccourci, manette, WebView isolée) reste endormi tant
 //! qu'aucun plugin activé ne le demande (`apply`).
 
 use serde_json::{json, Value};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use super::Active;
 
@@ -22,6 +29,14 @@ pub fn permission_for(call: &str) -> Option<&'static str> {
         "overlay.close" => "overlay",
         "media.state" | "media.control" => "media-session",
         "webview.call" | "webview.open" | "webview.status" => "webview",
+        "clips.list" | "clips.update" | "clips.delete" | "clips.thumb" => "clips",
+        "clips.status" | "clips.save" => "clips-capture",
+        "edit.render" => "clips-edit",
+        "auto.get" | "auto.set" | "auto.test" => "clips-auto",
+        "shot.save" | "community.open" => "clips-capture",
+        "capture.get" | "capture.set" | "capture.folder" => "clips-settings",
+        "share.copy" | "share.drag" | "share.reveal" | "share.save" | "share.link" | "share.copyLink" | "share.friends" | "share.send" => "clips-share",
+        "screen.open" | "screen.close" => "screen",
         _ => return None,
     })
 }
@@ -30,6 +45,7 @@ pub fn permission_for(call: &str) -> Option<&'static str> {
 pub fn allowed(active: &Active, call: &str) -> bool {
     match permission_for(call) {
         Some("webview") => active.manifest.webview.is_some() && active.manifest.webview_origin().is_some_and(|o| active.allows(&format!("webview:{o}"))),
+        Some("screen") => active.manifest.screen.is_some(),
         Some(p) => active.allows(p),
         None => false,
     }
@@ -41,7 +57,11 @@ pub fn call(app: &AppHandle, active: &Active, name: &str, arg: Value) -> Result<
     }
     match name {
         "overlay.close" => {
-            crate::music::overlay::hide(app);
+            if active.manifest.overlay.as_ref().is_some_and(|o| o.entry.is_some()) {
+                super::panel::hide(app);
+            } else {
+                crate::music::overlay::hide(app);
+            }
             Ok(Value::Null)
         }
         "media.state" => serde_json::to_value(crate::music::current(app)).map_err(|e| e.to_string()),
@@ -59,6 +79,69 @@ pub fn call(app: &AppHandle, active: &Active, name: &str, arg: Value) -> Result<
         "webview.call" => {
             let cmd = arg.get("cmd").and_then(Value::as_str).ok_or("cmd manquante")?;
             crate::music::ytm::call(app, cmd, arg.get("arg").cloned().unwrap_or(Value::Null))
+        }
+        "clips.list" => crate::capture::clip_list(app).map(Value::from),
+        "clips.update" => {
+            let name = arg.get("name").and_then(Value::as_str).ok_or("name manquant")?;
+            crate::capture::clip_update(app, name, arg.get("title").and_then(Value::as_str), arg.get("favorite").and_then(Value::as_bool))?;
+            Ok(Value::Null)
+        }
+        "clips.delete" => {
+            let name = arg.get("name").and_then(Value::as_str).ok_or("name manquant")?;
+            crate::capture::clip_delete(app, name)?;
+            Ok(Value::Null)
+        }
+        "clips.thumb" => {
+            let name = arg.get("name").and_then(Value::as_str).ok_or("name manquant")?;
+            let jpeg = arg.get("jpeg").and_then(Value::as_str).ok_or("jpeg manquant")?;
+            let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, jpeg).map_err(|_| "Image illisible.")?;
+            crate::capture::clip_thumb(app, name, &bytes, arg.get("duration").and_then(Value::as_f64))?;
+            Ok(Value::Null)
+        }
+        "clips.status" => Ok(crate::capture::clip_status()),
+        "clips.save" => {
+            let c = tauri::async_runtime::block_on(crate::capture::save_clip(app.clone()))?;
+            Ok(json!({ "name": c.name, "game": c.game, "src": format!("__clips/{}", c.name) }))
+        }
+        "edit.render" => {
+            let job = crate::clip_edit::start(app, crate::clip_edit::Request::parse(&arg)?)?;
+            Ok(json!({ "job": job }))
+        }
+        "auto.get" => Ok(crate::clips_auto::status(app)),
+        "auto.set" => crate::clips_auto::set(app, &arg),
+        "auto.test" => Ok(crate::clips_auto::test(app)),
+        "share.friends" => crate::share::friends(app),
+        "shot.save" => crate::capture::save_frozen(app),
+        "community.open" => {
+            super::panel::hide(app);
+            crate::capture::open_community(app);
+            Ok(Value::Null)
+        }
+        "capture.get" => Ok(crate::capture::capture_state(app)),
+        "capture.set" => crate::capture::capture_apply(app, &arg),
+        "capture.folder" => crate::capture::open_folder(app),
+        n if n.starts_with("share.") => {
+            let name = arg.get("name").and_then(Value::as_str).ok_or("name manquant")?;
+            match n {
+                "share.copy" => crate::share::copy(app, name),
+                "share.drag" => crate::share::drag(app, &active.id, name),
+                "share.reveal" => crate::share::reveal(app, name),
+                "share.save" => crate::share::save(app, name),
+                "share.link" => crate::share::link(app, name),
+                "share.copyLink" => crate::share::copy_link(app, name),
+                "share.send" => crate::share::send(app, name, arg.get("friendId").and_then(Value::as_str).ok_or("friendId manquant")?),
+                _ => Err(format!("Appel inconnu : {n}")),
+            }
+        }
+        "screen.open" => {
+            super::panel::hide(app);
+            let (lang, dark) = super::look();
+            tauri::async_runtime::block_on(super::plugins_open_screen(app.clone(), active.id.clone(), Some(lang.into()), Some(dark)))?;
+            Ok(Value::Null)
+        }
+        "screen.close" => {
+            close_screen(app, &active.id);
+            Ok(Value::Null)
         }
         _ => Err(format!("Appel inconnu : {name}")),
     }
@@ -110,8 +193,30 @@ pub fn apply(app: &AppHandle) {
     crate::music::overlay::configure(app, config);
 }
 
+fn close_screen(app: &AppHandle, id: &str) {
+    if let Some(w) = app.get_webview_window(&super::protocol::screen_label(id)) {
+        let _ = w.close();
+    }
+}
+
+/// Envoie un événement du socle aux fenêtres des plugins qui ont la permission `clips`
+/// (`ibox:host`, comme les autres événements).
+pub fn notify(app: &AppHandle, event: &str, payload: Value) {
+    let detail = json!({ "event": event, "payload": payload }).to_string();
+    let script = format!("window.dispatchEvent(new CustomEvent(\"ibox:host\", {{ detail: {detail} }}))");
+    for a in super::all_active(app).into_iter().filter(|a| a.allows("clips")) {
+        for label in [super::protocol::window_label(&a.id), super::protocol::screen_label(&a.id)] {
+            if let Some(w) = app.get_webview_window(&label) {
+                let _ = w.eval(&script);
+            }
+        }
+    }
+}
+
 /// Arrête ce qu'un plugin a ouvert (avant désactivation, mise à jour ou désinstallation).
 pub fn stop(app: &AppHandle, id: &str) {
+    close_screen(app, id);
+    super::panel::close(app, id);
     if music_plugin(app).is_some_and(|a| a.id == id) {
         crate::music::ytm::close(app);
         crate::music::overlay::configure(app, None);
@@ -143,6 +248,37 @@ mod tests {
         // accordée mais absente du manifeste
         let c = active(&["overlay"], &all);
         assert!(!allowed(&c, "media.state") && !allowed(&c, "webview.call"));
+    }
+
+    #[test]
+    fn clips_and_screen_calls_are_gated() {
+        let mut a = active(&["overlay", "clips"], &["overlay", "clips"]);
+        assert!(allowed(&a, "clips.list") && allowed(&a, "clips.delete"));
+        assert!(!allowed(&a, "screen.close"));
+        a.manifest.screen = Some(crate::plugins::manifest::Screen { entry: "ui/studio.html".into(), title: None });
+        assert!(allowed(&a, "screen.close"));
+        a.granted = vec!["overlay".into()];
+        assert!(!allowed(&a, "clips.list") && !allowed(&a, "clips.update"));
+    }
+
+    #[test]
+    fn keeping_a_clip_needs_its_own_permission() {
+        let a = active(&["overlay", "clips"], &["overlay", "clips"]);
+        assert!(allowed(&a, "clips.thumb"));
+        assert!(!allowed(&a, "clips.save") && !allowed(&a, "clips.status"));
+        let b = active(&["overlay", "clips", "clips-capture"], &["overlay", "clips", "clips-capture"]);
+        assert!(allowed(&b, "clips.save") && allowed(&b, "clips.status"));
+        assert!(!allowed(&b, "edit.render"));
+        assert!(!allowed(&b, "auto.set"));
+        assert!(!allowed(&b, "auto.test"));
+        assert!(!allowed(&b, "share.link") && !allowed(&b, "share.drag"));
+        assert!(allowed(&b, "shot.save") && !allowed(&b, "capture.set"));
+        let g = active(&["clips-settings"], &["clips-settings"]);
+        assert!(allowed(&g, "capture.get") && allowed(&g, "capture.set") && !allowed(&g, "shot.save"));
+        let s = active(&["clips-share"], &["clips-share"]);
+        assert!(allowed(&s, "share.link") && allowed(&s, "share.send") && allowed(&s, "share.drag") && !allowed(&s, "auto.get"));
+        let c = active(&["clips-auto"], &["clips-auto"]);
+        assert!(allowed(&c, "auto.get") && allowed(&c, "auto.set") && allowed(&c, "auto.test"));
     }
 
     #[test]

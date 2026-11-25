@@ -126,7 +126,7 @@ mod face_a_l_hote {
         fn new(profile: Profile) -> (Pair, crate::remote_play::transport::tests::Sent) {
             let now = Instant::now();
             let (eng, sent) = engine(profile);
-            let (mut host, offer) = HostPeer::new(PeerOptions { initial_kbps: 4_000, max_kbps: 20_000 }, &[addr(HOST)], eng, now).unwrap();
+            let (mut host, offer) = HostPeer::new(PeerOptions { initial_kbps: 4_000, max_kbps: 20_000, responsive: false }, &[addr(HOST)], eng, now).unwrap();
             let local = Candidate::host(addr(GUEST_ADDR), "udp").unwrap();
             let (guest, answer) = GuestPeer::new(&offer, &[local], now).unwrap();
             assert!(answer.contains("H264"), "H.264 accepté dans la réponse");
@@ -191,9 +191,9 @@ mod face_a_l_hote {
         let f1 = annexb(&[sps, pps, &idr]);
         let f2 = annexb(&[&[0x41, 0x9a, 0x02, 0x03]]);
         let start = p.now;
-        p.host.write_frame(p.now, start, 0, &f1, None).unwrap();
+        p.host.write_frame(p.now, start, 0, f1.clone(), None, Duration::ZERO).unwrap();
         p.run(30);
-        p.host.write_frame(p.now, start, 166_667, &f2, None).unwrap();
+        p.host.write_frame(p.now, start, 166_667, f2.clone(), None, Duration::ZERO).unwrap();
         p.run(100);
 
         let v = p.videos();
@@ -228,7 +228,7 @@ mod face_a_l_hote {
         p.connect();
         // l'hôte commence par une image P (décodeur pas encore amorcé) : jetée, IDR redemandée
         let start = p.now;
-        p.host.write_frame(p.now, start, 0, &annexb(&[&[0x41, 0x9a, 1]]), None).unwrap();
+        p.host.write_frame(p.now, start, 0, annexb(&[&[0x41, 0x9a, 1]]), None, Duration::ZERO).unwrap();
         p.run(60);
         assert!(p.videos().is_empty(), "image P sans image clé : jetée");
         assert_eq!(p.guest.stats(p.now).keyframe_requests, 1);
@@ -271,6 +271,7 @@ fn boucle_locale_reelle() {
         frame_log: None,
         audio: false,
         hide_discord_echo: false,
+        responsive: false,
     })
     .expect("hôte");
     let frames: Arc<Mutex<Vec<(usize, bool)>>> = Arc::default();
@@ -344,6 +345,7 @@ fn hote_pour_apercu() {
         frame_log: None,
         audio: false,
         hide_discord_echo: false,
+        responsive: false,
     })
     .expect("hôte");
     std::fs::write(&offer_file, host.offer()).unwrap();
@@ -405,6 +407,7 @@ fn enregistre_un_extrait() {
         frame_log: None,
         audio: false,
         hide_discord_echo: false,
+        responsive: false,
     })
     .expect("hôte");
     let out: Arc<Mutex<Vec<u8>>> = Arc::default();

@@ -5,7 +5,7 @@
 //! dossiers sont enregistrés (et listés en lecture seule) ; tous les fichiers
 //! lus par le scanner proviennent du parcours de ces dossiers.
 
-use super::{repo, scan, LibraryError};
+use super::{iso, repo, scan, LibraryError};
 use crate::db;
 use rusqlite::Connection;
 use std::path::PathBuf;
@@ -174,4 +174,30 @@ pub async fn library_scan(app: AppHandle, folder_ids: Option<Vec<i64>>) -> Res<s
 #[tauri::command]
 pub fn library_scan_cancel(state: State<LibraryState>) {
     state.cancel.store(true, Ordering::SeqCst);
+}
+
+/// Fichiers .iso qui attendent qu'on dise de quelle console ils sont.
+#[tauri::command]
+pub fn iso_queue(state: State<LibraryState>) -> Res<iso::Queue> {
+    state.with(|c| iso::queue(c))
+}
+
+/// Réponse pour un ou plusieurs .iso en attente (`platform_id` absent : « ce n'est
+/// pas un jeu »). Les chemins ne servent qu'à désigner des fichiers déjà trouvés
+/// par un scan. Refusée pendant une actualisation, qui réécrit la file d'attente.
+#[tauri::command]
+pub fn iso_assign(state: State<LibraryState>, paths: Vec<String>, platform_id: Option<String>) -> Res<Vec<i64>> {
+    if state.scanning.load(Ordering::SeqCst) {
+        return Err(LibraryError::ScanRunning.to_string());
+    }
+    state.with(|c| iso::assign(c, &paths, platform_id.as_deref()))
+}
+
+/// Repose la question pour les .iso écartés.
+#[tauri::command]
+pub fn iso_restore_ignored(state: State<LibraryState>) -> Res<usize> {
+    if state.scanning.load(Ordering::SeqCst) {
+        return Err(LibraryError::ScanRunning.to_string());
+    }
+    state.with(iso::restore_ignored)
 }

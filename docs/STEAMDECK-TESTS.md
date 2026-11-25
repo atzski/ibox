@@ -9,13 +9,34 @@ Compter environ deux heures pour l'ensemble. Les sections 1 à 3 suffisent pour 
 ## 0. Préparation
 
 - [ ] Paramètres Steam › Système : noter la version de SteamOS et le modèle (LCD ou OLED).
-- [ ] Mode Bureau : télécharger l'`.AppImage` depuis la dernière version sur GitHub.
-- [ ] Clic droit › Propriétés › Permissions : « Est exécutable ».
+- [ ] Mode Bureau : installer iBox par le script (`docs/STEAMDECK-INSTALL.md`, section 1 ou 2), ou à
+  la main : télécharger l'`.AppImage` depuis la dernière version sur GitHub, puis clic droit ›
+  Propriétés › Permissions : « Est exécutable ».
 - [ ] Pour garder un journal, lancer une fois depuis Konsole :
   `./iBox_*.AppImage 2>&1 | tee ~/ibox-journal.txt`
   Le journal est à joindre à tout problème.
 - [ ] Dans iBox : Paramètres › Système › Diagnostic › **Afficher les performances** (le panneau
   reste en haut à droite pendant tous les essais).
+
+## 0 bis. Installation par le script
+
+Le script (`scripts/install-steamdeck.sh`) a été essayé sous Ubuntu contre un faux serveur de
+versions, jamais sur SteamOS. À vérifier sur l'appareil :
+
+- [ ] `Installer-iBox.desktop` téléchargé puis ouvert depuis Dolphin : KDE propose de l'exécuter,
+  un terminal s'ouvre et l'installation va au bout.
+- [ ] La ligne `curl … | bash` dans Konsole : même résultat, la question sur Steam s'affiche et
+  attend la réponse.
+- [ ] `~/Applications/iBox.AppImage` existe ; l'icône du bureau et l'entrée du menu (catégorie
+  Jeux) portent le logo d'iBox et ouvrent iBox d'un double-clic, sans question de KDE.
+- [ ] Réponse `o` avec Steam ouvert : iBox apparaît dans la bibliothèque Steam (Non-Steam). Noter
+  le nom affiché (attendu : « iBox ») et s'il se lance en Mode Jeu.
+- [ ] Steam fermé, puis Paramètres › Système › **Ajouter iBox à Steam** : les illustrations se
+  posent sur le raccourci créé par le script, **sans doublon**. S'il y a deux « iBox » dans Steam,
+  ou pas d'illustrations, relever dans `~/.steam/steam/userdata/<compte>/config/shortcuts.vdf` les
+  champs `AppName` et `Exe` du raccourci créé par SteamOS.
+- [ ] Relancer le script : il met à jour sans rien casser (raccourcis et entrée Steam intacts).
+- [ ] `bash install-steamdeck.sh --uninstall` : AppImage et raccourcis retirés, données gardées.
 
 ## 1. Démarrage et Mode Jeu
 
@@ -56,6 +77,38 @@ le panneau des performances.
   secondes ; rebrancher : retour au profil Steam Deck.
 - [ ] Aucune saccade visible en ouvrant une jaquette ou en changeant de collection.
 - [ ] Ventilateur : noter s'il s'emballe sur l'accueil immobile (il ne devrait pas).
+
+### Mode performance (Paramètres › Apparence › Performances)
+
+Sur le Deck, « Automatique » doit l'activer tout seul (la note sous le réglage le dit). Relever le
+panneau des performances dans les deux positions, 30 s par écran, sans toucher à rien puis en
+naviguant.
+
+| Écran | Mode performance | Images/s | Pire temps | Processeur iBox | GPU |
+| --- | --- | --- | --- | --- | --- |
+| Accueil | Activé | | | | |
+| Accueil | Désactivé | | | | |
+| Étagère 3D (profil Steam Deck) | Activé | | | | |
+| Étagère 3D (profil Steam Deck) | Désactivé | | | | |
+| Paramètres, en défilant | Activé | | | | |
+| Paramètres, en défilant | Désactivé | | | | |
+| Fiche d'un jeu | Activé | | | | |
+| Fiche d'un jeu | Désactivé | | | | |
+
+- [ ] Activé : l'interface reste celle d'iBox (mêmes couleurs, mêmes formes, mêmes mouvements).
+  Noter tout ce qui paraît abîmé : texte moins lisible sur un panneau, halo trop dur, bord de
+  l'étagère de l'accueil coupé net.
+- [ ] Activé, étagère 3D immobile depuis 5 s : le GPU retombe (plus aucune image dessinée) ; au
+  premier appui sur la croix, l'étagère repart sans retard ni à-coup.
+- [ ] Activé, étagère 3D : une jaquette qui finit de se charger apparaît bien d'elle-même, sans
+  qu'il faille bouger (sinon l'étagère est restée figée à tort).
+- [ ] Anneau de focus : immobile en mode performance, il respire sinon.
+- [ ] Lancer un jeu depuis iBox en Mode Jeu, y jouer 2 min, puis revenir à iBox par le bouton
+  Steam : pendant le jeu, le processeur d'iBox doit rester proche de zéro (interface en veille) ;
+  au retour, l'interface doit repartir aussitôt. **Si elle reste figée**, noter comment on est
+  revenu (bouton Steam, fermeture du jeu) : c'est que le focus n'a pas été rendu à iBox.
+- [ ] Console portable sous SteamOS autre que le Deck (si disponible) : le mode performance
+  s'active aussi tout seul (iBox lancé depuis Steam, qui pose `SteamDeck=1`).
 
 ## 4. Bibliothèque
 

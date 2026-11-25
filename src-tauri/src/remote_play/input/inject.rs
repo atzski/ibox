@@ -302,7 +302,13 @@ impl<S: Sink, D: Screen, P: Pads> Injector<S, D, P> {
                 Ok(Outcome::Injected)
             }
             // l'autorisation a déjà déduit les relâchements d'un KeyState ; le reste n'est pas une entrée
-            Message::KeyState { .. } | Message::Rumble { .. } | Message::Chat { .. } | Message::Ping { .. } | Message::Pong { .. } => {
+            Message::KeyState { .. }
+            | Message::Rumble { .. }
+            | Message::Chat { .. }
+            | Message::Ping { .. }
+            | Message::Pong { .. }
+            | Message::Timing { .. }
+            | Message::Report { .. } => {
                 Ok(Outcome::NoInput)
             }
         }

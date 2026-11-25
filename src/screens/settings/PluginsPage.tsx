@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { call } from "@/services/inetbox";
 import { PLUGINS_CHANGED } from "@/services/nowPlaying";
-import { formatSize, installPlugin, listPlugins, permissionLabel, setPluginEnabled, uninstallPlugin, type PluginAuthor, type PluginList, type PluginView } from "@/services/plugins";
-import type { AvatarChoice } from "@/services/settings";
+import { formatSize, installPlugin, listPlugins, openPluginScreen, permissionLabel, setPluginEnabled, uninstallPlugin, type PluginAuthor, type PluginList, type PluginView } from "@/services/plugins";
+import { useSettings, type AvatarChoice } from "@/services/settings";
 import { sound } from "@/services/sound";
 import { Group, Toggle } from "./ui";
 
@@ -75,6 +75,11 @@ export function PluginsPage() {
             <PluginCard key={p.id} plugin={p} busy={busy === p.id} confirm={confirm?.id === p.id ? confirm.action : null}>
               <div className="flex flex-wrap items-center gap-2">
                 <Toggle label={`Activer ${p.name}`} checked={!!p.installed?.enabled} onChange={(v) => void run(p.id, () => setPluginEnabled(p.id, v), v ? "on" : "off")} />
+                {p.screen && p.installed?.enabled && (
+                  <Button variant="primary" icon="open" disabled={!!busy} onClick={() => void openPluginScreen(p.id, useSettings.getState().language ?? "fr").catch(() => undefined)}>
+                    Ouvrir {p.screen}
+                  </Button>
+                )}
                 {p.update && p.available && (
                   <Button variant="primary" icon="download" disabled={!!busy} onClick={() => setConfirm({ id: p.id, action: "install" })}>
                     Mettre à jour

@@ -6,11 +6,14 @@
 //! - Les jeux corrigés à la main (`user_locked`) ne sont jamais ré-identifiés.
 //! - Un fichier absent passe en « missing » ; il n'est jamais effacé de la base.
 //! - Annulable à tout moment avant l'écriture : rien n'est alors modifié.
+//! - Un « .iso » dont la console reste incertaine n'est rangé nulle part : il
+//!   attend la réponse de l'utilisateur (`iso`), sans jamais retenir le scan.
 
-use super::{now_iso, repo, LibraryError, Result};
+use super::{iso, now_iso, repo, LibraryError, Result};
 use crate::scanner::{
     self, fingerprint,
     identify::{self, Context, Identification},
+    IdMethod,
     reconcile::{self, path_key, KnownFile, SeenFile},
     walk::{self, Entry, FoundFile},
 };
@@ -44,6 +47,8 @@ pub struct ScanSummary {
     pub reappeared: usize,
     pub duplicates: usize,
     pub needs_review: usize,
+    /// Nouveaux « .iso » dont la console est à demander à l'utilisateur.
+    pub iso_new: usize,
     pub errors: Vec<String>,
 }
 
@@ -195,10 +200,29 @@ pub fn scan(
         replace_parts(&tx, k.game_id, item, folder.id, &now)?;
         summary.moved += 1;
     }
+    let iso_choices = iso::Choices::load(&tx)?;
+    let mut iso_waiting: Vec<iso::PendingIso> = Vec::new();
     for &i in &plan.added {
         let item = &items[i];
         let folder = &folders[item.folder];
-        if let Some(id) = identify_item(item, folder) {
+        if let Some(mut id) = identify_item(item, folder) {
+            if scanner::is_iso(&item.entry.main.path) {
+                if let Some(platform) = iso_choices.platform(item.fingerprint.as_deref()) {
+                    // réponse déjà donnée pour ce contenu : appliquée sans reposer la question
+                    id.platform_id = platform.to_string();
+                    id.method = IdMethod::Manual;
+                    id.confidence = 1.0;
+                    id.alternatives.clear();
+                    let game_id = insert_game(&tx, &id, item, folder.id, &now)?;
+                    tx.execute("UPDATE games SET user_locked = 1 WHERE id = ?1", [game_id])?;
+                    summary.added += 1;
+                    continue;
+                }
+                if id.confidence < iso::SURE {
+                    iso_waiting.push(pending_iso(item, folder, &id));
+                    continue;
+                }
+            }
             if id.needs_review() {
                 summary.needs_review += 1;
             }
@@ -206,6 +230,8 @@ pub fn scan(
             summary.added += 1;
         }
     }
+    let refreshed: Vec<i64> = folders.iter().filter(|f| f.root.is_dir()).map(|f| f.id).collect();
+    summary.iso_new = iso::store_scan(&tx, &refreshed, iso_waiting, &iso_choices)?;
     for &file_id in &plan.missing {
         tx.execute("UPDATE game_files SET status = 'missing' WHERE id = ?1", [file_id])?;
         tx.execute(
@@ -304,7 +330,34 @@ fn header_target(entry: &Entry) -> &Path {
     &entry.main.path
 }
 
-fn insert_game(tx: &Transaction, id: &Identification, item: &Item, folder_id: i64, now: &str) -> Result<()> {
+/// « .iso » à la console incertaine : mis en attente avec, si possible, une
+/// présélection (nom d'un dossier parent, sinon indice lu dans l'image).
+fn pending_iso(item: &Item, folder: &ScanFolder, id: &Identification) -> iso::PendingIso {
+    let main = &item.entry.main;
+    let (guess, guess_source) = if !id.needs_review() {
+        (Some(id.platform_id.clone()), Some("folder"))
+    } else if let Some(hint) = scanner::iso_hint(&main.path) {
+        (Some(hint.to_string()), Some("header"))
+    } else {
+        (None, None)
+    };
+    iso::PendingIso {
+        path: main.path.to_string_lossy().to_string(),
+        folder_id: folder.id,
+        size: main.size as i64,
+        modified: main.modified,
+        fingerprint: item.fingerprint.clone(),
+        title: id.title.clone(),
+        serial: id.serial.clone(),
+        region: id.region.map(|r| r.as_str().to_string()),
+        disc: id.disc,
+        guess,
+        guess_source: guess_source.map(str::to_string),
+        ignored: false,
+    }
+}
+
+fn insert_game(tx: &Transaction, id: &Identification, item: &Item, folder_id: i64, now: &str) -> Result<i64> {
     tx.execute(
         "INSERT INTO games (platform_id, title, sort_title, serial, region, added_at, id_method, id_confidence, id_alternatives)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -327,7 +380,8 @@ fn insert_game(tx: &Transaction, id: &Identification, item: &Item, folder_id: i6
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'main', ?7, ?8)",
         params![game_id, folder_id, main.path.to_string_lossy(), main.size as i64, main.modified, item.fingerprint, id.disc, now],
     )?;
-    replace_parts(tx, game_id, item, folder_id, now)
+    replace_parts(tx, game_id, item, folder_id, now)?;
+    Ok(game_id)
 }
 
 fn alternatives_json(id: &Identification) -> Option<String> {
@@ -486,8 +540,10 @@ mod tests {
         let folder = repo::add_folder(&conn, tmp.path().to_str().unwrap(), None).unwrap();
 
         let s = run(&mut conn);
-        assert_eq!(s.needs_review, 2, "un .iso illisible sans indice doit être vérifié");
+        assert_eq!((s.iso_new, s.added, s.needs_review), (2, 0, 0), "un .iso illisible sans indice attend la réponse de l'utilisateur");
 
+        let okami_path = iso::queue(&conn).unwrap().pending.into_iter().find(|p| p.title == "Okami").unwrap().path;
+        iso::assign(&mut conn, &[okami_path], Some("ps2")).unwrap();
         let okami = games(&conn).into_iter().find(|g| g.title == "Okami").unwrap();
         repo::update_game(
             &conn,
@@ -496,10 +552,11 @@ mod tests {
         )
         .unwrap();
 
-        // Associer le dossier à la GameCube ré-identifie tout… sauf la correction manuelle
+        // Associer le dossier à la GameCube range le fichier en attente… sans toucher à la correction manuelle
         repo::update_folder(&conn, folder.id, Some("gamecube"), true).unwrap();
         let s = run(&mut conn);
-        assert_eq!(s.updated, 1);
+        assert_eq!((s.added, s.updated, s.iso_new), (1, 0, 0));
+        assert!(iso::queue(&conn).unwrap().pending.is_empty());
         let all = games(&conn);
         let okami = all.iter().find(|g| g.id == okami.id).unwrap();
         assert_eq!((okami.platform_id.as_str(), okami.title.as_str(), okami.id_method.as_str()), ("ps2", "Ōkami", "manual"));

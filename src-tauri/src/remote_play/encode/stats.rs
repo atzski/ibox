@@ -103,6 +103,10 @@ pub struct Measurements {
     pub convert: Series,
     /// Envoi à l'encodeur → paquet H.264 disponible (inclut l'attente de la conversion GPU).
     pub encode: Series,
+    /// Image nouvelle reçue de WGC → envoi à l'encodeur (attente d'un jeton de cadence).
+    pub wait: Series,
+    /// Images nouvelles jamais encodées parce que la file d'envoi du réseau n'était pas vide.
+    pub network_skipped: u64,
 }
 
 pub fn per_second(count: u64, elapsed: Duration) -> f64 {

@@ -69,7 +69,7 @@ impl Pair {
     fn new(profile: Profile) -> (Pair, Sent) {
         let now = Instant::now();
         let (eng, sent) = engine(profile);
-        let opts = PeerOptions { initial_kbps: 4_000, max_kbps: 20_000 };
+        let opts = PeerOptions { initial_kbps: 4_000, max_kbps: 20_000, responsive: false };
         let (mut host, offer) = HostPeer::new(opts, &[addr(HOST)], eng, now).unwrap();
         assert!(offer.contains("a=group:BUNDLE"), "offre complète");
         let mut guest = RtcConfig::new().clear_codecs().enable_h264(true).build(now);
@@ -162,9 +162,9 @@ fn video_h264_mise_en_paquets_et_reconstituee() {
     let f1 = annexb(&[sps, pps, &idr]);
     let f2 = annexb(&[&[0x41, 0x9a, 0x02, 0x03]]);
     let start = p.now;
-    p.host.write_frame(p.now, start, 0, &f1, Some(Duration::from_millis(4))).unwrap();
+    p.host.write_frame(p.now, start, 0, f1.clone(), Some(Duration::from_millis(4)), Duration::from_millis(3)).unwrap();
     p.run(30);
-    p.host.write_frame(p.now, start, 166_667, &f2, None).unwrap();
+    p.host.write_frame(p.now, start, 166_667, f2.clone(), None, Duration::ZERO).unwrap();
     p.run(100);
 
     let frames: Vec<_> = p
@@ -244,4 +244,116 @@ fn profils_h264_et_reseaux() {
     assert_eq!(network_kind(&addr("192.168.1.2:1")), "lan");
     assert_eq!(network_kind(&addr("[fe80::1]:1")), "lan");
     assert_eq!(network_kind(&addr("8.8.8.8:1")), "internet");
+}
+
+fn control_messages(p: &Pair) -> Vec<Message> {
+    let control = p.channel("control").unwrap();
+    p.guest_events
+        .iter()
+        .filter_map(|e| match e {
+            Event::ChannelData(d) if d.id == control => decode(&d.data).ok(),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn chaque_image_est_suivie_jusqu_au_reseau_et_mesuree_pour_l_invite() {
+    let (mut p, _) = Pair::new(Profile::Spectator);
+    p.connect();
+    let start = p.now;
+    let idr = annexb(&[&[0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40], &[0x68, 0xeb, 0xe3, 0xcb], &[0x65, 1, 2, 3]]);
+    // image capturée 3 ms avant son envoi à l'encodeur, encodée en 4 ms
+    let written = p.now + Duration::from_millis(4);
+    p.host.write_frame(written, start, 0, idr, Some(Duration::from_millis(4)), Duration::from_millis(3)).unwrap();
+    assert_eq!(p.host.backlog(written).0, 1, "en file tant que son dernier paquet n'est pas parti");
+    p.run(40);
+    assert_eq!(p.host.backlog(p.now), (0, Duration::ZERO), "partie");
+
+    let s = p.host.stats(p.now);
+    assert_eq!(s.capture_wait_ms_p50, Some(3.0));
+    let host_ms = s.host_ms_p50.expect("capture → réseau mesuré");
+    assert!(host_ms >= 7.0, "au moins l'attente et l'encodage : {host_ms}");
+    assert!(s.send_queue_ms_p50.is_some());
+
+    // l'invité reçoit la mesure de cette image, datée par son temps RTP
+    let rtp = p.guest_events.iter().find_map(|e| match e {
+        Event::MediaData(m) => Some(m.time.numer() as u32),
+        _ => None,
+    });
+    let timing = control_messages(&p).into_iter().find_map(|m| match m {
+        Message::Timing { rtp, capture_micros, sent_micros, host_micros } => Some((rtp, capture_micros, sent_micros, host_micros)),
+        _ => None,
+    });
+    let (t_rtp, capture, sent, host) = timing.expect("Timing reçu");
+    assert_eq!(Some(t_rtp), rtp);
+    assert!((host as f64 / 1000.0 - host_ms).abs() < 0.01, "même mesure des deux côtés");
+    assert!(sent > capture, "envoyé après la capture");
+}
+
+#[test]
+fn rapport_de_l_invite_affiche_borne_et_timing_refuse_dans_ce_sens() {
+    let (mut p, sent) = Pair::new(Profile::Spectator);
+    p.connect();
+    p.guest_send("control", &encode(&Message::Report { total_micros: 23_400, guest_micros: 9_100 }));
+    let s = p.host.stats(p.now);
+    assert_eq!((s.guest_latency_ms, s.guest_display_ms), (Some(23.4), Some(9.1)));
+    assert_eq!((s.inputs.rejected, s.inputs.denied), (0, 0), "un rapport n'est pas une entrée refusée");
+    // valeur absurde : non affichée
+    p.guest_send("control", &encode(&Message::Report { total_micros: u32::MAX, guest_micros: 1 }));
+    assert_eq!(p.host.stats(p.now).guest_latency_ms, None);
+    // une mesure d'hôte ne peut pas venir de l'invité, ni par le canal non fiable
+    let timing = encode(&Message::Timing { rtp: 1, capture_micros: 2, sent_micros: 3, host_micros: 4 });
+    p.guest_send("control", &timing);
+    p.guest_send("input", &timing);
+    let s = p.host.stats(p.now);
+    assert_eq!((s.inputs.rejected, s.inputs.denied), (1, 1), "{:?}", s.inputs);
+    assert!(sent.lock().unwrap().is_empty());
+}
+
+#[test]
+fn en_tete_rtp_des_paquets_sortants() {
+    use super::peer::rtp_header;
+    // V=2, marqueur, type 102, temps RTP 0x01020304
+    let mut rtp = vec![0x80, 0x80 | 102, 0, 1, 1, 2, 3, 4, 0, 0, 0, 9];
+    assert_eq!(rtp_header(&rtp), Some((102, true, 0x0102_0304)));
+    rtp[1] = 102;
+    assert_eq!(rtp_header(&rtp), Some((102, false, 0x0102_0304)));
+    // bourrage, RTCP (types 192–223), STUN, DTLS, trop court
+    rtp[0] = 0xa0;
+    assert_eq!(rtp_header(&rtp), None);
+    assert_eq!(rtp_header(&[0x80, 200, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(rtp_header(&[0x00, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(rtp_header(&[22, 254, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(rtp_header(&[0x80, 102]), None);
+}
+
+#[test]
+fn une_image_cle_par_intervalle_meme_si_l_invite_en_redemande() {
+    use str0m::media::{KeyframeRequestKind, MediaKind};
+    let (mut p, _) = Pair::new(Profile::Spectator);
+    p.connect();
+    p.host.take_effects();
+    let mid = p
+        .guest_events
+        .iter()
+        .find_map(|e| match e {
+            Event::MediaAdded(m) if m.kind == MediaKind::Video => Some(m.mid),
+            _ => None,
+        })
+        .expect("piste vidéo chez l'invité");
+    let start = p.now;
+    let idr = annexb(&[&[0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40], &[0x68, 0xeb, 0xe3, 0xcb], &[0x65, 1, 2, 3]]);
+    p.host.write_frame(p.now, start, 0, idr, None, Duration::ZERO).unwrap();
+    p.run(20);
+    // l'invité redemande une image clé alors qu'une vient de partir : ignorée
+    p.guest.writer(mid).unwrap().request_keyframe(None, KeyframeRequestKind::Pli).unwrap();
+    p.run(60);
+    assert!(!p.host.take_effects().keyframe, "l'image clé partie il y a 80 ms répond déjà à la demande");
+    assert_eq!(p.host.stats(p.now).keyframes_throttled, 1);
+    // plus tard, la demande est honorée
+    p.run(400);
+    p.guest.writer(mid).unwrap().request_keyframe(None, KeyframeRequestKind::Pli).unwrap();
+    p.run(60);
+    assert!(p.host.take_effects().keyframe);
 }

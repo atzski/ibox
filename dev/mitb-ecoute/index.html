@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Music in the Box : écoute des fondus</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+      /* le fond est une couche à part : les styles d'iBox rendent la page transparente */
+      .fond { position: fixed; inset: 0; background: radial-gradient(120% 90% at 80% 40%, #26345e 0%, #121a30 55%, #0a0e1a 100%); }
+      .desk {
+        position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(400px, 44vw); box-sizing: border-box; overflow-y: auto;
+        padding: 22px 22px 28px; color: #e8ecf7; font: 600 14px/1.45 "Nunito Variable", system-ui, sans-serif;
+        background: rgba(8, 11, 22, 0.72); border-right: 1px solid rgba(255, 255, 255, 0.1); user-select: none;
+      }
+      .desk h1 { margin: 0 0 6px; font: 600 22px/1.2 "Fredoka Variable", system-ui, sans-serif; }
+      .desk h2 { margin: 0 0 8px; font: 800 12px/1 "Nunito Variable", system-ui, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa6c4; }
+      .desk p { margin: 0; }
+      .desk .lead, .desk .hint { color: #a9b3cc; font-size: 13px; }
+      .desk section { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: grid; gap: 10px; }
+      .desk .now { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+      .desk .now strong { font-size: 18px; }
+      .desk .now span { color: #a9b3cc; font-variant-numeric: tabular-nums; }
+      .desk .row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; }
+      .desk button {
+        min-height: 40px; padding: 8px 12px; border: 0; border-radius: 12px; cursor: pointer; color: inherit; font: inherit;
+        background: rgba(255, 255, 255, 0.1); transition: background-color 0.15s;
+      }
+      .desk button:hover { background: rgba(255, 255, 255, 0.18); }
+      .desk button:focus-visible { outline: 3px solid #8fe3ff; outline-offset: 2px; }
+      .desk button.main { background: #8fe3ff; color: #0b1626; font-weight: 800; }
+      .desk button.main:hover { background: #b3ecff; }
+      .desk button.wide { width: 100%; }
+      .desk label { display: grid; gap: 4px; color: #a9b3cc; font-size: 13px; font-variant-numeric: tabular-nums; }
+      .desk input[type="range"] { width: 100%; accent-color: #8fe3ff; }
+      .desk .trace { display: block; width: 100%; height: 120px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); }
+      .desk .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: #a9b3cc; }
+      .desk .legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+      .desk .legend .in::before { background: #8fe3ff; }
+      .desk .legend .out::before { background: #ffb36b; }
+      .desk .legend .sum::before { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0 4px, transparent 4px 8px); }
+      .desk dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-variant-numeric: tabular-nums; }
+      .desk dt { color: #a9b3cc; }
+      .desk dd { margin: 0; text-align: right; }
+      .desk ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+      .desk .song { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 0 10px; text-align: left; }
+      .desk .song small { grid-column: 1 / -1; color: #a9b3cc; font-size: 12px; }
+      .desk .song span { color: #a9b3cc; font-variant-numeric: tabular-nums; }
+      .desk .song.on { background: rgba(143, 227, 255, 0.2); }
+    </style>
+  </head>
+  <body>
+    <div class="fond"></div>
+    <div id="root"></div>
+    <script type="module" src="/dev/mitb-ecoute/main.tsx"></script>
+  </body>
+</html>

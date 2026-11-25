@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { usePlatform } from "@/services/platform";
 import { usePower } from "@/services/power";
 import { graphicsFor, resolveProfile, type GraphicsProfile } from "@/services/graphics";
+import { isHandheld, resolvePerformance, type PerformanceChoice } from "@/services/performance";
 import { setTvMode } from "@/services/tvMode";
 import { useSettings, type GridDensity, type MotionPreference, type ThemePreference } from "@/services/settings";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -104,6 +105,9 @@ export function DisplayPage() {
         <Row label="Boîtiers 3D détaillés" note="Modèles physiques (Switch pour l'instant) ; désactivés, boîtiers simplifiés">
           <Toggle checked={s.classicCases !== true} onChange={(v) => s.set("classicCases", !v)} label="Boîtiers 3D détaillés" />
         </Row>
+      </Group>
+      <Group title="Performances" icon="chip">
+        <PerformanceModeRow />
       </Group>
       <Group title="Rendu 3D" icon="sparkle">
         <GraphicsProfileRow />
@@ -408,13 +412,47 @@ function GameHeroThumb({ game }: { game: Game }) {
   return url ? <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" /> : null;
 }
 
+/**
+ * Mode performance : l'interface reste la même, sans ce qui coûte cher aux petites machines
+ * (`services/performance.ts`). Automatique : activé sur une console portable.
+ */
+function PerformanceModeRow() {
+  const choice = useSettings((s) => s.performanceMode ?? "auto");
+  const set = useSettings((s) => s.set);
+  const handheld = usePlatform(isHandheld);
+  // phrases entières (traduites telles quelles)
+  const note =
+    choice === "on"
+      ? "Pour les petites machines : flous remplacés par des aplats, ombres simplifiées, étagère 3D à la définition de l'écran, dessinée seulement quand elle bouge."
+      : choice === "off"
+        ? "Tous les effets de l'interface, sur toutes les machines."
+        : resolvePerformance(choice, handheld)
+          ? "Automatique : activé pour l'instant, sur cette console portable (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge)."
+          : "Automatique : désactivé pour l'instant. Il s'active tout seul sur un Steam Deck.";
+  return (
+    <Row label="Mode performance" note={note}>
+      <Segmented<PerformanceChoice>
+        label="Mode performance"
+        value={choice}
+        onChange={(v) => set("performanceMode", v)}
+        options={[
+          { value: "auto", label: "Automatique" },
+          { value: "on", label: "Activé" },
+          { value: "off", label: "Désactivé" },
+        ]}
+      />
+    </Row>
+  );
+}
+
 /** Profil graphique : l'étagère 3D garde le même rendu, seuls la définition et le rythme changent. */
 function GraphicsProfileRow() {
   const s = useSettings();
   const deck = usePlatform((p) => p.steamDeck !== null);
   const onBattery = usePower((p) => p.onBattery);
+  const lite = resolvePerformance(s.performanceMode, usePlatform(isHandheld));
   const choice = s.graphicsProfile ?? "auto";
-  const g = graphicsFor(resolveProfile(choice, deck, onBattery));
+  const g = graphicsFor(resolveProfile(choice, deck, onBattery, lite));
   // phrases entières (traduites telles quelles)
   const NOTES = {
     quality: "Rendu affiné jusqu'à ×1,5, au rythme de l'écran.",
@@ -423,7 +461,9 @@ function GraphicsProfileRow() {
   } as const;
   const AUTO = {
     quality: "Automatique : Qualité pour l'instant (rendu affiné jusqu'à ×1,5, au rythme de l'écran).",
-    deck: "Automatique : Steam Deck pour l'instant (définition de l'écran, 60 images par seconde).",
+    deck: deck
+      ? "Automatique : Steam Deck pour l'instant (définition de l'écran, 60 images par seconde)."
+      : "Automatique : Steam Deck pour l'instant, avec le mode performance (définition de l'écran, 60 images par seconde).",
     battery: "Automatique : Économie d'énergie pour l'instant, sur batterie (définition de l'écran, 30 images par seconde).",
   } as const;
   return (

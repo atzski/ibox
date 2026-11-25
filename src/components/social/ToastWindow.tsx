@@ -13,7 +13,7 @@ import { isTauri } from "@/services/native";
 import { useIsDark } from "@/app/shellState";
 import type { ToastPayload } from "@/services/social";
 
-const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 14000, notice: 8000 } as const;
+const DURATION = { game: 6500, request: 9000, message: 7500, invite: 9000, update: 14000, notice: 8000, clip: 4500 } as const;
 const LOOK: Record<ToastPayload["kind"], { label: string; icon: IconName; from: string; to: string; ink: string }> = {
   update: { label: "Mise à jour disponible", icon: "download", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
   game: { label: "En jeu", icon: "play", from: "#DDF6EA", to: "#98DEBE", ink: "#2F7A57" },
@@ -21,6 +21,7 @@ const LOOK: Record<ToastPayload["kind"], { label: string; icon: IconName; from: 
   message: { label: "Message", icon: "sparkle", from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
   invite: { label: "Invitation à jouer", icon: "gamepad", from: "#E4D9FB", to: "#B5A0E9", ink: "#6A4FB3" },
   notice: { label: "iBox", icon: "sparkle", from: "#FFF1C9", to: "#FFD27A", ink: "#A86A12" },
+  clip: { label: "iClips", icon: "play", from: "#ECE4FF", to: "#B9A2F4", ink: "#6A4FB3" },
 };
 const NOTICE_TONE = {
   info: { from: "#DDF0FF", to: "#88CBF5", ink: "#2C6FA8" },
@@ -97,14 +98,14 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
     ? { ...LOOK.notice, ...(toast.tone ? NOTICE_TONE[toast.tone] : {}), icon: toast.icon ?? LOOK.notice.icon, label: toast.link?.kind === "achievements" ? "Succès" : "iBox" }
     : LOOK[toast.kind];
   const linkedGame = toast.link && "gameId" in toast.link ? toast.link.gameId : undefined;
-  const cover = useCover(toast.kind === "game" || toast.kind === "invite" ? toast.gameTitle : undefined, toast.platformId, linkedGame);
+  const cover = useCover(toast.kind === "game" || toast.kind === "invite" || toast.kind === "clip" ? toast.gameTitle : undefined, toast.platformId, linkedGame);
   const [paused, setPaused] = useState(false);
   const duration = DURATION[toast.kind];
   const left = useRef(duration);
   const platform = toast.platformId ? getPlatform(toast.platformId)?.shortName : undefined;
 
   // message d'ami : deux petits coups ; succès débloqué : l'arpège ; le reste : le carillon
-  useEffect(() => { sound.play(toast.kind === "message" ? "message" : toast.link?.kind === "achievements" ? "success" : "notify"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { sound.play(toast.kind === "clip" ? "clip" : toast.kind === "message" ? "message" : toast.link?.kind === "achievements" ? "success" : "notify"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (paused) return;
     const start = performance.now();
@@ -122,7 +123,7 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
     : toast.kind === "invite" && toast.remotePlay ? <>{toast.mode === "play" ? "vous invite à jouer sur son PC (Remote Play)." : "vous invite à regarder son écran (Remote Play)."} Cliquez pour répondre.</>
     : toast.kind === "invite" ? <>vous invite à <b className="text-ink">{toast.gameTitle}</b></>
     : toast.kind === "request" ? <>vous a ajouté en ami. Cliquez pour accepter.</>
-    : toast.kind === "notice" || toast.kind === "update" ? <>{toast.body}</>
+    : toast.kind === "notice" || toast.kind === "update" || toast.kind === "clip" ? <>{toast.body}</>
     : <span className="italic">« {toast.body} »</span>;
 
   // en sombre, l'encre foncée du type devient sa teinte claire (contraste)
@@ -156,7 +157,7 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
           </span>
         ) : cover ? (
           <img src={cover} alt="" draggable={false} className="h-[5.5rem] w-[4.1rem] rounded-xl object-cover shadow-md ring-1 ring-black/5" />
-        ) : toast.kind === "notice" || toast.kind === "update" ? (
+        ) : toast.kind === "notice" || toast.kind === "update" || toast.kind === "clip" ? (
           // pastille d'icône : dégradé, reflet en haut et petit rebord, comme les boutons iBox
           <span
             className="relative grid size-[4.4rem] place-items-center overflow-hidden rounded-[1.15rem] shadow-[inset_0_-3px_0_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7),0_8px_18px_-10px_rgba(20,30,60,0.5)]"
@@ -177,7 +178,7 @@ function Toast({ toast, dark, onDone }: { toast: ToastPayload; dark: boolean; on
             <Avatar size={58} choice={toast.avatar ?? null} name={toast.name} />
           </span>
         )}
-        {cover && toast.kind !== "notice" && (
+        {cover && toast.kind !== "notice" && toast.kind !== "clip" && (
           <span className="absolute -right-2 -bottom-2">
             <Avatar size={32} choice={toast.avatar ?? null} name={toast.name} />
           </span>

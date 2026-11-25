@@ -1,5 +1,5 @@
 import { SPRING, TWEEN } from "@/motion/tokens";
-import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLibrary, compareGames, countByPlatform, isFavorite } from "@/services/library";
 import { useSettings, type LibraryView, type GridDensity } from "@/services/settings";
@@ -9,7 +9,8 @@ import { getPlatform, PLATFORMS } from "@/domain/platforms";
 import { matchesQuery } from "@/domain/text";
 import { themeVars } from "@/theme/platformTheme";
 import { input } from "@/input/InputController";
-import { GameCard } from "@/components/game/GameCard";
+import { CoverGrid, CoverZoomControl } from "@/components/library/CoverGrid";
+import { clampZoom, stepZoom } from "@/domain/coverZoom";
 import { AddPcGameModal } from "@/components/pc/PcParts";
 import { PC_DEMO_GAMES } from "@/domain/pcDemo";
 import { isInstalled } from "@/services/pc";
@@ -18,8 +19,10 @@ import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { ConsoleHeader } from "@/components/platform/ConsoleHeader";
 import { ConsoleHighlights } from "@/components/platform/ConsoleHighlights";
 import { Button, Segmented } from "@/components/ui/Button";
+import { IconBar, IconBarButton } from "@/components/ui/IconBar";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Section";
+import { IsoPendingButton } from "@/components/library/IsoConsoleModal";
 import { ShelfView } from "@/three/lazy";
 import { sound } from "@/services/sound";
 
@@ -38,6 +41,16 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
   }, [isPc]);
   const [pcCategory, setPcCategory] = useState<PcCategory>("all");
   const density = useSettings((st) => st.gridDensity ?? "standard");
+  // recul de la grille de jaquettes : 0 = affichage d'origine, puis de plus en plus de jeux à l'écran
+  const zoom = clampZoom(useSettings((st) => st.coverZoom));
+  const stepZoomBy = useCallback((delta: number) => {
+    const settings = useSettings.getState();
+    const current = clampZoom(settings.coverZoom);
+    const next = stepZoom(current, delta);
+    if (next === current) return;
+    sound.play("tab");
+    settings.set("coverZoom", next);
+  }, []);
   const [addingPc, setAddingPc] = useState(false);
   const reduced = useReducedMotion();
   const dark = useIsDark();
@@ -75,14 +88,12 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
     );
     return list.sort(compareGames(sort));
   }, [pool, platformId, onlyFavs, onlyReview, favorites, query, sort, isPc, pcCategory]);
-  // grandes bibliothèques : les premières cartes tout de suite, les suivantes par lots
   const [restoreFocus] = useState(() => useNav.getState().direction === -1
     ? rememberedFocus({ name: "library", platformId })
     : undefined);
-  // repart du début seulement si l'utilisateur change de console, de filtre, de recherche ou de
-  // tri : une relecture des données (jaquettes trouvées, synchro Steam…) ne rétrécit plus la grille
-  const progressiveKey = `${platformId}|${isPc ? pcCategory : ""}|${onlyFavs}|${onlyReview}|${query}|${sort}|${view}`;
-  const shown = useProgressive(visible, isPc || view === "grid", progressiveKey, restoreFocus);
+  // la grille repart du haut seulement si l'utilisateur change de console, de filtre, de recherche
+  // ou de tri : une relecture des données (jaquettes trouvées, synchro Steam…) garde sa place
+  const gridResetKey = `${platformId}|${isPc ? pcCategory : ""}|${onlyFavs}|${onlyReview}|${query}|${sort}`;
   const reviewCount = useMemo(
     () => games.filter((g) => (platformId === "all" || g.platformId === platformId) && (g.needsReview || g.missing || g.mediaStatus === "ambiguous")).length,
     [games, platformId],
@@ -117,6 +128,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         : [
             { keys: ["X"], label: "Jouer" },
             { keys: ["F"], label: "Favori" },
+            { keys: ["−", "+"], label: "Reculer / avancer" },
           ]),
       { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Entrée"], label: "Ouvrir" },
@@ -160,6 +172,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
           value={view}
           onChange={(v) => set("libraryView", v)}
           cue="view"
+          iconOnly
           options={[
             { value: "shelf", label: "Étagère 3D", icon: "shelf" },
             { value: "grid", label: "Jaquettes", icon: "grid" },
@@ -191,58 +204,47 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
           label="Tri"
           value={sort}
           onChange={(v) => set("librarySort", v)}
+          iconOnly
           options={[
             { value: "alpha", label: "A → Z", icon: "sortAlpha" },
             { value: "added", label: "Ajout récent", icon: "clock" },
             { value: "played", label: "Joués récemment", icon: "play" },
           ]}
         />
-        {!isPc && (
-        <Button
-          cue="toggle"
-          icon="star"
-          aria-pressed={onlyFavs}
-          onClick={() => setOnlyFavs((v) => !v)}
-          className={onlyFavs ? "!bg-[var(--accent-deep)] !text-on-accent" : "!bg-white/80"}
-        >
-          Favoris
-        </Button>
-        )}
-        {(reviewCount > 0 || onlyReview) && (
-          <Button
-            cue="toggle"
-            icon="sparkle"
-            aria-pressed={onlyReview}
-            onClick={() => setOnlyReview((v) => !v)}
-            className={onlyReview ? "!bg-[var(--accent-deep)] !text-on-accent" : "!bg-white/80"}
-            title="Jeux à identifier ou introuvables"
-          >
-            À vérifier ({reviewCount})
-          </Button>
-        )}
-        {native && isPc && (
-          <Button icon="reset" cue="select" disabled={pcSyncing} onClick={() => void syncPc()} className="!bg-white/80" title="Relit les jeux installés des boutiques activées">
-            {pcSyncing ? "Lecture des boutiques…" : "Actualiser"}
-          </Button>
-        )}
-        {native && hasFolders && !isPc && (
-          <Button icon="reset" cue="select" disabled={scanRunning} onClick={() => void startScan()} className="!bg-white/80">
-            {scanRunning ? "Actualisation…" : "Actualiser"}
-          </Button>
-        )}
+        {/* actions en icônes seules : leur nom s'affiche au survol ou au focus de la manette */}
+        <IconBar>
+          {!isPc && <IconBarButton icon="star" label="Favoris" active={onlyFavs} cue="toggle" onClick={() => setOnlyFavs((v) => !v)} tint="var(--tone-yellow-ink)" />}
+          {(reviewCount > 0 || onlyReview) && (
+            <IconBarButton icon="sparkle" label={`À vérifier (${reviewCount})`} title="Jeux à identifier ou introuvables" active={onlyReview} badge={reviewCount}
+              cue="toggle" onClick={() => setOnlyReview((v) => !v)} tint="var(--tone-purple-ink)" />
+          )}
+          {!isPc && <IsoPendingButton />}
+          {native && isPc && (
+            <IconBarButton icon="reset" label={pcSyncing ? "Lecture des boutiques…" : "Actualiser"} title="Relit les jeux installés des boutiques activées"
+              disabled={pcSyncing} onClick={() => void syncPc()} tint="var(--tone-blue-ink)" />
+          )}
+          {native && hasFolders && !isPc && (
+            <IconBarButton icon="reset" label={scanRunning ? "Actualisation…" : "Actualiser"} disabled={scanRunning} onClick={() => void startScan()} tint="var(--tone-blue-ink)" />
+          )}
+        </IconBar>
+        {effView === "grid" && total > 0 && <CoverZoomControl level={zoom} onStep={stepZoomBy} />}
 
-        {showPills && <div className="ml-auto flex flex-wrap items-center gap-2">
-          <FilterPill active={platformId === "all"} onClick={() => switchPlatform("all")} label="Toutes" />
-          {filterPlatforms.map((p) => (
-            <FilterPill
-              key={p.id}
-              active={platformId === p.id}
-              onClick={() => switchPlatform(p.id)}
-              label={p.shortName}
-              color={p.theme.primary}
-            />
-          ))}
-        </div>}
+        {showPills && (
+          <IconBar className="ml-auto flex-wrap">
+            <IconBarButton icon="grid" label="Toutes les consoles" active={platformId === "all"} cue={null} onClick={() => switchPlatform("all")} />
+            {filterPlatforms.map((p) => (
+              <IconBarButton
+                key={p.id}
+                label={p.shortName}
+                title={p.name}
+                active={platformId === p.id}
+                cue={null}
+                onClick={() => switchPlatform(p.id)}
+                glyph={<span className="grid place-items-center" style={{ color: p.theme.primary }}><PlatformGlyph glyph={p.glyph} size={22} /></span>}
+              />
+            ))}
+          </IconBar>
+        )}
         {scrolled && filterPlatforms.length > 0 && (
           <button data-focusable onClick={() => setScrolled(false)} className="ibox-focusable ml-auto inline-flex h-9 items-center gap-2 rounded-full bg-white/75 px-3.5 text-[0.85rem] font-bold text-ink-soft [--ring-radius:999px] hover:text-ink">
             <Icon name="grid" size="1em" /> {platform ? platform.shortName : "Toutes les consoles"}
@@ -316,31 +318,18 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             {effView === "grid" ? (
-              <motion.div
+              <CoverGrid
                 key={`grid-${platformId}`}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={TWEEN.fast}
-                data-cover-scroll-root
+                games={visible}
+                cardRem={(platform?.layout.gridCardWidth ?? 11.5) * DENSITY[density]}
+                pc={isPc}
+                level={zoom}
+                onStep={stepZoomBy}
+                resetKey={gridResetKey}
+                restoreFocus={restoreFocus}
+                reduced={reduced}
                 onScroll={onGridScroll}
-                className="absolute inset-0 overflow-y-auto"
-              >
-                <motion.div
-                  data-nav-group="library-grid"
-                  initial="hidden"
-                  animate="show"
-                  variants={{ show: { transition: { staggerChildren: 0 } } }}
-                  className="grid gap-x-6 gap-y-7 px-3 pt-5 pb-8"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${((platform?.layout.gridCardWidth ?? 11.5) * DENSITY[density]).toFixed(2)}rem, 1fr))`,
-                  }}
-                >
-                  {shown.map((g, i) => (
-                    <GameCard key={g.id} game={g} autoFocus={i === 0} />
-                  ))}
-                </motion.div>
-              </motion.div>
+              />
             ) : (
               <motion.div
                 key={`shelf-${platformId}`}
@@ -406,12 +395,18 @@ function useImmersiveChrome(enabled: boolean, resetKey: string, onTop: (top: num
     };
   }, [active]);
 
-  const onGridScroll = (e: UIEvent<HTMLElement>) => {
+  const onGridScroll = (e: UIEvent<HTMLElement>, jump = false) => {
     const top = e.currentTarget.scrollTop;
     onTop(top);
     const m = memo.current;
     const d = top - m.last;
     m.last = top;
+    // défilement posé par la grille (changement de recul) : ce n'est pas un geste de lecture,
+    // le haut de l'écran ne bouge pas
+    if (jump && top >= 24) {
+      m.up = m.down = 0;
+      return;
+    }
     if (top < 24) {
       m.up = m.down = 0;
       if (hidden) setHidden(false);
@@ -428,45 +423,6 @@ function useImmersiveChrome(enabled: boolean, resetKey: string, onTop: (top: num
     }
   };
   return { hidden: active, onGridScroll };
-}
-
-function FilterPill({ active, onClick, label, color }: { active: boolean; onClick: () => void; label: string; color?: string }) {
-  return (
-    <button
-      data-focusable
-      aria-pressed={active}
-      onClick={onClick}
-      className={`ibox-focusable inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-[0.85rem] font-bold [--ring-radius:999px] ${
-        active ? "bg-ink text-cream shadow-sm" : "bg-white/75 text-ink-soft hover:text-ink"
-      }`}
-    >
-      {color && <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />}
-      {label}
-    </button>
-  );
-}
-
-/**
- * Affichage progressif d'une longue liste : un premier lot immédiatement (avec
- * l'animation d'entrée), puis le reste par lots à chaque image, sans bloquer
- * l'écran. Repart du début quand `resetKey` change (filtre, recherche, console, tri), pas
- * quand les mêmes jeux sont relus.
- */
-function useProgressive(list: Game[], enabled: boolean, resetKey: string, restoreFocus?: string): Game[] {
-  const first = 36;
-  const step = 48;
-  const [count, setCount] = useState(() => Math.max(first, list.findIndex((game) => `game:${game.id}` === restoreFocus) + 1));
-  const [previousKey, setPreviousKey] = useState(resetKey);
-  if (previousKey !== resetKey) {
-    setPreviousKey(resetKey);
-    setCount(first);
-  }
-  useEffect(() => {
-    if (!enabled || count >= list.length) return;
-    const id = requestAnimationFrame(() => setCount((c) => c + step));
-    return () => cancelAnimationFrame(id);
-  }, [count, enabled, list.length]);
-  return enabled ? (count >= list.length ? list : list.slice(0, count)) : [];
 }
 
 /** Taille des jaquettes selon la densité choisie (Paramètres › Apparence). */

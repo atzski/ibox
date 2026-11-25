@@ -116,7 +116,7 @@ function syncToasts() {
 
 /** Notification cliquée : iBox revient et ouvre ce qui la concerne. */
 export interface ToastPayload {
-  kind: "game" | "request" | "message" | "invite" | "update" | "notice";
+  kind: "game" | "request" | "message" | "invite" | "update" | "notice" | "clip";
   friendId: string;
   name: string;
   avatar?: AvatarChoice | null;
@@ -130,6 +130,8 @@ export interface ToastPayload {
   tone?: "info" | "ok" | "warn";
   link?: import("./links").AppLink | null;
   image?: string | null;
+  /** Clip gardé (kind « clip », iClips) : son nom. */
+  clip?: string;
   /** Invitation Remote Play (kind « invite »). */
   remotePlay?: boolean;
   inviteId?: string;
@@ -138,6 +140,15 @@ export interface ToastPayload {
 export type FriendsTarget = { view: "requests" } | { view: "chat"; friendId: string } | { view: "profile"; friendId: string } | { view: "list" };
 
 function onToastClick(p: ToastPayload) {
+  if (p.kind === "clip") {
+    // le Studio du plugin qui garde les clips (iClips)
+    void import("./plugins").then(async ({ listPlugins, openPluginScreen }) => {
+      const list = await listPlugins(false).catch(() => null);
+      const plugin = list?.plugins.find((x) => x.screen && x.installed?.enabled && x.permissions.includes("clips"));
+      if (plugin) await openPluginScreen(plugin.id, useSettings.getState().language === "en" ? "en" : "fr").catch(() => undefined);
+    });
+    return;
+  }
   if (p.kind === "update" || p.kind === "notice") {
     const link = p.kind === "update" ? { kind: "update" as const } : p.link;
     if (link) void import("./links").then(({ openLink }) => openLink(link));

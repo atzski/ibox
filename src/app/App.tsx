@@ -1,7 +1,7 @@
 import { attachAutoJingles } from "@/services/jingles";
 import { PerfOverlay } from "@/components/extras/PerfOverlay";
 import { attachPower } from "@/services/power";
-import { attachMenuMusic, useMenuMusic } from "@/services/menuMusic";
+import { attachInterfaceSleep, setWindowHidden, usePerformanceMode } from "@/services/performance";
 import { attachSocial } from "@/services/social";
 import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
 import { RemotePlayLayer } from "@/components/remoteplay/RemotePlayOnline";
@@ -14,16 +14,18 @@ import { shellApi } from "@/services/shell";
 import { startUpdateWatch } from "@/services/updater";
 import { startRaWatch } from "@/services/retro";
 import { DuplicatesHost } from "@/components/game/Versions";
+import { IsoConsoleHost } from "@/components/library/IsoConsoleModal";
 import { PlayerJoinedOverlay } from "@/components/shell/Players";
 import { attachInetbox } from "@/services/inetbox";
 import { InetboxModal } from "@/components/social/InetboxPanel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { EASE, SPRING, TWEEN } from "@/motion/tokens";
 import { rememberedFocus, routeKey, useNav, useRoute, type Route } from "./navigation";
-import { clearAmbientGame, useIsDark, useReducedMotion, useShell } from "./shellState";
+import { clearAmbientGame, useIsDark, useReducedMotion } from "./shellState";
 import { useSettings } from "@/services/settings";
+import { setPluginLook } from "@/services/plugins";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
-import { music, MENU_TRACK } from "@/services/music";
+import { music } from "@/services/music";
 import { startNowPlaying } from "@/services/nowPlaying";
 import { sound } from "@/services/sound";
 import { input } from "@/input/InputController";
@@ -171,7 +173,7 @@ export function App() {
   useEffect(() => {
     let off: () => void = () => undefined;
     let alive = true;
-    const setBackground = (hidden: boolean) => { music.setBackground(hidden); sound.setBackground(hidden); };
+    const setBackground = (hidden: boolean) => { music.setBackground(hidden); sound.setBackground(hidden); setWindowHidden(hidden); };
     void shellApi.visible().then((v) => setBackground(v === false), () => undefined);
     void shellApi.onVisibility((v) => setBackground(!v)).then((f) => (alive ? (off = f) : f()));
     // Linux (Steam Deck) : jamais de démarrage automatique (il lancerait iBox à chaque Mode Bureau)
@@ -187,6 +189,8 @@ export function App() {
   useEffect(() => startUpdateWatch(), []);
   // batterie et sortie de veille (Steam Deck) : veilles espacées, reprise au réveil
   useEffect(() => attachPower(), []);
+  // veille de l'interface : animations et 3D à l'arrêt quand personne ne regarde iBox
+  useEffect(() => attachInterfaceSleep(), []);
   // succès RetroAchievements débloqués pendant une partie : annoncés en direct
   useEffect(() => startRaWatch(
     () => useLauncher.getState().phase === "running",
@@ -199,10 +203,28 @@ export function App() {
   const clipSeconds = useSettings((s) => s.clipSeconds ?? 15);
   const clipSystemAudio = useSettings((s) => s.clipSystemAudio !== false);
   const clipMicrophone = useSettings((s) => s.clipMicrophone === true);
+  const clipSystemVolume = useSettings((s) => s.clipSystemVolume ?? 1);
+  const clipMicVolume = useSettings((s) => s.clipMicVolume ?? 1);
+  const clipTracks = useSettings((s) => s.clipTracks === true);
+  const clipEverywhere = useSettings((s) => s.clipEverywhere === true);
+  const clipOutputDevice = useSettings((s) => s.clipOutputDevice ?? null);
+  const clipMicDevice = useSettings((s) => s.clipMicDevice ?? null);
   useEffect(
-    () => void captures.settings(captureClips, captureHotkey, { quality: clipQuality, seconds: clipSeconds, systemAudio: clipSystemAudio, microphone: clipMicrophone }).catch(() => undefined),
-    [captureClips, captureHotkey, clipQuality, clipSeconds, clipSystemAudio, clipMicrophone],
+    () => void captures.settings(captureClips, captureHotkey, { quality: clipQuality, seconds: clipSeconds, systemAudio: clipSystemAudio, microphone: clipMicrophone, systemVolume: clipSystemVolume, micVolume: clipMicVolume, tracks: clipTracks, everywhere: clipEverywhere }, clipOutputDevice, clipMicDevice).catch(() => undefined),
+    [captureClips, captureHotkey, clipQuality, clipSeconds, clipSystemAudio, clipMicrophone, clipSystemVolume, clipMicVolume, clipTracks, clipEverywhere, clipOutputDevice, clipMicDevice],
   );
+  // iClips Studio règle les clips à son tour : iBox garde ses choix
+  useEffect(() => {
+    if (!isTauri()) return;
+    let off: (() => void) | undefined;
+    void import("@tauri-apps/api/event").then(({ listen }) => listen<Record<string, unknown>>("clip-settings", (e) => {
+      const set = useSettings.getState().set as (k: string, v: unknown) => void;
+      for (const [k, v] of Object.entries(e.payload)) {
+        if (["captureClips", "clipQuality", "clipSeconds", "clipSystemAudio", "clipMicrophone", "clipSystemVolume", "clipMicVolume", "clipTracks", "clipEverywhere", "clipOutputDevice", "clipMicDevice"].includes(k)) set(k, v);
+      }
+    })).then((f) => { off = f; });
+    return () => off?.();
+  }, []);
   // raccourcis globaux : overlay de capture et Music in the Box (Paramètres › Système, › Plugins)
   const captureKeys = useSettings((s) => s.captureKeys ?? DEFAULT_KEYS.capture);
   const musicKeys = useSettings((s) => s.musicKeys ?? DEFAULT_KEYS.music);
@@ -272,14 +294,10 @@ export function App() {
     };
   }, []);
 
-  // Musique en boucle : piste de la console affichée si elle en a une, sinon musique de menu
-  const custom = useMenuMusic((s) => s.url);
-  const ambientTrack = useShell((s) => s.ambientPlatform?.ambience) ?? custom ?? MENU_TRACK;
+  // Ambiance sonore des menus (synthétisée, sans piste)
   useEffect(() => music.attach(), []);
-  useEffect(() => attachMenuMusic(), []);
-  // Music in the Box : « En cours » dans la barre du haut, et la musique des menus qui s'efface
+  // Music in the Box : « En cours » dans la barre du haut, et l'ambiance des menus qui s'efface
   useEffect(() => startNowPlaying(), []);
-  useEffect(() => music.play(ambientTrack), [ambientTrack]);
 
   // Thème : color-scheme pilote toutes les couleurs light-dark() des tokens
   const theme = useSettings((s) => s.theme);
@@ -288,10 +306,20 @@ export function App() {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     void syncWindowTheme(theme);
   }, [dark, theme]);
+  // les pages des plugins (panneau d'iClips…) s'ouvrent dans la langue et le thème d'iBox
+  const language = useSettings((s) => s.language ?? "fr");
+  useEffect(() => void setPluginLook(language, dark).catch(() => undefined), [language, dark]);
 
   useEffect(() => {
     document.documentElement.dataset.motion = reduced ? "reduced" : "full";
   }, [reduced]);
+
+  // mode performance (Steam Deck, petites machines) : allègements de `styles/performance.css`
+  const lite = usePerformanceMode();
+  useEffect(() => {
+    if (lite) document.documentElement.dataset.perf = "lite";
+    else delete document.documentElement.dataset.perf;
+  }, [lite]);
 
   const animatedBg = useSettings((s) => s.animatedBackground !== false);
   useEffect(() => {
@@ -366,6 +394,7 @@ export function App() {
       </AnimatePresence>
       <InetboxModal />
       <DuplicatesHost />
+      <IsoConsoleHost />
       <CommandsHost />
       <PlayerSheetHost />
       <PlayerJoinedOverlay />

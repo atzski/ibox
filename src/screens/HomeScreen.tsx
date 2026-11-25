@@ -30,6 +30,9 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { BLOCK_INFO, normalizeBlocks, type HomeBlockId } from "@/services/homeLayout";
 import { input } from "@/input/InputController";
 import { sound } from "@/services/sound";
+import { useOffscreenPause } from "@/motion/offscreen";
+import { interfaceAsleep, usePerformanceMode } from "@/services/performance";
+import { useSoftenedImage } from "@/art/soften";
 
 export function HomeScreen() {
   const savedBlocks = useSettings((s) => s.homeBlocks);
@@ -104,6 +107,12 @@ export function HomeScreen() {
   }, [hero?.id]);
   const welcome = native && status === "ready" && folders.length === 0;
   const favs = games.filter((g) => isFavorite(g, favorites));
+  // animations de mise en page (déplacer, masquer une section, rangée qui se remplit) : mesurées
+  // seulement quand l'ordre, la visibilité, le contenu ou le mode personnalisation changent
+  const layoutKey = `${editing}|${blocks.map((b) => `${b.id}${b.visible ? 1 : 0}`).join(",")}|${games.length}|${favs.length}|${recent.length}`;
+  // les grandes cases du haut (étagère qui défile, illustrations qui dérivent) s'arrêtent
+  // quand l'accueil a défilé plus bas
+  const [heroRef, heroOff] = useOffscreenPause<HTMLDivElement>();
 
   const moveBlock = (i: number, d: -1 | 1) => {
     const j = i + d;
@@ -122,10 +131,10 @@ export function HomeScreen() {
     switch (id) {
       case "hero":
         return (
-          <div className={`grid gap-6 px-[3rem] ${hero ? "grid-cols-[minmax(0,1fr)_19rem]" : "grid-cols-1"}`}>
+          <div ref={heroRef} className={`grid gap-6 px-[3rem] ${hero ? "grid-cols-[minmax(0,1fr)_19rem]" : "grid-cols-1"}`}>
             {/* à gauche, en grand : la collection sur son étagère 3D ; à droite, en petit, la dernière
                 aventure (ou le dernier ajout). Premier lancement : le dossier se choisit dans les Paramètres */}
-            <CollectionShowcase games={games} onOpen={() => go({ name: "library", platformId: "all" })} />
+            <CollectionShowcase games={games} paused={heroOff} onOpen={() => go({ name: "library", platformId: "all" })} />
             {hero && <LastAdventureTile game={hero} label={last || welcome || hero.isDemo ? "Votre dernière aventure" : "Dernier ajout à la collection"} />}
           </div>
         );
@@ -146,7 +155,9 @@ export function HomeScreen() {
                 // verre dépoli aux couleurs du thème : dégradé qui glisse lentement, reflet et icône en relief
                 className="ibox-focusable ibox-lift ibox-platforms-tile group relative isolate flex h-[11rem] w-[11rem] flex-col items-center justify-center gap-3 overflow-hidden rounded-lg text-[#ffffff] [--ring-radius:var(--radius-lg)]"
               >
-                <span aria-hidden className="ibox-platforms-glow absolute inset-0 -z-10" />
+                <span aria-hidden className="ibox-platforms-glow absolute inset-0 -z-10">
+                  <span className="ibox-platforms-glow-ink" />
+                </span>
                 <span aria-hidden className="absolute -top-8 -right-8 -z-10 size-28 rounded-full bg-[#ffffff33] blur-xl transition-transform duration-500 group-hover:scale-125" />
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#ffffffcc] text-[var(--theme-deep)] shadow-[inset_0_-3px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_-8px_color-mix(in_srgb,var(--theme-deep)_70%,transparent)] backdrop-blur-sm transition-transform duration-500 ease-[var(--ease-bounce)] group-hover:-rotate-6 group-hover:scale-110">
                   <Icon name="grid" size="1.4em" />
@@ -244,7 +255,7 @@ export function HomeScreen() {
       <div className="flex flex-col gap-2 pt-3">
         {blocks.map((b, i) =>
           editing ? (
-            <motion.div key={b.id} layout={!reduced} transition={SPRING.smooth}>
+            <motion.div key={b.id} layout={!reduced} layoutDependency={layoutKey} transition={SPRING.smooth}>
               <BlockEditor
                 id={b.id}
                 visible={b.visible}
@@ -262,6 +273,7 @@ export function HomeScreen() {
               <motion.div
                 key={b.id}
                 layout={!reduced}
+                layoutDependency={layoutKey}
                 initial={{ opacity: 0, y: reduced ? 0 : 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ ...SPRING.smooth, delay: reduced ? 0 : Math.min(i, 5) * 0.05 }}
@@ -357,6 +369,9 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
     getArtUrl(game, "front").then((u) => alive && setCover(u)).catch(() => undefined);
     return () => { alive = false; };
   }, [game]);
+  // mode performance : jaquette adoucie une fois (bitmap réduit) au lieu d'un filtre de flou animé
+  const lite = usePerformanceMode();
+  const softCover = useSoftenedImage(lite && !hero ? cover : null, 5, 1, 340);
   const deep =`color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`;
 
   return (
@@ -389,7 +404,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
             transition={{ duration: 1.2, ease: EASE.out }}
             className={`absolute inset-[-8%] blur-[5px] saturate-[1.15] ${reduced ? "" : "ibox-kenburns"}`}
           >
-            {cover && <img src={cover} alt="" draggable={false} className="h-full w-full object-cover object-[center_25%]" />}
+            {cover && softCover !== undefined && <img src={softCover ?? cover} alt="" draggable={false} className="h-full w-full object-cover object-[center_25%]" />}
           </motion.div>
         )}
         {/* voile léger : l'image reste bien visible, une ombre neutre en bas garde le texte lisible */}
@@ -443,7 +458,14 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
   );
 }
 
-/** Compteur qui monte jusqu'au total à l'arrivée sur l'accueil. */
+/**
+ * Compteur qui monte jusqu'au total à l'arrivée sur l'accueil. Composant à part : ses cinquante
+ * mises à jour ne redessinent que le nombre, pas l'étagère et ses jaquettes.
+ */
+function CountUp({ target, reduced }: { target: number; reduced: boolean }) {
+  return <>{useCountUp(target, reduced)}</>;
+}
+
 function useCountUp(target: number, reduced: boolean): number {
   const [value, setValue] = useState(reduced ? target : 0);
   useEffect(() => {
@@ -506,7 +528,7 @@ function useShelfFx(rows: Game[][], reduced: boolean): ShelfFx | null {
     const kinds: ShelfFx["kind"][] = ["spin", "spin", "hop", "wobble"];
     const next = () => {
       timer = window.setTimeout(() => {
-        if (document.visibilityState === "visible") {
+        if (document.visibilityState === "visible" && !interfaceAsleep()) {
           const row = Math.floor(Math.random() * rows.length);
           const index = Math.floor(Math.random() * rows[row].length);
           window.clearTimeout(clear);
@@ -547,7 +569,7 @@ function useRandomHeroGame(games: Game[], active: boolean): Game | null {
   return active ? (pool.find((g) => g.id === id) ?? null) : null;
 }
 
-function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => void }) {
+function CollectionShowcase({ games, paused = false, onOpen }: { games: Game[]; /** Case hors écran : plus de jaquette qui saute. */ paused?: boolean; onOpen: () => void }) {
   const reduced = useReducedMotion();
   const rows = useMarqueeRows(games);
   // un jeu mis en avant à chaque arrivée sur l'accueil, quel que soit le fond d'écran choisi
@@ -562,9 +584,11 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
     getArtUrl(featured, "front").then((u) => alive && setFeaturedCover(u)).catch(() => undefined);
     return () => { alive = false; };
   }, [featured]);
-  const featuredArt = featuredHero ?? featuredCover;
-  const shown = useCountUp(games.length, reduced);
-  const fx = useShelfFx(rows, reduced);
+  const lite = usePerformanceMode();
+  const softFeatured = useSoftenedImage(lite && !featuredHero ? featuredCover : null, 10, 1, 900);
+  // mode performance : la jaquette de repli est adoucie une fois, sans filtre de flou
+  const featuredArt = featuredHero ?? (softFeatured === undefined ? null : (softFeatured ?? featuredCover));
+  const fx = useShelfFx(rows, reduced || paused);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -642,7 +666,7 @@ function CollectionShowcase({ games, onOpen }: { games: Game[]; onOpen: () => vo
         <div className="relative flex h-full w-[15rem] shrink-0 flex-col justify-between p-7">
           <div>
             <div className="text-[0.8rem] font-extrabold tracking-[0.16em] text-lavender-deep uppercase">Ma collection</div>
-            <div className="mt-2 font-display text-[3.4rem] leading-none font-semibold text-ink tabular-nums">{shown}</div>
+            <div className="mt-2 font-display text-[3.4rem] leading-none font-semibold text-ink tabular-nums"><CountUp target={games.length} reduced={reduced} /></div>
             <div className="mt-1 text-[0.95rem] font-bold text-ink-soft">{games.length === 1 ? "jeu dans la collection" : "jeux, toutes consoles"}</div>
           </div>
           <div className="flex items-center gap-3 font-display text-[1.05rem] font-semibold text-ink">

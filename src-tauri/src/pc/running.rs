@@ -15,13 +15,15 @@ fn norm(p: &str) -> String {
 }
 
 /// Lanceurs et clients des boutiques : ouverts, ils ne veulent pas dire qu'un jeu tourne
-/// (plusieurs jeux Riot pointent vers le client Riot, par exemple).
+/// (plusieurs jeux Riot pointent vers le client Riot, par exemple). Aussi les logiciels de la
+/// bibliothèque Steam qui tournent en permanence (fonds d'écran animés) : ce ne sont pas des parties.
 const LAUNCHERS: &[&str] = &[
     "riotclientservices.exe", "riot client.exe", "riotclientux.exe", "riotclientuxrender.exe", "riotclientcrashhandler.exe",
     "leagueclient.exe", "leagueclientux.exe", "leagueclientuxrender.exe", "leaguecrashhandler.exe",
     "steam.exe", "steamwebhelper.exe", "steamservice.exe", "epicgameslauncher.exe", "epicwebhelper.exe",
     "galaxyclient.exe", "galaxyclient helper.exe", "eadesktop.exe", "eabackgroundservice.exe", "ealauncher.exe",
     "ubisoftconnect.exe", "upc.exe", "uplaywebcore.exe", "rsi launcher.exe", "battle.net.exe", "agent.exe",
+    "wallpaper32.exe", "wallpaper64.exe", "webwallpaper32.exe", "wallpaperservice32.exe", "wallpaperservice32_c.exe",
 ];
 
 /// Jeu correspondant à un exécutable en cours, parmi les dossiers d'installation connus.
@@ -106,6 +108,10 @@ mod tests {
         let fortnite = vec![(3, "Fortnite".to_string(), super::norm("G:/Fortnite"))];
         assert_eq!(super::pick(r"G:\Fortnite\FortniteGame\Binaries\Win64\FortniteClient-Win64-Shipping.exe", &fortnite), Some((3, "Fortnite".into())));
         assert_eq!(super::pick(r"C:\Program Files (x86)\Epic Games\Launcher\EpicGamesLauncher.exe", &fortnite), None);
+        // Wallpaper Engine tourne en permanence : ce n'est pas une partie
+        let wallpaper = vec![(4, "Wallpaper Engine".to_string(), super::norm(r"C:\Steam\steamapps\common\wallpaper_engine"))];
+        assert_eq!(super::pick(r"C:\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe", &wallpaper), None);
+        assert_eq!(super::pick(r"C:\Steam\steamapps\common\wallpaper_engine\bin\webwallpaper32.exe", &wallpaper), None);
     }
 
     #[test]

@@ -20,6 +20,8 @@ interface PerfSample {
 
 /** Latence Remote Play de la session d'invité en cours (écrite par l'écran de l'invité). */
 export interface RemoteLatency {
+  /** Capture chez l'hôte → affichage ici, mesurée image par image. */
+  latencyMs: number | null;
   pingMs: number | null;
   rttMs: number | null;
   decodeMs: number | null;
@@ -94,7 +96,7 @@ function Panel() {
       {latency && (
         <>
           <div className="my-1 border-t border-white/15" />
-          <Line label="Remote Play" value={`ping ${ms(latency.pingMs)} · RTT ${ms(latency.rttMs)}`} />
+          <Line label="Remote Play" value={`image ${ms(latency.latencyMs)} · ping ${ms(latency.pingMs)}`} />
           <Line label="Décodage" value={`${ms(latency.decodeMs)} · ${latency.fps == null ? "–" : Math.round(latency.fps)} im/s`} />
           <Line label="Débit" value={latency.bitrateKbps == null ? "–" : `${(latency.bitrateKbps / 1000).toFixed(1).replace(".", ",")} Mbit/s`} />
         </>

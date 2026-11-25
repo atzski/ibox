@@ -10,6 +10,8 @@ export interface PlatformInfo {
   os: "windows" | "linux";
   /** Modèle de Steam Deck reconnu, sinon `null`. */
   steamDeck: string | null;
+  /** Console portable de jeu (Steam Deck, ou machine sous SteamOS) : mode performance d'office. */
+  handheld?: boolean;
   /** Sous gamescope (Mode Jeu de SteamOS). */
   gameMode: boolean;
   /** Aperçu Steam Deck sur PC (`scripts/deck-preview.ps1`) : fenêtre 1280×800, jamais plein écran. */

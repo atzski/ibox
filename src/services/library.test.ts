@@ -105,10 +105,11 @@ describe("compareGames", () => {
 describe("summarize", () => {
   const base: ScanSummary = {
     folders: 1, files: 3, added: 0, updated: 0, unchanged: 3, moved: 0, missing: 0,
-    reappeared: 0, duplicates: 0, needsReview: 0, errors: [],
+    reappeared: 0, duplicates: 0, needsReview: 0, isoNew: 0, errors: [],
   };
   it("résume en français, au singulier comme au pluriel", () => {
     expect(summarize(base)).toBe("Aucun changement");
     expect(summarize({ ...base, added: 12, moved: 1, missing: 2 })).toBe("12 ajoutés · 1 déplacé · 2 introuvables");
+    expect(summarize({ ...base, added: 1, isoNew: 3 })).toBe("1 ajouté · 3 .iso à classer");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { compactSize, formatTime, sameTracks, moveFocus, placeCard, positionAt, positionOf, upNext, type MusicState, type QueueItem } from "./musicBox";
+import { FADE_CUT_MAX_MS, FADE_MAX_S, FADE_QUICK_MS, MAX_TRANSITIONS, NO_FADE, clampFade, compactSize, crossCurve, crossCurveTable, crossNote, fadeConfig, fadeCurve, fadeCurveTable, fadePlan, formatTime, parseFade, sameTracks, moveFocus, placeCard, positionAt, positionOf, setTransitionFade, stepFade, transitionFade, upNext, type FadeSettings, type MusicState, type QueueItem } from "./musicBox";
 
 const state = (playing: boolean): MusicState => ({
   at: 1_000,
@@ -171,5 +171,119 @@ describe("compactSize", () => {
   });
   it("grandit avec la police d'un grand écran", () => {
     expect(compactSize(22.872)).toEqual({ w: 486, h: 109 });
+  });
+});
+
+describe("fondus entre les titres", () => {
+  it("la courbe part du silence, arrive au plein volume et ne redescend jamais", () => {
+    expect(fadeCurve(0)).toBe(0);
+    expect(fadeCurve(1)).toBe(1);
+    expect(fadeCurve(0.5)).toBe(0.25);
+    expect([fadeCurve(-3), fadeCurve(7), fadeCurve(Number.NaN)]).toEqual([0, 1, 0]);
+    const table = fadeCurveTable();
+    expect(table).toHaveLength(17);
+    expect([table[0], table[16]]).toEqual([0, 1]);
+    expect(table).toEqual([...table].sort((a, b) => a - b));
+    expect(table.every((g) => g >= 0 && g <= 1)).toBe(true);
+  });
+
+  it("fondu enchaîné à puissance constante : le volume perçu ne creuse jamais", () => {
+    expect([crossCurve(0), crossCurve(1), crossCurve(-1), crossCurve(2), crossCurve(Number.NaN)]).toEqual([0, 1, 0, 1, 0]);
+    for (let i = 0; i <= 100; i++) {
+      const x = i / 100;
+      // le titre qui part suit la courbe à rebours : somme des puissances égale à 1 partout
+      expect(crossCurve(x) ** 2 + crossCurve(1 - x) ** 2).toBeCloseTo(1, 10);
+    }
+    expect(crossCurve(0.5)).toBeCloseTo(Math.SQRT1_2, 10);
+    const table = crossCurveTable();
+    expect(table).toHaveLength(33);
+    expect([table[0], table[32]]).toEqual([0, 1]);
+    expect(table).toEqual([...table].sort((a, b) => a - b));
+    // la table relie ses points en ligne droite : l'écart à la puissance constante reste minime
+    for (let i = 0; i < 32; i++) {
+      const x = (i + 0.5) / 32, lerp = (k: number) => (table[Math.floor(k * 32)] + table[Math.min(32, Math.floor(k * 32) + 1)]) / 2;
+      expect(lerp(x) ** 2 + lerp(1 - x + 1e-9) ** 2).toBeGreaterThan(0.99);
+    }
+  });
+
+  it("dit pourquoi le fondu enchaîné se replie, et rien quand il marche", () => {
+    expect(crossNote("ok")).toBeNull();
+    expect(crossNote(null)).toBeNull();
+    expect(crossNote(undefined)).toBeNull();
+    expect(crossNote("compte")).toMatch(/une lecture à la fois/);
+    expect(crossNote("pub")).toMatch(/publicités/);
+    expect(crossNote("indisponible")).toMatch(/second lecteur/);
+  });
+  it("découpe la durée : moitié sortie, moitié entrée, fin sautée bornée à 2 s", () => {
+    expect(fadePlan(0)).toBeNull();
+    expect(fadePlan(1)).toEqual({ overlap: 1000, out: 500, into: 500, cut: 250 });
+    expect(fadePlan(6)).toEqual({ overlap: 6000, out: 3000, into: 3000, cut: 1500 });
+    expect(fadePlan(12)).toEqual({ overlap: 12_000, out: 6000, into: 6000, cut: FADE_CUT_MAX_MS });
+    // hors bornes : ramené entre 0 et 12 s
+    expect(fadePlan(99)).toEqual(fadePlan(FADE_MAX_S));
+    expect(fadePlan(-4)).toBeNull();
+    for (let s = 1; s <= FADE_MAX_S; s++) {
+      const p = fadePlan(s)!;
+      expect(p.out + p.into).toBe(s * 1000);
+      expect(p.overlap).toBe(s * 1000);
+      expect(p.cut).toBeLessThanOrEqual(p.out);
+    }
+  });
+
+  it("borne et arrondit la durée", () => {
+    expect([clampFade(3.4), clampFade("5"), clampFade(-1), clampFade(40), clampFade("abc"), clampFade(undefined)]).toEqual([3, 5, 0, 12, 0, 0]);
+  });
+
+  it("relit les réglages gardés et écarte ce qui est abîmé", () => {
+    expect(parseFade(null)).toEqual(NO_FADE);
+    expect(parseFade("{")).toEqual(NO_FADE);
+    expect(parseFade("[1,2]")).toEqual(NO_FADE);
+    expect(parseFade(JSON.stringify({ seconds: 4, pairs: { a: { to: "b", seconds: 2 }, x: null, y: { to: 5 }, z: { to: "w", seconds: 99 } } }))).toEqual({
+      seconds: 4,
+      pairs: { a: { to: "b", seconds: 2 }, z: { to: "w", seconds: 12 } },
+    });
+  });
+
+  it("règle une transition à part, la retrouve, la rend au réglage général", () => {
+    let s = setTransitionFade({ seconds: 6, pairs: {} }, "a", "b", 2);
+    expect(transitionFade(s, "a", "b")).toBe(2);
+    // la transition vaut pour ce titre suivant précis
+    expect(transitionFade(s, "a", "c")).toBeNull();
+    expect(transitionFade(s, "b", "a")).toBeNull();
+    s = setTransitionFade(s, "a", "b", 0);
+    expect(transitionFade(s, "a", "b")).toBe(0);
+    s = setTransitionFade(s, "a", "b", null);
+    expect(s).toEqual({ seconds: 6, pairs: {} });
+  });
+
+  it("ne garde que les transitions les plus récemment réglées", () => {
+    let s: FadeSettings = NO_FADE;
+    for (let i = 0; i < MAX_TRANSITIONS + 5; i++) s = setTransitionFade(s, `t${i}`, `t${i + 1}`, 3);
+    s = setTransitionFade(s, "t10", "t11", 4);
+    expect(Object.keys(s.pairs)).toHaveLength(MAX_TRANSITIONS);
+    expect(transitionFade(s, "t0", "t1")).toBeNull();
+    expect(transitionFade(s, "t10", "t11")).toBe(4);
+    expect(NO_FADE).toEqual({ seconds: 0, pairs: {} });
+  });
+
+  it("fait défiler les valeurs du réglage, sans sortir des bornes", () => {
+    expect([stepFade(0, 1), stepFade(11, 1), stepFade(12, 1), stepFade(1, -1), stepFade(0, -1)]).toEqual([1, 12, 12, 0, 0]);
+    // transition : « suit le réglage général » (null), puis aucun fondu (0), puis 1 à 12 s
+    expect([stepFade(null, 1, true), stepFade(0, -1, true), stepFade(null, -1, true), stepFade(0, 1, true), stepFade(12, 1, true)]).toEqual([0, null, null, 1, 12]);
+  });
+
+  it("prépare la commande du pont : plans en ms, courbe, transitions utiles seulement", () => {
+    expect(fadeConfig(NO_FADE)).toBeNull();
+    // sans fondu général, « aucun fondu » pour une transition ne demande rien au pont
+    expect(fadeConfig({ seconds: 0, pairs: { a: { to: "b", seconds: 0 } } })).toBeNull();
+    expect(fadeConfig({ seconds: 6, pairs: { a: { to: "b", seconds: 0 }, c: { to: "d", seconds: 2 } } })).toEqual({
+      quick: FADE_QUICK_MS,
+      cross: true,
+      rise: crossCurveTable(),
+      curve: fadeCurveTable(),
+      base: { overlap: 6000, out: 3000, into: 3000, cut: 1500 },
+      pairs: { a: { to: "b", plan: null }, c: { to: "d", plan: { overlap: 2000, out: 1000, into: 1000, cut: 500 } } },
+    });
+    expect(fadeConfig({ seconds: 0, pairs: { c: { to: "d", seconds: 2 } } })).toMatchObject({ base: null, pairs: { c: { to: "d" } } });
   });
 });

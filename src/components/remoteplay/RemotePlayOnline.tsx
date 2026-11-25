@@ -640,7 +640,7 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
         void s.stats().then((st) => {
           setStats(st);
           // panneau des performances : latence de la session en cours
-          useRemoteLatency.setState({ latency: { pingMs: st.pingMs, rttMs: st.rttMs, decodeMs: st.decodeMs, fps: st.fps, bitrateKbps: st.bitrateKbps } });
+          useRemoteLatency.setState({ latency: { latencyMs: st.latency.totalMs ?? st.captureToDisplayMs, pingMs: st.pingMs, rttMs: st.rttMs, decodeMs: st.decodeMs, fps: st.fps, bitrateKbps: st.bitrateKbps } });
         }, () => undefined),
       1000,
     );
@@ -819,6 +819,8 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
   }, []);
 
   const q = quality(stats);
+  // latence de l'image mesurée de bout en bout (capture chez l'hôte → affichage ici)
+  const latencyMs = stats ? (stats.latency.totalMs ?? stats.captureToDisplayMs) : null;
   const glyphs = (
     <span className="inline-flex items-center gap-1">
       <PadGlyph k="select" family={family} side={side} size={20} />
@@ -910,6 +912,7 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
                 <p className="mt-0.5 flex items-center gap-2 text-[0.82rem] font-semibold opacity-75">
                   <span className="size-2 rounded-full" style={{ background: q.color }} />
                   {q.label} · {play ? "Joueur" : "Spectateur"}
+                  {latencyMs !== null && <span data-no-i18n> · {Math.round(latencyMs)} ms</span>}
                 </p>
               </div>
               <ExperimentalBadge />
@@ -936,6 +939,8 @@ function GuestView({ join, onLeave }: { join: GuestJoin; onLeave: () => void }) 
 
             {showStats && stats && (
               <div className="mt-3 grid grid-cols-2 gap-1">
+                <Stat label="Latence de l'image" value={fmt(latencyMs, 0, " ms")} />
+                <Stat label="Hôte / réseau / vous" value={`${fmt(stats.latency.hostMs, 0)} / ${fmt(stats.latency.networkMs, 0)} / ${fmt(stats.latency.guestMs, 0, " ms")}`} />
                 <Stat label="Images/s" value={fmt(stats.fps, 0)} />
                 <Stat label="Débit" value={fmt(stats.bitrateKbps === null ? null : stats.bitrateKbps / 1000, 1, " Mbit/s")} />
                 <Stat label="Aller-retour" value={fmt(stats.rttMs, 1, " ms")} />
@@ -1076,6 +1081,8 @@ function HostCard({ status }: { status: OnlineStatus }) {
           <Stat label="Débit" value={fmt(stats.sentKbps / 1000, 1, " Mbit/s")} />
           <Stat label="Aller-retour" value={fmt(stats.rttMs, 1, " ms")} />
           <Stat label="Pertes" value={fmt(stats.lossPct, 2, " %")} />
+          <Stat label="Latence de l'image" value={fmt(stats.guestLatencyMs, 0, " ms")} />
+          <Stat label="Dont ce PC" value={fmt(stats.hostMsP50, 1, " ms")} />
           <Stat label="Encodeur" value={stats.encoder ?? "—"} />
           <Stat label="Entrées refusées" value={String(stats.inputs.rejected + stats.inputs.denied)} />
         </div>

@@ -116,6 +116,13 @@ export function CollectionsRow() {
   const empty = organizing ? Array.from({ length: rows * cols }, (_, s) => s).filter((s) => !used.has(s)) : [];
   // cases que recouvrirait la carte attrapée
   const aimed = new Set(target !== null && dragId !== null ? Array.from({ length: spanOf(dragId) }, (_, k) => anchorFor(target, spanOf(dragId), cols) + k) : []);
+  const reduced = useReducedMotion();
+  // pendant le rangement, Retour (Échap, B) valide comme le bouton Valider
+  const finish = () => { sound.play("back"); setOrganizing(false); };
+  useEffect(() => {
+    if (!organizing) return;
+    return input.onBack(() => { finish(); return true; });
+  }, [organizing]);
 
   return (
     <ShelfRow
@@ -233,6 +240,28 @@ export function CollectionsRow() {
           );
         })}
       </motion.div>
+      {/* rangement : la barre suit l'écran (posée en bas, au-dessus des aides) avec un vrai bouton Valider */}
+      {createPortal(
+        <AnimatePresence>
+          {organizing && (
+            <motion.div
+              key="organize-bar"
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduced ? { opacity: 0, transition: TWEEN.fast } : { opacity: 0, y: 16, scale: 0.97, transition: TWEEN.fast }}
+              transition={reduced ? TWEEN.fast : SPRING.smooth}
+              className="fixed bottom-[4.5rem] left-1/2 z-[120] -translate-x-1/2"
+            >
+              <div className="flex items-center gap-3 rounded-full bg-white/90 py-1.5 pr-1.5 pl-5 shadow-[0_18px_40px_-18px_rgba(20,30,60,0.6)] ring-1 ring-black/5 backdrop-blur" data-nav-group="home-organize">
+                <Icon name="grid" className="text-[var(--tone-purple-ink)]" />
+                <span className="text-[0.9rem] font-bold text-ink">Glissez les cartes pour ranger vos collections</span>
+                <Button variant="primary" icon="check" cue={null} onClick={finish}>Valider</Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
       {editing && <CollectionEditor collection={editing === "new" ? null : editing} games={editing === "new" ? [] : gamesOf(editing)} onClose={() => setEditing(null)} />}
       {decorating && <DecorEditor decor={decorating === "new" ? null : decorating} onClose={() => setDecorating(null)} />}
       <AnimatePresence>{open && <CollectionShelf key={open.id} collection={list.find((x) => x.id === open.id) ?? open} games={gamesOf(list.find((x) => x.id === open.id) ?? open)} onClose={() => setOpen(null)} />}</AnimatePresence>
@@ -408,14 +437,14 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
         {shade > 0 && <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />}
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
-            {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-white/50"><CoverImage game={g} className="size-full" /></span>)}
+            {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-[#ffffff80]"><CoverImage game={g} className="size-full" /></span>)}
           </span>
         ) : look === "fan" ? (
           <span className="absolute top-4 right-4 flex">
             {covers.map((g, i) => (
               <span
                 key={g.id}
-                className="-ml-6 h-[6.2rem] w-[4.5rem] overflow-hidden rounded-lg shadow-lg ring-2 ring-white/85 transition-transform duration-300 group-hover:-translate-y-1"
+                className="-ml-6 h-[6.2rem] w-[4.5rem] overflow-hidden rounded-lg shadow-lg ring-2 ring-[#ffffffd9] transition-transform duration-300 group-hover:-translate-y-1"
                 style={{ zIndex: 10 - i, transform: `rotate(${(i - (covers.length - 1) / 2) * 7}deg) translateY(${Math.abs(i - (covers.length - 1) / 2) * 5}px)` }}
               >
                 <CoverImage game={g} className="size-full" />
@@ -427,7 +456,7 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
           <span className="min-w-0 flex-1">
             {logoUrl ? <img src={logoUrl} alt="" draggable={false} className={`mb-1 ${logoH} max-w-[12rem] object-contain object-left drop-shadow-[0_3px_8px_rgba(0,0,0,0.45)]`} />
               : logo ? <GameLogo game={logo} className={`mb-1 ${logoH} max-w-[12rem] object-left`} /> : null}
-            {!style?.hideName && <span data-no-i18n className="block truncate font-display text-[1.3rem] text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">{c.name}</span>}
+            {!style?.hideName && <span data-no-i18n className="block truncate font-display text-[1.3rem] text-[#ffffff] drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]">{c.name}</span>}
           </span>
           <span className={`${cardDetails} shrink-0 rounded-full px-2.5 py-1 text-[0.78rem] font-bold shadow-sm ring-2 ring-white/70`} style={{ background: c.color, color: inkOn(c.color) }}>
             {`${items.length} jeu${items.length > 1 ? "x" : ""}`}

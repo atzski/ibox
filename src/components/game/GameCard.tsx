@@ -12,7 +12,7 @@ import { PcCardMeta } from "@/components/pc/PcParts";
 import { usePlatformArt } from "@/services/platformArt";
 import { useSettings } from "@/services/settings";
 import { isInstalled } from "@/services/pc";
-import { memo, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 /** Inclinaison légère vers le pointeur (variables CSS lues par `.ibox-tilt`). */
 function tilt(e: ReactPointerEvent<HTMLElement>) {
@@ -36,73 +36,104 @@ export const cardEnter = {
   show: { opacity: 1, y: 0, scale: 1, transition: { ...SPRING.smooth, opacity: TWEEN.fast } },
 } as const;
 
+// ——— Ce que toute jaquette cliquable fait, grande carte ou petite tuile ———
+
+/** Nom lu par les lecteurs d'écran : titre, favori, états à signaler. */
+function cardLabel(game: Game, favorite: boolean): string {
+  const flags = [game.missing && "fichier introuvable", game.needsReview && "à vérifier", game.duplicate && "doublon"]
+    .filter(Boolean)
+    .join(", ");
+  return `${game.title}${favorite ? ", favori" : ""}${flags ? `, ${flags}` : ""}`;
+}
+
+function openGame(game: Game): void {
+  sound.play("select");
+  useNav.getState().go({ name: "game", gameId: game.id });
+}
+
+/** X (X / □) : jouer tout de suite ; F (Y / △) : favori — sans ouvrir la fiche. */
+function cardKeyDown(e: ReactKeyboardEvent<HTMLElement>, game: Game, favorite: boolean): void {
+  const key = e.key.toLowerCase();
+  if (key !== "x" && key !== "f") return;
+  e.preventDefault();
+  if (key === "f") {
+    sound.play(favorite ? "unfavorite" : "favorite");
+    void useLibrary.getState().toggleFavorite(game);
+    return;
+  }
+  const { phase, play } = useLauncher.getState();
+  if (game.dbId === undefined || game.missing || phase === "animating" || phase === "starting" || phase === "running") return sound.play("error");
+  sound.play("select");
+  void play(game.dbId, game.title);
+}
+
+/** Jaquette adoucie : fichier introuvable, ou jeu PC possédé mais non installé. */
+function fadedClass(game: Game): string {
+  if (game.missing) return "opacity-50 grayscale";
+  return game.platformId === "pc" && !game.isDemo && !isInstalled(game) ? "opacity-80 saturate-[0.55]" : "";
+}
+
 /**
  * Carte de jeu : la jaquette est l'élément principal, le titre reste discret.
- * Mémorisée : dans une grande grille affichée par lots, ajouter un lot ne redessine
- * pas les cartes déjà là (sinon le coût croît avec le carré du nombre de jeux).
+ * Mémorisée : dans une grande grille, faire défiler ne redessine pas les cartes déjà là.
+ *
+ * `compact` : premier niveau de recul de la bibliothèque, où la carte rétrécit et ne garde
+ * que son titre. Plus loin, la grille passe à `CoverTile`.
  */
 export const GameCard = memo(function GameCard({
   game,
   width,
   showMeta = true,
   autoFocus,
+  compact = false,
+  thumb = 0,
+  enter = true,
 }: {
   game: Game;
   width?: string;
   showMeta?: boolean;
   autoFocus?: boolean;
+  compact?: boolean;
+  /** Largeur (px) de la vignette à charger ; 0 : jaquette complète. */
+  thumb?: number;
+  /** Joue l'animation d'entrée (une carte qui apparaît en faisant défiler ne la joue pas). */
+  enter?: boolean;
 }) {
   const favorite = useIsFavorite(game);
-  // jeu PC possédé mais non installé : jaquette un peu adoucie
-  const notInstalled = game.platformId === "pc" && !game.isDemo && !isInstalled(game);
-  const flags = [game.missing && "fichier introuvable", game.needsReview && "à vérifier", game.duplicate && "doublon"]
-    .filter(Boolean)
-    .join(", ");
-  const go = useNav((s) => s.go);
+  const faded = fadedClass(game);
+  // l'arrondi rétrécit avec la jaquette
+  const round = compact ? "rounded-[0.9rem]" : "rounded-md";
 
   return (
-    <motion.div variants={cardEnter} style={width ? { width } : undefined} className="shrink-0">
+    <motion.div variants={cardEnter} initial={enter ? undefined : false} style={width ? { width } : undefined} className="shrink-0">
       <button
         data-focusable
         data-focus-id={`game:${game.id}`}
         data-autofocus={autoFocus || undefined}
-        aria-label={`${game.title}${favorite ? ", favori" : ""}${flags ? `, ${flags}` : ""}`}
-        onClick={() => {
-          sound.play("select");
-          go({ name: "game", gameId: game.id });
-        }}
-        // X (X / □) : jouer tout de suite ; F (Y / △) : favori — sans ouvrir la fiche
-        onKeyDown={(e) => {
-          const key = e.key.toLowerCase();
-          if (key !== "x" && key !== "f") return;
-          e.preventDefault();
-          if (key === "f") {
-            sound.play(favorite ? "unfavorite" : "favorite");
-            void useLibrary.getState().toggleFavorite(game);
-            return;
-          }
-          const { phase, play } = useLauncher.getState();
-          if (game.dbId === undefined || game.missing || phase === "animating" || phase === "starting" || phase === "running") return sound.play("error");
-          sound.play("select");
-          void play(game.dbId, game.title);
-        }}
+        aria-label={cardLabel(game, favorite)}
+        onClick={() => openGame(game)}
+        onKeyDown={(e) => cardKeyDown(e, game, favorite)}
         // l'arrière-plan suit le jeu sélectionné (manette, clavier ou souris)
         onFocus={() => focusAmbientGame(game)}
         onPointerEnter={() => focusAmbientGame(game)}
         onPointerMove={tilt}
         onPointerLeave={untilt}
-        className="ibox-focusable ibox-lift group block w-full rounded-md text-left shadow-md [--ring-radius:var(--radius-md)]"
+        className={`ibox-focusable ibox-lift group block w-full text-left shadow-md ${round} ${compact ? "[--ring-radius:0.9rem]" : "[--ring-radius:var(--radius-md)]"}`}
       >
-        <div className="ibox-tilt ibox-shine ibox-bubble relative rounded-md">
-          <CoverImage game={game} className={game.missing ? "opacity-50 grayscale" : notInstalled ? "opacity-80 saturate-[0.55]" : ""} />
+        <div className={`ibox-tilt ibox-shine ibox-bubble relative ${round}`}>
+          <CoverImage game={game} thumb={thumb} rounded={round} className={faded} />
           <ConsoleFrame platformId={game.platformId} />
         </div>
         {favorite && (
-          <span className="absolute top-2 right-2 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#E8A23A] shadow-sm">
+          <span
+            className={`absolute grid place-items-center rounded-full bg-white/90 text-[#E8A23A] shadow-sm ${
+              compact ? "top-1.5 right-1.5 h-6 w-6 text-[0.8rem]" : "top-2 right-2 h-8 w-8"
+            }`}
+          >
             <Icon name="star" filled size="1.05em" />
           </span>
         )}
-        <span className="absolute bottom-2 left-2 flex flex-wrap gap-1">
+        <span className={`absolute flex flex-wrap gap-1 ${compact ? "bottom-1.5 left-1.5" : "bottom-2 left-2"}`}>
           {game.isDemo && <Badge>Démo</Badge>}
           {game.missing && <Badge tone="warn">Introuvable</Badge>}
           {game.needsReview && !game.missing && <Badge tone="accent">À vérifier</Badge>}
@@ -110,7 +141,7 @@ export const GameCard = memo(function GameCard({
           {game.mediaStatus === "ambiguous" && !game.needsReview && !game.missing && <Badge tone="accent">Jaquette ?</Badge>}
         </span>
       </button>
-      {showMeta && (
+      {showMeta && !compact && (
         <div className="mt-3 px-1">
           <div data-no-i18n className="truncate font-display text-[1rem] font-semibold text-ink">{game.title}</div>
           {game.platformId === "pc" ? (
@@ -122,7 +153,63 @@ export const GameCard = memo(function GameCard({
           )}
         </div>
       )}
+      {showMeta && compact && (
+        <div data-no-i18n className="mt-[0.45rem] truncate px-0.5 font-display text-[0.84rem] font-semibold text-ink">{game.title}</div>
+      )}
     </motion.div>
+  );
+});
+
+/**
+ * Tuile des niveaux reculés de la bibliothèque : un bouton et sa jaquette, rien d'autre.
+ * Des centaines sont à l'écran et des dizaines sont montées à chaque rangée qui défile :
+ * pas d'enveloppe, pas d'animation, pas d'abonnement par tuile (la grille lui passe sa
+ * place et son état de favori). Les commandes sont celles de `GameCard`.
+ *
+ * `bare` : la jaquette nue, sans ombre ni repère de favori.
+ */
+export const CoverTile = memo(function CoverTile({
+  game,
+  left,
+  top,
+  width,
+  thumb,
+  favorite,
+  bare,
+  autoFocus,
+}: {
+  game: Game;
+  left: number;
+  top: number;
+  width: number;
+  thumb: number;
+  favorite: boolean;
+  bare: boolean;
+  autoFocus?: boolean;
+}) {
+  const round = bare ? "rounded-[3px]" : "rounded-[0.5rem]";
+  return (
+    <button
+      data-focusable
+      data-focus-id={`game:${game.id}`}
+      data-autofocus={autoFocus || undefined}
+      aria-label={cardLabel(game, favorite)}
+      // sans titre sous la jaquette, le survol le donne
+      title={game.title}
+      onClick={() => openGame(game)}
+      onKeyDown={(e) => cardKeyDown(e, game, favorite)}
+      onFocus={() => focusAmbientGame(game)}
+      onPointerEnter={() => focusAmbientGame(game)}
+      style={{ position: "absolute", left, top, width }}
+      className={`ibox-focusable ibox-cover-dense block text-left ${round} ${bare ? "[--ring-radius:3px]" : "shadow-xs [--ring-radius:0.5rem]"}`}
+    >
+      <CoverImage game={game} thumb={thumb} sheen={false} rounded={round} className={fadedClass(game)} />
+      {favorite && !bare && (
+        <span className="absolute top-1 right-1 grid h-4 w-4 place-items-center rounded-full bg-white/90 text-[0.55rem] text-[#E8A23A] shadow-sm">
+          <Icon name="star" filled size="1.05em" />
+        </span>
+      )}
+    </button>
   );
 });
 

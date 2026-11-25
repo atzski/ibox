@@ -10,9 +10,9 @@ import { isTauri } from "./native";
  */
 export const PROFILE_PREF_KEYS = [
   "theme", "appTheme", "uiScale", "motion", "animatedBackground", "backgroundStyle", "customBackground",
-  "homeBackground", "homeBlocks", "libraryView", "gridDensity", "librarySort", "consoleFrames", "classicCases",
-  "avatarFavorites", "riotAvatars", "raUsername", "menuPlaylist", "menuShuffle", "soundEnabled", "soundVolume",
-  "musicEnabled", "musicVolume", "jingleVolume", "gameSounds", "clock12h", "showDate", "friendAlerts",
+  "homeBackground", "homeBlocks", "libraryView", "gridDensity", "coverZoom", "librarySort", "consoleFrames", "classicCases",
+  "avatarFavorites", "riotAvatars", "raUsername", "soundEnabled", "soundVolume",
+  "ambienceEnabled", "ambienceVolume", "jingleVolume", "gameSounds", "clock12h", "showDate", "friendAlerts",
   "doNotDisturb", "downloadPopups", "favorites", "launchAnimation",
 ] as const satisfies readonly (keyof SettingsState)[];
 export type ProfilePrefs = Partial<Pick<SettingsState, (typeof PROFILE_PREF_KEYS)[number]>>;

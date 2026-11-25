@@ -3,7 +3,7 @@
 //! les tests en mémoire). Une piste vidéo H.264 en envoi seul et deux DataChannels créés par
 //! l'hôte : `input` (non ordonné, 0 retransmission) et `control` (fiable).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
@@ -36,6 +36,38 @@ pub fn probe_ceiling_kbps(max_kbps: u32) -> u64 {
     (max_kbps as u64 * 3).clamp(MIN_KBPS as u64, 300_000)
 }
 
+/// Une image clé pèse plusieurs images ordinaires : pas plus d'une par intervalle, même si
+/// l'invité en redemande (celle qui vient de partir répond déjà à sa demande).
+pub const KEYFRAME_MIN_INTERVAL: Duration = Duration::from_millis(250);
+/// Cadence des statistiques de str0m (aller-retour, pertes, paire ICE).
+pub const STATS_INTERVAL: Duration = Duration::from_millis(250);
+/// Âge au-delà duquel une image encore en file d'envoi n'est plus suivie.
+pub const FLIGHT_MAX_AGE: Duration = Duration::from_secs(2);
+/// Écart entre deux messages `Timing` envoyés à l'invité.
+pub const TIMING_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Image remise à str0m dont le dernier paquet n'a pas encore été remis au réseau.
+#[derive(Debug, Clone, Copy)]
+struct Flight {
+    rtp: u32,
+    captured: Instant,
+    captured_wall: SystemTime,
+    written: Instant,
+}
+
+fn unix_micros(t: SystemTime) -> u64 {
+    t.duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_micros() as u64).unwrap_or(0)
+}
+
+/// En-tête d'un paquet RTP sortant : (type de charge, dernier paquet de l'image, temps RTP).
+/// `None` pour tout le reste (STUN, DTLS, RTCP, bourrage).
+pub fn rtp_header(data: &[u8]) -> Option<(u8, bool, u32)> {
+    if data.len() < 12 || data[0] >> 6 != 2 || (192..=223).contains(&data[1]) || data[0] & 0x20 != 0 {
+        return None;
+    }
+    Some((data[1] & 0x7f, data[1] & 0x80 != 0, u32::from_be_bytes([data[4], data[5], data[6], data[7]])))
+}
+
 /// Identifiants des extensions RTP ajoutées (libres dans la table standard de str0m).
 pub const PLAYOUT_DELAY_EXT: u8 = 6;
 pub const CAPTURE_TIME_EXT: u8 = 7;
@@ -63,6 +95,8 @@ pub struct PeerOptions {
     /// Débit de départ et plafond de l'encodeur (kbit/s).
     pub initial_kbps: u32,
     pub max_kbps: u32,
+    /// « Priorité à la réactivité » : marge plus large sous la bande passante estimée.
+    pub responsive: bool,
 }
 
 /// Paquet UDP à émettre depuis `source` (un candidat local) vers `destination`.
@@ -109,6 +143,19 @@ pub struct HostPeer<H: InputHandler> {
     last_loss: Option<f32>,
     closed: bool,
     answered_at: Option<Instant>,
+    /// Images en cours d'envoi, dans l'ordre ; suivi abandonné s'il ne correspond pas aux
+    /// paquets émis (`tracking` faux) : aucune statistique plutôt qu'une statistique fausse.
+    in_flight: VecDeque<Flight>,
+    rtp_offset: Option<u32>,
+    tracking: bool,
+    unmatched: u32,
+    wait_us: Meter,
+    queue_us: Meter,
+    host_us: Meter,
+    input_us: Meter,
+    last_rx: Option<Instant>,
+    last_timing: Option<Instant>,
+    last_keyframe: Option<Instant>,
 }
 
 /// Profil H.264 d'un `profile-level-id` (octet de profil + contraintes).
@@ -152,13 +199,14 @@ impl<H: InputHandler> HostPeer<H> {
     /// Comme [`HostPeer::new`], avec en plus les adresses publiques découvertes par STUN :
     /// `(adresse publique, socket locale qui l'a obtenue)` — candidats `srflx`.
     pub fn with_reflexive(opts: PeerOptions, candidates: &[SocketAddr], reflexive: &[(SocketAddr, SocketAddr)], handler: H, now: Instant) -> Result<(Self, String), String> {
-        let rate = RateController::new(opts.initial_kbps, MIN_KBPS, opts.max_kbps);
+        let rate = RateController::new(opts.initial_kbps, MIN_KBPS, opts.max_kbps).responsive(opts.responsive);
         let mut rtc = RtcConfig::new()
             .clear_codecs()
             .enable_h264(true)
             .enable_opus(true, false)
             .enable_bwe(Some(Bitrate::kbps(rate.current_kbps() as u64)))
-            .set_stats_interval(Some(Duration::from_secs(1)))
+            // quatre fois par seconde : l'aller-retour des paquets vidéo sert de garde de délai
+            .set_stats_interval(Some(STATS_INTERVAL))
             // playout-delay 0/0 : Chromium affiche chaque image dès qu'elle est décodée, sans
             // tampon de lissage (méthode Stadia / GeForce Now) ; abs-capture-time : l'invité
             // mesure la latence capture → affichage
@@ -218,6 +266,17 @@ impl<H: InputHandler> HostPeer<H> {
             last_loss: None,
             closed: false,
             answered_at: None,
+            in_flight: VecDeque::new(),
+            rtp_offset: None,
+            tracking: true,
+            unmatched: 0,
+            wait_us: Meter::new(Duration::from_secs(2)),
+            queue_us: Meter::new(Duration::from_secs(2)),
+            host_us: Meter::new(Duration::from_secs(2)),
+            input_us: Meter::new(Duration::from_secs(2)),
+            last_rx: None,
+            last_timing: None,
+            last_keyframe: None,
         };
         Ok((peer, offer))
     }
@@ -305,6 +364,7 @@ impl<H: InputHandler> HostPeer<H> {
         let Ok(contents) = data.try_into() else { return };
         let input = Input::Receive(now, Receive { proto: Protocol::Udp, source, destination, contents });
         if self.rtc.accepts(&input) {
+            self.last_rx = Some(now);
             if let Err(e) = self.rtc.handle_input(input) {
                 self.fail(format!("réception : {e}"));
             }
@@ -319,24 +379,100 @@ impl<H: InputHandler> HostPeer<H> {
     }
 
     /// Image H.264 (Annex B, une unité d'accès) : str0m la découpe en RTP (FU-A / STAP-A).
-    pub fn write_frame(&mut self, now: Instant, wallclock: Instant, pts_100ns: i64, data: &[u8], encode_time: Option<Duration>) -> Result<(), String> {
+    /// `wallclock` : envoi de l'image à l'encodeur ; `waited` : ce qu'elle a attendu avant, depuis
+    /// sa capture.
+    pub fn write_frame(&mut self, now: Instant, wallclock: Instant, pts_100ns: i64, data: Vec<u8>, encode_time: Option<Duration>, waited: Duration) -> Result<(), String> {
         let (pt, _) = self.pt.ok_or("aucun codec négocié")?;
         let writer = self.rtc.writer(self.video).ok_or("piste vidéo absente")?;
-        let captured = SystemTime::now().checked_sub(now.saturating_duration_since(wallclock)).unwrap_or_else(SystemTime::now);
+        let captured = wallclock.checked_sub(waited).unwrap_or(wallclock);
+        let captured_wall = SystemTime::now().checked_sub(now.saturating_duration_since(captured)).unwrap_or_else(SystemTime::now);
+        let rtp = pts_to_90khz(pts_100ns);
+        let keyframe = crate::remote_play::encode::h264::is_keyframe(&data);
         writer
             .playout_delay(MediaTime::from_hundredths(0), MediaTime::from_hundredths(0))
-            .abs_capture_time(AbsCaptureTime { capture_time: captured, clock_offset: None })
-            .write(pt, wallclock, MediaTime::from_90khz(pts_to_90khz(pts_100ns)), data.to_vec())
+            .abs_capture_time(AbsCaptureTime { capture_time: captured_wall, clock_offset: None })
+            .write(pt, wallclock, MediaTime::from_90khz(rtp), data)
             .map_err(|e| format!("envoi vidéo : {e}"))?;
         self.frames.push(now, 1);
         self.stats.frames += 1;
-        if crate::remote_play::encode::h264::is_keyframe(data) {
+        if keyframe {
             self.stats.keyframes += 1;
+            self.last_keyframe = Some(now);
         }
         if let Some(t) = encode_time {
             self.encode_us.push(now, t.as_micros() as u64);
         }
+        self.wait_us.push(now, waited.as_micros() as u64);
+        if self.tracking {
+            self.expire(now);
+            self.in_flight.push_back(Flight { rtp: rtp as u32, captured, captured_wall, written: now });
+        }
         Ok(())
+    }
+
+    /// Oublie les images en file depuis plus de [`FLIGHT_MAX_AGE`] : la retenue qu'elles
+    /// causent ne dure donc jamais plus longtemps, quoi qu'il arrive au suivi.
+    fn expire(&mut self, now: Instant) {
+        while self.in_flight.front().is_some_and(|f| now.saturating_duration_since(f.written) > FLIGHT_MAX_AGE) {
+            self.in_flight.pop_front();
+        }
+    }
+
+    fn lose_track(&mut self) {
+        self.unmatched += 1;
+        if self.unmatched >= 3 {
+            self.tracking = false;
+            self.in_flight.clear();
+        }
+    }
+
+    /// Un paquet part : si c'est le dernier d'une image, elle a quitté l'hôte.
+    fn on_transmit(&mut self, now: Instant, data: &[u8]) {
+        if !self.tracking {
+            return;
+        }
+        let Some((video_pt, _)) = self.pt else { return };
+        let Some((pt, true, wire)) = rtp_header(data) else { return };
+        if pt != *video_pt {
+            return;
+        }
+        // str0m peut décaler les temps RTP d'une constante : mesurée sur la première image
+        let Some(front) = self.in_flight.front() else { return };
+        let offset = *self.rtp_offset.get_or_insert(wire.wrapping_sub(front.rtp));
+        let wanted = wire.wrapping_sub(offset);
+        let Some(i) = self.in_flight.iter().position(|f| f.rtp == wanted) else {
+            self.lose_track();
+            return;
+        };
+        self.unmatched = 0;
+        let flight = self.in_flight[i];
+        self.in_flight.drain(..=i);
+        let host = now.saturating_duration_since(flight.captured);
+        self.queue_us.push(now, now.saturating_duration_since(flight.written).as_micros() as u64);
+        self.host_us.push(now, host.as_micros() as u64);
+        if self.last_timing.is_none_or(|t| now.saturating_duration_since(t) >= TIMING_INTERVAL) {
+            self.last_timing = Some(now);
+            self.send_control(&Message::Timing {
+                rtp: wire,
+                capture_micros: unix_micros(flight.captured_wall),
+                sent_micros: unix_micros(SystemTime::now()),
+                host_micros: host.as_micros().min(u32::MAX as u128) as u32,
+            });
+        }
+    }
+
+    /// Images dont le dernier paquet attend encore dans la file d'envoi, et âge de la plus
+    /// ancienne. (0, zéro) si le suivi n'est pas fiable.
+    pub fn backlog(&self, now: Instant) -> (usize, Duration) {
+        match self.in_flight.front() {
+            Some(f) if self.tracking => (self.in_flight.len(), now.saturating_duration_since(f.written)),
+            _ => (0, Duration::ZERO),
+        }
+    }
+
+    /// Images écartées par la chaîne d'encodage pendant une retenue (affichage).
+    pub fn set_frames_skipped(&mut self, n: u64) {
+        self.stats.frames_skipped = n;
     }
 
     /// Paquet Opus (10 ms) ; ignoré si l'invité n'a pas accepté l'audio.
@@ -357,11 +493,13 @@ impl<H: InputHandler> HostPeer<H> {
     /// Vide les sorties de str0m : paquets à émettre dans `out`, événements traités ; renvoie
     /// l'instant où rappeler [`HostPeer::tick`].
     pub fn poll(&mut self, now: Instant, out: &mut Vec<Datagram>) -> Instant {
+        self.expire(now);
         loop {
             match self.rtc.poll_output() {
                 Ok(Output::Timeout(t)) => return t,
                 Ok(Output::Transmit(t)) => {
                     self.bytes.push(now, t.contents.len() as u64);
+                    self.on_transmit(now, &t.contents);
                     out.push(Datagram { source: t.source, destination: t.destination, data: t.contents.into() });
                 }
                 Ok(Output::Event(e)) => self.on_event(e, now),
@@ -453,13 +591,32 @@ impl<H: InputHandler> HostPeer<H> {
                         self.stats.inputs.pings += 1;
                         self.send_control(&Message::Pong { id, micros });
                     }
+                    // latence mesurée par l'invité : affichée telle quelle à l'hôte, bornée
+                    Ok(Message::Report { total_micros, guest_micros }) => {
+                        let ms = |us: u32| (us <= 10_000_000).then(|| us as f64 / 1000.0);
+                        self.stats.guest_latency_ms = ms(total_micros);
+                        self.stats.guest_display_ms = ms(guest_micros);
+                    }
                     Ok(msg) => match self.handler.handle(msg) {
-                        Ok(done) => self.count(done),
+                        Ok(done) => {
+                            self.count(done);
+                            if let Some(at) = self.last_rx {
+                                self.input_us.push(now, Instant::now().saturating_duration_since(at).as_micros() as u64);
+                            }
+                        }
                         Err(_) => self.stats.inputs.denied += 1,
                     },
                 }
             }
-            Event::KeyframeRequest(_) => self.effects.keyframe = true,
+            Event::KeyframeRequest(_) => {
+                // l'image clé partie il y a un instant répond déjà à cette demande
+                if self.last_keyframe.is_some_and(|t| now.saturating_duration_since(t) < KEYFRAME_MIN_INTERVAL) {
+                    self.stats.keyframes_throttled += 1;
+                } else {
+                    self.effects.keyframe = true;
+                    self.last_keyframe = Some(now);
+                }
+            }
             Event::EgressBitrateEstimate(BweKind::Twcc { estimate, .. }) => {
                 self.stats.bwe_kbps = Some(estimate.as_u64() / 1000);
                 if let Some(kbps) = self.rate.on_estimate(estimate.as_u64(), self.last_loss, now) {
@@ -470,6 +627,16 @@ impl<H: InputHandler> HostPeer<H> {
             }
             Event::PeerStats(s) => {
                 self.stats.rtt_ms = s.rtt.map(|d| d.as_secs_f64() * 1000.0);
+                // aller-retour du dernier paquet vidéo dont l'invité a accusé réception : il
+                // grandit dès qu'une file se forme sur le trajet
+                if let Some(rtt) = s.rtt.filter(|_| !crate::remote_play::lever_off("delay")) {
+                    if let Some(kbps) = self.rate.on_rtt(rtt, now) {
+                        self.effects.bitrate_kbps = Some(kbps);
+                        self.stats.target_kbps = kbps;
+                        self.stats.bitrate_changes += 1;
+                        self.stats.delay_backoffs += 1;
+                    }
+                }
                 if let Some(l) = s.egress_loss_fraction {
                     self.last_loss = Some(l);
                     self.stats.loss_pct = Some(l as f64 * 100.0);
@@ -498,6 +665,9 @@ impl<H: InputHandler> HostPeer<H> {
                 if self.stats.rtt_ms.is_none() {
                     self.stats.rtt_ms = s.rtt.map(|d| d.as_secs_f64() * 1000.0);
                 }
+                if let Some(rtt) = s.rtt {
+                    self.stats.media_rtt_ms = Some(rtt.as_secs_f64() * 1000.0);
+                }
             }
             _ => {}
         }
@@ -512,13 +682,27 @@ impl<H: InputHandler> HostPeer<H> {
             s.encode_ms_p50 = Some(p50);
             s.encode_ms_max = Some(max);
         }
+        s.capture_wait_ms_p50 = median_max_ms(self.wait_us.values(now)).map(|m| m.0);
+        if let Some((p50, max)) = median_max_ms(self.queue_us.values(now)) {
+            s.send_queue_ms_p50 = Some(p50);
+            s.send_queue_ms_max = Some(max);
+        }
+        if let Some((p50, max)) = median_max_ms(self.host_us.values(now)) {
+            s.host_ms_p50 = Some(p50);
+            s.host_ms_max = Some(max);
+        }
+        if let Some((p50, max)) = median_max_ms(self.input_us.values(now)) {
+            s.input_ms_p50 = Some(p50);
+            s.input_ms_max = Some(max);
+        }
         s
     }
 
     /// Renseigne l'encodeur réellement ouvert (affichage).
-    pub fn set_encoder(&mut self, name: String, resolution: (u32, u32)) {
+    pub fn set_encoder(&mut self, name: String, resolution: (u32, u32), startup: Duration) {
         self.stats.encoder = Some(name);
         self.stats.resolution = Some(resolution);
+        self.stats.video_start_ms = Some(startup.as_secs_f64() * 1000.0);
     }
 
     pub fn current_kbps(&self) -> u32 {

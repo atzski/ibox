@@ -148,6 +148,8 @@ Format binaire, petit-boutiste, 1 octet de type puis charge de **longueur exacte
 | `0x31` | Rumble (hôte → invité) | pad u8 (0–3), gros moteur u8, petit moteur u8 ; refusé s'il vient d'un invité |
 | `0x40` | Chat | longueur u16, UTF-8 |
 | `0x50`/`0x51` | Ping/Pong | id u32, horodatage µs u64 |
+| `0x52` | Timing (hôte → invité, `control`) | temps RTP de l'image u32, capture µs Unix u64, envoi du message µs Unix u64, capture → dernier paquet remis au réseau µs u32 ; refusé s'il vient d'un invité (§15) |
+| `0x53` | Report (invité → hôte, `control`) | latence mesurée par l'invité : capture → affichage µs u32, réception → affichage µs u32 ; envoyé seulement après réception d'un `Timing` (§15) |
 
 Toute anomalie (type inconnu, longueur différente, valeur hors domaine, UTF-8 invalide) rejette le
 message sans effet. Une touche absente d'un `KeyState` est relâchée ; à la déconnexion, tout ce que
@@ -626,3 +628,125 @@ Inspiré de Sunshine/Moonlight, Parsec et GeForce Now. Chaque point a été mesu
 | Manette lue toutes les 4 ms, souris par `pointerrawupdate` | invité | jusqu'à ≈ 12 ms (manette) et une image (souris) de moins avant l'envoi |
 
 Reste à mesurer : la latence perçue entre deux PC par Internet (chronomètre filmé), et sous un lien contraint (`clumsy`).
+
+## 15. Latence de bout en bout : mesure et réductions (24/11/2026)
+
+Tout ce qui suit a été mesuré **sur un seul PC** (RTX 5080, écran 3840×2160 à 240 Hz, Windows build
+26300, build release sans LTO), hôte réel face à un invité str0m sur la même horloge. Rien n'a été
+essayé entre deux ordinateurs, par Internet, ni avec une carte AMD ou Intel.
+
+### 15.1 La chaîne, étape par étape
+
+| # | Étape | Délai | Mesuré ou estimé |
+|---|---|---|---|
+| 1 | Le jeu présente son image, Windows la compose, WGC la livre | jusqu'à un rafraîchissement de l'écran de l'hôte (4 ms à 240 Hz, 17 ms à 60 Hz) | **estimé** : l'horodatage de WGC n'est pas un instant de composition (§9) |
+| 2 | Image capturée → envoyée à l'encodeur (jeton de cadence, encodeur occupé) | médiane 0,2–0,4 ms quand la source ne dépasse pas la cadence du flux ; ≈ 2 ms quand elle la dépasse (on envoie la plus récente) | **mesuré** par image (`captureWaitMsP50`) |
+| 3 | Conversion NV12 + encodage NVIDIA 1080p | médiane 1,3–1,9 ms, p95 2,3–3,8 ms | **mesuré** par image (`encodeMsP50`) ; AMD, Intel et logiciel **non mesurés** |
+| 4 | Mise en paquets, chiffrement, file d'envoi (lissage de str0m) | médiane 0,1–0,3 ms ; ≈ 12 ms pour une image de plus de 63 Ko (rafale maximale du lissage) | **mesuré** par image (`sendQueueMsP50`) |
+| 5 | Réseau, aller | 0,1 ms en boucle locale ; sur lien simulé : délai fixé + taille de l'image / débit du lien | **mesuré** par image sur un seul PC ; entre deux PC, déduit des horloges alignées (§15.2) |
+| 6 | Tampon de gigue de Chromium | 0,3–0,8 ms (`playout-delay` 0/0) | **mesuré** (`getStats`) dans le Chromium de l'application Claude, pas dans WebView2 |
+| 7 | Décodage | 0,5–0,9 ms | **mesuré** (`getStats`), même réserve |
+| 8 | Image décodée → remise à l'écran | jusqu'à un rafraîchissement de l'écran de l'invité | **mesuré** par image dans iBox (`requestVideoFrameCallback` : réception → affichage prévu) ; **non relevé ici**, le panneau navigateur étant masqué pendant l'essai |
+| 9 | Composition de Windows et dalle de l'invité | ≈ 1 rafraîchissement + temps de réponse de la dalle | **estimé**, hors de portée d'un logiciel |
+| 10 | Retour : manette lue toutes les 4 ms, souris et clavier à l'événement | 0–4 ms | **estimé** (cadence de lecture) |
+| 11 | Retour : réseau | la moitié de l'aller-retour | **mesuré** (ping `control`, 0,2 ms en boucle locale) |
+| 12 | Retour : paquet reçu → commande injectée | non relevé (l'invité des essais est spectateur, rien n'est injecté sur ce PC) | **instrumenté** (`inputMsP50`), à lire lors d'un essai à deux PC |
+| 13 | Le jeu lit la commande à son image suivante, puis retour à l'étape 1 | jusqu'à une image du jeu | **estimé** |
+
+### 15.2 Ce que l'invité et l'hôte affichent
+
+L'hôte suit chaque image jusqu'à son **dernier paquet remis au réseau** (en-tête RTP des paquets
+sortants) et envoie quatre fois par seconde un message `Timing` (§4) : temps RTP de l'image, heure
+de sa capture, part de l'hôte. L'invité date la réception et l'affichage de chaque image
+(`requestVideoFrameCallback`), retrouve celle du message par son temps RTP et obtient la latence
+**capture → affichage**, répartie en hôte / réseau / invité (`LatencyTracker`,
+`src/services/remotePlayGuest.ts`). Il la renvoie à l'hôte (`Report`), qui l'affiche par invité.
+
+Les deux horloges ne sont pas les mêmes : leur écart est estimé comme le fait NTP (le message le
+plus vite arrivé a mis la moitié du plus court aller-retour des pings). L'erreur vaut au plus la
+**moitié de l'asymétrie du trajet** ; le total affiché est donc honnête à cette réserve près, et il
+ne comprend ni l'étape 1 ni l'étape 9. Vérifié : sur un même PC l'écart réel est nul, l'invité
+Chromium l'estime à 0,01 et −0,03 ms ; les mesures portées par `Timing` diffèrent de 0,00 ms de la
+vérité de l'horloge commune (essai `phase1c_loopback`). Sans mesure de l'hôte (hôte plus ancien),
+l'invité n'affiche que sa propre part. Où : menu de session de l'invité (ligne d'état et
+Statistiques), carte de l'hôte (« Latence de l'image », « Dont ce PC »), Session d'essai, panneau
+des performances.
+
+**Compatibilité.** `Timing` (0x52) et `Report` (0x53) s'ajoutent au protocole v1 sans le casser :
+un invité plus ancien ignore le message inconnu (WebView comme invité natif) ; `Report` n'est
+envoyé qu'après réception d'un `Timing`, donc jamais à un hôte plus ancien, qui le compterait comme
+une entrée rejetée. Le chemin « ancien invité ↔ nouvel hôte » est lu dans le code, pas essayé.
+
+### 15.3 Mesures avant / après
+
+Référence au début du chantier (capture de l'écran en 1080p, machine chargée par d'autres
+compilations, contenu à 22 Mbit/s) : envoi à l'encodeur → image reconstituée chez l'invité médiane
+11,5 ms, p95 27,3 ms ; encodage médian 12,6 ms.
+
+| Changement | Appliqué à | Conditions | Avant | Après |
+|---|---|---|---|---|
+| Classe de priorité du processus relevée pendant un flux (`ProcessPriority`) | tous | 16 cœurs occupés par des boucles en priorité normale, 1080p, 2 tours | 24–26 images/s · encodage médiane 38–41 ms, p95 78–81 · total médiane 39–43 ms, p95 80–82 | 60 images/s · encodage médiane 1,35 ms, p95 2,3 · total médiane 2,1 ms, p95 13–14 |
+| idem | | machine au repos | total médiane 2,5–3,5 ms | 2,7 ms (aucun effet, comme attendu) |
+| Conversion NV12 seulement pour l'image qui part (`pipeline.rs`) | tous | écran 240 Hz très animé, machine chargée, 2–3 tours | attente avant l'encodeur médiane 2,9–3,4 ms | 1,3–2,0 ms |
+| Retenue : pas d'image encodée derrière une image encore en file d'envoi | tous | lien simulé 8 Mbit/s + 15 ms, contenu qui remplit le débit | p95 287–328 ms (2 tours) | p95 202 ms (1 tour comparable) |
+| Garde de délai : -15 % dès que l'aller-retour dépasse de 40 ms son plancher (`rate.rs`) | tous | même lien, 4 tours de 15 s | p95 59 / 125 / 190 / 64 ms, max 133–298 | p95 65 / 67 / 69 / 107 ms, max 119–249 |
+| « Priorité à la réactivité » (70 % de l'estimation au lieu de 85 %) | réglage, désactivé par défaut | même lien, 2 à 4 tours | médiane 40–56 ms, p95 79–256 ms | médiane 29–36 ms, p95 61–80 ms |
+| Une image clé par 250 ms au plus | tous | test unitaire | — | non mesuré en charge (aucune rafale de demandes dans les essais) |
+| Manette répétée 2 fois à 8 ms après un changement ; état répété après touche ou bouton | tous | tests unitaires | paquet perdu : jusqu'à 100 ms (manette), délai de retransmission SCTP (touches) | **non mesuré** : aucune perte simulée dans le sens invité → hôte |
+| Priorité GPU du processus (`GpuPriority`), fil d'événements de l'encodeur prioritaire | tous | 3 tours chacun | — | **aucun effet mesurable ici** (écarts dans le bruit) ; gardés, sans coût |
+| Copie de chaque image encodée évitée (`Packet` passé par valeur) | tous | — | — | non mesurable (quelques microsecondes) |
+
+Lecture honnête : seuls la priorité du processus et le réglage « Priorité à la réactivité » ont un
+effet net et répété. La retenue et la garde de délai vont dans le bon sens mais sur trop peu de
+tours pour conclure ; la variance d'un tour à l'autre est forte (l'estimateur de bande passante
+dépasse parfois la capacité du lien, parfois non).
+
+**Pourquoi un réglage.** Sur un lien limité, l'estimateur de str0m monte jusqu'à dépasser la
+capacité (10 Mbit/s estimés pour 8 réels) ; à 85 % de cette estimation l'encodeur sature le lien
+et une file se forme chez le routeur. À 70 % elle ne se forme presque plus, au prix d'une image
+moins fine : c'est une contrepartie de qualité, d'où le réglage plutôt qu'un changement imposé.
+
+### 15.4 Pièges de mesure rencontrés
+
+- Mesurer pendant que d'autres compilations tournent ne sépare pas les leviers (écarts de 1 à 3
+  entre deux tours identiques) : comparer à charge **contrôlée** (seize boucles occupées
+  en priorité normale, lancées le temps de l'essai) et en tours entrelacés, avec `IBOX_RP_OFF=…`
+  dans le même exécutable.
+- Une fenêtre de mesure hors écran, même à 2 pixels près, ne livre aucune image nouvelle à WGC :
+  Windows ne dessine que ce qui est dans l'écran. `Mover::hidden` reste à l'écran mais transparente
+  à 1/255, derrière tout, sans focus : rien de visible, et la capture en reçoit le contenu opaque.
+- Dans un panneau navigateur masqué, `requestVideoFrameCallback` ne se déclenche pas : la part de
+  l'invité ne se relève que dans une fenêtre réellement affichée.
+- Le lien simulé doit être lu par le fil de l'hôte avant que l'essai ne l'efface (course corrigée).
+
+### 15.5 À éprouver à deux PC : protocole pour Gébril
+
+Matériel : deux PC avec iBox de cette branche, un jeu à 60 images/s chez l'hôte, un chronomètre à
+l'écran de l'hôte (centièmes), un téléphone qui filme à 120 ou 240 images/s.
+
+1. **Même réseau, câble.** Hôte : inviter l'ami en Joueur. Invité : menu de session ›
+   Statistiques. Noter « Latence de l'image » et « Hôte / réseau / vous ». Attendu : réseau ≈ 1 ms.
+2. **Vérité terrain.** Filmer les deux écrans côte à côte avec le chronomètre ; l'écart lu sur une
+   image du film doit valoir la latence affichée plus un à deux rafraîchissements d'écran (étapes 1
+   et 9, que le logiciel ne voit pas). Un écart bien plus grand met la mesure en cause.
+3. **Hôte chargé.** Lancer un jeu lourd chez l'hôte : « Dont ce PC » (carte de l'hôte) doit rester
+   à quelques millisecondes et l'invité à 60 images/s.
+4. **Par Internet**, sans puis avec « Priorité à la réactivité » (Paramètres › Remote Play, côté
+   hôte), cinq minutes chacun : comparer la latence affichée, les à-coups ressentis, la finesse de
+   l'image. Relever le débit montant de l'hôte (test de débit) pour situer l'essai.
+5. **Wi-Fi faible ou partage de connexion** chez l'invité : la latence doit monter puis
+   redescendre en quelques secondes, sans rester haute ; l'image peut se dégrader.
+6. **Commandes.** Manette et clavier pendant les étapes 4 et 5 : aucune touche qui reste
+   enfoncée, pas d'appui avalé. Relever « Commande reçue → injectée » dans la Session d'essai.
+7. **Compatibilité.** Un PC en 1.0.7 et l'autre sur cette branche, dans les deux sens : la session
+   doit fonctionner ; seule la latence de bout en bout manque (« — »), et « Entrées refusées » ne
+   doit pas grimper chez l'hôte en 1.0.7.
+8. **AMD / Intel** si un tel PC est disponible comme hôte : relever l'encodeur retenu et
+   « Encodage (médiane) » dans la Session d'essai.
+
+Essais sur un seul PC, à refaire à volonté (fenêtre invisible, sans son) :
+```
+cargo test --release --lib remote_play::transport::loopback_tests::phase1c_loopback -- --ignored --nocapture --test-threads=1
+```
+Variables : en tête de `transport/loopback_tests.rs` (`IBOX_RP_LINK`, `IBOX_RP_OFF`,
+`IBOX_RP_RESPONSIVE`, `IBOX_RP_NOISE`).

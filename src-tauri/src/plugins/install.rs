@@ -239,8 +239,8 @@ pub mod tests {
         let bytes = fs::read(dir.join(s("url"))).unwrap();
         let out = tempfile::tempdir().unwrap();
         let exp = Expected { id: &s("id"), version: &s("version"), sha256: &s("sha256"), signature: &s("signature"), publisher: &s("publisher") };
-        install(out.path(), &bytes, &exp, "0.1.106").unwrap();
+        install(out.path(), &bytes, &exp, "99.0.0").unwrap();
         let tampered = fs::read(dir.join("tampered.iboxplugin")).unwrap();
-        assert!(install(out.path(), &tampered, &exp, "0.1.106").is_err());
+        assert!(install(out.path(), &tampered, &exp, "99.0.0").is_err());
     }
 }

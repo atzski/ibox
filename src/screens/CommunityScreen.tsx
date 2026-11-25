@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { getPlatform } from "@/domain/platforms";
 import { relativeDay } from "@/domain/text";
-import { captures, community, formatBytes, useCaptureUrl, type LocalCapture, type ReactionKey, type SharedCapture } from "@/services/community";
+import { captures, community, formatBytes, quotaFull, quotaText, useCaptureUrl, type LocalCapture, type ReactionKey, type SharedCapture, type ShareQuota } from "@/services/community";
 import { useInetbox } from "@/services/inetbox";
 import { isTauri } from "@/services/native";
 import { isLinux } from "@/services/platform";
@@ -225,8 +225,13 @@ function Mine() {
   const [busy, setBusy] = useState(false);
   const [celebrate, setCelebrate] = useState(0);
   const picked = useRef<Picked>(new Map());
+  // trois publications par jour : relues sur iNetbox à chaque ouverture d'une capture
+  const [quota, setQuota] = useState<ShareQuota | null>(null);
+  const loadQuota = useCallback(() => { if (user) community.quota().then(setQuota).catch(() => undefined); }, [user]);
   const load = useCallback(() => void captures.list().then(setItems).catch(() => setItems([])), []);
   useEffect(load, [load]);
+  const full = quotaFull(quota, Date.now());
+  const quotaLine = quotaText(quota, Date.now());
 
   if (!isTauri()) return <Empty icon="lock" title="Disponible dans l’application Windows" body="Les captures en jeu passent par l’overlay d’iBox." />;
   if (!items) return <p className="mt-8 text-center font-bold text-ink-soft">Chargement…</p>;
@@ -240,7 +245,7 @@ function Mine() {
         <Empty icon="front" title="Aucune capture pour l’instant" body={isLinux() ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : `Appuyez sur ${captureKeys} au bon moment, en jeu ou non.`} />
       ) : (
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4" data-nav-group="community-mine">
-          {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); picked.current = new Map(); }} />)}
+          {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); picked.current = new Map(); loadQuota(); }} />)}
         </div>
       )}
       {open && (
@@ -260,8 +265,15 @@ function Mine() {
                 sound.play("select");
                 setStatus("Partagé avec vos amis !");
                 setCelebrate((n) => n + 1);
+                loadQuota();
               } catch (err) {
-                setStatus((err as { message?: string }).message ?? "Le partage a échoué.");
+                const e = err as { code?: string; message?: string; retryAfterSeconds?: number };
+                if (e.code === "DAILY_SHARE_LIMIT") {
+                  // la limite est atteinte (sur ce PC ou un autre) : le bouton se grise jusqu'à la place suivante
+                  setQuota((q) => ({ limit: q?.limit ?? 3, used: q?.limit ?? 3, resetAt: Date.now() + (e.retryAfterSeconds ?? 3600) * 1000 }));
+                } else {
+                  setStatus(e.message ?? "Le partage a échoué.");
+                }
               } finally {
                 setBusy(false);
               }
@@ -270,7 +282,7 @@ function Mine() {
                 <MentionField value={caption} onChange={setCaption} onPick={(f) => picked.current.set(f.id, f.displayName)} maxLength={200}
                   placeholder="Un mot sur ce moment… (@ pour identifier un ami)" label="Légende" />
               </div>
-              <Button type="submit" variant="primary" icon="globe" disabled={busy || status === "Partagé avec vos amis !"}>{busy ? "Envoi…" : status === "Partagé avec vos amis !" ? "Partagé" : "Partager"}</Button>
+              <Button type="submit" variant="primary" icon="globe" disabled={busy || full || status === "Partagé avec vos amis !"}>{busy ? "Envoi…" : status === "Partagé avec vos amis !" ? "Partagé" : "Partager"}</Button>
             </form>
           ) : (
             <Button icon="user" onClick={() => useInetbox.getState().show()}>Se connecter pour partager</Button>
@@ -280,6 +292,9 @@ function Mine() {
             setOpen(null);
             load();
           }}>Supprimer</Button>
+          {user && open.kind !== "clip" && quotaLine && (
+            <p className={`w-full text-[0.85rem] font-bold ${full ? "text-peach-deep" : "text-ink-soft"}`}>{quotaLine}</p>
+          )}
           <AnimatePresence>
             {status && (
               <motion.p key={status} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}

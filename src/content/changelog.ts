@@ -10,6 +10,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.8",
+    date: "2026-11-25",
+    highlights: [
+      { icon: "sparkle", title: "Des clips avec le plugin iClips", text: "iBox ouvre ses clips aux plugins. Avec iClips, un Studio range vos clips, un panneau remplace l’overlay de capture en jeu, et l’on coupe, assemble, passe en vertical ou en GIF. Dites « Clip ça ! » pour garder les dernières secondes, puis glissez le clip vers Discord ou envoyez-le à un ami." },
+      { icon: "disc", title: "Les .iso trouvent leur console", text: "iBox reconnaît maintenant les .iso PS3, Xbox et Xbox 360. Quand le contenu d’un .iso ne dit rien, iBox vous demande « De quelle console s’agit-il ? » au lieu de deviner, et se souvient de la réponse." },
+      { icon: "grid", title: "Le mode Jaquette prend du recul", text: "Cinq niveaux d’affichage, de la grille habituelle jusqu’à plus de trente jaquettes par rangée : Ctrl + molette, touches − et +, ou stick droit à la manette. La grille reste fluide même avec une très grande bibliothèque. La barre de la bibliothèque passe en icônes, avec les logos des consoles." },
+      { icon: "sparkle", title: "Une ambiance sonore dans les menus", text: "Un air original et discret, clavier doux, basse et écho, remplace la musique des menus. Il se règle dans Paramètres › Son, sous Ambiance sonore." },
+      { icon: "gamepad", title: "Remote Play plus réactif", text: "L’image reste stable quand le jeu occupe tout le processeur de l’hôte, et le nouveau réglage Priorité à la réactivité garde de la marge quand la connexion limite le débit." },
+      { icon: "power", title: "Steam Deck : mode performance", text: "Le mode performance (Paramètres › Affichage) garde la même interface sans ce qui coûte cher aux petites machines, et iBox se met en veille quand un jeu passe devant. L’installation sur Steam Deck tient en une ligne." },
+      { icon: "disc", title: "Music in the Box enchaîne les titres", text: "Un vrai fondu enchaîné entre les titres, une suite automatique de titres proches quand la file s’arrête, et des noms d’artistes cliquables qui ouvrent leur fiche. Avec le plugin Music in the Box 1.0.6." },
+      { icon: "user", title: "Communauté et collections", text: "La Communauté accepte trois publications par jour et par compte ; les places restantes s’affichent. Pendant le rangement des collections, une barre suit l’écran avec un bouton Valider." },
+    ],
+  },
+  {
     version: "1.0.7",
     date: "2026-11-21",
     highlights: [

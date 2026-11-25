@@ -36,6 +36,11 @@ function HostStatsView({ s }: { s: HostStats }) {
       <Stat label="Pertes" value={fmt(s.lossPct, 2, " %")} />
       <Stat label="Gigue (invité)" value={fmt(s.jitterMs, 1, " ms")} />
       <Stat label="Encodage (médiane)" value={fmt(s.encodeMsP50, 2, " ms")} />
+      <Stat label="Capture → envoi (médiane / max)" value={`${fmt(s.hostMsP50, 1)} / ${fmt(s.hostMsMax, 1, " ms")}`} />
+      <Stat label="File d'envoi (médiane / max)" value={`${fmt(s.sendQueueMsP50, 1)} / ${fmt(s.sendQueueMsMax, 1, " ms")}`} />
+      <Stat label="Images écartées (réseau saturé)" value={String(s.framesSkipped ?? 0)} />
+      <Stat label="Commande reçue → injectée" value={fmt(s.inputMsP50, 2, " ms")} />
+      <Stat label="Latence mesurée par l'invité" value={fmt(s.guestLatencyMs, 1, " ms")} />
       <Stat label="Demandes d'image clé" value={String(s.plis + s.firs)} />
       <Stat label="Entrées reçues / refusées" value={`${s.inputs.received} / ${s.inputs.rejected + s.inputs.denied}`} />
     </div>
@@ -55,7 +60,8 @@ function GuestStatsView({ s }: { s: GuestStats }) {
       <Stat label="Gigue" value={fmt(s.jitterMs, 1, " ms")} />
       <Stat label="Tampon de gigue" value={fmt(s.jitterBufferMs, 1, " ms")} />
       <Stat label="Décodage" value={`${fmt(s.decodeMs, 2, " ms")}${s.hardwareDecoder === null ? "" : s.hardwareDecoder ? " (matériel)" : " (logiciel)"}`} />
-      <Stat label="Capture → affichage" value={fmt(s.captureToDisplayMs, 1, " ms")} />
+      <Stat label="Capture → affichage" value={fmt(s.latency.totalMs ?? s.captureToDisplayMs, 1, " ms")} />
+      <Stat label="Hôte / réseau / invité" value={`${fmt(s.latency.hostMs, 1)} / ${fmt(s.latency.networkMs, 1)} / ${fmt(s.latency.guestMs, 1, " ms")}`} />
       <Stat label="Images perdues / gels" value={`${s.framesDropped ?? "—"} / ${s.freezeCount ?? "—"}`} />
     </div>
   );

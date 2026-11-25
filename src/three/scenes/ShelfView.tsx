@@ -1,6 +1,8 @@
 import { SPRING, TWEEN } from "@/motion/tokens";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { FrameCap } from "../FrameCap";
+import { wakeScenes } from "../activity";
+import { useInterfaceSleep } from "@/services/performance";
 import { useGraphics } from "@/services/graphics";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
@@ -239,6 +241,8 @@ function FlowCase({
   const sheenAt = useRef(-1);
   const wasSelected = useRef(false);
   const born = useRef(true);
+  // rendu à la demande : chaque changement d'état du boîtier (pose, survol, texture arrivée) redessine
+  useEffect(wakeScenes);
 
   const glare = useMemo(
     () => createGlareMaterial(spec.width + 0.004, spec.height + 0.004, spec.model === "keep" ? Math.max(spec.radius, 0.035) : 0.012),
@@ -476,7 +480,7 @@ function Backdrop({ game, tint }: { game: Game; tint: string }) {
         {layer && (
           <motion.div
             key={layer.key}
-            className="absolute -inset-[15%]"
+            className="ibox-shelf-soft absolute -inset-[15%]"
             initial={{ opacity: 0 }}
             animate={{ opacity: layer.wide ? 0.9 : 0.7 }}
             exit={{ opacity: 0, transition: TWEEN.exit }}
@@ -518,7 +522,9 @@ export function ShelfView({
   onOpen: (game: Game) => void;
 }) {
   // session Remote Play d'invité : la scène s'arrête pour laisser le fil principal au décodage
-  const scenePaused = useScenePause((s) => s.paused);
+  // et pendant la veille de l'interface (fenêtre masquée, jeu en cours au premier plan)
+  const asleep = useInterfaceSleep((s) => s.asleep);
+  const scenePaused = useScenePause((s) => s.paused) || asleep;
   // profil graphique : définition et rythme d'images (Steam Deck, économie d'énergie)
   const graphics = useGraphics();
   const shelves = useMemo(() => buildShelves(games, mixed), [games, mixed]);
@@ -555,6 +561,8 @@ export function ShelfView({
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
   const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms));
+  // rendu à la demande : tout changement d'état de l'étagère la fait redessiner
+  useEffect(wakeScenes);
 
   const shelf = shelves[Math.min(shelfIndex, shelves.length - 1)];
   const pickOf = (s: Shelf) => Math.min(picks[s.id] ?? 0, s.games.length - 1);
@@ -648,6 +656,7 @@ export function ShelfView({
     if (next === index) {
       // bout de la rangée : le boîtier choisi butte sur place
       bump.current = { dir: i < index ? -1 : 1, at: performance.now() };
+      wakeScenes();
       return;
     }
     sound.play("move");
@@ -687,6 +696,7 @@ export function ShelfView({
     if (!target) {
       // un seul jeu : rien à tirer, le boîtier butte sur place
       bump.current = { dir: 1, at: performance.now() };
+      wakeScenes();
       sound.play("error");
       return;
     }
@@ -719,6 +729,7 @@ export function ShelfView({
     }
     later(() => {
       cheer.current = performance.now();
+      wakeScenes();
       sound.play("confirm");
     }, wait + 240);
     later(() => setDrawing(false), wait + 240 + CHEER_MS * 0.6);
@@ -782,7 +793,7 @@ export function ShelfView({
 
       {/* halo qui respire derrière le jeu choisi, et lueur au sol */}
       <div
-        className="pointer-events-none absolute left-1/2 aspect-[4/3] w-[44%] -translate-x-1/2 -translate-y-1/2"
+        className="ibox-shelf-soft pointer-events-none absolute left-1/2 aspect-[4/3] w-[44%] -translate-x-1/2 -translate-y-1/2"
         style={{
           top: `${TRACK_Y * 100}%`,
           background: `radial-gradient(closest-side, color-mix(in srgb, ${halo} 55%, transparent), transparent)`,
@@ -827,14 +838,14 @@ export function ShelfView({
       >
         <Canvas
           flat
-          frameloop={scenePaused ? "never" : graphics.fps ? "demand" : "always"}
+          frameloop={scenePaused ? "never" : graphics.fps || graphics.idle ? "demand" : "always"}
           dpr={graphics.dpr}
           camera={{ fov: 32, position: [0, 0, PERSPECTIVE * ref.width], near: 0.1, far: 60 }}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           style={{ borderRadius: "inherit" }}
           onCreated={({ gl }) => tuneRenderer(gl)}
         >
-          {graphics.fps && !scenePaused && <FrameCap fps={graphics.fps} />}
+          {(graphics.fps || graphics.idle) && !scenePaused && <FrameCap fps={graphics.fps} idle={graphics.idle} />}
           <fog attach="fog" args={["#090a12", PERSPECTIVE * ref.width + 1.5, PERSPECTIVE * ref.width + 9]} />
           <FlowCamera spec={ref} reduced={reduced} />
           <FlowLights tint={theme.primary} on={!leaving} spec={ref} />

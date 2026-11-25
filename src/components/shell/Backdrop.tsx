@@ -12,6 +12,8 @@ import { usePlatformArt } from "@/services/platformArt";
 import { useLibrary } from "@/services/library";
 import { useWallpaperUrl } from "@/services/wallpaper";
 import { presetById, type HomePreset } from "@/services/homeBackgrounds";
+import { usePerformanceMode } from "@/services/performance";
+import { useSoftenedImage } from "@/art/soften";
 
 /**
  * Arrière-plan vivant : fond crème, halos pastel qui dérivent lentement et
@@ -233,6 +235,11 @@ function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false, soft = f
   // accueil : le grand fond reste légèrement flouté pour laisser respirer les cases
   const blur = Math.max(hero ? (stage ? 0 : 10) : 60, soft ? 7 : 0);
   const opacity = (vivid ? 0.82 : hero ? (stage ? 0.5 : 0.36) : 0.5) * (dark ? 0.8 : 1);
+  // mode performance : l'image est adoucie une fois (bitmap réduit, saturation comprise) au lieu
+  // d'un filtre de flou recalculé à chaque image du mouvement de caméra ; à défaut, le filtre reste
+  const lite = usePerformanceMode() && blur > 0;
+  const softened = useSoftenedImage(lite ? src : null, blur, 1.15);
+  const baked = lite && typeof softened === "string";
 
   return (
     <motion.div
@@ -243,20 +250,20 @@ function GameBackdrop({ src, hero, stage, dark, reduced, vivid = false, soft = f
       transition={{ duration: reduced ? 0 : 0.65, ease: EASE.out }}
     >
       <div className="h-full w-full" style={{ transform: hero ? (blur ? "scale(1.04)" : undefined) : "scale(1.25)" }}>
-        <img
-          src={src}
+        {(!lite || softened !== undefined) && <img
+          src={baked ? softened : src}
           alt=""
           draggable={false}
           className={`h-full w-full object-cover ${reduced ? "" : "ibox-kenburns"}`}
           style={{
-            filter: blur ? `blur(${blur}px) saturate(1.15)` : "saturate(1.05)",
+            filter: baked ? undefined : blur ? `blur(${blur}px) saturate(1.15)` : "saturate(1.05)",
             maskImage: vivid
               ? "linear-gradient(to bottom, black 0%, black 70%, rgba(0,0,0,0.55) 100%)"
               : hero
               ? "linear-gradient(to bottom, black 0%, black 35%, transparent 92%)"
               : "radial-gradient(ellipse at 60% 40%, black 0%, transparent 75%)",
           }}
-        />
+        />}
       </div>
     </motion.div>
   );

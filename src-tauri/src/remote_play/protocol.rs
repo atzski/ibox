@@ -68,6 +68,14 @@ pub enum Message {
     Chat { text: String },
     Ping { id: u32, micros: u64 },
     Pong { id: u32, micros: u64 },
+    /// Hôte → invité : mesure d'une image envoyée. `rtp` = temps RTP de l'image (32 bits),
+    /// `capture_micros` = sa capture et `sent_micros` = l'envoi de ce message (horloge murale de
+    /// l'hôte, µs Unix), `host_micros` = capture → dernier paquet remis au réseau. Un invité plus
+    /// ancien l'ignore ; refusé s'il vient d'un invité.
+    Timing { rtp: u32, capture_micros: u64, sent_micros: u64, host_micros: u32 },
+    /// Invité → hôte, seulement en réponse à des `Timing` : latence de l'image mesurée par
+    /// l'invité (capture → affichage) et sa propre part (réception → affichage), en µs.
+    Report { total_micros: u32, guest_micros: u32 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,6 +217,8 @@ pub fn decode(bytes: &[u8]) -> Result<Message, DecodeError> {
         }
         0x50 => Message::Ping { id: r.u32()?, micros: r.u64()? },
         0x51 => Message::Pong { id: r.u32()?, micros: r.u64()? },
+        0x52 => Message::Timing { rtp: r.u32()?, capture_micros: r.u64()?, sent_micros: r.u64()?, host_micros: r.u32()? },
+        0x53 => Message::Report { total_micros: r.u32()?, guest_micros: r.u32()? },
         other => return Err(DecodeError::UnknownType(other)),
     };
     r.end()?;
@@ -276,6 +286,18 @@ pub fn encode(msg: &Message) -> Vec<u8> {
             out.extend(id.to_le_bytes());
             out.extend(micros.to_le_bytes());
         }
+        Message::Timing { rtp, capture_micros, sent_micros, host_micros } => {
+            out.push(0x52);
+            out.extend(rtp.to_le_bytes());
+            out.extend(capture_micros.to_le_bytes());
+            out.extend(sent_micros.to_le_bytes());
+            out.extend(host_micros.to_le_bytes());
+        }
+        Message::Report { total_micros, guest_micros } => {
+            out.push(0x53);
+            out.extend(total_micros.to_le_bytes());
+            out.extend(guest_micros.to_le_bytes());
+        }
     }
     out
 }
@@ -308,6 +330,8 @@ mod tests {
             Message::Chat { text: "Salut ! On joue ? 🎮\nGo".into() },
             Message::Ping { id: 1, micros: 123_456_789 },
             Message::Pong { id: 1, micros: u64::MAX },
+            Message::Timing { rtp: 0xDEAD_BEEF, capture_micros: 1_795_000_000_000_000, sent_micros: 1_795_000_000_004_200, host_micros: 3_900 },
+            Message::Report { total_micros: 23_400, guest_micros: 9_100 },
         ]
     }
 

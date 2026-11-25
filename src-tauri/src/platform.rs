@@ -12,6 +12,10 @@ pub struct PlatformInfo {
     pub os: &'static str,
     /// Modèle de Steam Deck reconnu (`Steam Deck (LCD)`, `Steam Deck OLED`), sinon `None`.
     pub steam_deck: Option<&'static str>,
+    /// Console portable de jeu : Steam Deck reconnu, ou machine que Steam présente comme telle
+    /// (`SteamDeck=1`, posé par Steam sur SteamOS et ses dérivés). L'interface y active d'office
+    /// son mode performance.
+    pub handheld: bool,
     /// Lancé sous gamescope (Mode Jeu de SteamOS) : une seule fenêtre visible, pas de raccourcis globaux.
     pub game_mode: bool,
     /// Aperçu Steam Deck sur PC (`scripts/deck-preview.ps1`) : fenêtre de 1280×800, jamais plein écran.
@@ -69,6 +73,13 @@ fn steam_deck() -> Option<&'static str> {
     preview().then_some("Steam Deck (aperçu)")
 }
 
+/// Console portable d'après Steam : il pose `SteamDeck=1` pour ce qu'il lance sur un Steam Deck et
+/// sur les autres machines sous SteamOS (Mode Jeu comme Mode Bureau). Le modèle DMI reste la
+/// source sûre du Steam Deck : cette variable manque quand iBox est ouvert hors de Steam.
+pub fn handheld_from(var: impl Fn(&str) -> Option<String>) -> bool {
+    var("SteamDeck").is_some_and(|v| v.trim() == "1")
+}
+
 /// Mode Jeu de SteamOS (lu une fois) : pas de zone de notification, et iBox ne doit jamais se
 /// masquer (il deviendrait invisible tout en restant « en cours » pour Steam).
 pub fn game_mode() -> bool {
@@ -81,6 +92,7 @@ pub fn current() -> PlatformInfo {
         // aperçu sous Windows : l'interface se comporte comme sur le Deck, en Mode Jeu
         os: if cfg!(windows) && !preview() { "windows" } else { "linux" },
         steam_deck: steam_deck(),
+        handheld: steam_deck().is_some() || (cfg!(target_os = "linux") && handheld_from(|k| std::env::var(k).ok())),
         game_mode: (cfg!(windows) && preview()) || (cfg!(target_os = "linux") && game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))),
         preview: preview(),
         bench: preview() && (std::env::var_os("IBOX_RP_SAMPLE_FILE").is_some() || std::env::var_os("IBOX_RP_OFFER_FILE").is_some()),
@@ -173,11 +185,18 @@ mod tests {
     }
 
     #[test]
+    fn console_portable_annoncee_par_steam() {
+        assert!(handheld_from(|k| (k == "SteamDeck").then(|| "1".into())));
+        assert!(!handheld_from(|k| (k == "SteamDeck").then(|| "0".into())));
+        assert!(!handheld_from(|_| None));
+    }
+
+    #[test]
     fn systeme_courant() {
         let p = current();
         assert_eq!(p.os, if cfg!(windows) && !preview() { "windows" } else { "linux" });
         if cfg!(windows) && !preview() {
-            assert!(p.steam_deck.is_none() && !p.game_mode);
+            assert!(p.steam_deck.is_none() && !p.game_mode && !p.handheld);
         }
     }
 }

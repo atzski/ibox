@@ -12,6 +12,55 @@ use windows::Win32::Graphics::Direct3D11::{
 use windows::Win32::Graphics::Dxgi::IDXGIDevice;
 use windows::Win32::System::WinRT::Direct3D11::CreateDirect3D11DeviceFromDXGIDevice;
 
+/// Classe de priorité du processus auprès de l'ordonnanceur de la carte graphique, le temps d'un
+/// flux. `SetGPUThreadPriority` ne classe que les fils d'un même processus : quand un jeu occupe
+/// la carte, c'est cette classe (« haute », accordée sans droits d'administrateur) qui fait
+/// passer la conversion et l'encodage d'iBox devant son rendu (Sunshine fait de même). Le travail
+/// d'iBox est minime (une conversion par image) : le jeu n'y perd rien de mesurable. La classe
+/// normale est rétablie à la fin du dernier flux. Sans effet si Windows refuse.
+pub struct GpuPriority(());
+
+static GPU_PRIORITY_USERS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+const D3DKMT_SCHEDULINGPRIORITYCLASS_NORMAL: i32 = 2;
+const D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH: i32 = 4;
+
+/// `D3DKMTSetProcessSchedulingPriorityClass` (gdi32), cherchée à l'exécution.
+fn set_gpu_priority_class(class: i32) -> bool {
+    use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32};
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+    type Setter = unsafe extern "system" fn(*mut core::ffi::c_void, i32) -> i32;
+    let name: Vec<u16> = "gdi32.dll\0".encode_utf16().collect();
+    unsafe {
+        let mut module = GetModuleHandleW(name.as_ptr());
+        if module.is_null() {
+            module = LoadLibraryExW(name.as_ptr(), std::ptr::null_mut(), LOAD_LIBRARY_SEARCH_SYSTEM32);
+        }
+        if module.is_null() {
+            return false;
+        }
+        let Some(f) = GetProcAddress(module, c"D3DKMTSetProcessSchedulingPriorityClass".as_ptr().cast()) else { return false };
+        let set: Setter = std::mem::transmute(f);
+        set(GetCurrentProcess(), class) >= 0
+    }
+}
+
+impl GpuPriority {
+    pub fn raise() -> GpuPriority {
+        if GPU_PRIORITY_USERS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            set_gpu_priority_class(D3DKMT_SCHEDULINGPRIORITYCLASS_HIGH);
+        }
+        GpuPriority(())
+    }
+}
+
+impl Drop for GpuPriority {
+    fn drop(&mut self) {
+        if GPU_PRIORITY_USERS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst) == 1 {
+            set_gpu_priority_class(D3DKMT_SCHEDULINGPRIORITYCLASS_NORMAL);
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Device {
     pub device: ID3D11Device,

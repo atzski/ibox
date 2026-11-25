@@ -257,6 +257,8 @@ export const useLibrary = create<LibraryState>((set, get) => {
         const summary = await nativeLibrary.scan(folderIds);
         await refresh();
         set({ scan: { running: false, summary, finishedAt: Date.now() } });
+        // .iso dont la console reste à préciser : la question se pose une fois le scan terminé
+        void import("./isoQueue").then(({ useIsoQueue }) => useIsoQueue.getState().afterScan(summary.isoNew));
         if (summary.added > 0 || summary.missing > 0)
           notify({ icon: "folder", tone: summary.missing ? "warn" : "ok", title: "Collection actualisée", body: [summary.added && `${summary.added} ajouté${summary.added > 1 ? "s" : ""}`, summary.missing && `${summary.missing} introuvable${summary.missing > 1 ? "s" : ""}`].filter(Boolean).join(" · "), link: { kind: "library", platformId: "all" } });
         if (summary.added > 0) {

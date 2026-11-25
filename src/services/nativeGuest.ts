@@ -227,7 +227,9 @@ export class H264Renderer {
   /** Repli logiciel : après un échec du décodeur choisi d'office (matériel). */
   private accel: HardwareAcceleration = "no-preference";
   private waitingKey = true;
-  private pending = new Map<number, { submitted: number; arrivedUs: number }>();
+  private pending = new Map<number, { submitted: number; arrivedUs: number; rtp: number }>();
+  /** Image dessinée : temps RTP, réception (Rust) et dessin, en ms de `performance.now()`. */
+  onDisplayed?: (rtp: number, receivedMs: number, displayedMs: number) => void;
   private decodeMs: number[] = [];
   private totalMs: number[] = [];
   private paintMs: number[] = [];
@@ -269,7 +271,7 @@ export class H264Renderer {
       return;
     }
     const timestamp = Math.round((frame.rtpTime * 1e6) / 90000);
-    this.pending.set(timestamp, { submitted: now, arrivedUs: frame.arrivedUs });
+    this.pending.set(timestamp, { submitted: now, arrivedUs: frame.arrivedUs, rtp: frame.rtpTime });
     try {
       this.decoder.decode(new EncodedVideoChunk({ type: frame.keyframe ? "key" : "delta", timestamp, data: annexBToAvc(frame.data) }));
     } catch (e) {
@@ -298,7 +300,10 @@ export class H264Renderer {
     this.pending.delete(img.timestamp);
     if (p) {
       this.decodeMs.push(now - p.submitted);
-      if (this.clockOffset !== null) this.totalMs.push(now - (this.clockOffset + p.arrivedUs / 1000));
+      if (this.clockOffset !== null) {
+        this.totalMs.push(now - (this.clockOffset + p.arrivedUs / 1000));
+        this.onDisplayed?.(p.rtp, this.clockOffset + p.arrivedUs / 1000, now);
+      }
       if (this.decodeMs.length > 600) this.decodeMs.shift();
       if (this.totalMs.length > 600) this.totalMs.shift();
     }
@@ -492,6 +497,7 @@ export class NativeGuestSession {
   private closed = false;
   private offer = "";
   private answer = "";
+  private tracker: import("./remotePlayGuest").LatencyTracker | null = null;
   connected = false;
   onHostGone?: () => void;
   onConnection?: (connected: boolean) => void;
@@ -517,7 +523,10 @@ export class NativeGuestSession {
   /** Répond à l'offre : réponse SDP (candidats inclus) à transmettre par la signalisation. */
   async accept(offer: string): Promise<string> {
     const { Channel } = await import("@tauri-apps/api/core");
-    const { decodeHost } = await import("./remotePlayGuest");
+    const { decodeHost, LatencyTracker } = await import("./remotePlayGuest");
+    const tracker = new LatencyTracker();
+    this.tracker = tracker;
+    this.renderer.onDisplayed = (rtp, received, displayed) => tracker.frame(rtp, performance.timeOrigin + received, performance.timeOrigin + displayed);
     const channel = new Channel<ArrayBuffer>();
     channel.onmessage = (buf) => {
       const f = parseFrame(buf);
@@ -528,10 +537,14 @@ export class NativeGuestSession {
         const msg = decodeHost(f.data.slice().buffer);
         if (msg?.type === "pong") {
           const sent = this.pings.get(msg.id);
-          if (sent !== undefined) this.pingMs = performance.now() - sent;
+          if (sent !== undefined) {
+            this.pingMs = performance.now() - sent;
+            tracker.ping(this.pingMs);
+          }
           this.pings.delete(msg.id);
           this.lastPong = performance.now();
         } else if (msg?.type === "rumble") this.onRumble?.(msg.pad, msg.large, msg.small);
+        else if (msg?.type === "timing") tracker.timing(msg, performance.timeOrigin + performance.now());
       } else if (f.kind === Kind.Connected) {
         this.connected = true;
         this.onConnection?.(true);
@@ -563,7 +576,7 @@ export class NativeGuestSession {
 
   private startPings() {
     if (this.pingTimer) return;
-    void import("./remotePlayGuest").then(({ encode }) => {
+    void import("./remotePlayGuest").then(({ encode, sendReport }) => {
       if (this.closed || this.pingTimer) return;
       this.pingTimer = window.setInterval(() => {
         this.pingId += 1;
@@ -571,6 +584,7 @@ export class NativeGuestSession {
         this.pings.set(this.pingId, now);
         if (this.pings.size > 20) this.pings.delete(this.pings.keys().next().value!);
         this.send("control", encode.ping(this.pingId, now * 1000));
+        if (this.tracker) sendReport(this, this.tracker);
         // l'hôte se tait depuis 6 s (PC éteint, iBox fermé) : fin de session
         if (this.lastPong && now - this.lastPong > 6000 && !this.closed) {
           this.lastPong = 0;
@@ -602,6 +616,7 @@ export class NativeGuestSession {
       hardwareDecoder: null,
       captureToDisplayMs: null,
       minimalBuffer: true,
+      latency: this.tracker?.snapshot() ?? { totalMs: null, hostMs: null, networkMs: null, guestMs: null },
     };
   }
 

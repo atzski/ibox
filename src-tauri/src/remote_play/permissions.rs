@@ -303,7 +303,7 @@ impl Session {
         let p = self.participants.get_mut(&id).ok_or(Denied::UnknownParticipant)?;
         let grants = p.grants.and(ceiling);
         let need = |perm: Permission| if grants.has(perm) { Ok(()) } else { Err(Denied::Missing(perm)) };
-        let input = !matches!(msg, Message::Chat { .. } | Message::Ping { .. } | Message::Pong { .. });
+        let input = !matches!(msg, Message::Chat { .. } | Message::Ping { .. } | Message::Pong { .. } | Message::Report { .. });
         if input && suspended {
             return Err(Denied::Suspended);
         }
@@ -358,9 +358,9 @@ impl Session {
                 }
                 fresh(&mut p.pad_seq, *seq)?;
             }
-            Message::Rumble { .. } => return Err(Denied::WrongDirection),
+            Message::Rumble { .. } | Message::Timing { .. } => return Err(Denied::WrongDirection),
             Message::Chat { .. } => need(Permission::TextChat)?,
-            Message::Ping { .. } | Message::Pong { .. } => {}
+            Message::Ping { .. } | Message::Pong { .. } | Message::Report { .. } => {}
         }
         Ok(vec![msg])
     }

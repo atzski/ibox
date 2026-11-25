@@ -52,12 +52,12 @@ export function mediaSignature(game: Game): string {
   return (game.media ?? []).map((m) => `${m.kind}${m.slot}@${m.addedAt}`).join(",");
 }
 
-async function loadBitmap(game: Game, kind: MediaKind): Promise<ImageBitmap | undefined> {
+async function loadBitmap(game: Game, kind: MediaKind, resizeWidth?: number): Promise<ImageBitmap | undefined> {
   if (game.dbId === undefined || !isTauri()) return undefined;
   if (!(game.media ?? []).some((m) => m.kind === kind && m.slot === 0)) return undefined;
   try {
     const bytes = await metadataApi.read(game.dbId, kind, 0);
-    return await createImageBitmap(new Blob([bytes]));
+    return await createImageBitmap(new Blob([bytes]), resizeWidth ? { resizeWidth, resizeQuality: "medium" } : undefined);
   } catch {
     return undefined; // fichier manquant ou illisible : habillage généré
   }
@@ -84,6 +84,22 @@ export function loadAssets(game: Game): Promise<ArtAssets> {
     cache.set(key, p);
   }
   return p;
+}
+
+/**
+ * Ressources allégées d'une vignette (vue reculée de la bibliothèque) : la face avant seule,
+ * décodée à taille réduite et jamais gardée en mémoire. Si les images complètes du jeu sont
+ * déjà chargées, elles servent telles quelles.
+ */
+export async function loadThumbAssets(game: Game, width: number): Promise<ArtAssets> {
+  const loaded = cache.get(`${game.id}|${game.platformId}|${mediaSignature(game)}`);
+  if (loaded) return loaded;
+  const front = await loadBitmap(game, "front", width);
+  // scan complet (dos | tranche | face) : la face n'en est que la moitié droite
+  const full = front ? undefined : await loadBitmap(game, "full", Math.round(width * 2.2));
+  const coverSource = front ?? full;
+  const palette = coverSource ? extractPalette(coverSource, front ? 0 : fullScanSplit(game.platformId, full).frontStart) : basePalette(game);
+  return { front, full, palette, hasCover: !!coverSource };
 }
 
 // ——— Palette ———

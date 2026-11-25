@@ -6,7 +6,8 @@
 //! plus lâche (WGC ne livre rien quand l'écran ne change pas).
 
 use std::io::Write;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use windows::core::{Error, Result};
@@ -14,7 +15,7 @@ use windows::Win32::Graphics::Direct3D11::ID3D11Texture2D;
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 
 use crate::remote_play::capture::d3d::Device;
-use crate::remote_play::capture::wgc::{Capture, Next};
+use crate::remote_play::capture::wgc::{Capture, Frame, Next};
 use crate::remote_play::capture::{self, Options, Target};
 
 use super::convert::Converter;
@@ -111,17 +112,38 @@ impl Drop for Com {
 }
 
 /// Pilotage d'un flux en cours depuis un autre fil (transport réseau) : arrêt, débit adapté au
-/// réseau, IDR demandée par l'invité (PLI/FIR).
+/// réseau, IDR demandée par l'invité (PLI/FIR), retenue quand le réseau n'écoule plus.
 #[derive(Debug)]
 pub struct Control {
     stop: AtomicBool,
     bitrate_kbps: AtomicU32,
     keyframe: AtomicBool,
+    hold: AtomicBool,
+    skipped: AtomicU64,
 }
 
 impl Control {
     pub fn new(bitrate_kbps: u32) -> Self {
-        Control { stop: AtomicBool::new(false), bitrate_kbps: AtomicU32::new(bitrate_kbps), keyframe: AtomicBool::new(false) }
+        Control {
+            stop: AtomicBool::new(false),
+            bitrate_kbps: AtomicU32::new(bitrate_kbps),
+            keyframe: AtomicBool::new(false),
+            hold: AtomicBool::new(false),
+            skipped: AtomicU64::new(0),
+        }
+    }
+    /// Retenue : tant qu'elle est posée, aucune image n'est encodée (la plus récente est gardée
+    /// et part dès la levée). Posée par le transport quand des images attendent encore dans sa
+    /// file d'envoi : en encoder d'autres ne ferait qu'empiler du retard.
+    pub fn set_hold(&self, on: bool) {
+        self.hold.store(on, Ordering::Relaxed);
+    }
+    pub fn held(&self) -> bool {
+        self.hold.load(Ordering::Relaxed)
+    }
+    /// Images nouvelles écartées pendant une retenue.
+    pub fn skipped(&self) -> u64 {
+        self.skipped.load(Ordering::Relaxed)
     }
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
@@ -146,6 +168,8 @@ pub struct Opened {
     pub encoder: String,
     pub hardware: bool,
     pub output: (u32, u32),
+    /// Ouverture de la capture, de la conversion et de l'encodeur (essais compris).
+    pub startup: Duration,
 }
 
 /// Capture, encode et écrit le flux H.264 dans `out`. À appeler depuis un fil dédié.
@@ -173,10 +197,15 @@ pub fn stream(
     settings: &Settings,
     control: &Control,
     on_open: &mut dyn FnMut(&Opened),
-    on_packet: &mut dyn FnMut(&super::mf::Packet, Instant) -> bool,
+    on_packet: &mut dyn FnMut(super::mf::Packet, Instant) -> bool,
 ) -> Result<(Measurements, Vec<super::mf::Attempt>)> {
+    let opening = Instant::now();
+    // avant toute ouverture : la capture et l'encodeur démarrent eux aussi plus vite
+    let _process = (!crate::remote_play::lever_off("process")).then(crate::remote_play::ProcessPriority::raise);
     let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }.is_ok());
     let device = Device::create()?;
+    // le peu de travail GPU d'iBox (conversion, encodage) passe devant le rendu du jeu
+    let _gpu = (!crate::remote_play::lever_off("gpu")).then(crate::remote_play::capture::d3d::GpuPriority::raise);
     let mut capture = Capture::start(&device, settings.target, settings.capture, capture::windows_build())?;
     let source = capture.size();
     let output = output_size_for(source, settings.max_height);
@@ -191,7 +220,7 @@ pub fn stream(
     .sanitized();
     let mut converter = Converter::new(&device, (cfg.width, cfg.height), cfg.fps)?;
     let mut encoder = Encoder::new(&device, cfg, settings.preference)?;
-    on_open(&Opened { encoder: encoder.info().name.clone(), hardware: encoder.info().hardware, output: (cfg.width, cfg.height) });
+    on_open(&Opened { encoder: encoder.info().name.clone(), hardware: encoder.info().hardware, output: (cfg.width, cfg.height), startup: opening.elapsed() });
 
     let mut m = Measurements {
         adapter: device.adapter_name.clone(),
@@ -206,24 +235,38 @@ pub fn stream(
     };
     let start = Instant::now();
     let mut go_on = true;
-    let mut deliver = |m: &mut Measurements, p: super::mf::Packet, go_on: &mut bool| {
+    // attente avant l'encodeur de chaque image en cours d'encodage, retrouvée par son horodatage
+    let mut waits: VecDeque<(i64, Duration)> = VecDeque::new();
+    let mut deliver = |m: &mut Measurements, mut p: super::mf::Packet, waits: &mut VecDeque<(i64, Duration)>, go_on: &mut bool| {
         m.encoded += 1;
         m.bytes += p.data.len() as u64;
         m.keyframes += p.keyframe as u32;
         if let Some(t) = p.encode_time {
             m.encode.push(t);
         }
-        if *go_on && !on_packet(&p, start) {
+        if let Some(i) = waits.iter().position(|(pts, _)| *pts == p.pts) {
+            p.waited = waits[i].1;
+            waits.drain(..=i);
+        }
+        if *go_on && !on_packet(p, start) {
             *go_on = false;
         }
     };
 
     let interval = Duration::from_secs_f64(1.0 / cfg.fps as f64);
+    // Dernière image reçue de WGC, pas encore convertie : la conversion (copie + passage en
+    // NV12 sur la carte graphique) n'a lieu que pour l'image qui part vraiment. Un écran à
+    // 144 ou 240 Hz livre plus d'images que le flux n'en envoie ; les convertir toutes
+    // chargeait la carte graphique pour rien, au détriment du jeu et du temps d'encodage.
+    let defer = !crate::remote_play::lever_off("defer");
+    let mut pending: Option<(Frame, Instant)> = None;
     let mut current: Option<ID3D11Texture2D> = None;
-    let mut fresh = false;
+    let mut fresh_at: Option<Instant> = None;
     let mut cadence = Cadence::new(interval);
     let mut submitted = 0u32;
     let mut last_frame: Option<Instant> = None;
+    // une image prête n'a pas pu partir à cause de la retenue du réseau
+    let mut starved = false;
 
     while go_on && !control.stopped() && start.elapsed() < settings.duration {
         let wanted = control.bitrate();
@@ -234,7 +277,14 @@ pub fn stream(
             encoder.request_keyframe();
         }
         let now = Instant::now();
-        let timeout = if current.is_some() { cadence.ready_at(fresh, now).saturating_duration_since(now) } else { Duration::from_millis(500) };
+        let fresh = fresh_at.is_some();
+        let timeout = if current.is_some() || pending.is_some() {
+            let wait = cadence.ready_at(fresh, now).saturating_duration_since(now);
+            // retenue : on continue de prendre les images nouvelles, sans tourner à vide
+            if control.held() { wait.max(Duration::from_millis(1)) } else { wait }
+        } else {
+            Duration::from_millis(500)
+        };
         match capture.next(timeout)? {
             Next::Frame(frame) => {
                 m.captured += 1;
@@ -244,11 +294,20 @@ pub fn stream(
                     m.capture_interval.push(arrived - prev);
                     m.wgc_timestamp_offset.push_ms(frame.timestamp_offset_ms);
                 }
-                let t = Instant::now();
-                current = Some(converter.convert(&frame.texture, frame.size)?);
-                m.convert.push(t.elapsed());
-                fresh = true;
-                // l'image WGC est rendue ici : la copie privée suffit à l'encodeur
+                if starved && fresh_at.is_some() {
+                    // l'image précédente n'est jamais partie : le réseau n'écoulait plus
+                    m.network_skipped += 1;
+                    control.skipped.fetch_add(1, Ordering::Relaxed);
+                }
+                fresh_at = Some(arrived);
+                if defer {
+                    // l'image WGC précédente, s'il y en avait une, est rendue à la réserve ici
+                    pending = Some((frame, arrived));
+                } else {
+                    let t = Instant::now();
+                    current = Some(converter.convert(&frame.texture, frame.size)?);
+                    m.convert.push(t.elapsed());
+                }
             }
             Next::Timeout => {}
             Next::Stopped(_) => {
@@ -257,29 +316,53 @@ pub fn stream(
             }
         }
         let now = Instant::now();
-        let Some(texture) = &current else { continue };
+        let fresh = fresh_at.is_some();
+        if current.is_none() && pending.is_none() {
+            continue;
+        }
         if now < cadence.ready_at(fresh, now) {
             continue; // trop tôt : on garde l'image, la plus récente partira à l'échéance
         }
+        if control.held() {
+            starved = fresh;
+            continue; // le réseau n'a pas fini d'écouler les images précédentes
+        }
+        starved = false;
+        if let Some((frame, _)) = pending.take() {
+            let t = Instant::now();
+            current = Some(converter.convert(&frame.texture, frame.size)?);
+            m.convert.push(t.elapsed());
+            // l'image WGC est rendue ici : la copie privée suffit à l'encodeur
+        }
+        let Some(texture) = &current else { continue };
+        let now = Instant::now();
         let pts = (now - start).as_nanos() as i64 / 100;
         let keyframe = settings.keyframe_every.is_some_and(|n| n > 0 && submitted > 0 && submitted % n == 0);
         encoder.submit(texture, pts, keyframe)?;
         submitted += 1;
-        if !fresh {
-            m.repeated += 1;
+        match fresh_at.take() {
+            Some(arrived) => {
+                let waited = now.saturating_duration_since(arrived);
+                m.wait.push(waited);
+                waits.push_back((pts, waited));
+                if waits.len() > 64 {
+                    waits.pop_front();
+                }
+            }
+            None => m.repeated += 1,
         }
-        fresh = false;
         cadence.take(now);
         // attendre le paquet de cette image : il part aussitôt
         if let Some(p) = encoder.receive(Duration::from_millis(200))? {
-            deliver(&mut m, p, &mut go_on);
+            deliver(&mut m, p, &mut waits, &mut go_on);
         }
         while let Some(p) = encoder.receive(Duration::ZERO)? {
-            deliver(&mut m, p, &mut go_on);
+            deliver(&mut m, p, &mut waits, &mut go_on);
         }
     }
+    drop(pending);
     for p in encoder.finish()? {
-        deliver(&mut m, p, &mut go_on);
+        deliver(&mut m, p, &mut waits, &mut go_on);
     }
     m.elapsed = start.elapsed();
     m.skipped = capture.skipped;

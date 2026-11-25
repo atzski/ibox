@@ -3,6 +3,7 @@ import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "re
 import { motion } from "motion/react";
 import { useReducedMotion } from "@/app/shellState";
 import { Icon, type IconName } from "./Icon";
+import { useIconTip } from "./IconBar";
 import { sound, type SoundCue } from "@/services/sound";
 
 type Variant = "primary" | "soft" | "ghost";
@@ -69,6 +70,7 @@ export function Segmented<T extends string>({
   onChange,
   label,
   cue = "tab",
+  iconOnly = false,
 }: {
   value: T;
   options: { value: T; label: string; icon?: IconName }[];
@@ -76,46 +78,70 @@ export function Segmented<T extends string>({
   label: string;
   /** Son joué au changement (`null` : l'appelant joue le sien). */
   cue?: SoundCue | null;
+  /** Icônes seules : le nom s'affiche dans une bulle au survol ou au focus de la manette. */
+  iconOnly?: boolean;
 }) {
   // pastille commune qui glisse d'une option à l'autre (au lieu de sauter)
   const pill = useId();
   const reduced = useReducedMotion();
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 rounded-full bg-white/80 p-1 shadow-xs ring-1 ring-[color-mix(in_srgb,var(--accent)_25%,transparent)]">
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            data-focusable
-            onClick={() => {
-              if (!active) {
-                if (cue) sound.play(cue);
-                onChange(o.value);
-              }
-            }}
-            className={`ibox-btn ibox-focusable relative inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[0.88rem] font-bold transition-colors duration-200 [--ring-radius:999px] ${
-              active ? "text-[var(--tone-on)]" : "text-ink-soft hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-ink"
-            }`}
-          >
-            {active && (
-              <motion.span
-                aria-hidden
-                layoutId={pill}
-                className="ibox-btn-primary absolute inset-0 rounded-full"
-                transition={reduced ? { duration: 0 } : SPRING.snappy}
-              />
-            )}
-            <span className="relative inline-flex items-center gap-1.5">
-              {o.icon && <Icon name={o.icon} size="1.1em" />}
-              {o.label}
-            </span>
-          </button>
-        );
-      })}
+      {options.map((o) => (
+        <SegmentedOption
+          key={o.value}
+          option={o}
+          active={o.value === value}
+          iconOnly={iconOnly && !!o.icon}
+          pill={pill}
+          reduced={reduced}
+          onPick={() => {
+            if (o.value !== value) {
+              if (cue) sound.play(cue);
+              onChange(o.value);
+            }
+          }}
+        />
+      ))}
     </div>
+  );
+}
+
+function SegmentedOption({ option: o, active, iconOnly, pill, reduced, onPick }: {
+  option: { label: string; icon?: IconName };
+  active: boolean;
+  iconOnly: boolean;
+  pill: string;
+  reduced: boolean;
+  onPick: () => void;
+}) {
+  const { ref, bind, hide, bubble } = useIconTip<HTMLButtonElement>(o.label);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      role="radio"
+      aria-checked={active}
+      aria-label={iconOnly ? o.label : undefined}
+      data-focusable
+      {...(iconOnly ? bind : {})}
+      onClick={() => { hide(); onPick(); }}
+      className={`ibox-btn ibox-focusable relative inline-flex h-9 items-center gap-1.5 rounded-full text-[0.88rem] font-bold transition-colors duration-200 [--ring-radius:999px] ${iconOnly ? "w-10 justify-center" : "px-4"} ${
+        active ? "text-[var(--tone-on)]" : "text-ink-soft hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] hover:text-ink"
+      }`}
+    >
+      {active && (
+        <motion.span
+          aria-hidden
+          layoutId={pill}
+          className="ibox-btn-primary absolute inset-0 rounded-full"
+          transition={reduced ? { duration: 0 } : SPRING.snappy}
+        />
+      )}
+      <span className="relative inline-flex items-center gap-1.5">
+        {o.icon && <Icon name={o.icon} size={iconOnly ? "1.15rem" : "1.1em"} />}
+        {!iconOnly && o.label}
+      </span>
+      {iconOnly && bubble}
+    </button>
   );
 }

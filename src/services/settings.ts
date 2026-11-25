@@ -82,9 +82,6 @@ export interface SettingsState {
   raUsername?: string;
   /** Jingles des jeux (iiDB) acceptés et joués sur les fiches. */
   gameSounds?: boolean;
-  /** Musique du menu personnalisée : pistes importées, dans l'ordre de lecture. */
-  menuPlaylist?: string[];
-  menuShuffle?: boolean;
   /** Volume des jingles (0 à 1). */
   jingleVolume?: number;
   /** Mode TV / canapé : interface agrandie, plein écran, curseur masqué. */
@@ -107,8 +104,9 @@ export interface SettingsState {
   profileAvatar: AvatarChoice | null;
   soundEnabled: boolean;
   soundVolume: number;
-  musicEnabled: boolean;
-  musicVolume: number;
+  /** Ambiance sonore des menus (petit air synthétisé, `services/ambience.ts`). */
+  ambienceEnabled: boolean;
+  ambienceVolume: number;
   theme: ThemePreference;
   /** Plein écran (au démarrage et en cours d'utilisation, F11 pour basculer). */
   fullscreen: boolean;
@@ -117,6 +115,8 @@ export interface SettingsState {
   preferredRegion: Region;
   libraryView: LibraryView;
   gridDensity: GridDensity;
+  /** Recul de la grille de jaquettes : 0 (affichage d'origine) à 4 (des centaines de jeux à l'écran). */
+  coverZoom?: number;
   /** Fond qui bouge lentement (illustration du jeu, parallaxe). */
   animatedBackground: boolean;
   /** Cadre de console iiDB autour des jaquettes (facultatif). */
@@ -163,14 +163,25 @@ export interface SettingsState {
   perfOverlay?: boolean;
   /** Profil graphique des scènes 3D (`services/graphics.ts`). */
   graphicsProfile?: "auto" | "quality" | "deck" | "battery";
-  /** Clips : qualité de l'image (480p 30 i/s, 720p 30 i/s, 1080p 60 i/s). */
-  clipQuality?: "low" | "medium" | "high";
-  /** Clips : durée gardée, 5 à 30 secondes. */
+  /** Mode performance de l'interface (`services/performance.ts`) ; absent : automatique. */
+  performanceMode?: "auto" | "on" | "off";
+  /** Clips : qualité de l'image (480p 30 i/s, 720p 30 i/s, 1080p 60 i/s, 1440p 60 i/s). */
+  clipQuality?: "low" | "medium" | "high" | "max";
+  /** Clips : durée gardée, 5 secondes à 2 minutes. */
   clipSeconds?: number;
   /** Clips : son de Windows (jeu compris). */
   clipSystemAudio?: boolean;
   /** Clips : micro par défaut de Windows. */
   clipMicrophone?: boolean;
+  /** Clips : volumes dans le mélange (0 à 2), pistes séparées (réglables dans iClips). */
+  clipSystemVolume?: number;
+  clipMicVolume?: number;
+  clipTracks?: boolean;
+  /** Clips : mémoire tenue aussi hors des parties (bureau). */
+  clipEverywhere?: boolean;
+  /** Clips : sortie écoutée et micro choisis (identifiants de Windows) ; absents : par défaut. */
+  clipOutputDevice?: string | null;
+  clipMicDevice?: string | null;
   /** Overlay en jeu : raccourci activé (combinaison : `captureKeys`). */
   captureHotkey?: boolean;
   /** Combinaison de l'overlay de capture (défaut « Alt+X »). */
@@ -197,6 +208,18 @@ export interface SettingsState {
   toggleFavorite: (gameId: string) => void;
 }
 
+/**
+ * v5 : l'ambiance sonore remplace la musique des menus. On reprend le choix de l'utilisateur
+ * (musique coupée : ambiance coupée) et son volume ; les anciens réglages de musique, playlist
+ * comprise, sont retirés. S'applique aux réglages comme à ceux gardés par chaque profil.
+ * v6 : une seule ambiance ; le choix de variante des versions d'essai est retiré.
+ */
+export function musicToAmbience(prefs: Record<string, unknown>): void {
+  if (prefs.ambienceEnabled === undefined && typeof prefs.musicEnabled === "boolean") prefs.ambienceEnabled = prefs.musicEnabled;
+  if (prefs.ambienceVolume === undefined && typeof prefs.musicVolume === "number") prefs.ambienceVolume = prefs.musicVolume;
+  for (const key of ["musicEnabled", "musicVolume", "menuPlaylist", "menuShuffle", "ambienceVariant"]) delete prefs[key];
+}
+
 // Le projet s'appelait « Project Nest » : on reprend les réglages enregistrés sous l'ancien nom.
 const LEGACY_KEY = "project-nest.settings";
 if (typeof localStorage !== "undefined" && !localStorage.getItem("ibox.settings")) {
@@ -220,8 +243,8 @@ export const useSettings = create<SettingsState>()(
       profileAvatar: null,
       soundEnabled: true,
       soundVolume: 0.6,
-      musicEnabled: true,
-      musicVolume: 0.5,
+      ambienceEnabled: true,
+      ambienceVolume: 0.5,
       theme: "system",
       fullscreen: true,
       motion: "system",
@@ -229,6 +252,7 @@ export const useSettings = create<SettingsState>()(
       preferredRegion: "PAL",
       libraryView: "shelf",
       gridDensity: "standard",
+      coverZoom: 0,
       animatedBackground: true,
       consoleFrames: false,
       appTheme: "ibox",
@@ -261,7 +285,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: "ibox.settings",
-      version: 4,
+      version: 6,
       migrate: (persisted) => {
         const saved = persisted as Partial<SettingsState> & { igdbAvatars?: boolean };
         // v3 : sections de l'accueil ordonnées (reprend les anciens interrupteurs)
@@ -294,6 +318,9 @@ export const useSettings = create<SettingsState>()(
           ];
           saved.activeProfileId = "p1";
         }
+        // v5 et v6 : la musique des menus devient l'ambiance sonore, sans variante
+        musicToAmbience(saved as Record<string, unknown>);
+        for (const p of saved.profiles ?? []) if (p.prefs) musicToAmbience(p.prefs as Record<string, unknown>);
         const { igdbAvatars: _removed, ...profile } = saved;
         const retired = (avatar: unknown) => (avatar as { type?: string } | null)?.type === "igdb";
         if (retired(profile.profileAvatar)) profile.profileAvatar = null;

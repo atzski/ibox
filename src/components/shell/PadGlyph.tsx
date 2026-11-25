@@ -10,7 +10,7 @@ export type PadKey =
   | "confirm" | "back" | "south" | "east" | "west" | "north"
   | "lb" | "rb" | "lt" | "rt"
   | "dpad" | "dpadV" | "dpadH"
-  | "ls" | "rs" | "l3" | "r3"
+  | "ls" | "rs" | "rsH" | "l3" | "r3"
   | "start" | "select" | "guide";
 
 type Face = "south" | "east" | "west" | "north";
@@ -59,6 +59,7 @@ export function padKeyName(key: PadKey, family: PadFamily, side: ConfirmSide): s
     start: family === "playstation" ? "Options" : family === "nintendo" ? "+" : "Menu",
     select: family === "playstation" ? "Create" : family === "nintendo" ? "−" : "Vue",
     guide: "Bouton central",
+    rsH: `${SHOULDERS[family].rs} ←→`,
   }[key as "dpad"] ?? key;
 }
 
@@ -125,12 +126,19 @@ export function PadGlyph({ k, family, side, size = 28 }: { k: PadKey; family: Pa
     );
   }
 
-  if (k === "ls" || k === "rs" || k === "l3" || k === "r3") {
+  if (k === "ls" || k === "rs" || k === "rsH" || k === "l3" || k === "r3") {
     const click = k === "l3" || k === "r3";
+    // stick droit poussé à gauche ou à droite (recul de la grille de jaquettes) : deux flèches sur ses bords
+    const sideways = k === "rsH";
     return (
-      <span role="img" aria-label={click ? `${name} (appuyer)` : name} className={`${common} rounded-full`}
-        style={{ ...box, background: BODY, color: "#fff", fontSize: size * 0.36, boxShadow: `inset 0 0 0 ${click ? 3 : 2}px #5A6270, 0 2px 0 rgba(0,0,0,0.25)` }}>
-        <span aria-hidden>{SHOULDERS[family][k]}</span>
+      <span role="img" aria-label={click ? `${name} (appuyer)` : name} className={`${common} relative rounded-full`}
+        style={{ ...box, background: BODY, color: "#fff", fontSize: size * (sideways ? 0.3 : 0.36), boxShadow: `inset 0 0 0 ${click ? 3 : 2}px #5A6270, 0 2px 0 rgba(0,0,0,0.25)` }}>
+        <span aria-hidden>{SHOULDERS[family][sideways ? "rs" : k]}</span>
+        {sideways && (
+          <svg aria-hidden viewBox="0 0 24 24" width={size} height={size} className="absolute inset-0">
+            <path d="M3.6 12 7 9.2v5.6zM20.4 12 17 9.2v5.6z" fill="#fff" />
+          </svg>
+        )}
       </span>
     );
   }

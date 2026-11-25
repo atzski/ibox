@@ -1,7 +1,7 @@
 import type { Game, Platform } from "@/domain/types";
 import { requirePlatform } from "@/domain/platforms";
 import { MOTIFS } from "./motifs";
-import { fullScanSplit, basePalette, loadAssets, mediaSignature, type ArtAssets, type Palette } from "./assets";
+import { fullScanSplit, basePalette, loadAssets, loadThumbAssets, mediaSignature, type ArtAssets, type Palette } from "./assets";
 import { alpha, fitTitle, hashString, luminance, mixHex, mulberry32, shade, vGradient, wrapText, type Ctx } from "./paint";
 import { artApi, usePlatformArtStore, type PlatformSlot } from "@/services/platformArt";
 
@@ -71,12 +71,20 @@ function ensureFonts(): Promise<void> {
   return fontsReady;
 }
 
+/**
+ * Échelle de peinture. Les habillages sont dessinés en cotes fixes pour une jaquette de
+ * 800 px ; une vignette se peint avec les mêmes cotes sur un canevas réduit (`paintThumb`),
+ * ce qui évite de peindre la grande image pour la rétrécir ensuite. Vaut 1 partout ailleurs.
+ */
+let paintScale = 1;
+
 function makeCanvas(w: number, h: number): [HTMLCanvasElement, Ctx] {
   const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
+  c.width = Math.max(1, Math.round(w * paintScale));
+  c.height = Math.max(1, Math.round(h * paintScale));
   const ctx = c.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D indisponible");
+  if (paintScale !== 1) ctx.scale(c.width / w, c.height / h);
   return [c, ctx];
 }
 
@@ -236,6 +244,8 @@ let grain: HTMLCanvasElement | null = null;
 
 /** Grain d'impression très léger : la jaquette ressemble à du papier imprimé. */
 function drawGrain(ctx: Ctx, w: number, h: number, strength = 0.06) {
+  // vignette : le grain ne se voit pas à cette taille
+  if (paintScale !== 1) return;
   if (!grain) {
     const [g, gc] = makeCanvas(160, 160);
     const img = gc.createImageData(160, 160);
@@ -298,13 +308,13 @@ function paintFront(game: Game, a: ArtAssets, dims: { w: number; h: number }, on
   if (a.hasCover) {
     ctx.fillStyle = a.palette[1];
     ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(scene(game, a, w, h), 0, 0);
+    ctx.drawImage(scene(game, a, w, h), 0, 0, w, h);
     return c;
   }
 
   const top = titleOnTop(game);
   const placeholder = placeholderLook(game, a);
-  ctx.drawImage(scene(game, a, w, h), 0, 0);
+  ctx.drawImage(scene(game, a, w, h), 0, 0, w, h);
 
   if (!placeholder) {
     const veil = ctx.createLinearGradient(0, top ? 0 : h, 0, top ? h * 0.5 : h * 0.45);
@@ -335,8 +345,9 @@ function paintFront(game: Game, a: ArtAssets, dims: { w: number; h: number }, on
   ctx.textBaseline = "top";
   if (!placeholder) {
     ctx.shadowColor = alpha("#10142a", 0.45);
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 6;
+    // les ombres ne suivent pas l'échelle du canevas : on les réduit avec lui
+    ctx.shadowBlur = 24 * paintScale;
+    ctx.shadowOffsetY = 6 * paintScale;
   }
   ctx.fillStyle = placeholder ? platform.theme.deep : "#ffffff";
   lines.forEach((l, i) => ctx.fillText(l, w / 2, titleY + i * lineH));
@@ -1159,6 +1170,56 @@ export function getArtUrl(game: Game, face: ArtFace): Promise<string> {
     urlCache.set(key, p);
   }
   return p;
+}
+
+/**
+ * Vignette de la face avant, peinte directement à `width` px de large (vue reculée de la
+ * bibliothèque). Rien n'est gardé : ni les images du jeu, ni le canevas (voir `art/thumbs.ts`,
+ * qui étale ces peintures et ne garde que leurs URL).
+ *
+ * En deux temps : la préparation attend ce qu'il faut (polices, images du jeu) ; la fonction
+ * rendue peint d'un seul trait, pour que l'appelant choisisse le moment de cette peinture.
+ */
+export async function prepareThumb(game: Game, width: number): Promise<() => HTMLCanvasElement> {
+  const dims = { w: width, h: Math.round(width / requirePlatform(game.platformId).layout.coverAspect) };
+  const shrink = (full: HTMLCanvasElement) => {
+    const [c, ctx] = makeCanvas(dims.w, dims.h);
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(full, 0, 0, dims.w, dims.h);
+    return c;
+  };
+  // jaquette complète déjà peinte (jeu vu au niveau d'origine) : on la réduit
+  const painted = canvasCache.get(`${artKey(game)}:front`);
+  if (painted) {
+    const full = await painted;
+    return () => shrink(full);
+  }
+  await ensureFonts();
+  await Promise.all([loadPlatformBitmap(game.platformId, "platform_logo"), loadPlatformBitmap(game.platformId, "platform_icon")]);
+  const assets = await loadThumbAssets(game, width);
+  if (assets.hasCover) {
+    // vraie jaquette : dessinée directement à la taille de la vignette
+    return () => {
+      const canvas = paintFront(game, assets, dims);
+      sceneCache.delete(`${artKey(game)}|${dims.w}x${dims.h}`);
+      return canvas;
+    };
+  }
+  // habillage généré : dessiné avec ses cotes de grande jaquette, sur un canevas à l'échelle
+  // de la vignette (rien du grand format n'est peint ni gardé)
+  return () => {
+    const size = frontSize(game);
+    const sceneKey = `${artKey(game)}|${size.w}x${size.h}`;
+    const hadScene = sceneCache.has(sceneKey);
+    paintScale = width / size.w;
+    try {
+      return paintFront(game, assets, size);
+    } finally {
+      paintScale = 1;
+      // l'illustration réduite ne doit pas passer pour la grande
+      if (!hadScene) sceneCache.delete(sceneKey);
+    }
+  };
 }
 
 /** Palette effective d'un jeu (vraie jaquette si disponible). */

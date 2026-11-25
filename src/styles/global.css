@@ -8,6 +8,7 @@
 
 @import "tailwindcss";
 @import "./tokens.css";
+@import "./performance.css";
 
 /* Mapping des tokens vers les utilitaires Tailwind (bg-cream, text-ink, rounded-lg…) */
 @theme inline {
@@ -169,6 +170,22 @@ html[data-input="keyboard"] .ibox-lift:focus {
   box-shadow: var(--shadow-lg);
 }
 
+/* Grille reculée de la bibliothèque : parmi des centaines de petites jaquettes, celle qui
+   est sélectionnée grossit nettement et passe au-dessus de ses voisines. */
+@media (hover: hover) {
+  html[data-input="pointer"] .ibox-cover-dense:hover:not(:disabled) {
+    z-index: 1;
+    transform: scale(1.12);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+html[data-input="keyboard"] .ibox-cover-dense:focus {
+  z-index: 2;
+  transform: scale(1.35);
+  box-shadow: var(--shadow-lg);
+}
+
 /* mode TV : le curseur disparaît quand la souris ne bouge plus */
 html.ibox-cursor-hidden,
 html.ibox-cursor-hidden * {
@@ -193,25 +210,40 @@ html.ibox-cursor-hidden * {
   }
 }
 
-/* Chargement élégant pour les jaquettes */
+/*
+ * Chargement élégant pour les jaquettes : un reflet traverse la surface.
+ * Le reflet est une bande (trois répétitions du dégradé, larges de 220 % chacune) qui glisse par
+ * `transform` : même image qu'un `background-position` animé de 120 % à -120 %, mais déplacée par
+ * la carte graphique au lieu d'être repeinte à chaque image.
+ */
 .ibox-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+.ibox-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -220%;
+  width: 660%;
   background: linear-gradient(
     100deg,
     rgba(255, 255, 255, 0) 30%,
     rgba(255, 255, 255, 0.7) 50%,
     rgba(255, 255, 255, 0) 70%
-  ),
-    var(--accent-soft);
-  background-size: 220% 100%;
+  );
+  background-size: 33.3334% 100%;
   animation: ibox-shimmer 1.4s linear infinite;
 }
 
 @keyframes ibox-shimmer {
   from {
-    background-position: 120% 0;
+    transform: translateX(-21.818%);
   }
   to {
-    background-position: -120% 0;
+    transform: translateX(21.818%);
   }
 }
 }
@@ -828,6 +860,37 @@ html[data-motion="reduced"] .ibox-organize-wiggle {
   opacity: 0.62;
   animation: ibox-platforms-glow 14s ease-in-out infinite alternate;
 }
+/*
+ * Avec la couche `.ibox-platforms-glow-ink` (HomeScreen) : le même dégradé, sur une surface 2,2 fois
+ * plus grande que la tuile, glisse par `transform` (carte graphique) au lieu d'un `background-position`
+ * animé (repeint à chaque image). Trajet identique : position 0 % 30 % → 100 % 70 %.
+ */
+.ibox-platforms-glow:has(> .ibox-platforms-glow-ink) {
+  overflow: hidden;
+  background: none;
+  animation: none;
+}
+.ibox-platforms-glow-ink {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 220%;
+  height: 220%;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--ibox-sky) 70%, var(--theme-deep)) 0%,
+    color-mix(in oklch, var(--ibox-lavender) 70%, var(--theme-deep)) 38%,
+    color-mix(in oklch, var(--ibox-mint) 72%, var(--theme-deep)) 68%,
+    color-mix(in oklch, var(--ibox-peach) 74%, var(--theme-deep)) 100%
+  );
+  transform: translate(0, -16.364%);
+  animation: ibox-platforms-glow-ink 14s ease-in-out infinite alternate;
+}
+@keyframes ibox-platforms-glow-ink {
+  from { transform: translate(0, -16.364%); }
+  to { transform: translate(-54.545%, -38.182%); }
+}
 /* voile clair (douceur) + lumière diffuse sur le haut, comme une plaque de verre dépoli */
 .ibox-platforms-glow::before {
   content: "";
@@ -847,7 +910,7 @@ html[data-motion="reduced"] .ibox-organize-wiggle {
   from { background-position: 0% 30%; }
   to { background-position: 100% 70%; }
 }
-html[data-motion="reduced"] .ibox-platforms-glow {
+html[data-motion="reduced"] :is(.ibox-platforms-glow, .ibox-platforms-glow-ink) {
   animation: none;
 }
 

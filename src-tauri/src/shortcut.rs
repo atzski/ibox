@@ -31,8 +31,10 @@ pub struct Shortcut {
 pub enum Slot {
     Capture = 0,
     Music = 1,
+    /// Panneau en jeu d'un plugin (iClips) : combinaison du manifeste (`plugins/panel.rs`).
+    Plugin = 2,
 }
-const SLOTS: usize = 2;
+const SLOTS: usize = 3;
 
 pub const DEFAULT_CAPTURE: &str = "Alt+X";
 pub const DEFAULT_MUSIC: &str = "Alt+C";
@@ -113,11 +115,17 @@ impl fmt::Display for Shortcut {
 }
 
 /// Raccourcis voulus (None : désactivé) et état réel de leur enregistrement.
-static WANTED: Mutex<[Option<Shortcut>; SLOTS]> = Mutex::new([None, None]);
-static TAKEN: [AtomicBool; SLOTS] = [AtomicBool::new(false), AtomicBool::new(false)];
+static WANTED: Mutex<[Option<Shortcut>; SLOTS]> = Mutex::new([None; SLOTS]);
+static TAKEN: [AtomicBool; SLOTS] = [AtomicBool::new(false), AtomicBool::new(false), AtomicBool::new(false)];
 static APPLIED: AtomicBool = AtomicBool::new(true);
 /// Saisie d'un nouveau raccourci dans les Paramètres : tout est libéré le temps de la saisie.
 static SUSPENDED: AtomicBool = AtomicBool::new(false);
+
+/// Combinaison réglée pour l'overlay de capture (`Alt+X`…), `None` si le raccourci est coupé.
+/// Affichée par iClips, dont le panneau remplace l'overlay.
+pub fn capture_keys() -> Option<String> {
+    WANTED.lock().ok().and_then(|w| w[Slot::Capture as usize]).map(|s| s.to_string())
+}
 
 pub fn set(slot: Slot, shortcut: Option<Shortcut>) {
     if let Ok(mut w) = WANTED.lock() {
@@ -142,11 +150,16 @@ fn thread(app: AppHandle, on_press: fn(&AppHandle, Slot)) {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey, MOD_NOREPEAT};
         use windows_sys::Win32::UI::WindowsAndMessaging::{PeekMessageW, MSG, PM_REMOVE, WM_HOTKEY};
         const BASE: i32 = 0x1B10;
-        let mut registered: [Option<Shortcut>; SLOTS] = [None, None];
+        let mut registered: [Option<Shortcut>; SLOTS] = [None; SLOTS];
         let mut msg: MSG = std::mem::zeroed();
         loop {
             let suspended = SUSPENDED.load(Ordering::Relaxed);
-            let mut wanted = if suspended { [None, None] } else { WANTED.lock().map(|w| *w).unwrap_or([None, None]) };
+            let mut wanted = if suspended { [None; SLOTS] } else { WANTED.lock().map(|w| *w).unwrap_or([None; SLOTS]) };
+            // panneau d'un plugin : sa combinaison vient du manifeste, jamais celle d'un autre raccourci
+            if !suspended {
+                let plugin = crate::plugins::panel::hotkey(&app);
+                wanted[Slot::Plugin as usize] = plugin.filter(|p| Some(*p) != wanted[0] && Some(*p) != wanted[1]);
+            }
             // overlay de capture désactivé dans les Paramètres : son raccourci est libéré
             if !crate::capture::hotkey_enabled() {
                 wanted[Slot::Capture as usize] = None;
@@ -181,6 +194,7 @@ fn thread(app: AppHandle, on_press: fn(&AppHandle, Slot)) {
                     let slot = match msg.wParam as i32 - BASE {
                         0 => Some(Slot::Capture),
                         1 => Some(Slot::Music),
+                        2 => Some(Slot::Plugin),
                         _ => None,
                     };
                     if let Some(slot) = slot {
@@ -208,7 +222,7 @@ pub struct ShortcutsState {
 }
 
 fn state() -> ShortcutsState {
-    let w = WANTED.lock().map(|w| *w).unwrap_or([None, None]);
+    let w = WANTED.lock().map(|w| *w).unwrap_or([None; SLOTS]);
     ShortcutsState {
         capture: w[0].map(|s| s.to_string()),
         music: w[1].map(|s| s.to_string()),

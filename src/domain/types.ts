@@ -78,8 +78,6 @@ export interface Platform {
   /** Identifiants d'émulateurs suggérés (profils de lancement — phase 4). */
   emulatorHints: string[];
   layout: PlatformLayout;
-  /** Musique d'ambiance propre à la console (ex. "/sounds/gamecube.mp3"). Sinon : musique de menu. */
-  ambience?: string;
 }
 
 /** Description d'un habillage procédural (démo ou remplacement élégant). */

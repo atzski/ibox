@@ -2,6 +2,7 @@
 //!
 //! - `repo`     : lecture / écriture SQLite (dossiers, jeux, corrections) ;
 //! - `scan`     : pipeline de scan et application du rapprochement ;
+//! - `iso`      : fichiers .iso dont la console est à demander à l'utilisateur ;
 //! - `commands` : commandes Tauri exposées à l'interface.
 //!
 //! Garantie : seule la base est modifiée. Les fichiers de jeux ne sont jamais
@@ -10,6 +11,7 @@
 pub mod commands;
 pub mod portable;
 pub mod extras;
+pub mod iso;
 pub mod repo;
 pub mod scan;
 pub mod time;

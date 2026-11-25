@@ -65,10 +65,17 @@ pub struct HostOptions {
     pub audio: bool,
     /// « Masquer l'écho Discord » : le son de Discord (voix de l'appel) n'est pas renvoyé.
     pub hide_discord_echo: bool,
+    /// « Priorité à la réactivité » : l'encodeur garde plus de marge sous le débit estimé.
+    pub responsive: bool,
 }
 
-/// (temps RTP 90 kHz, envoi à l'encodeur, remise à str0m).
-pub type FrameLog = Arc<Mutex<Vec<(u64, Instant, Instant)>>>;
+/// (temps RTP 90 kHz, capture, envoi à l'encodeur, remise à str0m).
+pub type FrameLog = Arc<Mutex<Vec<(u64, Instant, Instant, Instant)>>>;
+
+/// Essais seulement : lien simulé entre l'hôte et l'invité (débit, délai, pertes, file bornée),
+/// posé avant `Host::start`. Sert à mesurer sur un seul PC ce qu'une connexion limitée change.
+#[cfg(test)]
+pub static TEST_LINK: Mutex<Option<super::link::Spec>> = Mutex::new(None);
 
 enum Msg {
     Udp { at: Instant, source: SocketAddr, destination: SocketAddr, data: Vec<u8> },
@@ -280,7 +287,7 @@ impl Host {
         };
 
         let now = Instant::now();
-        let peer_opts = PeerOptions { initial_kbps: opts.initial_kbps.min(opts.max_kbps), max_kbps: opts.max_kbps };
+        let peer_opts = PeerOptions { initial_kbps: opts.initial_kbps.min(opts.max_kbps), max_kbps: opts.max_kbps, responsive: opts.responsive };
         let locals: Vec<SocketAddr> = sockets.iter().map(|b| b.local).collect();
         let (mut peer, offer) = HostPeer::with_reflexive(peer_opts, &locals, &reflexive, engine, now)?;
         peer.set_network(nat_v4, nat_v6);
@@ -404,7 +411,7 @@ fn start_video(opts: &HostOptions, profile: H264Profile, kbps: u32, tx: Sender<M
                 &mut |o| {
                     let _ = otx.send(Msg::Opened(o.clone()));
                 },
-                &mut |p, origin| ptx.send(Msg::Frame { packet: p.clone(), origin }).is_ok(),
+                &mut |packet, origin| ptx.send(Msg::Frame { packet, origin }).is_ok(),
             );
             let _ = tx.send(Msg::VideoEnded(result.map(drop).map_err(|e| format!("capture/encodage : {}", e.message()))));
         })
@@ -436,10 +443,23 @@ fn start_audio(tx: Sender<Msg>, hide_discord_echo: bool) -> Result<Audio, String
     Ok(Audio { stop, join })
 }
 
-fn send_all(sockets: &[Bound], out: &mut Vec<Datagram>) {
-    for d in out.drain(..) {
-        // str0m émet depuis la base du candidat (la socket locale), même pour un `srflx`
-        if let Some(b) = sockets.iter().find(|b| b.local == d.source) {
+/// Sortie des paquets : les sockets, ou le lien simulé d'un essai.
+struct Wire<'a> {
+    sockets: &'a [Bound],
+    #[cfg(test)]
+    link: Option<super::link::Link>,
+}
+
+impl Wire<'_> {
+    fn send_all(&self, out: &mut Vec<Datagram>) {
+        for d in out.drain(..) {
+            // str0m émet depuis la base du candidat (la socket locale), même pour un `srflx`
+            let Some(b) = self.sockets.iter().find(|b| b.local == d.source) else { continue };
+            #[cfg(test)]
+            if let Some(link) = &self.link {
+                link.send(&b.socket, d);
+                continue;
+            }
             let _ = b.socket.send_to(&d.data, d.destination);
         }
     }
@@ -465,6 +485,14 @@ impl Drop for TimerResolution {
 fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Sender<Msg>, sockets: &[Bound], opts: HostOptions, shared: Arc<Mutex<TransportStats>>) {
     let _timer = TimerResolution::begin();
     crate::remote_play::latency_critical_thread();
+    let wire = Wire {
+        sockets,
+        #[cfg(test)]
+        link: TEST_LINK.lock().ok().and_then(|l| l.clone()).map(super::link::Link::start),
+    };
+    // une image restée plus d'un intervalle en file d'envoi : on n'en encode pas d'autre derrière
+    let hold_after = Duration::from_secs_f64(1.0 / opts.fps.max(1) as f64);
+    let hold_enabled = !crate::remote_play::lever_off("hold");
     let started = Instant::now();
     let mut video: Option<Video> = None;
     let mut audio: Option<Audio> = None;
@@ -475,7 +503,7 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
     loop {
         let now = Instant::now();
         let deadline = peer.poll(now, &mut out);
-        send_all(sockets, &mut out);
+        wire.send_all(&mut out);
 
         let fx = peer.take_effects();
         if fx.connected && video.is_none() {
@@ -495,6 +523,11 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
             if let Some(kbps) = fx.bitrate_kbps {
                 v.control.set_bitrate(kbps);
             }
+            // « on jette l'image en retard plutôt que de l'empiler » : tant que le réseau n'a
+            // pas écoulé l'image précédente, la chaîne d'encodage garde la plus récente et attend
+            let (queued, age) = peer.backlog(now);
+            v.control.set_hold(hold_enabled && queued > 0 && age > hold_after);
+            peer.set_frames_skipped(v.control.skipped());
         }
         if peer.is_closed() {
             // ICE a abandonné toutes les paires avant toute connexion : jamais d'échec muet
@@ -529,13 +562,13 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
             Ok(Msg::Frame { packet, origin }) => {
                 let wallclock = origin + Duration::from_nanos(packet.pts.max(0) as u64 * 100);
                 let written = Instant::now();
-                if let Err(e) = peer.write_frame(written, wallclock, packet.pts, &packet.data, packet.encode_time) {
-                    peer.fail_with(e);
-                }
                 if let Some(log) = &opts.frame_log {
                     if let Ok(mut l) = log.lock() {
-                        l.push((super::stats::pts_to_90khz(packet.pts), wallclock, written));
+                        l.push((super::stats::pts_to_90khz(packet.pts), wallclock.checked_sub(packet.waited).unwrap_or(wallclock), wallclock, written));
                     }
+                }
+                if let Err(e) = peer.write_frame(written, wallclock, packet.pts, packet.data, packet.encode_time, packet.waited) {
+                    peer.fail_with(e);
                 }
             }
             Ok(Msg::Audio { packet, origin }) => {
@@ -544,7 +577,7 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
                     eprintln!("[remote-play] {e}");
                 }
             }
-            Ok(Msg::Opened(o)) => peer.set_encoder(format!("{}{}", o.encoder, if o.hardware { "" } else { " (logiciel)" }), o.output),
+            Ok(Msg::Opened(o)) => peer.set_encoder(format!("{}{}", o.encoder, if o.hardware { "" } else { " (logiciel)" }), o.output, o.startup),
             Ok(Msg::VideoEnded(r)) => peer.fail_with(r.err().unwrap_or_else(|| "source vidéo fermée".into())),
             Ok(Msg::Answer(sdp, reply)) => {
                 let _ = reply.send(peer.accept_answer(&sdp));
@@ -567,7 +600,7 @@ fn run<H: InputHandler>(mut peer: HostPeer<H>, rx: mpsc::Receiver<Msg>, tx: Send
     // derniers paquets (DTLS close_notify) puis arrêt de la capture
     let now = Instant::now();
     peer.poll(now, &mut out);
-    send_all(sockets, &mut out);
+    wire.send_all(&mut out);
     if let Some(v) = video {
         v.control.stop();
         let _ = v.join.join();

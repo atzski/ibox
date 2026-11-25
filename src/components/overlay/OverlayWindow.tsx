@@ -142,7 +142,7 @@ export function OverlayWindow() {
                 <Action icon="front" label="Garder la capture" hint="S" disabled={!state?.hasShot || !!busy} busy={busy === "screenshot"} onClick={() => void save("screenshot")} />
                 <Action
                   icon="play"
-                  label={!state?.clips ? "Clips désactivés" : !state.game ? "Clip : seulement en jeu" : `Clip des ${Math.max(1, Math.min(state.clipMax ?? 30, state.clipSeconds))} dernières s`}
+                  label={!state?.clips ? "Clips désactivés" : !state.game && state.clipSeconds < 1 ? "Clip : seulement en jeu" : `Clip des ${Math.max(1, Math.min(state.clipMax ?? 30, state.clipSeconds))} dernières s`}
                   hint="C"
                   disabled={!state?.clips || (state?.clipSeconds ?? 0) < 1 || !!busy}
                   busy={busy === "clip"}

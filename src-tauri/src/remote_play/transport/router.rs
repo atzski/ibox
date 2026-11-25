@@ -45,8 +45,10 @@ impl Channel {
             | Message::Chat { .. }
             | Message::Ping { .. }
             | Message::Pong { .. }
-            // l'invité n'a pas à l'envoyer : la session le refuse (`Denied::WrongDirection`)
-            | Message::Rumble { .. } => Channel::Control,
+            | Message::Report { .. }
+            // l'invité n'a pas à les envoyer : la session les refuse (`Denied::WrongDirection`)
+            | Message::Rumble { .. }
+            | Message::Timing { .. } => Channel::Control,
         }
     }
 }

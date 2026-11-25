@@ -71,7 +71,29 @@ export interface ScanSummary {
   reappeared: number;
   duplicates: number;
   needsReview: number;
+  /** Nouveaux « .iso » dont la console est à demander. */
+  isoNew: number;
   errors: string[];
+}
+
+/** Fichier « .iso » qui attend qu'on dise de quelle console il est. */
+export interface PendingIsoDto {
+  path: string;
+  folderId: number;
+  size: number;
+  title: string;
+  region: "PAL" | "NTSC-U" | "NTSC-J" | null;
+  /** Console présélectionnée et origine de l'indice. */
+  guess: string | null;
+  guessSource: "folder" | "header" | null;
+}
+
+export interface IsoQueueDto {
+  pending: PendingIsoDto[];
+  /** Fichiers écartés (« ce n'est pas un jeu »). */
+  ignored: number;
+  /** Consoles du catalogue qui acceptent les .iso. */
+  candidates: string[];
 }
 
 export interface GamePatch {
@@ -102,6 +124,10 @@ export const nativeLibrary = {
   listGames: () => call<GameRowDto[]>("library_list"),
   scan: (folderIds?: number[]) => call<ScanSummary>("library_scan", { folderIds: folderIds ?? null }),
   cancelScan: () => call<void>("library_scan_cancel"),
+  isoQueue: () => call<IsoQueueDto>("iso_queue"),
+  /** Range des .iso en attente dans une console (null : « ce n'est pas un jeu ») ; renvoie les jeux créés. */
+  isoAssign: (paths: string[], platformId: string | null) => call<number[]>("iso_assign", { paths, platformId }),
+  isoRestoreIgnored: () => call<number>("iso_restore_ignored"),
   setFavorite: (id: number, favorite: boolean) => call<void>("game_set_favorite", { id, favorite }),
   updateGame: (id: number, patch: GamePatch) => call<void>("game_update", { id, patch }),
   /** Regroupe `other` (et ses versions) sous la fiche `keep` ; renvoie la fiche principale. */

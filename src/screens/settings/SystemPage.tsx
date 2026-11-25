@@ -117,16 +117,16 @@ export function SystemPage() {
         </Row>
         {s.captureClips !== false && (
           <>
-            <Row label="Durée d’un clip" note="Les dernières secondes gardées quand vous enregistrez un clip (30 secondes au plus).">
+            <Row label="Durée d’un clip" note="Les dernières secondes gardées quand vous enregistrez un clip (2 minutes au plus ; plus c’est long, plus iBox tient de mémoire pendant la partie).">
               <Segmented<string>
                 label="Durée d’un clip"
                 value={String(s.clipSeconds ?? 15)}
                 onChange={(v) => s.set("clipSeconds", Number(v))}
-                options={CLIP_SECONDS_CHOICES.map((n) => ({ value: String(n), label: `${n} s` }))}
+                options={CLIP_SECONDS_CHOICES.map((n) => ({ value: String(n), label: n >= 60 ? `${n / 60} min` : `${n} s` }))}
               />
             </Row>
             <Row label="Qualité du clip" note="Plus la qualité est haute, plus le fichier est lourd. La carte graphique encode l’image, sans ralentir le jeu sur un PC récent.">
-              <Segmented<"low" | "medium" | "high">
+              <Segmented<"low" | "medium" | "high" | "max">
                 label="Qualité du clip"
                 value={s.clipQuality ?? "medium"}
                 onChange={(v) => s.set("clipQuality", v)}
@@ -134,8 +134,12 @@ export function SystemPage() {
                   { value: "low", label: "Légère (480p)" },
                   { value: "medium", label: "Standard (720p)" },
                   { value: "high", label: "Haute (1080p 60)" },
+                  { value: "max", label: "Maximale (1440p 60)" },
                 ]}
               />
+            </Row>
+            <Row label="Aussi hors des parties" note="La mémoire des dernières secondes tourne aussi sur le bureau (un moment drôle, une vidéo…). Rien n’est écrit sans votre demande.">
+              <Toggle checked={s.clipEverywhere === true} onChange={(v) => s.set("clipEverywhere", v)} label="Aussi hors des parties" />
             </Row>
             <Row label="Son de Windows" note="Tout ce que le PC joue : le jeu, mais aussi la musique, les appels ou les autres applications.">
               <Toggle checked={s.clipSystemAudio !== false} onChange={(v) => s.set("clipSystemAudio", v)} label="Son de Windows" />

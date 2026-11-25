@@ -29,6 +29,11 @@ pub mod uninstall;
 pub mod inetbox;
 pub mod profile;
 pub mod capture;
+mod clip_edit;
+mod clips_auto;
+mod share;
+mod voice;
+mod voice_sapi;
 pub mod music;
 pub mod shortcut;
 pub mod plugins;
@@ -127,11 +132,14 @@ pub fn run() {
             shortcut::start(app.handle().clone(), |app, slot| match slot {
                 shortcut::Slot::Capture => capture::on_hotkey(app),
                 shortcut::Slot::Music => music::overlay::toggle(app),
+                shortcut::Slot::Plugin => plugins::panel::toggle(app),
             });
             plugins::start(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler({
+            fn typed<F: Fn(tauri::ipc::Invoke) -> bool>(f: F) -> F { f }
+            let commands = typed(tauri::generate_handler![
             app_info,
             platform::platform_info,
             power::power_status,
@@ -196,6 +204,8 @@ pub fn run() {
             plugins::plugins_install,
             plugins::plugins_set_enabled,
             plugins::plugins_uninstall,
+            plugins::plugins_open_screen,
+            plugins::plugins_look,
             music::music_state,
             shortcut::shortcuts_set,
             shortcut::shortcuts_suspend,
@@ -372,6 +382,9 @@ pub fn run() {
             lib_cmd::library_list,
             lib_cmd::library_scan,
             lib_cmd::library_scan_cancel,
+            lib_cmd::iso_queue,
+            lib_cmd::iso_assign,
+            lib_cmd::iso_restore_ignored,
             lib_cmd::game_set_favorite,
             lib_cmd::game_update,
             lib_cmd::game_link_variant,
@@ -404,7 +417,18 @@ pub fn run() {
             launch_cmd::launch_status,
             launch_cmd::game_launch,
             launch_cmd::game_adopt_running,
-        ])
+            ]);
+            // La fenêtre d'un plugin est « locale » pour Tauri (protocole `iboxplugin` d'iBox) :
+            // sans ce filtre, son JavaScript pourrait appeler toutes les commandes d'iBox. Elle
+            // ne passe que par `__host/` (plugins/host.rs).
+            move |invoke: tauri::ipc::Invoke| {
+                if plugins::protocol::is_plugin_label(invoke.message.webview_ref().label()) {
+                    invoke.resolver.reject("Commande réservée à iBox.");
+                    return true;
+                }
+                commands(invoke)
+            }
+        })
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de iBox");
 }

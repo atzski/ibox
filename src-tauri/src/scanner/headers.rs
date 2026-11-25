@@ -8,7 +8,8 @@
 //! DS, GBA, Game Boy / Color, N64 (z64, v64, n64), Super Nintendo (LoROM,
 //! HiROM, en-tête copieur), 3DS (NCSD), Switch (XCI, NSP/NSZ), Switch / Switch 2
 //! (conteneur NUP), images ISO 9660
-//! PlayStation 1 / 2 / PSP (secteurs 2048 ou 2352), EBOOT.PBP (PSP, PS1).
+//! PlayStation 1 / 2 / 3 / PSP (secteurs 2048 ou 2352), EBOOT.PBP (PSP, PS1),
+//! Xbox / Xbox 360 (XDVDFS, image extraite ou disque complet).
 //! Les formats compressés opaques (GCZ, CSO, CHD) passent à l'étape suivante.
 
 use super::Region;
@@ -121,6 +122,7 @@ pub fn detect(src: &mut dyn Source, ext: &str) -> Option<HeaderInfo> {
         .or_else(|| gameboy(&head, ext))
         .or_else(|| n64(&head))
         .or_else(|| iso9660(src))
+        .or_else(|| if matches!(ext, ".iso" | ".xiso") { xdvdfs(src) } else { None })
         .or_else(|| snes(src))
 }
 
@@ -377,7 +379,7 @@ fn snes(src: &mut dyn Source) -> Option<HeaderInfo> {
     None
 }
 
-// ——— ISO 9660 : PlayStation, PlayStation 2, PSP ———
+// ——— ISO 9660 : PlayStation 1, 2, 3, PSP ———
 
 /// Géométries de secteur : ISO (2048), BIN brut mode 2 (2352, données à +24) ou mode 1 (+16).
 const GEOMETRIES: [(u64, u64); 3] = [(2048, 0), (2352, 24), (2352, 16)];
@@ -442,9 +444,18 @@ fn iso9660(src: &mut dyn Source) -> Option<HeaderInfo> {
         let system = ascii(&pvd[8..40]).unwrap_or_default();
         let root = (le32(&pvd, 156 + 2) as u64, le32(&pvd, 156 + 10) as usize);
 
-        if system.starts_with("PSP GAME") {
+        // PlayStation 3 : le secteur 1 porte « PlayStation3 » puis l'identifiant du disque
+        if sector == 2048 {
+            if let Some(info) = ps3(src, &iso, root) {
+                return Some(info);
+            }
+        }
+        // Le contenu de la racine fait foi, même si l'identifiant système a été
+        // effacé par un outil de reconstruction (image traduite, modifiée…)
+        let psp_dir = iso.find(src, root, "PSP_GAME");
+        if system.starts_with("PSP GAME") || psp_dir.is_some() {
             let mut info = HeaderInfo::new("psp");
-            if let Some(dir) = iso.find(src, root, "PSP_GAME") {
+            if let Some(dir) = psp_dir {
                 if let Some(sfo) = iso.find(src, dir, "PARAM.SFO") {
                     if let Some(data) = iso.read_sectors(src, sfo.0, sfo.1) {
                         apply_sfo(&mut info, &data);
@@ -453,19 +464,99 @@ fn iso9660(src: &mut dyn Source) -> Option<HeaderInfo> {
             }
             return Some(info);
         }
-        if system.starts_with("PLAYSTATION") {
-            let cnf = iso.find(src, root, "SYSTEM.CNF")?;
-            let text = iso.read_sectors(src, cnf.0, cnf.1.min(4096))?;
-            let text = String::from_utf8_lossy(&text);
-            let ps2 = text
-                .lines()
-                .any(|l| l.trim_start().to_ascii_uppercase().starts_with("BOOT2"));
-            let mut info = HeaderInfo::new(if ps2 { "ps2" } else { "ps1" });
-            info.serial = serial_from_cnf(&text);
-            info.region = info.serial.as_deref().and_then(region_from_ps_serial);
-            return Some(info);
+        let playstation = system.starts_with("PLAYSTATION");
+        let cnf = iso.find(src, root, "SYSTEM.CNF")?;
+        let text = iso.read_sectors(src, cnf.0, cnf.1.min(4096))?;
+        let text = String::from_utf8_lossy(&text);
+        let boot = |key: &str| {
+            text.lines()
+                .any(|l| l.trim_start().to_ascii_uppercase().starts_with(key))
+        };
+        let ps2 = boot("BOOT2");
+        if !ps2 && !playstation && !boot("BOOT") {
+            return None;
         }
+        let mut info = HeaderInfo::new(if ps2 { "ps2" } else { "ps1" });
+        info.serial = serial_from_cnf(&text);
+        info.region = info.serial.as_deref().and_then(region_from_ps_serial);
+        return Some(info);
+    }
+    None
+}
+
+/// Indice faible pour une image ISO 9660 que `detect` n'a pas reconnue : un
+/// disque « PLAYSTATION » sans SYSTEM.CNF démarre par PSX.EXE, ce que seule la
+/// première PlayStation fait. Proposé à l'utilisateur, jamais appliqué seul.
+pub fn iso_hint(src: &mut dyn Source) -> Option<&'static str> {
+    for (sector, data_offset) in GEOMETRIES {
+        let Some(pvd) = src.read_at(16 * sector + data_offset, 2048) else {
+            continue;
+        };
+        if pvd.len() < 190 || pvd[0] != 1 || &pvd[1..6] != b"CD001" {
+            continue;
+        }
+        let system = ascii(&pvd[8..40]).unwrap_or_default();
+        return system.starts_with("PLAYSTATION").then_some("ps1");
+    }
+    None
+}
+
+fn ps3(src: &mut dyn Source, iso: &Iso, root: (u64, usize)) -> Option<HeaderInfo> {
+    let head = src.read_at(0x800, 0x30)?;
+    let marked = head.starts_with(b"PlayStation3");
+    if !marked && iso.find(src, root, "PS3_DISC.SFB").is_none() {
         return None;
+    }
+    let mut info = HeaderInfo::new("ps3");
+    // « BLES-01234 » : quatre lettres, un tiret, cinq chiffres
+    info.serial = head.get(0x10..0x20).and_then(ascii).filter(|s| {
+        let b = s.as_bytes();
+        marked
+            && b.len() == 10
+            && b[..4].iter().all(u8::is_ascii_uppercase)
+            && b[4] == b'-'
+            && b[5..].iter().all(u8::is_ascii_digit)
+    });
+    info.region = info.serial.as_deref().and_then(region_from_ps_serial);
+    Some(info)
+}
+
+// ——— XDVDFS : Xbox, Xbox 360 ———
+
+const XDVDFS_MAGIC: &[u8] = b"MICROSOFT*XBOX*MEDIA";
+
+/// Début de la partition de jeu : image extraite (XISO, les deux consoles),
+/// disque Xbox complet (XGD1), disques Xbox 360 complets (XGD2 puis XGD3).
+const XDVDFS_PARTITIONS: [(u64, Option<&str>); 4] = [
+    (0, None),
+    (0x1830_0000, Some("xbox")),
+    (0x0FD9_0000, Some("xbox360")),
+    (0x0208_0000, Some("xbox360")),
+];
+
+/// L'exécutable de la racine tranche (default.xbe : Xbox, default.xex : Xbox 360) ;
+/// à défaut, l'emplacement de la partition. Une image extraite sans l'un ni
+/// l'autre reste indéterminée.
+fn xdvdfs(src: &mut dyn Source) -> Option<HeaderInfo> {
+    for (base, by_layout) in XDVDFS_PARTITIONS {
+        let Some(volume) = src.read_at(base + 0x10000, 0x20) else {
+            continue;
+        };
+        if !volume.starts_with(XDVDFS_MAGIC) || volume.len() < 0x1C {
+            continue;
+        }
+        let root_at = base + le32(&volume, 0x14) as u64 * 2048;
+        let root_len = (le32(&volume, 0x18) as usize).min(64 * 1024);
+        let root = src.read_at(root_at, root_len).unwrap_or_default();
+        let has = |name: &[u8]| root.windows(name.len()).any(|w| w.eq_ignore_ascii_case(name));
+        let platform = if has(b"default.xex") {
+            Some("xbox360")
+        } else if has(b"default.xbe") {
+            Some("xbox")
+        } else {
+            by_layout
+        };
+        return platform.map(HeaderInfo::new);
     }
     None
 }
@@ -797,6 +888,71 @@ mod tests {
         assert_eq!(info.platform_id, "ps2");
         assert_eq!(info.serial.as_deref(), Some("SLES-52376"));
         assert_eq!(info.region, Some(Region::Pal));
+    }
+
+    #[test]
+    fn playstation_reconstruite_sans_identifiant_systeme() {
+        // image refaite par un outil : identifiant système vide, SYSTEM.CNF intact
+        let iso = mini_iso("", "SYSTEM.CNF", b"BOOT2 = cdrom0:\\SLUS_203.12;1\r\n", 2048, 0);
+        let info = detect_bytes(iso, ".iso").unwrap();
+        assert_eq!((info.platform_id, info.serial.as_deref()), ("ps2", Some("SLUS-20312")));
+        // un SYSTEM.CNF sans ligne BOOT sur un disque quelconque ne prouve rien
+        let iso = mini_iso("", "SYSTEM.CNF", b"FILES=20\r\n", 2048, 0);
+        assert!(detect_bytes(iso, ".iso").is_none());
+        // dossier PSP_GAME sans identifiant « PSP GAME »
+        let iso = mini_iso("", "PSP_GAME", b"", 2048, 0);
+        assert_eq!(detect_bytes(iso, ".iso").unwrap().platform_id, "psp");
+    }
+
+    #[test]
+    fn playstation_3_par_le_secteur_1() {
+        let mut iso = mini_iso("PS3VOLUME", "PS3_DISC.SFB", b".SFB", 2048, 0);
+        put(&mut iso, 0x800, b"PlayStation3\0\0\0\0BLES-01234      ");
+        let info = detect_bytes(iso, ".iso").unwrap();
+        assert_eq!((info.platform_id, info.serial.as_deref()), ("ps3", Some("BLES-01234")));
+        assert_eq!(info.region, Some(Region::Pal));
+        // sans la marque du secteur 1, le fichier PS3_DISC.SFB de la racine suffit
+        let iso = mini_iso("", "PS3_DISC.SFB", b".SFB", 2048, 0);
+        let info = detect_bytes(iso, ".iso").unwrap();
+        assert_eq!((info.platform_id, info.serial), ("ps3", None));
+    }
+
+    /// Image XDVDFS : volume à `base + 0x10000`, racine au secteur 33 avec un fichier.
+    fn xdvdfs_image(base: usize, file: &str) -> Vec<u8> {
+        let mut img = vec![0u8; base + 40 * 2048];
+        put(&mut img, base + 0x10000, XDVDFS_MAGIC);
+        put(&mut img, base + 0x10014, &33u32.to_le_bytes());
+        put(&mut img, base + 0x10018, &2048u32.to_le_bytes());
+        let entry = base + 33 * 2048;
+        img[entry + 13] = file.len() as u8;
+        put(&mut img, entry + 14, file.as_bytes());
+        img
+    }
+
+    #[test]
+    fn xbox_et_xbox_360_par_xdvdfs() {
+        let of = |img: Vec<u8>| detect_bytes(img, ".iso").map(|i| i.platform_id);
+        assert_eq!(of(xdvdfs_image(0, "default.xbe")), Some("xbox"));
+        assert_eq!(of(xdvdfs_image(0, "Default.XEX")), Some("xbox360"));
+        // image extraite sans exécutable connu : indéterminée, la question sera posée
+        assert_eq!(of(xdvdfs_image(0, "readme.txt")), None);
+        // disque Xbox 360 complet (XGD3) : l'emplacement de la partition suffit
+        assert_eq!(of(xdvdfs_image(0x0208_0000, "readme.txt")), Some("xbox360"));
+        // la signature ne compte que pour les .iso / .xiso
+        assert!(detect_bytes(xdvdfs_image(0, "default.xbe"), ".bin").is_none());
+    }
+
+    #[test]
+    fn indice_playstation_sans_system_cnf() {
+        let hint = |data: Vec<u8>| {
+            let size = data.len() as u64;
+            iso_hint(&mut ReaderSource::new(Cursor::new(data), size))
+        };
+        let iso = mini_iso("PLAYSTATION", "PSX.EXE", b"PS-X EXE", 2048, 0);
+        assert!(detect_bytes(iso.clone(), ".iso").is_none(), "pas de certitude sans SYSTEM.CNF");
+        assert_eq!(hint(iso), Some("ps1"));
+        assert_eq!(hint(mini_iso("Win32", "SETUP.EXE", b"MZ", 2048, 0)), None);
+        assert_eq!(hint(vec![0x42; 0x20000]), None);
     }
 
     #[test]

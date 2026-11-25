@@ -34,4 +34,4 @@ Marqueurs : `{rom}` (fichier du jeu, argument entier), `{fullscreen}` (options d
 - Sortie en erreur dans les 6 premières secondes → message clair avec la dernière ligne
   d'erreur de l'émulateur (ex. « PCSX2 s'est fermé aussitôt (code 3) : « BIOS introuvable » »).
 - Une partie compte à partir de 15 secondes (temps de jeu et nombre de parties).
-- La musique de menu se met en pause pendant la partie et reprend ensuite.
+- L'ambiance des menus s'efface pendant la partie et revient ensuite.

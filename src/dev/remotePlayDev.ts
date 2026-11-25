@@ -11,6 +11,7 @@ interface DevState {
   code: string;
   guestCode: string | null;
   samples: GuestStats[];
+  offsets: (number | null)[];
   host: unknown;
   error?: string;
 }
@@ -31,7 +32,13 @@ async function main() {
   const res = await fetch(`${BRIDGE}/answer`, { method: "POST", body: answer });
   const code = await res.text();
   if (!res.ok) throw new Error(code);
-  const state: DevState = { code, guestCode: await session.verificationCode(), samples: [], host: null };
+  // page de mesure : jamais de son (la session réelle, elle, lit le son de l'hôte)
+  video.muted = true;
+  video.volume = 0;
+  video.addEventListener("volumechange", () => {
+    if (!video.muted) video.muted = true;
+  });
+  const state: DevState = { code, guestCode: await session.verificationCode(), samples: [], offsets: [], host: null };
   window.__rp = state;
   // entrées réelles envoyées (l'hôte de l'essai est spectateur : elles doivent être refusées)
   attachInputs(session, video);
@@ -39,11 +46,13 @@ async function main() {
     const g = await session.stats();
     state.samples.push(g);
     state.host = await (await fetch(`${BRIDGE}/stats`)).json().catch(() => null);
-    out.textContent = JSON.stringify({ code: state.code, guestCode: state.guestCode, guest: g, host: state.host }, null, 1);
+    // sur un même PC les deux horloges sont la même : l'écart estimé doit rester proche de 0
+    state.offsets.push(session.tracker.clockOffsetMs());
+    out.textContent = JSON.stringify({ code: state.code, guestCode: state.guestCode, clockOffsetMs: session.tracker.clockOffsetMs(), guest: g, host: state.host }, null, 1);
   }, 1000);
 }
 
 main().catch((e) => {
   out.textContent = `Erreur : ${e instanceof Error ? e.message : String(e)}`;
-  window.__rp = { code: "", guestCode: null, samples: [], host: null, error: String(e) };
+  window.__rp = { code: "", guestCode: null, samples: [], offsets: [], host: null, error: String(e) };
 });

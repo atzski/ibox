@@ -30,6 +30,8 @@ fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
         .focused(false)
         .visible(false)
         .build()
+        // ni dans les clips, ni dans les captures d'écran, ni dans l'écran partagé
+        .inspect(|w| crate::music::backdrop::exclude_from_capture(w))
         .map_err(|e| eprintln!("iBox : fenêtre de notification indisponible : {e}"))
         .ok()
 }
@@ -50,7 +52,8 @@ fn place(w: &tauri::WebviewWindow) {
 /// (même en « Ne pas déranger ») ; les autres suivent le réglage général.
 fn allowed(kind: &str, enabled: bool, friends: bool) -> bool {
     match kind {
-        "update" => true,
+        // clip gardé (iClips) : réponse directe à un geste de l'utilisateur
+        "update" | "clip" => true,
         "notice" => enabled,
         _ => enabled && friends,
     }
@@ -83,7 +86,10 @@ fn keep_on_top(app: &AppHandle) {
 /// Ajoute une notification (ignorée si l'utilisateur les a coupées).
 pub fn push(app: &AppHandle, payload: Value) {
     let kind = payload["kind"].as_str().unwrap_or_default();
-    if !allowed(kind, ENABLED.load(Ordering::Relaxed), FRIENDS.load(Ordering::Relaxed)) { return; }
+    // `always` (posé seulement par iBox, jamais par une commande) : témoin du micro des clips
+    // automatiques et clip gardé sans iBox devant, montrés même en « Ne pas déranger »
+    let always = payload["always"].as_bool() == Some(true);
+    if !always && !allowed(kind, ENABLED.load(Ordering::Relaxed), FRIENDS.load(Ordering::Relaxed)) { return; }
     if let Ok(mut q) = QUEUE.lock() {
         if q.len() >= 6 { q.pop_front(); }
         q.push_back(payload);

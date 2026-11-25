@@ -13,6 +13,7 @@ pub mod catalog;
 pub mod host;
 pub mod install;
 pub mod manifest;
+pub mod panel;
 pub mod protocol;
 pub mod registry;
 pub mod trust;
@@ -48,6 +49,28 @@ static ACTIVE: Mutex<Option<HashMap<String, Arc<Active>>>> = Mutex::new(None);
 static CATALOG: Mutex<Vec<catalog::Entry>> = Mutex::new(Vec::new());
 /// Une seule installation à la fois.
 static BUSY: Mutex<()> = Mutex::new(());
+/// Langue et thème d'iBox (`plugins_look`), passés aux pages des plugins à leur ouverture.
+static LOOK: Mutex<Option<(&'static str, bool)>> = Mutex::new(None);
+
+pub fn look() -> (&'static str, bool) {
+    LOOK.lock().ok().and_then(|l| *l).unwrap_or(("fr", true))
+}
+
+/// L'interface d'iBox donne sa langue et son thème (au démarrage et à chaque changement).
+#[tauri::command]
+pub async fn plugins_look(app: AppHandle, lang: Option<String>, dark: Option<bool>) {
+    let next = (if lang.as_deref() == Some("en") { "en" } else { "fr" }, dark.unwrap_or(true));
+    let before = LOOK.lock().ok().and_then(|mut l| l.replace(next));
+    // langue ou thème changés : les fenêtres de plugin déjà ouvertes suivent (`look://changed`)
+    if before.is_some_and(|b| b != next) {
+        let detail = serde_json::json!({ "event": "look://changed", "payload": { "lang": next.0, "scheme": if next.1 { "dark" } else { "light" } } }).to_string();
+        for (label, w) in app.webview_windows() {
+            if protocol::is_plugin_label(&label) {
+                let _ = w.eval(format!("window.dispatchEvent(new CustomEvent(\"ibox:host\", {{ detail: {detail} }}))"));
+            }
+        }
+    }
+}
 
 pub fn root<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     Some(app.path().app_local_data_dir().ok()?.join("plugins"))
@@ -92,6 +115,7 @@ pub fn all_active<R: Runtime>(app: &AppHandle<R>) -> Vec<Arc<Active>> {
 
 /// Au démarrage d'iBox : réveille le socle des plugins activés (rien sinon).
 pub fn start(app: AppHandle) {
+    panel::start(app.clone());
     std::thread::spawn(move || {
         reload(&app);
         host::apply(&app);
@@ -134,6 +158,8 @@ pub struct PluginView {
     pub installed: Option<InstalledView>,
     pub available: Option<AvailableView>,
     pub update: bool,
+    /// Titre de l'écran plein du plugin installé (bouton « Ouvrir »), s'il en a un.
+    pub screen: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -177,6 +203,7 @@ fn list_view(app: &AppHandle, entries: &[catalog::Entry], catalog_error: Option<
             installed: Some(InstalledView { version: p.version.clone(), enabled: p.enabled, granted: p.granted.clone() }),
             update: entry.is_some_and(|e| newer(&e.version, &p.version) && compatible(e)),
             available: entry.map(|e| AvailableView { version: e.version.clone(), notes: e.notes.clone(), size: e.size, compatible: compatible(e) }),
+            screen: m.screen.as_ref().map(|s| s.title.clone().unwrap_or_else(|| m.name.clone())),
         });
     }
     for e in entries.iter().filter(|e| !reg.plugins.contains_key(&e.id)) {
@@ -190,6 +217,7 @@ fn list_view(app: &AppHandle, entries: &[catalog::Entry], catalog_error: Option<
             installed: None,
             available: Some(AvailableView { version: e.version.clone(), notes: e.notes.clone(), size: e.size, compatible: compatible(e) }),
             update: false,
+            screen: None,
         });
     }
     PluginList { plugins: out, catalog_error, platform_supported: cfg!(windows) }
@@ -281,6 +309,50 @@ pub async fn plugins_uninstall(app: AppHandle, id: String) -> Result<PluginList,
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Ouvre (ou ramène devant) l'écran plein d'un plugin activé, dans sa propre fenêtre
+/// `plugin-<id>:screen`, sans aucune commande d'iBox (lib.rs). La fenêtre se crée par la boucle
+/// d'événements, depuis un autre fil (jamais dans une commande synchrone : WebView2 bloquerait).
+#[tauri::command]
+pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String>, dark: Option<bool>) -> Result<(), String> {
+    let a = active(app.clone(), &id).ok_or("Plugin absent ou désactivé.")?;
+    let screen = a.manifest.screen.clone().ok_or("Ce plugin n'a pas d'écran.")?;
+    // langue et thème d'iBox, seules valeurs passées à la page
+    let lang = if lang.as_deref() == Some("en") { "en" } else { "fr" };
+    let scheme = if dark.unwrap_or(true) { "dark" } else { "light" };
+    let url: tauri::Url = format!("{}?lang={lang}&scheme={scheme}", protocol::url(&id, &screen.entry)).parse().map_err(|_| "Adresse invalide.")?;
+    let home = protocol::url(&id, "");
+    let title = screen.title.unwrap_or_else(|| a.manifest.name.clone());
+    let label = protocol::screen_label(&id);
+    std::thread::spawn(move || {
+        let ui = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if let Some(w) = ui.get_webview_window(&label) {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+                return;
+            }
+            let built = tauri::WebviewWindowBuilder::new(&ui, &label, tauri::WebviewUrl::CustomProtocol(url))
+                .title(title)
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(960.0, 600.0)
+                .maximized(true)
+                .background_color(tauri::webview::Color(12, 11, 18, 255))
+                // le plugin reste chez lui : ni autre site, ni fenêtre surgissante
+                .on_navigation(move |u| u.as_str().starts_with(&home))
+                .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+                .build();
+            match built {
+                Ok(w) => {
+                    let _ = w.set_focus();
+                }
+                Err(e) => eprintln!("iBox : écran du plugin indisponible : {e}"),
+            }
+        });
+    });
+    Ok(())
 }
 
 #[cfg(test)]

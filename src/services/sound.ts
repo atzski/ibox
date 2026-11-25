@@ -13,7 +13,7 @@ import { useSettings } from "./settings";
  * Les sons répétés varient légèrement (hauteur, niveau) pour ne pas fatiguer.
  *
  * Un fichier peut remplacer n'importe quelle cue via `registerSoundFile`.
- * La musique d'ambiance (menu, consoles) est gérée par `music.ts`.
+ * L'ambiance des menus appartient à la même famille : synthétisée par `ambience.ts`, pilotée par `music.ts`.
  */
 export const SOUND_CUES = [
   // navigation
@@ -23,7 +23,7 @@ export const SOUND_CUES = [
   // états
   "toggle", "on", "off", "favorite", "unfavorite", "delete", "error",
   // événements
-  "notify", "message", "success", "launch",
+  "notify", "message", "success", "launch", "clip",
   // sons « physiques » des boîtiers et des carnets
   "caseOpen", "caseClose", "trayOpen", "trayClose", "mediaOut", "mediaIn", "pull", "page", "bookOpen", "bookClose",
 ] as const;
@@ -174,6 +174,16 @@ export const VOICES: Record<SoundCue, Voice[]> = {
     note(D5, 0.28, 0.9, 0.06, "chime"), note(A5, 0.28, 0.9, 0.07, "chime"), note(D6, 0.28, 0.95, 0.075, "chime"), note(Fs6, 0.34, 0.8, 0.035, "chime"),
   ],
 
+  // Clip gardé (iClips) : le déclencheur d'un appareil photo (deux claquements secs, le
+  // rideau qui passe), puis une quinte qui s'ouvre sur un carillon : « c'est dans la boîte ».
+  clip: [
+    click(0, 0.18, 3600), { noise: true, at: 0, dur: 0.05, gain: 0.1, filter: "highpass", freq: 2600 },
+    { noise: true, at: 0.03, dur: 0.07, gain: 0.06, filter: "bandpass", freq: 1800, slideTo: 3800, q: 1.2 },
+    click(0.075, 0.15, 2700), thump(0.075, 0.1, 190, 110),
+    note(A5, 0.13, 0.22, 0.075, "glass", { from: 0.92, glide: 0.04 }), note(D6, 0.2, 0.3, 0.085, "chime"),
+    note(A6, 0.27, 0.62, 0.07, "chime"), note(A4, 0.2, 0.5, 0.035, "warm"),
+  ],
+
   // ——— boîtiers et carnets ———
   // Charnière d'un boîtier plastique : petit « pop », souffle, note claire
   caseOpen: [click(0, 0.2), thump(0, 0.18, 150, 95), whoosh(0.02, 0.22, 900, 2400, 0.09), note(A5, 0.12, 0.2, 0.06), note(D6, 0.19, 0.3, 0.05)],
@@ -211,7 +221,7 @@ export const VOICES: Record<SoundCue, Voice[]> = {
 const WET: Partial<Record<SoundCue, number>> = {
   move: 0.04, tap: 0.05, tab: 0.07, toggle: 0.08, settings: 0.07, error: 0.06,
   confirm: 0.16, save: 0.16, home: 0.14, friends: 0.14, enter: 0.14, power: 0.16,
-  bell: 0.18, favorite: 0.18, notify: 0.2, success: 0.2, launch: 0.22,
+  bell: 0.18, favorite: 0.18, notify: 0.2, success: 0.2, launch: 0.22, clip: 0.18,
 };
 const DEFAULT_WET = 0.11;
 /** Variation aléatoire de hauteur (centièmes de demi-ton) des sons les plus répétés. */
@@ -219,7 +229,7 @@ const DRIFT: Partial<Record<SoundCue, number>> = { move: 14, tap: 14, tab: 8, to
 /** Écart minimal (ms) entre deux déclenchements de la même cue. */
 const GAP: Partial<Record<SoundCue, number>> = { move: 45, tap: 40 };
 /** Carillons d'événements : un seul à la fois, pour qu'ils ne se recouvrent pas. */
-const CHIMES: ReadonlySet<SoundCue> = new Set(["notify", "message", "success"]);
+const CHIMES: ReadonlySet<SoundCue> = new Set(["notify", "message", "success", "clip"]);
 const CHIME_GAP = 450;
 
 const noiseBuffers = new WeakMap<BaseAudioContext, AudioBuffer>();
@@ -237,7 +247,7 @@ function whiteNoise(ctx: BaseAudioContext): AudioBuffer {
 
 const warmths = new WeakMap<BaseAudioContext, AudioNode>();
 /** Couleur commune : un peu plus de grave, un peu moins d'aigu, pour une tonalité chaude. */
-function warmth(ctx: BaseAudioContext): AudioNode {
+export function warmth(ctx: BaseAudioContext): AudioNode {
   let node = warmths.get(ctx);
   if (!node) {
     const low = ctx.createBiquadFilter();
@@ -254,13 +264,13 @@ function warmth(ctx: BaseAudioContext): AudioNode {
   return node;
 }
 
-const rooms = new WeakMap<BaseAudioContext, ConvolverNode>();
-/** Résonance commune : une petite pièce claire (0,4 s), calculée une fois par contexte. */
-function room(ctx: BaseAudioContext): ConvolverNode {
-  let conv = rooms.get(ctx);
-  if (!conv) {
+const impulses = new WeakMap<BaseAudioContext, AudioBuffer>();
+/** Réponse de la pièce commune aux sons d'interface et à l'ambiance des menus : petite, claire (0,4 s), calculée une fois par contexte. */
+export function roomImpulse(ctx: BaseAudioContext): AudioBuffer {
+  let ir = impulses.get(ctx);
+  if (!ir) {
     const len = Math.floor(ctx.sampleRate * 0.42);
-    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
       const data = ir.getChannelData(ch);
       let low = 0;
@@ -271,9 +281,19 @@ function room(ctx: BaseAudioContext): ConvolverNode {
         data[i] = low * Math.pow(1 - t, 2) * Math.exp(-5 * t);
       }
     }
+    impulses.set(ctx, ir);
+  }
+  return ir;
+}
+
+const rooms = new WeakMap<BaseAudioContext, ConvolverNode>();
+/** Résonance commune des sons d'interface. */
+function room(ctx: BaseAudioContext): ConvolverNode {
+  let conv = rooms.get(ctx);
+  if (!conv) {
     conv = ctx.createConvolver();
     conv.normalize = true;
-    conv.buffer = ir;
+    conv.buffer = roomImpulse(ctx);
     conv.connect(warmth(ctx));
     rooms.set(ctx, conv);
   }

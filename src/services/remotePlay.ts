@@ -86,6 +86,22 @@ export interface HostStats {
   resolution: [number, number] | null;
   encodeMsP50: number | null;
   encodeMsMax: number | null;
+  /** Image capturée → envoyée à l'encodeur (attente de cadence), médiane en ms. */
+  captureWaitMsP50: number | null;
+  /** Image encodée → dernier paquet remis au réseau (file d'envoi), en ms. */
+  sendQueueMsP50: number | null;
+  sendQueueMsMax: number | null;
+  /** Image capturée → dernier paquet remis au réseau : toute la part de l'hôte, en ms. */
+  hostMsP50: number | null;
+  hostMsMax: number | null;
+  /** Commande reçue du réseau → injectée, en ms. */
+  inputMsP50: number | null;
+  inputMsMax: number | null;
+  /** Images non encodées parce que la file d'envoi n'était pas vide. */
+  framesSkipped: number;
+  /** Mesuré par l'invité : capture → affichage, et sa propre part (réception → affichage), en ms. */
+  guestLatencyMs: number | null;
+  guestDisplayMs: number | null;
   localCandidate: string | null;
   remoteCandidate: string | null;
   /** Type de connexion : `loopback`, `lan` ou `internet` (P2P direct, jamais de relais). */

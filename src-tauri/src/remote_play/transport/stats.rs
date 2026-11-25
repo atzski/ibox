@@ -55,9 +55,33 @@ pub struct TransportStats {
     pub bitrate_changes: u32,
     pub encoder: Option<String>,
     pub resolution: Option<(u32, u32)>,
+    /// Ouverture de la capture et de l'encodeur après la connexion (ms).
+    pub video_start_ms: Option<f64>,
     /// Envoi à l'encodeur → paquet remis à str0m, dernière fenêtre (ms) : médiane / max.
     pub encode_ms_p50: Option<f64>,
     pub encode_ms_max: Option<f64>,
+    /// Image capturée → envoyée à l'encodeur (attente de cadence), médiane (ms).
+    pub capture_wait_ms_p50: Option<f64>,
+    /// Image remise à str0m → son dernier paquet remis au réseau (file d'envoi), médiane / max (ms).
+    pub send_queue_ms_p50: Option<f64>,
+    pub send_queue_ms_max: Option<f64>,
+    /// Image capturée → son dernier paquet remis au réseau : toute la part de l'hôte (ms).
+    pub host_ms_p50: Option<f64>,
+    pub host_ms_max: Option<f64>,
+    /// Commande reçue du réseau → injectée (ms).
+    pub input_ms_p50: Option<f64>,
+    pub input_ms_max: Option<f64>,
+    /// Images nouvelles non encodées parce que la file d'envoi n'était pas vide.
+    pub frames_skipped: u64,
+    /// Baisses de débit décidées parce que l'aller-retour montait (file d'attente sur le trajet).
+    pub delay_backoffs: u32,
+    /// Aller-retour mesuré sur le trajet de l'image par les rapports RTCP de l'invité (ms).
+    pub media_rtt_ms: Option<f64>,
+    /// Demandes d'image clé ignorées : une image clé venait de partir.
+    pub keyframes_throttled: u64,
+    /// Mesuré et rapporté par l'invité : capture → affichage, et sa part réception → affichage (ms).
+    pub guest_latency_ms: Option<f64>,
+    pub guest_display_ms: Option<f64>,
     /// Type de la paire ICE retenue (`host`, `prflx`, `srflx`, `relay`) — jamais l'adresse.
     pub local_candidate: Option<String>,
     pub remote_candidate: Option<String>,

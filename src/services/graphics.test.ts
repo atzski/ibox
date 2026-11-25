@@ -11,8 +11,17 @@ describe("profils graphiques", () => {
     expect(resolveProfile("quality", true, true)).toBe("quality");
   });
   it("garde l'étagère, change seulement définition et rythme", () => {
-    expect(graphicsFor("quality")).toEqual({ profile: "quality", dpr: [1, 1.5], fps: null });
-    expect(graphicsFor("deck")).toEqual({ profile: "deck", dpr: 1, fps: 60 });
-    expect(graphicsFor("battery")).toEqual({ profile: "battery", dpr: 1, fps: 30 });
+    expect(graphicsFor("quality")).toEqual({ profile: "quality", dpr: [1, 1.5], fps: null, idle: false });
+    expect(graphicsFor("deck")).toEqual({ profile: "deck", dpr: 1, fps: 60, idle: false });
+    expect(graphicsFor("battery")).toEqual({ profile: "battery", dpr: 1, fps: 30, idle: false });
+  });
+  it("mode performance : définition de l'écran et rendu à la demande, sauf choix explicite", () => {
+    // petite machine qui n'est pas un Steam Deck : même profil que lui
+    expect(resolveProfile("auto", false, false, true)).toBe("deck");
+    expect(resolveProfile("auto", false, true, true)).toBe("battery");
+    // le profil choisi à la main reste respecté, seule la mise au repos s'ajoute
+    expect(resolveProfile("quality", false, false, true)).toBe("quality");
+    expect(graphicsFor("quality", true)).toEqual({ profile: "quality", dpr: [1, 1.5], fps: null, idle: true });
+    expect(graphicsFor("deck", true)).toEqual({ profile: "deck", dpr: 1, fps: 60, idle: true });
   });
 });

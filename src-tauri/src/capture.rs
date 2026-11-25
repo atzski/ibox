@@ -236,8 +236,16 @@ pub fn start(app: AppHandle) {
     let watch = app.clone();
     std::thread::spawn(move || loop {
         let game = game_now(&watch);
-        // clip vidéo tenu seulement pendant une partie, si les clips sont activés
-        crate::clips::set_active(game.is_some() && CLIPS.load(Ordering::Relaxed));
+        let clips = CLIPS.load(Ordering::Relaxed);
+        let before = GAME.lock().ok().and_then(|g| g.clone());
+        // fin de partie : le clip est gardé avant que la mémoire ne se vide
+        if before.is_some() && game.is_none() && clips {
+            crate::clips_auto::on_game_end(&watch);
+        }
+        // clip vidéo tenu pendant une partie (ou partout, si demandé), si les clips sont activés
+        let active = clips && (game.is_some() || crate::clips::settings().everywhere);
+        crate::clips::set_active(active);
+        crate::clips_auto::tick(&watch, active);
         if let Ok(mut g) = GAME.lock() { *g = game; }
         std::thread::sleep(Duration::from_secs(2));
     });
@@ -254,6 +262,11 @@ pub(crate) fn hotkey_enabled() -> bool {
 pub(crate) fn on_hotkey(app: &AppHandle) {
     if app.get_webview_window(LABEL).is_some_and(|w| w.is_visible().unwrap_or(false)) {
         hide(app);
+        return;
+    }
+    // iClips activé : son panneau remplace l'overlay de capture (l'image est figée à l'ouverture)
+    if crate::plugins::panel::takes_capture(app) {
+        crate::plugins::panel::toggle(app);
         return;
     }
     let game = GAME.lock().ok().and_then(|g| g.clone());
@@ -339,6 +352,17 @@ pub async fn overlay_save_shot(app: AppHandle) -> Result<Capture, String> {
 /// Enregistre les dernières secondes de jeu en clip vidéo (MP4, son selon les réglages).
 #[tauri::command]
 pub async fn overlay_save_clip(app: AppHandle) -> Result<Capture, String> {
+    save_clip(app).await
+}
+
+/// Garde les dernières secondes de jeu (overlay de capture, panneau d'iClips).
+pub async fn save_clip(app: AppHandle) -> Result<Capture, String> {
+    save_clip_as(app, None).await
+}
+
+/// Comme `save_clip` ; `auto` dit ce qui l'a déclenché sans l'utilisateur devant iBox
+/// (`voice`, `pad`, `end` : `clips_auto.rs`), gardé à côté du clip.
+pub async fn save_clip_as(app: AppHandle, auto: Option<&'static str>) -> Result<Capture, String> {
     let game = PENDING.lock().ok().and_then(|p| p.as_ref().and_then(|s| s.game.clone())).or_else(|| GAME.lock().ok().and_then(|g| g.clone()));
     tauri::async_runtime::spawn_blocking(move || {
         let d = dir(&app)?;
@@ -346,14 +370,31 @@ pub async fn overlay_save_clip(app: AppHandle) -> Result<Capture, String> {
         let path = d.join(file_name(at, game.as_ref().map(|g| g.0.as_str()), "mp4"));
         // nom de travail hors liste (`valid_name` refuse « _ ») puis renommage
         let work = d.join(format!("_clip-{at}.mp4"));
-        let written = crate::clips::save(&work).and_then(|_| fs::rename(&work, &path).map_err(|e| e.to_string()));
-        if let Err(e) = written {
-            let _ = fs::remove_file(&work);
-            return Err(e);
-        }
+        let written = crate::clips::save(&work).and_then(|tracks| {
+            fs::rename(&work, &path).map_err(|e| e.to_string())?;
+            for name in tracks.iter().skip(1) {
+                let _ = fs::rename(crate::clips::track_file(&work, name), crate::clips::track_file(&path, name));
+            }
+            Ok(tracks)
+        });
+        let tracks = match written {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = fs::remove_file(&work);
+                return Err(e);
+            }
+        };
+        let mut meta = json!({});
         if let Some((title, platform)) = &game {
-            let _ = fs::write(sidecar(&path), serde_json::to_vec(&json!({ "game": title, "platformId": platform })).unwrap_or_default());
+            meta = json!({ "game": title, "platformId": platform });
         }
+        if let Some(a) = auto { meta["auto"] = a.into(); }
+        // pistes séparées : leur nom, pour le réglage des volumes au montage
+        if tracks.len() > 1 { meta["tracks"] = tracks.into(); }
+        if meta.as_object().is_some_and(|m| !m.is_empty()) {
+            let _ = fs::write(sidecar(&path), serde_json::to_vec(&meta).unwrap_or_default());
+        }
+        crate::plugins::host::notify(&app, "clips://changed", Value::Null);
         describe(&path).ok_or_else(|| "Clip illisible.".to_string())
     }).await.map_err(|e| e.to_string())?
 }
@@ -373,9 +414,10 @@ pub async fn overlay_open_community(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn capture_settings(clips: bool, hotkey: bool, clip: Option<crate::clips::ClipSettings>) {
+pub fn capture_settings(clips: bool, hotkey: bool, clip: Option<crate::clips::ClipSettings>, output_device: Option<String>, mic_device: Option<String>) {
     CLIPS.store(clips, Ordering::Relaxed);
     if let Some(c) = clip { crate::clips::configure(c); }
+    crate::clips::set_devices(output_device, mic_device);
     HOTKEY.store(hotkey, Ordering::Relaxed);
 }
 
@@ -402,7 +444,7 @@ pub fn read_bytes(app: &AppHandle, name: &str) -> Result<Vec<u8>, String> {
 pub fn captures_delete(app: AppHandle, name: String) -> Result<(), String> {
     if !valid_name(&name) { return Err("Capture inconnue.".into()); }
     let path = dir(&app)?.join(name);
-    let _ = fs::remove_file(sidecar(&path));
+    remove_companions(&path);
     fs::remove_file(path).map_err(|e| e.to_string())
 }
 
@@ -413,8 +455,240 @@ pub fn captures_folder(app: AppHandle) -> Result<(), String> {
     crate::shell::open_target(d)
 }
 
+// ——— Clips pour les plugins (permission `clips`, plugins/host.rs) ———
+
+/// Chemin d'un clip existant du profil (MP4, ou GIF fait par le montage) ; rien d'autre
+/// (ni capture d'écran, ni fichier de travail).
+pub fn clip_path(app: &AppHandle, name: &str) -> Option<PathBuf> {
+    if !valid_name(name) || !(name.ends_with(".mp4") || name.ends_with(".gif") || name.ends_with(".png")) { return None; }
+    let p = dir(app).ok()?.join(name);
+    p.is_file().then_some(p)
+}
+
+/// Clips vidéo du profil, du plus récent au plus ancien, avec leur titre et leur favori.
+pub fn clip_list(app: &AppHandle) -> Result<Vec<Value>, String> {
+    let d = dir(app)?;
+    let mut list: Vec<(u64, Value)> = fs::read_dir(&d).map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let path = e.path();
+            let c = describe(&path).filter(|c| c.name.ends_with(".mp4") || c.name.ends_with(".gif") || c.name.ends_with(".png"))?;
+            let meta: Value = fs::read(sidecar(&path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(Value::Null);
+            Some((c.at, json!({
+                "name": c.name, "kind": if c.name.ends_with(".gif") { "gif" } else if c.name.ends_with(".png") { "image" } else { "video" },
+                "game": c.game, "platformId": c.platform_id, "at": c.at, "size": c.size,
+                "title": meta["title"].as_str(), "favorite": meta["favorite"].as_bool().unwrap_or(false),
+                "duration": meta["duration"].as_f64(), "auto": meta["auto"].as_str(),
+                "link": meta["link"].as_str(), "linkUntil": meta["linkUntil"].as_u64(),
+                "tracks": meta["tracks"].as_array().cloned().unwrap_or_default(),
+                "src": format!("__clips/{}", c.name),
+                "thumb": thumb(&path).is_file().then(|| format!("__thumbs/{}", c.name)),
+            })))
+        })
+        .collect();
+    list.sort_by(|a, b| b.0.cmp(&a.0));
+    Ok(list.into_iter().map(|(_, v)| v).collect())
+}
+
+/// Ajoute ou remplace des champs du json d'un clip (lien de partage…).
+pub fn clip_set_meta(app: &AppHandle, name: &str, fields: &[(&str, Value)]) -> Result<(), String> {
+    let path = clip_path(app, name).ok_or("Clip introuvable.")?;
+    let mut meta: Value = fs::read(sidecar(&path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
+    for (k, v) in fields { meta[*k] = v.clone(); }
+    fs::write(sidecar(&path), serde_json::to_vec(&meta).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// Titre (80 caractères au plus, vide : retiré) et favori d'un clip, gardés à côté du fichier.
+pub fn clip_update(app: &AppHandle, name: &str, title: Option<&str>, favorite: Option<bool>) -> Result<(), String> {
+    let path = clip_path(app, name).ok_or("Clip introuvable.")?;
+    let mut meta: Value = fs::read(sidecar(&path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
+    if let Some(t) = title {
+        let t: String = t.trim().chars().filter(|c| !c.is_control()).take(80).collect();
+        if t.is_empty() { meta.as_object_mut().map(|m| m.remove("title")); } else { meta["title"] = t.into(); }
+    }
+    if let Some(f) = favorite { meta["favorite"] = f.into(); }
+    fs::write(sidecar(&path), serde_json::to_vec(&meta).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// Fichiers qui accompagnent un clip : json, vignette, pistes de son séparées.
+fn remove_companions(path: &Path) {
+    let _ = fs::remove_file(sidecar(path));
+    let _ = fs::remove_file(thumb(path));
+    for t in ["game", "mic"] {
+        let _ = fs::remove_file(crate::clips::track_file(path, t));
+    }
+}
+
+pub fn clip_delete(app: &AppHandle, name: &str) -> Result<(), String> {
+    let path = clip_path(app, name).ok_or("Clip introuvable.")?;
+    remove_companions(&path);
+    fs::remove_file(path).map_err(|e| e.to_string())
+}
+
+/// Vignette d'un clip (`<clip>.jpg`, invisible de la liste des captures : `valid_name` ne
+/// prend pas les .jpg). Faite par le plugin à partir de la vidéo, que WebView2 décode déjà.
+fn thumb(path: &Path) -> PathBuf { path.with_extension("jpg") }
+
+pub fn clip_thumb_path(app: &AppHandle, name: &str) -> Option<PathBuf> {
+    clip_path(app, name).map(|p| thumb(&p)).filter(|t| t.is_file())
+}
+
+/// Données du clip gardées à côté de lui (jeu, titre, favori…).
+pub fn clip_meta(app: &AppHandle, name: &str) -> Value {
+    clip_path(app, name).and_then(|p| fs::read(sidecar(&p)).ok()).and_then(|b| serde_json::from_slice(&b).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}))
+}
+
+/// Nouveau fichier de montage : nom de travail (hors liste) et nom final.
+pub(crate) fn new_capture(app: &AppHandle, game: Option<&str>, ext: &str) -> Result<(PathBuf, PathBuf), String> {
+    let d = dir(app)?;
+    let at = now();
+    Ok((d.join(format!("_edit-{at}.{ext}")), d.join(file_name(at, game, ext))))
+}
+
+/// Termine un montage : nom final et données du clip (jeu, titre, clips d'origine), sans favori
+/// ni vignette ni durée hérités. Rend le nom du nouveau fichier.
+pub(crate) fn finish_capture(work: &Path, path: &Path, meta: &Value) -> Result<String, String> {
+    fs::rename(work, path).map_err(|e| e.to_string())?;
+    // pistes séparées : seulement si le rendu en a écrit (rendu `mix`)
+    let mut kept = Vec::new();
+    for t in ["game", "mic"] {
+        if fs::rename(crate::clips::track_file(work, t), crate::clips::track_file(path, t)).is_ok() {
+            kept.push(t);
+        }
+    }
+    let mut meta = meta.clone();
+    if let Some(m) = meta.as_object_mut() {
+        for k in ["favorite", "duration", "auto", "link", "linkUntil", "tracks"] { m.remove(k); }
+    }
+    if !kept.is_empty() {
+        let mut names = vec!["mix"];
+        names.extend(kept);
+        meta["tracks"] = names.into();
+    }
+    fs::write(sidecar(path), serde_json::to_vec(&meta).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    path.file_name().and_then(|n| n.to_str()).map(String::from).ok_or_else(|| "Nom invalide.".into())
+}
+
+/// Garde la vignette (JPEG de 300 Ko au plus) et la durée d'un clip.
+pub fn clip_thumb(app: &AppHandle, name: &str, jpeg: &[u8], duration: Option<f64>) -> Result<(), String> {
+    let path = clip_path(app, name).ok_or("Clip introuvable.")?;
+    if jpeg.len() > 300 * 1024 || !jpeg.starts_with(&[0xFF, 0xD8, 0xFF]) { return Err("Vignette invalide.".into()); }
+    fs::write(thumb(&path), jpeg).map_err(|e| e.to_string())?;
+    if let Some(d) = duration.filter(|d| d.is_finite() && *d > 0.0 && *d < 86_400.0) {
+        let mut meta: Value = fs::read(sidecar(&path)).ok().and_then(|b| serde_json::from_slice(&b).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
+        meta["duration"] = ((d * 10.0).round() / 10.0).into();
+        fs::write(sidecar(&path), serde_json::to_vec(&meta).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Fige l'image de l'écran (ouverture du panneau d'iClips, qui remplace l'overlay).
+pub(crate) fn freeze(app: &AppHandle) {
+    let _ = app;
+    let game = GAME.lock().ok().and_then(|g| g.clone());
+    let shot = grab_screen().and_then(|(w, h, rgb)| encode_png(w, h, &rgb).ok());
+    if let Ok(mut p) = PENDING.lock() { *p = shot.map(|png| Shot { png, game, at: now() }); }
+}
+
+/// Image figée (PNG), pour le panneau d'iClips.
+pub(crate) fn frozen_png() -> Option<Vec<u8>> {
+    PENDING.lock().ok().and_then(|p| p.as_ref().map(|s| s.png.clone()))
+}
+
+/// `shot.save` : garde l'image figée (dossier des captures, visible dans la Communauté et iClips).
+pub fn save_frozen(app: &AppHandle) -> Result<Value, String> {
+    let shot = PENDING.lock().map_err(|_| "Indisponible.")?.take().ok_or("Aucune image à garder.")?;
+    let c = store(app, &shot.png, "png", shot.game, shot.at)?;
+    crate::plugins::host::notify(app, "clips://changed", Value::Null);
+    Ok(json!({ "name": c.name }))
+}
+
+/// `community.open` : ouvre la Communauté dans iBox depuis le panneau d'iClips.
+pub fn open_community(app: &AppHandle) {
+    crate::shell::show_main(app);
+    let _ = app.emit_to("main", "open-community", ());
+}
+
+/// `capture.get` : réglages des clips, place prise par les captures du profil.
+pub fn capture_state(app: &AppHandle) -> Value {
+    let s = crate::clips::settings();
+    let (mut count, mut bytes) = (0u64, 0u64);
+    if let Ok(entries) = dir(app).and_then(|d| fs::read_dir(d).map_err(|e| e.to_string())) {
+        for e in entries.flatten() {
+            if let Some(c) = describe(&e.path()) { count += 1; bytes += c.size; }
+        }
+    }
+    let (height, fps, kbps) = s.quality.params();
+    // mémoire tenue en jeu : la vidéo à son débit, plus 48 kHz stéréo en f32 par source de son
+    let sources = s.system_audio as u64 + s.microphone as u64;
+    let memory = (kbps as u64 * 125 + sources * 48_000 * 8) * (s.seconds as u64 + 3);
+    json!({
+        "enabled": CLIPS.load(Ordering::Relaxed), "quality": s.quality, "seconds": s.seconds,
+        "systemAudio": s.system_audio, "microphone": s.microphone, "systemVolume": s.system_volume, "micVolume": s.mic_volume, "tracks": s.tracks,
+        "everywhere": s.everywhere,
+        "height": height, "fps": fps, "kbps": kbps, "memory": memory,
+        "min": crate::clips::MIN_SECONDS, "max": crate::clips::MAX_SECONDS,
+        "count": count, "bytes": bytes,
+        // appareils de son : choisis (null : celui par défaut) et branchés
+        "outputDevice": crate::clips::devices().0, "micDevice": crate::clips::devices().1,
+        "outputs": crate::remote_play::audio::endpoints(false), "inputs": crate::remote_play::audio::endpoints(true),
+        // raccourci de l'overlay d'iBox : il ouvre le panneau d'iClips
+        "overlayKeys": if HOTKEY.load(Ordering::Relaxed) { crate::shortcut::capture_keys() } else { None },
+    })
+}
+
+/// `capture.set` : change les réglages des clips ; iBox les garde (Paramètres › Captures suit).
+pub fn capture_apply(app: &AppHandle, patch: &Value) -> Result<Value, String> {
+    let mut s = crate::clips::settings();
+    if let Some(q) = patch.get("quality") { s.quality = serde_json::from_value(q.clone()).map_err(|_| "Qualité inconnue.")?; }
+    if let Some(n) = patch["seconds"].as_u64() { s.seconds = n as u32; }
+    if let Some(b) = patch["systemAudio"].as_bool() { s.system_audio = b; }
+    if let Some(b) = patch["microphone"].as_bool() { s.microphone = b; }
+    if let Some(v) = patch["systemVolume"].as_f64() { s.system_volume = v as f32; }
+    if let Some(v) = patch["micVolume"].as_f64() { s.mic_volume = v as f32; }
+    if let Some(b) = patch["tracks"].as_bool() { s.tracks = b; }
+    if let Some(b) = patch["everywhere"].as_bool() { s.everywhere = b; }
+    // appareils : identifiant de Windows, ou null pour revenir à celui par défaut
+    let (mut output, mut mic) = crate::clips::devices();
+    if let Some(v) = patch.get("outputDevice") { output = v.as_str().map(String::from); }
+    if let Some(v) = patch.get("micDevice") { mic = v.as_str().map(String::from); }
+    crate::clips::set_devices(output, mic);
+    let s = s.sanitized();
+    crate::clips::configure(s);
+    if let Some(b) = patch["enabled"].as_bool() { CLIPS.store(b, Ordering::Relaxed); }
+    // la fenêtre principale garde les réglages (et les renvoie au démarrage)
+    let mut changed = json!({
+        "clipQuality": s.quality, "clipSeconds": s.seconds,
+        "clipSystemAudio": s.system_audio, "clipMicrophone": s.microphone,
+        "clipSystemVolume": s.system_volume, "clipMicVolume": s.mic_volume, "clipTracks": s.tracks, "clipEverywhere": s.everywhere,
+        "clipOutputDevice": crate::clips::devices().0, "clipMicDevice": crate::clips::devices().1,
+    });
+    // la mémoire des clips ne suit que la demande explicite (`enabled`) : jamais recopiée par ricochet
+    if let Some(b) = patch["enabled"].as_bool() { changed["captureClips"] = b.into(); }
+    let _ = app.emit_to("main", "clip-settings", changed);
+    Ok(capture_state(app))
+}
+
+/// `capture.folder` : ouvre le dossier des clips du profil.
+pub fn open_folder(app: &AppHandle) -> Result<Value, String> {
+    let d = dir(app)?;
+    std::process::Command::new("explorer.exe").arg(&d).spawn().map_err(|e| e.to_string())?;
+    Ok(Value::Null)
+}
+
+/// Ce que le panneau d'iClips doit savoir pour proposer « Garder le clip ».
+pub fn clip_status() -> Value {
+    let game = GAME.lock().ok().and_then(|g| g.clone());
+    json!({
+        "game": game.as_ref().map(|g| &g.0), "platformId": game.as_ref().map(|g| &g.1),
+        "enabled": CLIPS.load(Ordering::Relaxed), "seconds": crate::clips::available_seconds(), "max": crate::clips::settings().seconds,
+        "listening": crate::clips_auto::listening(),
+        "hasShot": PENDING.lock().map(|p| p.is_some()).unwrap_or(false),
+    })
+}
+
 /// Réduction douce (moyenne des pixels couverts) d'une image RGB.
-fn shrink(buf: &[u8], w: u32, h: u32, tw: u32, th: u32) -> Vec<u8> {
+pub(crate) fn shrink(buf: &[u8], w: u32, h: u32, tw: u32, th: u32) -> Vec<u8> {
     let mut out = vec![0u8; (tw * th * 3) as usize];
     for y in 0..th {
         let (y0, y1) = ((y * h / th) as usize, (((y + 1) * h / th).max(y * h / th + 1)) as usize);

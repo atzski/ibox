@@ -19,6 +19,7 @@ export function summarize(s: ScanSummary): string {
   add(s.missing, "introuvable", "introuvables");
   add(s.duplicates, "doublon", "doublons");
   add(s.needsReview, "à vérifier", "à vérifier");
+  add(s.isoNew, ".iso à classer", ".iso à classer");
   return parts.length ? parts.join(" · ") : "Aucun changement";
 }
 

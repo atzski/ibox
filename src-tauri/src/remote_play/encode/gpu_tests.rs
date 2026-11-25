@@ -180,6 +180,89 @@ impl Mover {
     }
 }
 
+impl Mover {
+    /// Fenêtre de mesure **invisible** : 1920×1080, transparente, derrière toutes les autres, jamais
+    /// au premier plan, jamais activée, sans son. Elle se capture elle-même (`Target::Window`), ce qui ne
+    /// demande rien de visible à l'écran : l'utilisateur peut continuer à travailler pendant
+    /// l'essai. Contenu : un pavé de grain qui se déplace (léger) ou, avec `IBOX_RP_NOISE=1`,
+    /// toute la fenêtre remplie d'un grain tiré d'un endroit différent à chaque image, que
+    /// l'encodeur ne peut pas prédire (pour remplir le débit demandé sous lien limité).
+    /// Renvoie aussi l'identifiant de la fenêtre.
+    pub(crate) fn hidden() -> (Mover, isize) {
+        use std::sync::atomic::Ordering;
+        use windows::Win32::Graphics::Gdi::*;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        let (tx, rx) = std::sync::mpsc::channel::<isize>();
+        let thread = std::thread::spawn(move || unsafe {
+            let (width, height) = (1920i32, 1080i32);
+            let hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("STATIC"), w!("iBox Remote Play — mesure"), WS_POPUP, 0, 0, width, height, None, None, None, None).unwrap();
+            // Essayé le 24/11/2026 : une fenêtre hors écran, même de 2 pixels près, ne livre aucune
+            // image nouvelle (Windows ne dessine que la partie d'une fenêtre située dans l'écran).
+            // Elle est donc à l'écran, mais transparente à 1/255, traversée par les clics et
+            // derrière toutes les autres fenêtres : la capture en reçoit le contenu opaque.
+            // `IBOX_RP_WINDOW` : `bottom` (opaque, derrière tout), `corner`, `offscreen`.
+            let place = std::env::var("IBOX_RP_WINDOW").unwrap_or_default();
+            let right = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            let low = GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+            let (x, y) = match place.as_str() {
+                "offscreen" => (right + 64, low + 64),
+                "corner" => (right - 2, low - 2),
+                _ => (0, 0),
+            };
+            if place.is_empty() || place == "ghost" {
+                let style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED.0 as i32 | WS_EX_TRANSPARENT.0 as i32);
+                let _ = SetLayeredWindowAttributes(hwnd, windows::Win32::Foundation::COLORREF(0), 1, LWA_ALPHA);
+            }
+            let _ = SetWindowPos(hwnd, Some(HWND_BOTTOM), x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            let _ = tx.send(hwnd.0 as isize);
+
+            let (w, h) = (2560i32, 1440i32);
+            let info = BITMAPINFO { bmiHeader: BITMAPINFOHEADER { biSize: size_of::<BITMAPINFOHEADER>() as u32, biWidth: w, biHeight: -h, biPlanes: 1, biBitCount: 32, ..Default::default() }, ..Default::default() };
+            let mut bits = std::ptr::null_mut();
+            let memory = CreateCompatibleDC(None);
+            let bitmap = CreateDIBSection(Some(memory), &info, DIB_RGB_COLORS, &mut bits, None, 0).unwrap();
+            let pixels = std::slice::from_raw_parts_mut(bits as *mut u32, (w * h) as usize);
+            let mut seed = 0x2545_F491_4F6C_DD1Du64;
+            let mut next = move || {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                seed
+            };
+            for px in pixels.iter_mut() {
+                let v = 104 + (next() >> 40) as u32 % 48;
+                *px = v | v << 8 | v << 16;
+            }
+            SelectObject(memory, bitmap.into());
+            let noise = std::env::var("IBOX_RP_NOISE").is_ok_and(|v| v == "1");
+            let mut i = 0i32;
+            while !flag.load(Ordering::SeqCst) {
+                i += 1;
+                let dc = GetDC(Some(hwnd));
+                if noise {
+                    let r = next();
+                    let _ = BitBlt(dc, 0, 0, width, height, Some(memory), (r % 640) as i32, ((r >> 20) % 360) as i32, SRCCOPY);
+                } else {
+                    let _ = BitBlt(dc, (i * 6) % (width - 320), (i * 2) % (height - 180), 320, 180, Some(memory), (i * 7) % 2000, (i * 3) % 1000, SRCCOPY);
+                }
+                ReleaseDC(Some(hwnd), dc);
+                let mut msg = MSG::default();
+                while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+                    DispatchMessageW(&msg);
+                }
+                std::thread::sleep(Duration::from_millis(8));
+            }
+            let _ = DeleteDC(memory);
+            let _ = DestroyWindow(hwnd);
+        });
+        let hwnd = rx.recv_timeout(Duration::from_secs(5)).expect("fenêtre de mesure");
+        (Mover { stop, thread: Some(thread) }, hwnd)
+    }
+}
+
 impl Drop for Mover {
     fn drop(&mut self) {
         self.stop.store(true, std::sync::atomic::Ordering::SeqCst);

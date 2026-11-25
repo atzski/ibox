@@ -111,10 +111,10 @@ export const LEGAL: LegalSection[] = [
         ],
       },
       {
-        heading: "Modèles 3D et musique",
+        heading: "Modèles 3D et sons",
         items: [
           "Boîtiers modélisés pour iBox dans Blender ; outils de modélisation dérivés de blender-modeler — MIT.",
-          "Musique de menu composée pour iBox.",
+          "Ambiance des menus et sons d'interface synthétisés par iBox, sans fichier audio.",
         ],
       },
     ],

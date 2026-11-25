@@ -131,7 +131,21 @@ impl Encoder {
 }
 
 #[cfg(windows)]
-pub use win::{pcm, stream};
+pub use win::{endpoints, pcm, stream};
+
+/// Appareil de son de Windows (sortie ou micro), pour le choix dans iClips.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Endpoint {
+    pub id: String,
+    pub name: String,
+    /// Appareil par défaut de Windows.
+    pub default: bool,
+}
+
+#[cfg(not(windows))]
+pub fn endpoints(_capture: bool) -> Vec<Endpoint> {
+    Vec::new()
+}
 
 /// Noms des exécutables Discord (application, PTB, Canary), en minuscules.
 const DISCORD: [&str; 3] = ["discord.exe", "discordptb.exe", "discordcanary.exe"];
@@ -215,19 +229,63 @@ mod win {
                 Some(Ok(c)) => Ok(c),
                 Some(Err(e)) => {
                     eprintln!("[remote-play] son sans Discord indisponible ({e}) : capture complète");
-                    open_default()
+                    open_default(None)
                 }
-                None => open_default(),
+                None => open_default(None),
             }
         };
         let (client, fmt) = opened.map_err(|e| format!("capture du son : {e}"))?;
         unsafe { capture(&client, fmt, stop, send) }.map_err(|e| format!("capture du son : {e}"))
     }
 
-    /// Sortie par défaut, au format du mélangeur de Windows.
-    unsafe fn open_default() -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
+    /// Appareil choisi s'il est branché, sinon celui par défaut de Windows.
+    unsafe fn endpoint(flow: windows::Win32::Media::Audio::EDataFlow, id: Option<&str>) -> windows::core::Result<windows::Win32::Media::Audio::IMMDevice> {
+        use windows::Win32::Media::Audio::DEVICE_STATE_ACTIVE;
         let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
-        let device = devices.GetDefaultAudioEndpoint(eRender, eConsole)?;
+        if let Some(id) = id {
+            if let Ok(d) = devices.GetDevice(&windows::core::HSTRING::from(id)) {
+                if d.GetState().is_ok_and(|s| s == DEVICE_STATE_ACTIVE) {
+                    return Ok(d);
+                }
+            }
+        }
+        devices.GetDefaultAudioEndpoint(flow, eConsole)
+    }
+
+    unsafe fn text(p: windows::core::PWSTR) -> String {
+        let s = p.to_string().unwrap_or_default();
+        CoTaskMemFree(Some(p.0 as *const _));
+        s
+    }
+
+    /// Sorties (ou micros) branchés, avec leur nom de Windows ; celui par défaut est marqué.
+    pub fn endpoints(capture: bool) -> Vec<super::Endpoint> {
+        use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+        use windows::Win32::Media::Audio::{eCapture, DEVICE_STATE_ACTIVE};
+        use windows::Win32::System::Com::STGM_READ;
+        let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
+        let flow = if capture { eCapture } else { eRender };
+        let list = || -> windows::core::Result<Vec<super::Endpoint>> {
+            unsafe {
+                let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
+                let default = devices.GetDefaultAudioEndpoint(flow, eConsole).and_then(|d| d.GetId()).map(|p| text(p)).unwrap_or_default();
+                let all = devices.EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE)?;
+                let mut out = Vec::new();
+                for i in 0..all.GetCount()? {
+                    let d = all.Item(i)?;
+                    let id = text(d.GetId()?);
+                    let name = d.OpenPropertyStore(STGM_READ).and_then(|p| p.GetValue(&PKEY_Device_FriendlyName)).map(|v| v.to_string()).unwrap_or_default();
+                    out.push(super::Endpoint { default: id == default, name: if name.is_empty() { id.clone() } else { name }, id });
+                }
+                Ok(out)
+            }
+        };
+        list().unwrap_or_default()
+    }
+
+    /// Sortie (par défaut, ou celle choisie), au format du mélangeur de Windows.
+    unsafe fn open_default(id: Option<&str>) -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
+        let device = endpoint(eRender, id)?;
         let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
         let format = client.GetMixFormat()?;
         let fmt: WAVEFORMATEX = std::ptr::read_unaligned(format);
@@ -369,11 +427,10 @@ mod win {
         result
     }
 
-    /// Micro par défaut de Windows, au format de son mélangeur.
-    unsafe fn open_microphone() -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
+    /// Micro (par défaut, ou celui choisi), au format de son mélangeur.
+    unsafe fn open_microphone(id: Option<&str>) -> windows::core::Result<(IAudioClient, WAVEFORMATEX)> {
         use windows::Win32::Media::Audio::eCapture;
-        let devices: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)?;
-        let device = devices.GetDefaultAudioEndpoint(eCapture, eConsole)?;
+        let device = endpoint(eCapture, id)?;
         let client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
         let format = client.GetMixFormat()?;
         let fmt: WAVEFORMATEX = std::ptr::read_unaligned(format);
@@ -386,10 +443,11 @@ mod win {
     /// Son brut 48 kHz stéréo entrelacé (clips) : sortie de Windows (`microphone = false`) ou
     /// micro par défaut. Les silences de WASAPI sont comblés : l'échantillon n° k correspond à
     /// `k / 48 000` s après le début. `on` renvoie `false` pour arrêter.
-    pub fn pcm(stop: &AtomicBool, microphone: bool, on: &mut dyn FnMut(&[f32]) -> bool) -> Result<(), String> {
+    /// Son en continu (micro ou sortie écoutée) ; `device` : appareil choisi, sinon celui par défaut.
+    pub fn pcm(stop: &AtomicBool, microphone: bool, device: Option<&str>, on: &mut dyn FnMut(&[f32]) -> bool) -> Result<(), String> {
         let _com = Com(unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).is_ok() });
         let what = if microphone { "micro" } else { "son de Windows" };
-        let (client, fmt) = unsafe { if microphone { open_microphone() } else { open_default() } }.map_err(|e| format!("{what} : {e}"))?;
+        let (client, fmt) = unsafe { if microphone { open_microphone(device) } else { open_default(device) } }.map_err(|e| format!("{what} : {e}"))?;
         unsafe { pump(&client, fmt, stop, on) }.map_err(|e| format!("{what} : {e}"))
     }
 

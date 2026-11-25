@@ -4,7 +4,12 @@
 //! le micro en PCM 48 kHz. « Garder le clip » assemble un MP4 (H.264 + AAC) par le Sink Writer
 //! de Media Foundation : aucun codec livré par iBox, rien n'est réencodé côté image.
 //!
-//! Réglages (Paramètres › Captures) : qualité, durée (5 à 30 s), son de Windows, micro.
+//! Réglages (Paramètres › Captures, ou iClips Studio) : qualité, durée (5 s à 2 min), son de
+//! Windows et micro avec leur volume. Pistes séparées (iClips) : le MP4 garde le mélange seul
+//! (lu partout : navigateurs, Discord) ; le son de Windows et le micro sont écrits à côté, chacun
+//! dans `<clip>.game.m4a` et `<clip>.mic.m4a`, pour régler leur volume au montage (`clip_edit`,
+//! rendu `mix`). Un MP4 à plusieurs pistes de son n'est pas relu dans l'ordre écrit par Media
+//! Foundation : un lecteur pourrait jouer la mauvaise.
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -13,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const MIN_SECONDS: u32 = 5;
-pub const MAX_SECONDS: u32 = 30;
+pub const MAX_SECONDS: u32 = 120;
 const RATE: u64 = 48_000;
 /// Marge gardée en plus de la durée demandée (une image clé par seconde).
 const SLACK: Duration = Duration::from_secs(3);
@@ -24,6 +29,8 @@ pub enum Quality {
     Low,
     Medium,
     High,
+    /// 1440p, 60 i/s (iClips).
+    Max,
 }
 
 impl Quality {
@@ -33,28 +40,43 @@ impl Quality {
             Quality::Low => (480, 30, 2_500),
             Quality::Medium => (720, 30, 6_000),
             Quality::High => (1080, 60, 12_000),
+            Quality::Max => (1440, 60, 20_000),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+fn full() -> f32 {
+    1.0
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClipSettings {
     pub quality: Quality,
     pub seconds: u32,
     pub system_audio: bool,
     pub microphone: bool,
+    /// Volumes dans le mélange (0 à 2 ; 1 : tel quel).
+    #[serde(default = "full")]
+    pub system_volume: f32,
+    #[serde(default = "full")]
+    pub mic_volume: f32,
+    /// Pistes séparées en plus du mélange.
+    #[serde(default)]
+    pub tracks: bool,
+    /// Mémoire tenue aussi hors des parties (bureau, vidéo, appel…), pas seulement en jeu.
+    #[serde(default)]
+    pub everywhere: bool,
 }
-
 impl Default for ClipSettings {
     fn default() -> Self {
-        ClipSettings { quality: Quality::Medium, seconds: 15, system_audio: true, microphone: false }
+        ClipSettings { quality: Quality::Medium, seconds: 15, system_audio: true, microphone: false, system_volume: 1.0, mic_volume: 1.0, tracks: false, everywhere: false }
     }
 }
-
 impl ClipSettings {
     pub fn sanitized(self) -> Self {
-        ClipSettings { seconds: self.seconds.clamp(MIN_SECONDS, MAX_SECONDS), ..self }
+        let vol = |v: f32| if v.is_finite() { v.clamp(0.0, 2.0) } else { 1.0 };
+        ClipSettings { seconds: self.seconds.clamp(MIN_SECONDS, MAX_SECONDS), system_volume: vol(self.system_volume), mic_volume: vol(self.mic_volume), ..self }
     }
     fn keep(&self) -> Duration {
         Duration::from_secs(self.seconds as u64) + SLACK
@@ -138,17 +160,38 @@ fn select(packets: &VecDeque<VideoPacket>, end: Instant, seconds: u32) -> Vec<Vi
     }
 }
 
-/// Mélange son de Windows et micro en PCM 16 bits.
-fn mix(sources: &[Vec<f32>], len: usize) -> Vec<i16> {
+/// Mélange son de Windows et micro en PCM 16 bits, chacun à son volume.
+fn mix(sources: &[(Vec<f32>, f32)], len: usize) -> Vec<i16> {
     (0..len)
         .map(|i| {
-            let s: f32 = sources.iter().map(|v| v.get(i).copied().unwrap_or(0.0)).sum();
+            let s: f32 = sources.iter().map(|(v, g)| v.get(i).copied().unwrap_or(0.0) * g).sum();
             (s.clamp(-1.0, 1.0) * 32767.0) as i16
         })
         .collect()
 }
 
 static SETTINGS: Mutex<Option<ClipSettings>> = Mutex::new(None);
+/// Appareils de son choisis (sortie écoutée, micro) ; `None` : ceux par défaut de Windows.
+static DEVICES: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
+/// Change à chaque choix d'appareil : l'enregistrement repart sur le nouveau.
+static DEVICES_GEN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Appareils choisis (sortie, micro).
+pub fn devices() -> (Option<String>, Option<String>) {
+    DEVICES.lock().map(|d| d.clone()).unwrap_or_default()
+}
+
+/// Choix des appareils de son (iClips) ; vide : celui par défaut.
+pub fn set_devices(output: Option<String>, mic: Option<String>) {
+    let clean = |d: Option<String>| d.filter(|s| !s.is_empty() && s.len() < 300);
+    let next = (clean(output), clean(mic));
+    if let Ok(mut d) = DEVICES.lock() {
+        if *d != next {
+            *d = next;
+            DEVICES_GEN.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static VIDEO: Mutex<Option<Video>> = Mutex::new(None);
 static SYSTEM: Mutex<Option<Audio>> = Mutex::new(None);
@@ -189,10 +232,13 @@ fn clear() {
 pub fn start() {
     std::thread::spawn(|| {
         let mut running: Option<(ClipSettings, Arc<AtomicBool>, Vec<std::thread::JoinHandle<()>>)> = None;
+        let mut generation = DEVICES_GEN.load(Ordering::Relaxed);
         loop {
             let want = ACTIVE.load(Ordering::Relaxed);
             let current = settings();
-            let stale = running.as_ref().is_some_and(|(s, _, _)| !want || *s != current);
+            let changed = DEVICES_GEN.load(Ordering::Relaxed) != generation;
+            generation = DEVICES_GEN.load(Ordering::Relaxed);
+            let stale = running.as_ref().is_some_and(|(s, _, _)| !want || *s != current || changed);
             if stale {
                 if let Some((_, stop, threads)) = running.take() {
                     stop.store(true, Ordering::Relaxed);
@@ -288,7 +334,9 @@ fn audio_loop(s: ClipSettings, mic: bool, stop: &AtomicBool) {
     let mut warned = false;
     while !stop.load(Ordering::Relaxed) {
         if let Ok(mut a) = ring.lock() { *a = Some(Audio::default()); }
-        let r = crate::remote_play::audio::pcm(stop, mic, &mut |pcm| {
+        let (output, microphone) = devices();
+        let device = if mic { microphone } else { output };
+        let r = crate::remote_play::audio::pcm(stop, mic, device.as_deref(), &mut |pcm| {
             if let Ok(mut a) = ring.lock() {
                 if let Some(a) = a.as_mut() { a.push(pcm, keep); }
             }
@@ -301,8 +349,9 @@ fn audio_loop(s: ClipSettings, mic: bool, stop: &AtomicBool) {
     }
 }
 
-/// Écrit le clip des dernières secondes dans `path` (MP4).
-pub fn save(path: &std::path::Path) -> Result<(), String> {
+/// Écrit le clip des dernières secondes dans `path` (MP4). Rend le nom des pistes de son :
+/// `mix` d'abord, puis `game` (son de Windows) et `mic` si les pistes séparées sont demandées.
+pub fn save(path: &std::path::Path) -> Result<Vec<&'static str>, String> {
     let s = settings();
     let end = Instant::now();
     let (packets, size, fps, kbps) = {
@@ -319,23 +368,59 @@ pub fn save(path: &std::path::Path) -> Result<(), String> {
     }
     let frames = (span.as_secs_f64() * RATE as f64) as usize;
     let mut sources = Vec::new();
-    for (on, ring) in [(s.system_audio, &SYSTEM), (s.microphone, &MIC)] {
+    for (on, ring, gain, name) in [(s.system_audio, &SYSTEM, s.system_volume, "game"), (s.microphone, &MIC, s.mic_volume, "mic")] {
         if !on { continue; }
         if let Some(a) = ring.lock().ok().as_ref().and_then(|a| a.as_ref()) {
-            sources.push(a.slice(first.at, frames));
+            sources.push((a.slice(first.at, frames), gain, name));
         }
     }
-    let audio = if sources.is_empty() { None } else { Some(mix(&sources, frames * 2)) };
-    write_mp4(path, &packets, size, fps, kbps, audio.as_deref())
+    let (tracks, names) = audio_tracks(&sources, frames * 2, s.tracks);
+    write_mp4(path, &packets, size, fps, kbps, &tracks[..tracks.len().min(1)])?;
+    for (pcm, name) in tracks.iter().zip(&names).skip(1) {
+        write_m4a(&track_file(path, name), pcm)?;
+    }
+    Ok(names)
+}
+
+/// Fichier d'une piste séparée d'un clip (`game`, `mic`) : invisible des listes de captures.
+pub fn track_file(clip: &std::path::Path, name: &str) -> std::path::PathBuf {
+    clip.with_extension(format!("{name}.m4a"))
 }
 
 #[cfg(windows)]
-fn write_mp4(path: &std::path::Path, packets: &[VideoPacket], size: (u32, u32), fps: u32, kbps: u32, audio: Option<&[i16]>) -> Result<(), String> {
+pub fn write_m4a(path: &std::path::Path, pcm: &[i16]) -> Result<(), String> {
+    unsafe { mux::write_audio(path, pcm) }.map_err(|e| format!("Piste de son impossible à écrire : {e}"))
+}
+
+#[cfg(not(windows))]
+pub fn write_m4a(_: &std::path::Path, _: &[i16]) -> Result<(), String> {
+    Err("Clips disponibles sur Windows seulement.".into())
+}
+
+/// Pistes à écrire : le mélange, puis chaque source à part (son brut, volume 1) si demandé.
+fn audio_tracks(sources: &[(Vec<f32>, f32, &'static str)], len: usize, separate: bool) -> (Vec<Vec<i16>>, Vec<&'static str>) {
+    if sources.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+    let weighted: Vec<(Vec<f32>, f32)> = sources.iter().map(|(v, g, _)| (v.clone(), *g)).collect();
+    let mut tracks = vec![mix(&weighted, len)];
+    let mut names = vec!["mix"];
+    if separate {
+        for (v, _, name) in sources {
+            tracks.push(mix(&[(v.clone(), 1.0)], len));
+            names.push(name);
+        }
+    }
+    (tracks, names)
+}
+
+#[cfg(windows)]
+fn write_mp4(path: &std::path::Path, packets: &[VideoPacket], size: (u32, u32), fps: u32, kbps: u32, audio: &[Vec<i16>]) -> Result<(), String> {
     unsafe { mux::write(path, packets, size, fps, kbps, audio) }.map_err(|e| format!("Clip impossible à écrire : {e}"))
 }
 
 #[cfg(not(windows))]
-fn write_mp4(_: &std::path::Path, _: &[VideoPacket], _: (u32, u32), _: u32, _: u32, _: Option<&[i16]>) -> Result<(), String> {
+fn write_mp4(_: &std::path::Path, _: &[VideoPacket], _: (u32, u32), _: u32, _: u32, _: &[Vec<i16>]) -> Result<(), String> {
     Err("Clips disponibles sur Windows seulement.".into())
 }
 
@@ -385,7 +470,7 @@ mod mux {
         Ok(t)
     }
 
-    pub unsafe fn write(path: &std::path::Path, packets: &[VideoPacket], size: (u32, u32), fps: u32, kbps: u32, audio: Option<&[i16]>) -> Result<()> {
+    pub unsafe fn write(path: &std::path::Path, packets: &[VideoPacket], size: (u32, u32), fps: u32, kbps: u32, audio: &[Vec<i16>]) -> Result<()> {
         let _com = Com(CoInitializeEx(None, COINIT_MULTITHREADED).is_ok());
         let _mf = MfRuntime::start()?;
         let mut attrs: Option<IMFAttributes> = None;
@@ -410,14 +495,13 @@ mod mux {
         let vs = writer.AddStream(&video)?;
         writer.SetInputMediaType(vs, &video, None)?;
 
-        let stream_audio = match audio {
-            Some(_) => {
-                let s = writer.AddStream(&audio_type(&MFAudioFormat_AAC, true)?)?;
-                writer.SetInputMediaType(s, &audio_type(&MFAudioFormat_PCM, false)?, None)?;
-                Some(s)
-            }
-            None => None,
-        };
+        // une piste AAC par entrée (mélange, puis pistes séparées)
+        let mut audio_streams = Vec::new();
+        for _ in audio {
+            let s = writer.AddStream(&audio_type(&MFAudioFormat_AAC, true)?)?;
+            writer.SetInputMediaType(s, &audio_type(&MFAudioFormat_PCM, false)?, None)?;
+            audio_streams.push(s);
+        }
         writer.BeginWriting()?;
 
         let t0 = packets[0].at;
@@ -431,7 +515,7 @@ mod mux {
             }
             writer.WriteSample(vs, &s)?;
         }
-        if let (Some(stream), Some(pcm)) = (stream_audio, audio) {
+        for (&stream, pcm) in audio_streams.iter().zip(audio) {
             const CHUNK: usize = 1024; // échantillons stéréo par paquet
             for (k, chunk) in pcm.chunks(CHUNK * 2).enumerate() {
                 let bytes: Vec<u8> = chunk.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -439,6 +523,29 @@ mod mux {
                 let duration = (chunk.len() / 2) as i64 * 10_000_000 / RATE as i64;
                 writer.WriteSample(stream, &sample(&bytes, time, duration)?)?;
             }
+        }
+        writer.Finalize()
+    }
+
+    /// Son seul (piste séparée d'un clip) : AAC stéréo 48 kHz dans un conteneur MP4 (.m4a).
+    pub unsafe fn write_audio(path: &std::path::Path, pcm: &[i16]) -> Result<()> {
+        let _com = Com(CoInitializeEx(None, COINIT_MULTITHREADED).is_ok());
+        let _mf = MfRuntime::start()?;
+        let mut attrs: Option<IMFAttributes> = None;
+        MFCreateAttributes(&mut attrs, 2)?;
+        let attrs = attrs.ok_or_else(|| windows::core::Error::from(windows::Win32::Foundation::E_FAIL))?;
+        attrs.SetGUID(&MF_TRANSCODE_CONTAINERTYPE, &MFTranscodeContainerType_MPEG4)?;
+        attrs.SetUINT32(&MF_SINK_WRITER_DISABLE_THROTTLING, 1)?;
+        let writer = MFCreateSinkWriterFromURL(&HSTRING::from(path.as_os_str()), None, &attrs)?;
+        let s = writer.AddStream(&audio_type(&MFAudioFormat_AAC, true)?)?;
+        writer.SetInputMediaType(s, &audio_type(&MFAudioFormat_PCM, false)?, None)?;
+        writer.BeginWriting()?;
+        const CHUNK: usize = 1024;
+        for (k, chunk) in pcm.chunks(CHUNK * 2).enumerate() {
+            let bytes: Vec<u8> = chunk.iter().flat_map(|v| v.to_le_bytes()).collect();
+            let time = (k * CHUNK) as i64 * 10_000_000 / RATE as i64;
+            let duration = (chunk.len() / 2) as i64 * 10_000_000 / RATE as i64;
+            writer.WriteSample(s, &sample(&bytes, time, duration)?)?;
         }
         writer.Finalize()
     }
@@ -482,10 +589,40 @@ mod tests {
         VideoPacket { at, data: vec![key as u8], key }
     }
 
+    /// Appareils de son de ce PC (choix dans iClips). `cargo test --lib appareils_reels -- --ignored --nocapture`
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn appareils_reels() {
+        let outputs = crate::remote_play::audio::endpoints(false);
+        let inputs = crate::remote_play::audio::endpoints(true);
+        for e in outputs.iter().chain(&inputs) {
+            println!("{} {}", if e.default { "*" } else { " " }, e.name);
+        }
+        assert!(!outputs.is_empty(), "aucune sortie de son");
+        assert!(outputs.iter().filter(|e| e.default).count() <= 1);
+    }
+
+    #[test]
+    fn appareils_choisis() {
+        set_devices(Some("{0.0.0.00000000}.{abc}".into()), Some(String::new()));
+        assert_eq!(devices(), (Some("{0.0.0.00000000}.{abc}".into()), None));
+        let gen = DEVICES_GEN.load(Ordering::Relaxed);
+        set_devices(Some("{0.0.0.00000000}.{abc}".into()), None);
+        assert_eq!(DEVICES_GEN.load(Ordering::Relaxed), gen, "même choix : pas de redémarrage");
+        set_devices(None, None);
+        assert_eq!(devices(), (None, None));
+    }
+
     #[test]
     fn reglages_bornes() {
-        let s = ClipSettings { seconds: 90, ..Default::default() }.sanitized();
-        assert_eq!(s.seconds, 30);
+        let s = ClipSettings { seconds: 400, system_volume: 9.0, mic_volume: f32::NAN, ..Default::default() }.sanitized();
+        assert_eq!(s.seconds, 120);
+        assert_eq!((s.system_volume, s.mic_volume), (2.0, 1.0));
+        // anciens réglages (sans volumes ni pistes) : valeurs par défaut
+        let old: ClipSettings = serde_json::from_str(r#"{"quality":"high","seconds":30,"systemAudio":true,"microphone":false}"#).unwrap();
+        assert_eq!((old.system_volume, old.mic_volume, old.tracks), (1.0, 1.0, false));
+        assert_eq!(Quality::Max.params(), (1440, 60, 20_000));
         assert_eq!(ClipSettings { seconds: 1, ..Default::default() }.sanitized().seconds, 5);
         let json = serde_json::to_string(&ClipSettings::default()).unwrap();
         assert!(json.contains("\"quality\":\"medium\"") && json.contains("\"systemAudio\":true"), "{json}");
@@ -516,8 +653,64 @@ mod tests {
         assert!(s.iter().all(|v| (*v - 0.25).abs() < 1e-6));
         let before = a.slice(origin, 4);
         assert!(before.iter().all(|v| *v == 0.0), "seconde déjà sortie : silence");
-        let m = mix(&[vec![0.8, 0.8], vec![0.8, -0.1]], 2);
+        let m = mix(&[(vec![0.8, 0.8], 1.0), (vec![0.8, -0.1], 1.0)], 2);
         assert_eq!(m, vec![32767, 22936]);
+        // volumes : le micro à moitié, le jeu coupé
+        assert_eq!(mix(&[(vec![0.5], 0.0), (vec![0.5], 0.5)], 1), vec![8191]);
+        // pistes : le mélange, puis chaque source à part, telle quelle
+        let sources = vec![(vec![0.5f32, 0.5], 0.5, "game"), (vec![0.25f32, 0.25], 2.0, "mic")];
+        let (tracks, names) = audio_tracks(&sources, 2, true);
+        assert_eq!(names, vec!["mix", "game", "mic"]);
+        assert_eq!(tracks[0][0], 24575);
+        assert_eq!(tracks[1][0], 16383);
+        assert_eq!(audio_tracks(&sources, 2, false).1, vec!["mix"]);
+        assert!(audio_tracks(&[], 2, true).0.is_empty());
+    }
+
+    /// Clip synthétique comme ceux d'iBox (encodeur matériel, une image clé par seconde, son
+    /// sinusoïdal en AAC), sans filmer l'écran : 10 s en 1280 × 720 à 30 i/s, pour les essais
+    /// de montage (`clip_edit`). `IBOX_SYNTH_OUT=<fichier.mp4> cargo test --lib clips::tests::clip_synthetique -- --ignored`
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn clip_synthetique() {
+        use crate::remote_play::encode::{mf::Encoder, EncoderConfig, Preference};
+        use windows::Win32::Graphics::Direct3D11::D3D11_BIND_RENDER_TARGET;
+        use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_NV12;
+        let out = std::env::var("IBOX_SYNTH_OUT").expect("IBOX_SYNTH_OUT");
+        let _ = unsafe { windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_MULTITHREADED) };
+        let device = crate::remote_play::capture::d3d::Device::create().unwrap();
+        let cfg = EncoderConfig { width: 1280, height: 720, fps: 30, gop: 0, ..Default::default() };
+        let mut enc = Encoder::new(&device, cfg, Preference::Auto).unwrap();
+        let texture = crate::remote_play::encode::convert::texture(&device.device, (1280, 720), DXGI_FORMAT_NV12, D3D11_BIND_RENDER_TARGET).unwrap();
+        let t0 = Instant::now();
+        let mut packets = Vec::new();
+        for i in 0..300u32 {
+            enc.submit(&texture, i as i64 * cfg.frame_duration_100ns(), i % 30 == 0).unwrap();
+            while let Some(p) = enc.receive(Duration::from_millis(50)).unwrap() {
+                packets.push(VideoPacket { at: t0 + Duration::from_nanos(p.pts as u64 * 100), data: p.data, key: p.keyframe });
+            }
+        }
+        for p in enc.finish().unwrap() {
+            packets.push(VideoPacket { at: t0 + Duration::from_nanos(p.pts as u64 * 100), data: p.data, key: p.keyframe });
+        }
+        // son : 440 Hz (« jeu ») ; avec IBOX_SYNTH_TRACKS, aussi 880 Hz (« micro ») et trois pistes
+        let tone = |f: f64| -> Vec<i16> { (0..RATE as usize * 10).flat_map(|n| {
+            let v = ((n as f64 * f * std::f64::consts::TAU / RATE as f64).sin() * 6000.0) as i16;
+            [v, v]
+        }).collect() };
+        let game = tone(440.0);
+        let separate = std::env::var("IBOX_SYNTH_TRACKS").is_ok();
+        let mic = tone(880.0);
+        let main = if separate { game.iter().zip(&mic).map(|(a, b)| a.saturating_add(*b)).collect() } else { game.clone() };
+        unsafe { mux::write(std::path::Path::new(&out), &packets, (1280, 720), 30, 4000, &[main]) }.unwrap();
+        if separate {
+            write_m4a(&track_file(std::path::Path::new(&out), "game"), &game).unwrap();
+            write_m4a(&track_file(std::path::Path::new(&out), "mic"), &mic).unwrap();
+        }
+        let (video, audio) = unsafe { mux::read_back(std::path::Path::new(&out)) }.unwrap();
+        println!("{} paquets, {} images clés ; relu : {video} images, {audio} paquets audio", packets.len(), packets.iter().filter(|p| p.key).count());
+        assert_eq!(video, 300);
     }
 
     /// Enregistrement réel (écran principal, son de Windows) puis relecture du MP4 :
@@ -526,7 +719,7 @@ mod tests {
     #[test]
     #[ignore]
     fn clip_reel() {
-        configure(ClipSettings { quality: Quality::Medium, seconds: 5, system_audio: true, microphone: std::env::var("IBOX_MICRO").is_ok() });
+        configure(ClipSettings { seconds: 5, microphone: std::env::var("IBOX_MICRO").is_ok(), ..ClipSettings::default() });
         let stop = Arc::new(AtomicBool::new(false));
         let threads = session(settings(), stop.clone());
         std::thread::sleep(Duration::from_secs(7));
