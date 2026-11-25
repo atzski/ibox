@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.11",
+    date: "2026-11-25",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » n’entend plus que vous", text: "La musique, une sonnerie ou les dialogues d’un jeu pouvaient passer pour « Clip ça ! » et garder des clips sans fin. La voix n’accepte plus que la phrase dite clairement, et trois clips à la voix en moins de 90 s la mettent en pause, avec une notification." },
+    ],
+  },
+  {
     version: "1.0.10",
     date: "2026-11-25",
     highlights: [

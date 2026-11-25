@@ -1789,6 +1789,9 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » n’entend plus que vous": "“Clip that!” only hears you now",
+  "La musique, une sonnerie ou les dialogues d’un jeu pouvaient passer pour « Clip ça ! » et garder des clips sans fin. La voix n’accepte plus que la phrase dite clairement, et trois clips à la voix en moins de 90 s la mettent en pause, avec une notification.":
+    "Music, a ringtone or game dialogue could pass for “Clip that!” and keep clips endlessly. Voice now only accepts the phrase said clearly, and three voice clips in under 90 s pause it, with a notification.",
   "« Clip ça ! » ne s’emballe plus": "“Clip that!” no longer runs away",
   "Le son de la notification d’un clip gardé pouvait être pris pour « Clip ça ! » et relancer des clips en boucle. La voix fait maintenant une courte pause après chaque clip.":
     "The notification sound of a saved clip could be taken for “Clip that!” and set off clips in a loop. Voice now takes a short pause after each clip.",
@@ -3687,6 +3690,8 @@ export const EN: Record<string, string> = {
   "Fin de partie : les dernières secondes sont dans iClips.": "Game over: the last seconds are in iClips.",
   "« Clip ça ! » vous écoute": "“Clip that!” is listening",
   "Le micro écoute pour « Clip ça ! », sur ce PC seulement.": "The microphone listens for “Clip that!”, on this PC only.",
+  "« Clip ça ! » en pause": "“Clip that!” paused",
+  "Trois clips à la voix en moins de 90 s : un son du PC ressemble peut-être à la phrase. Désactivez puis réactivez « Clip ça ! » dans iClips.": "Three voice clips in under 90 s: a sound on the PC may sound like the phrase. Turn “Clip that!” off and on again in iClips.",
   "Ce plugin n'a pas d'écran.": "This plugin has no screen.",
   "Plugin absent ou désactivé.": "Plugin missing or disabled.",
   "Ouvrir {0} dans une fenêtre isolée": "Open {0} in an isolated window",
