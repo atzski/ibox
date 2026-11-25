@@ -66,6 +66,8 @@ async function ytm(cmd: string, arg: Record<string, unknown> | null): Promise<un
       return (new Function(`${parse}; return ytmParse;`)() as { artistPage: (j: unknown) => unknown }).artistPage(json);
     }
     case "lyrics": return null;
+    // ajout à la file : accepté sans rien changer (la file d'essai est fixe), pour voir le bouton
+    case "enqueue": return true;
   }
   throw "commande-inconnue";
 }

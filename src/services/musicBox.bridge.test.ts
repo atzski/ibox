@@ -43,7 +43,7 @@ interface EchoOpts { load?: number; ad?: boolean; exclusive?: boolean; never?: b
  * `next` : ce que YouTube Music répond à la demande de file (`next`) pour un corps donné ; absent,
  * la demande échoue (comme sur une page pas prête) et le pont s'en passe.
  */
-function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, string>; stale?: boolean; echo?: EchoOpts; next?: (body: { videoId: string; playlistId?: string }) => object } = {}) {
+function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, string>; stale?: boolean; echo?: EchoOpts; next?: (body: { videoId: string; playlistId?: string }) => object; queue?: boolean } = {}) {
   const store = opts.store ?? new Map<string, string>();
   const sim = {
     songs: opts.songs ?? [{ id: "a", dur: 200 }, { id: "b", dur: 180 }, { id: "c", dur: 200 }],
@@ -211,10 +211,37 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
   };
   // balise du lecteur principal : elle joue pendant la lecture et pendant une publicité
   const mainVideo = { get volume() { return sim.volume / 100; }, get paused() { return !(sim.state === 1 || sim.ad); } };
+  // file du lecteur de la page (`ytmusic-player-queue`) : les titres du faux lecteur, dans l'ordre ;
+  // l'entrée de menu de YouTube Music y ajoute un titre (à la fin, ou après celui en cours)
+  const rendered = new WeakMap<Song, object>();
+  const itemOf = (s: Song) => {
+    if (!rendered.has(s)) rendered.set(s, { playlistPanelVideoRenderer: { videoId: s.id, title: { runs: [{ text: `Titre ${s.id}` }] } } });
+    return rendered.get(s)!;
+  };
+  const queueEl = {
+    queue: {
+      getItems: () => sim.songs.map(itemOf),
+      getCurrentItemIndex: () => sim.index,
+      selectQueueItem: (item: object) => {
+        const i = sim.songs.findIndex((s) => itemOf(s) === item);
+        if (i < 0) throw new Error("gj");
+        go(i);
+      },
+    },
+  };
+  const menuItem = {
+    handleCommand: (ep: { queueAddEndpoint: { queueTarget: { videoId: string }; queueInsertPosition: string } }) => {
+      const q = ep.queueAddEndpoint, song = { id: q.queueTarget.videoId, dur: 120 };
+      if (q.queueInsertPosition === "INSERT_AFTER_CURRENT_VIDEO") sim.songs.splice(sim.index + 1, 0, song);
+      else sim.songs.push(song);
+      return Promise.resolve();
+    },
+  };
   const document = {
     ...(opts.echo
       ? {
-          createElement: () => {
+          createElement: (tag?: string) => {
+            if (tag === "ytmusic-menu-service-item-renderer") return opts.queue ? menuItem : {};
             const f = {
               style: {}, src: "", gone: false,
               setAttribute: () => undefined,
@@ -225,9 +252,15 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
             return f;
           },
         }
-      : {}),
+      : {
+          // sans écho : pas de cadre possible (comme avant), seulement l'entrée de menu
+          createElement: (tag?: string) => {
+            if (tag === "ytmusic-menu-service-item-renderer") return opts.queue ? menuItem : {};
+            throw new Error("pas de cadre");
+          },
+        }),
     getElementById: (id: string) => (id === "movie_player" ? player : null),
-    querySelector: (sel: string) => (sel.includes("ytmusic-player-bar") ? bar : sel === "video" ? mainVideo : sel === "ytmusic-app" ? app : null),
+    querySelector: (sel: string) => (sel.includes("ytmusic-player-bar") ? bar : sel === "video" ? mainVideo : sel === "ytmusic-app" ? app : sel === "ytmusic-player-queue" && opts.queue ? queueEl : null),
     querySelectorAll: () => [],
     body: { dispatchEvent: () => true, appendChild: () => { e.frames++; e.loadLeft = opts.echo?.never ? -1 : (opts.echo?.load ?? 400); } },
     cookie: "",
@@ -1382,5 +1415,71 @@ describe("Music in the Box : le titre suivant ne reste pas en pause", () => {
     }
     expect(resumed).toBe(2);
     expect(p.sim.state).toBe(2);
+  });
+});
+
+describe("Music in the Box : ajout à la file d'attente", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+  const settle = async () => {
+    for (let i = 0; i < 40; i++) await Promise.resolve();
+  };
+  type Item = { videoId: string; selected: boolean; queueIndex?: number | null; auto?: boolean };
+
+  it("ajoute à la fin de la file, ou juste après le titre en cours ; « À suivre » montre la file du lecteur", async () => {
+    const p = page({ queue: true, songs: [{ id: "a", dur: 200 }, { id: "b", dur: 200 }], next: () => nextJson(["a", "b"], "a") });
+    expect((await p.later("enqueue", { videoId: "ajoutFin01" })).ok).toBe(true);
+    expect((await p.later("enqueue", { videoId: "ajoutApres1", next: true })).ok).toBe(true);
+    expect(p.sim.songs.map((s) => s.id)).toEqual(["a", "ajoutApres1", "b", "ajoutFin01"]);
+    const q = (await p.later("queue")).ok as Item[];
+    expect(q.map((x) => [x.videoId, x.selected, x.queueIndex])).toEqual([["a", true, 0], ["ajoutApres1", false, 1], ["b", false, 2], ["ajoutFin01", false, 3]]);
+  });
+
+  it("un titre ajouté passe avant la suite automatique, à la fin du titre comme avec « suivant »", async () => {
+    const solo = () =>
+      page({
+        queue: true,
+        songs: [{ id: "a", dur: 60 }],
+        next: (b) => (b.playlistId === "RDAMVMa" ? nextJson(["a", "r1", "r2"], "a", { infinite: true }) : nextJson(["a"], "a", { automix: "RDAMVMa" })),
+      });
+    const p = solo();
+    p.sim.pos = 50;
+    p.run(1500);
+    await settle();
+    await p.later("enqueue", { videoId: "ajoute0001" });
+    const q = (await p.later("queue")).ok as Item[];
+    expect(q.map((x) => [x.videoId, !!x.auto])).toEqual([["a", false], ["ajoute0001", false]]);
+    p.until(0);
+    p.run(3000);
+    expect([p.current(), p.navs]).toEqual(["ajoute0001", []]);
+
+    const s = solo();
+    s.sim.pos = 30;
+    s.run(1500);
+    await settle();
+    await s.later("enqueue", { videoId: "ajoute0001" });
+    s.call("next");
+    s.run(500);
+    expect([s.current(), s.navs]).toEqual(["ajoute0001", []]);
+  });
+
+  it("un titre choisi dans la file y est rejoint sans refaire la file", async () => {
+    const p = page({ queue: true, songs: [{ id: "a", dur: 200 }, { id: "b", dur: 200 }] });
+    await p.later("enqueue", { videoId: "ajoute0001" });
+    expect(p.call("queuePlay", { index: 2, videoId: "ajoute0001" }).ok).toBe(true);
+    p.run(500);
+    expect([p.current(), p.navs, p.sim.songs.length]).toEqual(["ajoute0001", [], 3]);
+    // la file a changé entre-temps : le titre est lancé seul
+    p.call("queuePlay", { index: 0, videoId: "autre00001" });
+    p.run(500);
+    expect(p.navs.map((n) => n.videoId)).toEqual(["autre00001"]);
+  });
+
+  it("sans file du lecteur dans la page : l'ajout est refusé, « À suivre » garde la file du serveur", async () => {
+    const p = page({ songs: [{ id: "a", dur: 200 }, { id: "b", dur: 200 }], next: () => nextJson(["a", "b"], "a") });
+    expect((await p.later("enqueue", { videoId: "ajoute0001" })).error).toBe("file-indisponible");
+    const q = (await p.later("queue")).ok as Item[];
+    expect(q.map((x) => [x.videoId, x.queueIndex ?? null])).toEqual([["a", null], ["b", null]]);
+    expect((await p.later("enqueue", { videoId: "x" })).error).toBe("titre-inconnu");
   });
 });

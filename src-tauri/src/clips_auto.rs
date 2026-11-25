@@ -277,22 +277,27 @@ fn set_listening(app: &AppHandle, on: bool) {
 }
 
 fn heard(app: &AppHandle) {
+    let log = voice::journal::write;
     if TEST_UNTIL.swap(0, Ordering::Relaxed) > now() {
+        log("décision : essai de la voix réussi");
         crate::plugins::host::notify(app, "voice://heard", Value::Null);
         return;
     }
     // un clip rejoué dans iClips, ou la notification d'un clip qui vient d'être gardé :
     // la phrase vient des haut-parleurs, pas du joueur
     if QUIET_UNTIL.load(Ordering::Relaxed) > now() {
-        eprintln!("iBox : « Clip ça ! » écarté (clip en lecture ou notification de clip)");
+        log("décision : ignoré (clip en lecture ou notification de clip)");
         return;
     }
     if RUNAWAY.load(Ordering::Relaxed) || !armed(app).voice {
+        log(if RUNAWAY.load(Ordering::Relaxed) { "décision : ignoré (garde-fou : voix en pause)" } else { "décision : ignoré (« Clip ça ! » coupé)" });
         return;
     }
     if !PLAYING.load(Ordering::Relaxed) || !take_turn(&LAST, now()) {
+        log(if PLAYING.load(Ordering::Relaxed) { "décision : ignoré (moins de 5 s après le dernier clip)" } else { "décision : ignoré (mémoire des clips arrêtée)" });
         return;
     }
+    log("décision : clip gardé");
     let stop = VOICE_CLIPS.lock().map(|mut v| runaway(&mut v, now())).unwrap_or(false);
     let app = app.clone();
     std::thread::spawn(move || {
@@ -312,6 +317,9 @@ fn voice_thread(app: &AppHandle) {
         return;
     }
     let app = app.clone();
+    if let Ok(dir) = app.path().app_log_dir() {
+        voice::journal::set_dir(dir);
+    }
     std::thread::spawn(move || {
         let mut listener: Option<(voice::Listener, &'static str, Option<String>)> = None;
         loop {
@@ -320,6 +328,11 @@ fn voice_thread(app: &AppHandle) {
             // micro choisi dans iClips (identifiant de Windows) : l'écoute le suit
             let mic = crate::clips::devices().1;
             if listener.as_ref().is_some_and(|(l, lang, m)| !want || !l.alive() || *lang != ui || *m != mic) {
+                voice::journal::write(if !want {
+                    if PLAYING.load(Ordering::Relaxed) { "écoute arrêtée (« Clip ça ! » coupé ou en pause)" } else { "écoute arrêtée (pas de partie en cours, « Partout » non coché)" }
+                } else {
+                    "écoute relancée (micro, langue ou moteur changé)"
+                });
                 listener = None;
                 set_listening(&app, false);
             }

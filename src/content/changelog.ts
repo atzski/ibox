@@ -10,6 +10,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.14",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "disc", title: "Une file d’attente pour Music in the Box", text: "Un bouton + à côté de chaque titre (recherche, albums, playlists, fiches d’artiste) l’ajoute à la file. À suivre montre la vraie file, avec les titres ajoutés, et un titre ajouté passe avant la lecture automatique. Avec le plugin Music in the Box 1.0.10." },
+    ],
+  },
+  {
+    version: "1.0.13",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » vous entend, même en pleine partie", text: "La phrase dite au milieu du son d’un jeu est mieux reconnue : si elle n’est pas sûre du premier coup, la répéter suffit. Un dialogue de jeu ne garde toujours pas de clip, et un journal de l’écoute (sans rien de ce qui est dit) aide à comprendre un raté." },
+    ],
+  },
+  {
     version: "1.0.12",
     date: "2026-11-25",
     highlights: [
