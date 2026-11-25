@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.12",
+    date: "2026-11-25",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » vous entend de nouveau", text: "La 1.0.11 était devenue trop stricte et ne reconnaissait presque plus la phrase. L’écoute compare maintenant ce qu’elle entend à la parole ordinaire : « Clip ça ! » dit au micro garde le clip, la musique et les dialogues d’un jeu ne déclenchent toujours rien." },
+      { icon: "disc", title: "Des fondus enchaînés sans coupure", text: "Dans Music in the Box, le début du fondu entre deux titres ne fait plus entendre de micro-coupure, le titre suivant ne s’arrête plus tout seul après le fondu, aucun autre titre ne joue plus par-dessus, et la musique des menus d’iBox ne revient plus pendant l’écoute." },
+      { icon: "grid", title: "L’accueil revient en haut", text: "En revenant à l’accueil depuis les succès ou un autre écran, la page repart en haut au lieu de s’arrêter au milieu." },
+    ],
+  },
+  {
     version: "1.0.11",
     date: "2026-11-25",
     highlights: [

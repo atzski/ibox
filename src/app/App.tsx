@@ -104,7 +104,8 @@ function Screen({ route }: { route: Route }) {
 /** Place le focus une fois l'écran réellement affiché (après son chargement éventuel). */
 function FocusOnShow({ route }: { route: Route }) {
   useEffect(() => {
-    const id = requestAnimationFrame(() => input.focusInitial(rememberedFocus(route)));
+    // l'accueil repart toujours en haut (retour depuis Succès, une fiche…)
+    const id = requestAnimationFrame(() => input.focusInitial(rememberedFocus(route), { top: route.name === "home" }));
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

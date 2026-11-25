@@ -54,6 +54,34 @@ export function prepare(i = 0) {
   setTimeout(() => prepare(i + 1), 60);
 }
 
+/**
+ * Paramètre de gain Web Audio tel que le pont s'en sert (valeurs, courbes droites, valeurs
+ * programmées plus tard) ; la valeur se lit à l'instant présent.
+ */
+class Automation {
+  private events: { t: number; v: number; ramp: boolean }[];
+  constructor(initial: number) { this.events = [{ t: 0, v: initial, ramp: false }]; }
+  private now() { return performance.now() / 1000; }
+  private at(time: number) {
+    let v = this.events[0].v, prev = this.events[0];
+    for (const ev of this.events) {
+      if (ev.t > time) {
+        if (ev.ramp) v = prev.v + ((ev.v - prev.v) * (time - prev.t)) / Math.max(1e-9, ev.t - prev.t);
+        return v;
+      }
+      v = ev.v; prev = ev;
+    }
+    return v;
+  }
+  private push(ev: { t: number; v: number; ramp: boolean }) { this.events.push(ev); this.events.sort((a, b) => a.t - b.t); }
+  get value() { return this.at(this.now()); }
+  set value(v: number) { this.events = [{ t: 0, v, ramp: false }]; }
+  setValueAtTime(v: number, time: number) { this.push({ t: time, v, ramp: false }); }
+  setTargetAtTime(v: number, time: number) { this.push({ t: time, v, ramp: false }); }
+  linearRampToValueAtTime(v: number, time: number) { this.push({ t: time, v, ramp: true }); }
+  cancelScheduledValues(time: number) { const keep = this.events.filter((ev) => ev.t < time); this.events = keep.length ? keep : [{ t: 0, v: this.at(time), ramp: false }]; }
+}
+
 class Player {
   songs = SONGS;
   index = 0;
@@ -82,6 +110,8 @@ class Player {
       this.state = -1;
       this.muted = true;
     }
+    // les courbes de gain du pont se déroulent dans le temps : le son les suit
+    setInterval(() => this.route && this.level_(), 10);
     // fin du titre, et « timeupdate » quatre fois par seconde comme une vraie balise vidéo
     setInterval(() => this.state === 1 && this.position() >= this.song.dur && this.ended(), 20);
     setInterval(() => this.state === 1 && this.listeners.forEach((f) => f()), 250);
@@ -93,18 +123,15 @@ class Player {
   position(): number {
     return this.state === 1 ? Math.min(this.song.dur, this.base + ((performance.now() - this.anchor) / 1000) * this.rate) : this.base;
   }
-  /** Branchement Web Audio du pont (pont 8) : la balise passe par ce gain. null : non branchée. */
-  routeGain: number | null = null;
+  /**
+   * Branchement Web Audio du pont : la balise passe par ce gain (l'écho dès le pont 8, le lecteur
+   * principal dès le pont 11). null : non branchée.
+   */
+  route: Automation | null = null;
   /** Gain réellement appliqué au son de ce lecteur (0 à 1). */
   gain(): number {
-    if (!this.single) return this.volume / 100;
-    const el = this.muted ? 0 : this.elVolume;
-    return this.routeGain === null ? el : el * this.routeGain;
-  }
-  /** Le pont a réglé le gain de son branchement : le son suit. */
-  setRouteGain(v: number) {
-    this.routeGain = v;
-    this.level_();
+    const el = this.single ? (this.muted ? 0 : this.elVolume) : this.volume / 100;
+    return this.route ? el * this.route.value : el;
   }
   private level_() {
     if (ctx && this.level) this.level.gain.setTargetAtTime(this.gain(), ctx.currentTime, 0.008);
@@ -310,30 +337,26 @@ const app = {
     return true;
   },
 };
-// Web Audio du cadre, tel que le pont 8 s'en sert : la balise de l'écho branchée sur un gain qu'il règle
-class FrameAudioContext {
-  state = "running";
-  baseLatency = 0;
-  get currentTime() { return performance.now() / 1000; }
-  destination = {};
-  createGain() {
-    const param = {
-      get value() { return echo.routeGain ?? 0; },
-      set value(v: number) { echo.setRouteGain(v); },
-      setTargetAtTime: (v: number) => echo.setRouteGain(v),
-      setValueAtTime: (v: number) => echo.setRouteGain(v),
-      cancelScheduledValues: () => undefined,
-    };
-    return { gain: param, connect: () => undefined };
-  }
-  createMediaElementSource() {
-    if (echo.routeGain === null) echo.setRouteGain(0);
-    return { connect: () => undefined };
-  }
-  resume() { return Promise.resolve(); }
-  close() { this.state = "closed"; }
+// Web Audio tel que le pont s'en sert : la balise d'un lecteur branchée sur un gain qu'il règle. Même
+// retard pour les deux lecteurs (ici aucun : leur son est déjà calculé dans la page).
+function audioContextFor(target: Player) {
+  return class {
+    state = "running";
+    baseLatency = 0;
+    outputLatency = 0;
+    get currentTime() { return performance.now() / 1000; }
+    destination = {};
+    private param = new Automation(1);
+    createGain() { return { gain: this.param, connect: () => undefined }; }
+    createMediaElementSource() {
+      target.route = this.param;
+      return { connect: () => undefined };
+    }
+    resume() { return Promise.resolve(); }
+    close() { this.state = "closed"; }
+  };
 }
-const frameWindow = { AudioContext: FrameAudioContext };
+const frameWindow = { AudioContext: audioContextFor(echo) };
 // le document du cadre : une page YouTube Music à part, avec son propre lecteur
 const echoDoc = {
   getElementById: (id: string) => (id === "movie_player" ? echo.api : null),
@@ -355,7 +378,7 @@ const page = {
       remove: () => {
         echo.api.stopVideo();
         // un cadre neuf sera branché à neuf
-        echo.routeGain = null;
+        echo.route = null;
         frame.alive = false;
         frame.removed++;
         loaded = false;
@@ -405,7 +428,7 @@ const storage = {
   removeItem: (k: string) => localStorage.removeItem(`ecoute.${k}`),
 };
 interface Bridge { start: (req: { id: number; cmd: string; arg: unknown }) => string; take: (id: number) => string }
-const win: { top?: unknown; ytcfg: { get: () => undefined }; __ibox?: Bridge } = { ytcfg: { get: () => undefined } };
+const win: { top?: unknown; AudioContext?: unknown; ytcfg: { get: () => undefined }; __ibox?: Bridge } = { ytcfg: { get: () => undefined }, AudioContext: audioContextFor(player) };
 win.top = win;
 // un volume laissé bas par un fondu coupé (onglet fermé en plein fondu) serait « rendu » au
 // lecteur tout neuf, et un repli noté par une page précédente empêcherait d'entendre le fondu

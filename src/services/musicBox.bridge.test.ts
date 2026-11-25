@@ -37,7 +37,7 @@ interface Song { id: string; dur: number }
  * (mesuré le 25/11/2026), il remet lui-même sa balise à « muted = false, volume = 1 » au chargement
  * et quand le titre démarre, sans que la page le voie venir.
  */
-interface EchoOpts { load?: number; ad?: boolean; exclusive?: boolean; never?: boolean; noAudio?: boolean }
+interface EchoOpts { load?: number; ad?: boolean; exclusive?: boolean; never?: boolean; noAudio?: boolean; noMainAudio?: boolean }
 
 /**
  * `next` : ce que YouTube Music répond à la demande de file (`next`) pour un corps donné ; absent,
@@ -116,18 +116,62 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     /** Branchement Web Audio : la balise passe par un gain (son réel = balise × gain). */
     routed: false, gain: 0,
   };
+  /** Paramètre de gain Web Audio, avec ses courbes programmées (horloge : Date.now, en secondes). */
+  const automation = (initial: number) => {
+    let events: { t: number; v: number; ramp: boolean }[] = [{ t: 0, v: initial, ramp: false }];
+    const at = (time: number) => {
+      let v = events[0].v, prev = events[0];
+      for (const ev of events) {
+        if (ev.t > time) {
+          if (ev.ramp) v = prev.v + ((ev.v - prev.v) * (time - prev.t)) / Math.max(1e-9, ev.t - prev.t);
+          return v;
+        }
+        v = ev.v; prev = ev;
+      }
+      return v;
+    };
+    const now = () => Date.now() / 1000;
+    const push = (ev: { t: number; v: number; ramp: boolean }) => { events.push(ev); events.sort((a, b) => a.t - b.t); };
+    return {
+      get value() { return at(now()); },
+      set value(v: number) { events = [{ t: 0, v, ramp: false }]; },
+      setValueAtTime: (v: number, time: number) => push({ t: time, v, ramp: false }),
+      setTargetAtTime: (v: number, time: number) => push({ t: time, v, ramp: false }),
+      linearRampToValueAtTime: (v: number, time: number) => push({ t: time, v, ramp: true }),
+      cancelScheduledValues: (time: number) => { const keep = events.filter((ev) => ev.t < time); events = keep.length ? keep : [{ t: 0, v: at(time), ramp: false }]; },
+    };
+  };
+  let echoParam: ReturnType<typeof automation> | null = null;
+  let mainParam: ReturnType<typeof automation> | null = null;
+  let mainRouted = false;
   /** Ce que l'écho fait réellement entendre (hors lecture : rien). */
-  const echoLevel = () => (e.muted ? 0 : e.volume) * (e.routed ? e.gain : 1);
+  const echoLevel = () => (e.muted ? 0 : e.volume) * (e.routed ? (echoParam ? echoParam.value : e.gain) : 1);
+  /** Gain du principal (1 tant qu'il n'est pas branché sur Web Audio). */
+  const mainLevel = () => (mainRouted && mainParam ? mainParam.value : 1);
   // contexte audio du cadre : le gain suit les réglages du pont aussitôt
   class FakeAudioContext {
-    state = "running"; baseLatency = 0; currentTime = 0; destination = {};
+    state = "running"; baseLatency = 0.01; outputLatency = 0.056; destination = {};
+    get currentTime() { return Date.now() / 1000; }
     createGain() {
-      const param = { get value() { return e.gain; }, set value(v: number) { e.gain = v; }, setTargetAtTime: (v: number) => void (e.gain = v), setValueAtTime: (v: number) => void (e.gain = v), cancelScheduledValues: () => undefined };
-      return { gain: param, connect: () => undefined };
+      echoParam = automation(1);
+      return { gain: echoParam, connect: () => undefined };
     }
     createMediaElementSource() {
       if (e.routed) throw new Error("InvalidStateError : balise déjà branchée");
       e.routed = true;
+      return { connect: () => undefined };
+    }
+    resume() { return Promise.resolve(); }
+    close() { this.state = "closed"; }
+  }
+  // contexte audio de la page (lecteur principal)
+  class FakeMainAudioContext {
+    state = "running"; baseLatency = 0.01; outputLatency = 0.056; destination = {};
+    get currentTime() { return Date.now() / 1000; }
+    createGain() { mainParam = automation(1); return { gain: mainParam, connect: () => undefined }; }
+    createMediaElementSource() {
+      if (mainRouted) throw new Error("InvalidStateError : balise déjà branchée");
+      mainRouted = true;
       return { connect: () => undefined };
     }
     resume() { return Promise.resolve(); }
@@ -203,7 +247,8 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     },
   };
   const ctx = opts.next ? { client: { clientName: "WEB_REMIX", clientVersion: "1" } } : undefined;
-  const win: { top?: unknown; ytcfg: { get: (k: string) => unknown }; __ibox?: { start: (req: object) => string; take: (id: number) => string } } = { ytcfg: { get: (k: string) => (k === "INNERTUBE_CONTEXT" ? ctx : undefined) } };
+  const win: { top?: unknown; AudioContext?: unknown; ytcfg: { get: (k: string) => unknown }; __ibox?: { start: (req: object) => string; take: (id: number) => string } } = { ytcfg: { get: (k: string) => (k === "INNERTUBE_CONTEXT" ? ctx : undefined) } };
+  if (opts.echo && !opts.echo.noMainAudio) win.AudioContext = FakeMainAudioContext;
   const fetchNext = async (_url: string, init: { body: string }) => {
     const body = JSON.parse(init.body) as { videoId: string; playlistId?: string };
     return { ok: true, json: async () => opts.next!(body) };
@@ -230,6 +275,9 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
   const call = (cmd: string, arg: unknown = null) => JSON.parse(win.__ibox!.start({ id: ++seq, cmd, arg })) as { ok?: unknown; error?: string };
   /** Gains entendus à chaque instant : lecteur (volume / volume choisi) et écho, s'il a la parole. */
   const heard: { gm: number; ge: number; id: string; eid: string | null }[] = [];
+  const raw: { gm: number; ge: number; id: string; eid: string | null }[] = [];
+  /** Retard du chemin Web Audio, en pas de 10 ms (66 ms). */
+  const WEB_AUDIO_STEPS = 7;
   const user = () => (call("state").ok as { volume: number }).volume || 1;
   /** Fait passer `ms` millisecondes : le titre avance, s'enchaîne à la fin, les minuteurs du pont tournent. */
   const run = (ms: number) => {
@@ -248,7 +296,12 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
           if (e.pos >= durOf(e.id)) { e.pos = durOf(e.id); e.state = 0; }
         }
         const u = user(), audible = e.state === 1 ? echoLevel() : 0;
-        heard.push({ gm: sim.state === 1 ? sim.volume / u : 0, ge: audible / (u / 100), id: sim.songs[sim.index].id, eid: e.id });
+        // ce qu'on entend : un lecteur branché sur Web Audio s'entend avec le retard de ce chemin
+        // (10 + 56 ms, mesurés sur le vrai lecteur), un lecteur joué en direct tout de suite
+        raw.push({ gm: sim.state === 1 ? (sim.volume / u) * mainLevel() : 0, ge: audible / (u / 100), id: sim.songs[sim.index].id, eid: e.id });
+        const late = (k: number) => raw[Math.max(0, raw.length - 1 - k)];
+        const m = late(mainRouted ? WEB_AUDIO_STEPS : 0), ec = late(e.routed ? WEB_AUDIO_STEPS : 0);
+        heard.push({ gm: m.gm, ge: ec.ge, id: m.id, eid: ec.eid });
       }
       if (sim.stale > 0) sim.stale -= 10;
       if (sim.state === 0 && sim.ended > 0 && (sim.ended -= 10) <= 0) go(sim.index + 1);
@@ -290,7 +343,7 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
   const echo = new Proxy(e, {
     get: (o, k) => (k === "muted" ? echoLevel() === 0 : k === "volume" ? echoLevel() : o[k as keyof typeof o]),
   });
-  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo, heard, navs };
+  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo, heard, navs, main: { get routed() { return mainRouted; }, get gain() { return mainLevel(); } } };
 }
 
 /** Fondu général de 6 s : 3 s de sortie, 3 s d'entrée, le suivant lancé 1,5 s avant la fin. */
@@ -653,16 +706,19 @@ function listen(heard: { gm: number; ge: number; id: string; eid: string | null 
   const start = heard.findIndex((h) => h.ge > 0.02);
   const end = heard.findIndex((h, i) => i > start && h.id === to && h.ge === 0 && h.gm >= 0.999);
   const span = heard.slice(start, end);
+  // deux titres différents : leurs puissances s'ajoutent ; le même titre au même instant (passage de
+  // l'un à l'autre lecteur) : leurs amplitudes s'ajoutent
+  const power = (h: { gm: number; ge: number; id: string; eid: string | null }) => (h.id === h.eid ? (h.gm + h.ge) ** 2 : h.gm * h.gm + h.ge * h.ge);
   return {
     start,
     end,
-    /** plus faible somme des puissances (carrés des gains) entre le début du fondu et sa fin */
-    minPower: Math.min(...span.map((h) => h.gm * h.gm + h.ge * h.ge)),
-    maxPower: Math.max(...span.map((h) => h.gm * h.gm + h.ge * h.ge)),
+    /** plus faible puissance entendue entre le début du fondu et sa fin */
+    minPower: Math.min(...span.map(power)),
+    maxPower: Math.max(...span.map(power)),
     /** temps (ms) où les deux titres s'entendent ensemble, chacun au-dessus de 10 % */
     overlap: span.filter((h) => h.id === to && h.eid === from && h.gm > 0.1 && h.ge > 0.1).length * 10,
-    /** l'écho et le lecteur audibles ensemble sur le même titre (doublon) */
-    doubled: heard.filter((h) => h.id === h.eid && h.ge > 0.02 && h.gm > 0.05).length,
+    /** le même titre trop fort (les deux lecteurs à la fois au-delà du passage, doublon) */
+    doubled: heard.filter((h) => h.id === h.eid && h.gm + h.ge > 1.1).length,
   };
 }
 
@@ -817,7 +873,8 @@ describe("Music in the Box : fondu enchaîné (deux lecteurs)", () => {
     const first = p.heard.findIndex((h) => h.ge > 0.02);
     const back = p.heard.findIndex((h, i) => i > first && h.ge === 0);
     expect(p.heard[back].gm).toBeGreaterThan(0.5);
-    expect(Math.min(...p.heard.slice(first, back).map((h) => h.ge))).toBeGreaterThan(0.9);
+    // (après les 60 ms où l'écho monte pendant que le lecteur descend)
+    expect(Math.min(...p.heard.slice(first + 7, back).map((h) => h.ge))).toBeGreaterThan(0.9);
     p.run(10_000);
     expect([p.sim.state, p.sim.volume]).toEqual([0, 60]);
     expect(p.store.has("ibox.fade.user")).toBe(false);
@@ -882,12 +939,18 @@ describe("Music in the Box : fondu enchaîné (deux lecteurs)", () => {
 /** Plus grand écart d'un instant au suivant, pour chaque lecteur, après le début du fondu. Le pont règle
  * les volumes par pas de 40 ms : une rampe de 800 ms change de 0,08 au plus par pas, l'ancien fondu
  * court (250 ms) de 0,16. Au-delà de 0,1, c'est un saut. */
-function steps(heard: { gm: number; ge: number }[]) {
+function steps(heard: { gm: number; ge: number; id?: string; eid?: string | null }[]) {
   const first = heard.findIndex((h) => h.ge > 0.02);
   let main = 0, echo = 0;
   for (let i = Math.max(1, first + 1); i < heard.length; i++) {
-    main = Math.max(main, Math.abs(heard[i].gm - heard[i - 1].gm));
-    echo = Math.max(echo, Math.abs(heard[i].ge - heard[i - 1].ge));
+    const a = heard[i - 1], b = heard[i];
+    // passage d'un lecteur à l'autre sur le même titre : c'est leur somme qui doit rester lisse
+    if (a.id !== undefined && a.id === a.eid && b.id === b.eid) {
+      main = Math.max(main, Math.abs(b.gm + b.ge - (a.gm + a.ge)));
+      continue;
+    }
+    main = Math.max(main, Math.abs(b.gm - a.gm));
+    echo = Math.max(echo, Math.abs(b.ge - a.ge));
   }
   return { main, echo };
 }
@@ -1210,5 +1273,114 @@ describe("Music in the Box : l'écho ne joue jamais un autre titre", () => {
     }
     expect(stopped).toBeGreaterThan(0);
     expect(stopped).toBeLessThan(200);
+  });
+});
+
+describe("Music in the Box : prise de parole de l'écho sans micro-coupure", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+
+  /** Niveau entendu à chaque instant, les deux lecteurs jouant le même titre pendant le passage. */
+  const level = (h: { gm: number; ge: number; id: string; eid: string | null }) => (h.id === h.eid ? h.gm + h.ge : Math.sqrt(h.gm * h.gm + h.ge * h.ge));
+
+  it("passage croisé de 60 ms, les deux lecteurs par Web Audio : le niveau ne creuse jamais", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(6.9);
+    expect(p.main.routed).toBe(true);
+    const from = p.heard.length;
+    p.until(5);
+    // autour de la prise de parole (les 400 ms qui suivent son début) : jamais de trou, jamais de doublon
+    const start = from + p.heard.slice(from).findIndex((h) => h.ge > 0.02);
+    const around = p.heard.slice(start - 5, start + 40);
+    const lv = around.map(level);
+    expect(Math.min(...lv)).toBeGreaterThan(0.95);
+    expect(Math.max(...lv)).toBeLessThan(1.05);
+    // le principal retrouve son gain pour le titre suivant
+    p.to(7);
+    expect([p.main.gain, p.sim.volume, p.current()]).toEqual([1, 60, "b"]);
+  });
+
+  it("sans Web Audio pour le principal : il ne se tait qu'une fois l'écho monté (aucun trou)", () => {
+    const p = page({ echo: { noMainAudio: true } });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(6.9);
+    const from = p.heard.length;
+    p.until(5);
+    const start = from + p.heard.slice(from).findIndex((h) => h.ge > 0.02);
+    const around = p.heard.slice(start - 5, start + 40);
+    expect(Math.min(...around.map(level))).toBeGreaterThan(0.95);
+    p.to(7);
+    expect([p.sim.volume, p.current()]).toEqual([60, "b"]);
+  });
+
+  it("« suivant » pendant le passage : le principal reprend aussitôt, jamais laissé à zéro", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    for (let i = 0; i < 400 && !(p.echo.muted === false && p.current() === "a"); i++) p.run(10);
+    p.call("next");
+    p.run(2000);
+    expect(p.main.gain).toBe(1);
+    p.run(3000);
+    expect([p.main.gain, p.sim.volume]).toEqual([1, 60]);
+  });
+});
+
+describe("Music in the Box : le titre suivant ne reste pas en pause", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+
+  it("pause que personne n'a demandée juste après le fondu : le nouveau titre repart", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(2);
+    expect(p.current()).toBe("b");
+    // YouTube (ou le système) met le nouveau titre en pause
+    p.sim.state = 2;
+    p.run(2000);
+    expect(p.sim.state).toBe(1);
+  });
+
+  it("pause demandée par l'utilisateur après le fondu : respectée", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(2);
+    p.call("pause");
+    p.run(5000);
+    expect(p.sim.state).toBe(2);
+  });
+
+  it("pause bien après le fondu : le pont ne s'en mêle pas", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(30);
+    p.sim.state = 2;
+    p.run(3000);
+    expect(p.sim.state).toBe(2);
+  });
+
+  it("pauses répétées : deux relances au plus, jamais de bataille avec YouTube", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.until(3);
+    p.to(2);
+    let resumed = 0;
+    for (let k = 0; k < 4; k++) {
+      p.sim.state = 2;
+      p.run(1500);
+      if (p.sim.state === 1) resumed++;
+    }
+    expect(resumed).toBe(2);
+    expect(p.sim.state).toBe(2);
   });
 });

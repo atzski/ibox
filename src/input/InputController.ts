@@ -94,16 +94,49 @@ class InputControllerImpl {
     if (opts.sound) sound.play("move");
   }
 
-  /** Focus initial d'un écran : élément mémorisé, sinon `data-autofocus`, sinon le premier. */
-  focusInitial(preferId?: string): void {
+  /**
+   * Focus initial d'un écran : élément mémorisé, sinon `data-autofocus`, sinon le premier.
+   * `top` (accueil) : l'écran repart en haut ; un élément mémorisé ou `data-autofocus` plus bas
+   * que le premier écran est laissé pour le premier élément visible (sinon la page défilait
+   * jusqu'à lui et l'accueil revenait au milieu).
+   */
+  focusInitial(preferId?: string, opts: { top?: boolean } = {}, tries = 30): void {
+    const seq = ++this.initialSeq;
+    // écran dont le contenu arrive juste après (profils de « Qui joue ? », liste chargée) : rien
+    // n'était sélectionné ; on réessaie quelques images tant que rien ne l'est
+    const retry = () => {
+      if (tries <= 0) return;
+      requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (seq === this.initialSeq && (!active || active === document.body)) this.focusInitial(preferId, opts, tries - 1);
+      });
+    };
     const root = this.root();
-    if (!root) return;
-    const remembered = preferId
-      ? root.querySelector<HTMLElement>(`[data-focus-id="${CSS.escape(preferId)}"]`)
-      : null;
-    const el = remembered ?? root.querySelector<HTMLElement>("[data-autofocus]") ?? this.focusables()[0];
+    if (!root) return retry();
+    // seulement des éléments qu'on peut vraiment sélectionner : un bouton désactivé (« Reprendre »
+    // d'un jeu qui ne se lance pas) refuse le focus et laissait l'écran sans rien de sélectionné
+    const usable = this.focusables();
+    const remembered = preferId ? usable.find((e) => e.dataset.focusId === preferId) ?? null : null;
+    const auto = usable.find((e) => e.hasAttribute("data-autofocus")) ?? null;
+    let el = remembered ?? auto ?? usable[0];
+    if (opts.top) {
+      for (const s of root.querySelectorAll<HTMLElement>("*")) {
+        if (s.scrollTop > 0) s.scrollTop = 0;
+      }
+      if (root.scrollTop > 0) root.scrollTop = 0;
+      const firstScreen = (e: HTMLElement | null | undefined): e is HTMLElement => {
+        if (!e || e.offsetParent === null) return false;
+        const r = e.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= window.innerHeight;
+      };
+      el = [remembered, auto, ...usable].find(firstScreen) ?? el;
+    }
     if (el) this.focus(el, { instant: true });
+    if (document.activeElement !== el) retry();
   }
+
+  /** Dernier `focusInitial` demandé : un essai suivant d'un appel plus ancien s'arrête. */
+  private initialSeq = 0;
 
   /** L'écran principal est au premier plan (aucune fenêtre modale par-dessus). */
   isMainRoot(): boolean {

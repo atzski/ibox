@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { input } from "@/input/InputController";
+import { rememberedFocus, useNav } from "@/app/navigation";
 import { Avatar } from "@/components/profile/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -52,6 +53,14 @@ export function ProfileGate() {
     return () => {
       cancelAnimationFrame(id);
       off();
+      // l'écran est retiré (après son fondu) : le focus revient à l'écran en dessous, sinon plus
+      // rien n'est sélectionné et la manette ne fait rien jusqu'à une première direction
+      requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
+        const route = useNav.getState().stack.at(-1);
+        input.focusInitial(route && rememberedFocus(route), { top: route?.name === "home" });
+      });
     };
   }, []);
 

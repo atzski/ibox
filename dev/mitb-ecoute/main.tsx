@@ -35,7 +35,10 @@ function sample() {
   const ge = user > 0 && playing(echo) ? Math.min(1.5, echo.gain() / (user / 100)) : 0;
   trace.push({ t, gm, ge, id: player.song.id });
   while (trace.length && trace[0].t < t - WINDOW_MS) trace.shift();
-  const power = gm * gm + ge * ge;
+  // le même titre des deux côtés (passage d'un lecteur à l'autre) : les amplitudes s'ajoutent ;
+  // deux titres différents : les puissances
+  const same = playing(echo) && echo.song.id === player.song.id;
+  const power = same ? (gm + ge) ** 2 : gm * gm + ge * ge;
   if (playing(player) || playing(echo)) {
     minSeen = Math.min(minSeen, gm);
     maxSeen = Math.max(maxSeen, gm, ge);

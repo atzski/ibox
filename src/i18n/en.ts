@@ -1789,6 +1789,15 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » vous entend de nouveau": "“Clip that!” hears you again",
+  "Des fondus enchaînés sans coupure": "Gapless crossfades",
+  "L’accueil revient en haut": "Home starts at the top again",
+  "En revenant à l’accueil depuis les succès ou un autre écran, la page repart en haut au lieu de s’arrêter au milieu.":
+    "When you go back to Home from achievements or another screen, the page starts at the top instead of stopping halfway down.",
+  "Dans Music in the Box, le début du fondu entre deux titres ne fait plus entendre de micro-coupure, le titre suivant ne s’arrête plus tout seul après le fondu, aucun autre titre ne joue plus par-dessus, et la musique des menus d’iBox ne revient plus pendant l’écoute.":
+    "In Music in the Box, the start of a crossfade no longer has a tiny dropout, the next track no longer pauses by itself after the fade, no other track plays over it any more, and iBox's menu music no longer comes back while you listen.",
+  "La 1.0.11 était devenue trop stricte et ne reconnaissait presque plus la phrase. L’écoute compare maintenant ce qu’elle entend à la parole ordinaire : « Clip ça ! » dit au micro garde le clip, la musique et les dialogues d’un jeu ne déclenchent toujours rien.":
+    "1.0.11 had become too strict and barely recognised the phrase. Listening now compares what it hears with ordinary speech: “Clip that!” said into the mic keeps the clip, while music and game dialogue still trigger nothing.",
   "« Clip ça ! » n’entend plus que vous": "“Clip that!” only hears you now",
   "La musique, une sonnerie ou les dialogues d’un jeu pouvaient passer pour « Clip ça ! » et garder des clips sans fin. La voix n’accepte plus que la phrase dite clairement, et trois clips à la voix en moins de 90 s la mettent en pause, avec une notification.":
     "Music, a ringtone or game dialogue could pass for “Clip that!” and keep clips endlessly. Voice now only accepts the phrase said clearly, and three voice clips in under 90 s pause it, with a notification.",
