@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.9",
+    date: "2026-11-25",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » ne s’écoute plus lui-même", text: "Quand vous regardez un clip dans iClips, sa phrase « Clip ça ! » sortie des haut-parleurs ne crée plus un nouveau clip : l’écoute se tait pendant la lecture et revient juste après, sans toucher à vos réglages. Avec le plugin iClips 0.7.1." },
+      { icon: "power", title: "Le volume du micro et du son de Windows", text: "Paramètres › Système règle maintenant le volume du son de Windows et celui du micro dans vos prochains clips. Dans iClips, Réglages › Son les montre toujours, avec un curseur fin." },
+    ],
+  },
+  {
     version: "1.0.8",
     date: "2026-11-25",
     highlights: [

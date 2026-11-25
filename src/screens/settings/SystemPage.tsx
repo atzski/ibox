@@ -20,6 +20,9 @@ import { DEFAULT_KEYS, useShortcuts } from "@/services/shortcuts";
 
 // ——— Système ———
 
+/** Volume des sources d'un clip (1 : tel quel). */
+const CLIP_VOLUMES = ["0.5", "0.75", "1", "1.5", "2"].map((v) => ({ value: v, label: `${Math.round(Number(v) * 100)} %` }));
+
 export function SystemPage() {
   const s = useSettings();
   const captureTaken = useShortcuts((x) => x.captureTaken);
@@ -147,6 +150,17 @@ export function SystemPage() {
             <Row label="Micro" note="Votre voix, par le micro par défaut de Windows, mélangée au son du clip.">
               <Toggle checked={s.clipMicrophone === true} onChange={(v) => s.set("clipMicrophone", v)} label="Micro" />
             </Row>
+            {/* volumes appliqués aux prochains clips (réglage fin au curseur dans iClips › Réglages) */}
+            {s.clipSystemAudio !== false && (
+              <Row label="Volume du son de Windows" note="Appliqué aux prochains clips. Réglage fin dans iClips, Réglages.">
+                <Segmented<string> label="Volume du son de Windows" value={String(s.clipSystemVolume ?? 1)} onChange={(v) => s.set("clipSystemVolume", Number(v))} options={CLIP_VOLUMES} />
+              </Row>
+            )}
+            {s.clipMicrophone === true && (
+              <Row label="Volume du micro" note="Appliqué aux prochains clips. Réglage fin dans iClips, Réglages.">
+                <Segmented<string> label="Volume du micro" value={String(s.clipMicVolume ?? 1)} onChange={(v) => s.set("clipMicVolume", Number(v))} options={CLIP_VOLUMES} />
+              </Row>
+            )}
           </>
         )}
       </Group>

@@ -1789,6 +1789,12 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » ne s’écoute plus lui-même": "“Clip that!” no longer hears itself",
+  "Quand vous regardez un clip dans iClips, sa phrase « Clip ça ! » sortie des haut-parleurs ne crée plus un nouveau clip : l’écoute se tait pendant la lecture et revient juste après, sans toucher à vos réglages. Avec le plugin iClips 0.7.1.":
+    "When you watch a clip in iClips, its “Clip that!” coming out of the speakers no longer creates a new clip: listening goes quiet during playback and comes back right after, without touching your settings. With the iClips 0.7.1 plugin.",
+  "Le volume du micro et du son de Windows": "Microphone and Windows sound volume",
+  "Paramètres › Système règle maintenant le volume du son de Windows et celui du micro dans vos prochains clips. Dans iClips, Réglages › Son les montre toujours, avec un curseur fin.":
+    "Settings › System now sets the volume of Windows sound and of the microphone in your next clips. In iClips, Settings › Sound always shows them, with a fine slider.",
   "Des clips avec le plugin iClips": "Clips with the iClips plugin",
   "iBox ouvre ses clips aux plugins. Avec iClips, un Studio range vos clips, un panneau remplace l’overlay de capture en jeu, et l’on coupe, assemble, passe en vertical ou en GIF. Dites « Clip ça ! » pour garder les dernières secondes, puis glissez le clip vers Discord ou envoyez-le à un ami.":
     "iBox opens its clips to plugins. With iClips, a Studio keeps your clips, a panel replaces the in-game capture overlay, and you can trim, join, go vertical or make a GIF. Say “Clip that!” to keep the last few seconds, then drag the clip into Discord or send it to a friend.",
@@ -2769,6 +2775,9 @@ export const EN: Record<string, string> = {
   "Tout ce que le PC joue : le jeu, mais aussi la musique, les appels ou les autres applications.": "Everything the PC plays: the game, but also music, calls or other apps.",
   "Micro": "Microphone",
   "Votre voix, par le micro par défaut de Windows, mélangée au son du clip.": "Your voice, through Windows' default microphone, mixed into the clip's sound.",
+  "Volume du son de Windows": "Windows sound volume",
+  "Volume du micro": "Microphone volume",
+  "Appliqué aux prochains clips. Réglage fin dans iClips, Réglages.": "Applied to your next clips. Fine-tune it in iClips, Settings.",
   "Clip vidéo enregistré sur ce PC": "Video clip saved on this PC",
   "Les clips vidéo restent sur ce PC : la Communauté n’accepte que les images pour le moment.": "Video clips stay on this PC: the Community only accepts images for now.",
   "Les clips ne se partagent pas dans la Communauté pour le moment : seules les images sont acceptées.": "Clips can't be shared in the Community for now: only images are accepted.",

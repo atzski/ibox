@@ -32,7 +32,7 @@ pub fn permission_for(call: &str) -> Option<&'static str> {
         "clips.list" | "clips.update" | "clips.delete" | "clips.thumb" => "clips",
         "clips.status" | "clips.save" => "clips-capture",
         "edit.render" => "clips-edit",
-        "auto.get" | "auto.set" | "auto.test" => "clips-auto",
+        "auto.get" | "auto.set" | "auto.test" | "auto.pause" => "clips-auto",
         "shot.save" | "community.open" => "clips-capture",
         "capture.get" | "capture.set" | "capture.folder" => "clips-settings",
         "share.copy" | "share.drag" | "share.reveal" | "share.save" | "share.link" | "share.copyLink" | "share.friends" | "share.send" => "clips-share",
@@ -110,6 +110,7 @@ pub fn call(app: &AppHandle, active: &Active, name: &str, arg: Value) -> Result<
         "auto.get" => Ok(crate::clips_auto::status(app)),
         "auto.set" => crate::clips_auto::set(app, &arg),
         "auto.test" => Ok(crate::clips_auto::test(app)),
+        "auto.pause" => Ok(crate::clips_auto::pause(app, &arg)),
         "share.friends" => crate::share::friends(app),
         "shot.save" => crate::capture::save_frozen(app),
         "community.open" => {
@@ -278,7 +279,7 @@ mod tests {
         let s = active(&["clips-share"], &["clips-share"]);
         assert!(allowed(&s, "share.link") && allowed(&s, "share.send") && allowed(&s, "share.drag") && !allowed(&s, "auto.get"));
         let c = active(&["clips-auto"], &["clips-auto"]);
-        assert!(allowed(&c, "auto.get") && allowed(&c, "auto.set") && allowed(&c, "auto.test"));
+        assert!(allowed(&c, "auto.get") && allowed(&c, "auto.set") && allowed(&c, "auto.test") && allowed(&c, "auto.pause"));
     }
 
     #[test]

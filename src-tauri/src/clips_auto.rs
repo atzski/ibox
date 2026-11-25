@@ -60,6 +60,12 @@ const COOLDOWN_MS: u64 = 5_000;
 const TEST_MS: u64 = 8_000;
 /// Après un échec de l'écoute, nouvel essai dans 30 s.
 const RETRY_MS: u64 = 30_000;
+/// `auto.pause` : une pause dure au plus 10 s ; le plugin la renouvelle tant qu'un clip joue
+/// (une fenêtre fermée en pleine lecture ne laisse donc pas la voix coupée).
+const PAUSE_MAX_MS: u64 = 10_000;
+/// Après la pause, la voix reste sourde 1,5 s : le moteur rend parfois une phrase entendue
+/// juste avant la fin de la lecture (le son du clip qui sort des haut-parleurs).
+const PAUSE_GRACE_MS: u64 = 1_500;
 
 static SETTINGS: Mutex<Option<Auto>> = Mutex::new(None);
 /// Mémoire des clips tenue en ce moment : partie en cours, ou partout si demandé (`capture.rs`).
@@ -70,6 +76,8 @@ static LISTENING: AtomicBool = AtomicBool::new(false);
 static TEST_UNTIL: AtomicU64 = AtomicU64::new(0);
 static RETRY_AT: AtomicU64 = AtomicU64::new(0);
 static LAST: AtomicU64 = AtomicU64::new(0);
+/// Voix sourde jusqu'à cette heure (ms) : un clip est rejoué dans iClips (`auto.pause`).
+static QUIET_UNTIL: AtomicU64 = AtomicU64::new(0);
 static VOICE_THREAD: AtomicBool = AtomicBool::new(false);
 /// Dernière erreur de l'écoute et langue utilisée, pour iClips.
 static VOICE: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
@@ -132,7 +140,7 @@ pub fn status(app: &AppHandle) -> Value {
     let language = language.or_else(|| voice::pick(crate::plugins::look().0, &voice::languages()));
     json!({
         "voice": s.voice, "pad": s.pad, "end": s.end,
-        "listening": listening(), "language": language, "error": error,
+        "listening": listening(), "paused": QUIET_UNTIL.load(Ordering::Relaxed) > now(), "language": language, "error": error,
         "phrase": language.as_deref().map(|l| voice::phrases(l)[0]),
         "mic": VOICE_MIC.lock().ok().and_then(|m| m.clone()),
     })
@@ -154,6 +162,32 @@ pub fn test(app: &AppHandle) -> Value {
     RETRY_AT.store(0, Ordering::Relaxed);
     voice_thread(app);
     json!({ "ms": TEST_MS })
+}
+
+/// Fin de la surdité après un `auto.pause` reçu à `at` : `ms` > 0 la pose (ou la prolonge, sans
+/// jamais raccourcir celle d'une autre fenêtre), 0 la lève après le court délai de grâce.
+fn quiet_until(current: u64, at: u64, ms: u64) -> u64 {
+    if ms > 0 {
+        current.max(at + ms.min(PAUSE_MAX_MS) + PAUSE_GRACE_MS)
+    } else {
+        current.min(at + PAUSE_GRACE_MS)
+    }
+}
+
+/// `auto.pause` (`{ms}`, 1.0.9) : un clip est rejoué dans iClips, la voix n'écoute plus ce qui
+/// sort des haut-parleurs. Les réglages enregistrés ne changent pas ; le micro reste ouvert
+/// (pas de nouvelle notification d'écoute), seules les phrases reconnues sont écartées.
+pub fn pause(app: &AppHandle, arg: &Value) -> Value {
+    let ms = arg["ms"].as_u64().unwrap_or(0);
+    let at = now();
+    let mut current = QUIET_UNTIL.load(Ordering::Relaxed);
+    loop {
+        match QUIET_UNTIL.compare_exchange(current, quiet_until(current, at, ms), Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => break,
+            Err(seen) => current = seen,
+        }
+    }
+    status(app)
 }
 
 /// Un clip automatique peut-il partir maintenant ? (pas deux à moins de 5 s)
@@ -217,6 +251,11 @@ fn set_listening(app: &AppHandle, on: bool) {
 fn heard(app: &AppHandle) {
     if TEST_UNTIL.swap(0, Ordering::Relaxed) > now() {
         crate::plugins::host::notify(app, "voice://heard", Value::Null);
+        return;
+    }
+    // un clip rejoué dans iClips : la phrase vient du clip, pas du joueur
+    if QUIET_UNTIL.load(Ordering::Relaxed) > now() {
+        eprintln!("iBox : « Clip ça ! » écarté (clip en lecture dans iClips)");
         return;
     }
     if armed(app).voice {
@@ -301,6 +340,22 @@ mod tests {
         assert!(!take_turn(&last, 12_000));
         assert!(!take_turn(&last, 14_999));
         assert!(take_turn(&last, 15_000));
+    }
+
+    #[test]
+    fn la_pause_de_la_voix_se_renouvelle_et_se_leve() {
+        // pause de 4 s à t = 1000 : sourde jusqu'à 1000 + 4000 + grâce
+        let a = quiet_until(0, 1_000, 4_000);
+        assert_eq!(a, 1_000 + 4_000 + PAUSE_GRACE_MS);
+        // une durée démesurée est bornée
+        assert_eq!(quiet_until(0, 0, 3_600_000), PAUSE_MAX_MS + PAUSE_GRACE_MS);
+        // une pause plus courte d'une autre fenêtre ne raccourcit pas la première
+        assert_eq!(quiet_until(a, 1_500, 500), a);
+        // fin de lecture : encore la grâce, puis la voix revient
+        let b = quiet_until(a, 2_000, 0);
+        assert_eq!(b, 2_000 + PAUSE_GRACE_MS);
+        // lever une pause déjà finie ne la rallume pas
+        assert_eq!(quiet_until(0, 9_000, 0), 0);
     }
 
     #[test]
