@@ -93,9 +93,18 @@ class Player {
   position(): number {
     return this.state === 1 ? Math.min(this.song.dur, this.base + ((performance.now() - this.anchor) / 1000) * this.rate) : this.base;
   }
+  /** Branchement Web Audio du pont (pont 8) : la balise passe par ce gain. null : non branchée. */
+  routeGain: number | null = null;
   /** Gain réellement appliqué au son de ce lecteur (0 à 1). */
   gain(): number {
-    return this.single ? (this.muted ? 0 : this.elVolume) : this.volume / 100;
+    if (!this.single) return this.volume / 100;
+    const el = this.muted ? 0 : this.elVolume;
+    return this.routeGain === null ? el : el * this.routeGain;
+  }
+  /** Le pont a réglé le gain de son branchement : le son suit. */
+  setRouteGain(v: number) {
+    this.routeGain = v;
+    this.level_();
   }
   private level_() {
     if (ctx && this.level) this.level.gain.setTargetAtTime(this.gain(), ctx.currentTime, 0.008);
@@ -301,6 +310,30 @@ const app = {
     return true;
   },
 };
+// Web Audio du cadre, tel que le pont 8 s'en sert : la balise de l'écho branchée sur un gain qu'il règle
+class FrameAudioContext {
+  state = "running";
+  baseLatency = 0;
+  get currentTime() { return performance.now() / 1000; }
+  destination = {};
+  createGain() {
+    const param = {
+      get value() { return echo.routeGain ?? 0; },
+      set value(v: number) { echo.setRouteGain(v); },
+      setTargetAtTime: (v: number) => echo.setRouteGain(v),
+      setValueAtTime: (v: number) => echo.setRouteGain(v),
+      cancelScheduledValues: () => undefined,
+    };
+    return { gain: param, connect: () => undefined };
+  }
+  createMediaElementSource() {
+    if (echo.routeGain === null) echo.setRouteGain(0);
+    return { connect: () => undefined };
+  }
+  resume() { return Promise.resolve(); }
+  close() { this.state = "closed"; }
+}
+const frameWindow = { AudioContext: FrameAudioContext };
 // le document du cadre : une page YouTube Music à part, avec son propre lecteur
 const echoDoc = {
   getElementById: (id: string) => (id === "movie_player" ? echo.api : null),
@@ -321,12 +354,17 @@ const page = {
       load: () => setTimeout(() => (loaded = true), 800),
       remove: () => {
         echo.api.stopVideo();
+        // un cadre neuf sera branché à neuf
+        echo.routeGain = null;
         frame.alive = false;
         frame.removed++;
         loaded = false;
       },
       get contentDocument() {
         return loaded && frame.alive ? echoDoc : null;
+      },
+      get contentWindow() {
+        return loaded && frame.alive ? frameWindow : null;
       },
     };
     return f;

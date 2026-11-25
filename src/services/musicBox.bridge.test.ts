@@ -31,7 +31,13 @@ interface Song { id: string; dur: number }
 
 /** Faux lecteur YouTube Music : une file de titres, une position qui avance, un volume. */
 /** Le second lecteur (« écho ») : `exclusive`, le compte met l'autre lecture en pause ; `ad`, il reçoit des publicités. */
-interface EchoOpts { load?: number; ad?: boolean; exclusive?: boolean; never?: boolean }
+/**
+ * Le second lecteur (« écho ») : `exclusive`, le compte met l'autre lecture en pause ; `ad`, il reçoit
+ * des publicités ; `noAudio`, le cadre n'a pas de Web Audio. Comme le vrai lecteur de YouTube
+ * (mesuré le 25/11/2026), il remet lui-même sa balise à « muted = false, volume = 1 » au chargement
+ * et quand le titre démarre, sans que la page le voie venir.
+ */
+interface EchoOpts { load?: number; ad?: boolean; exclusive?: boolean; never?: boolean; noAudio?: boolean }
 
 /**
  * `next` : ce que YouTube Music répond à la demande de file (`next`) pour un corps donné ; absent,
@@ -107,7 +113,27 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     muted: true, volume: 1, rate: 1,
     /** Plus haut volume audible de l'écho avant qu'il ait la parole (doit rester 0). */
     leaked: 0,
+    /** Branchement Web Audio : la balise passe par un gain (son réel = balise × gain). */
+    routed: false, gain: 0,
   };
+  /** Ce que l'écho fait réellement entendre (hors lecture : rien). */
+  const echoLevel = () => (e.muted ? 0 : e.volume) * (e.routed ? e.gain : 1);
+  // contexte audio du cadre : le gain suit les réglages du pont aussitôt
+  class FakeAudioContext {
+    state = "running"; baseLatency = 0; currentTime = 0; destination = {};
+    createGain() {
+      const param = { get value() { return e.gain; }, set value(v: number) { e.gain = v; }, setTargetAtTime: (v: number) => void (e.gain = v), setValueAtTime: (v: number) => void (e.gain = v), cancelScheduledValues: () => undefined };
+      return { gain: param, connect: () => undefined };
+    }
+    createMediaElementSource() {
+      if (e.routed) throw new Error("InvalidStateError : balise déjà branchée");
+      e.routed = true;
+      return { connect: () => undefined };
+    }
+    resume() { return Promise.resolve(); }
+    close() { this.state = "closed"; }
+  }
+  const frameWindow = opts.echo?.noAudio ? {} : { AudioContext: FakeAudioContext };
   const echoVideo = {
     get muted() { return e.muted; }, set muted(v: boolean) { e.muted = v; },
     get volume() { return e.volume; }, set volume(v: number) { e.volume = v; },
@@ -123,6 +149,8 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
       e.loads++;
       e.id = a.videoId; e.pos = a.startSeconds ?? 0; e.state = -1; e.gap = 150; e.loading = 300;
       e.ad = !!opts.echo?.ad;
+      // comme YouTube : la balise retrouve le son de son lecteur au chargement
+      e.muted = false; e.volume = 1;
     },
     playVideo: () => void (e.state = 1),
     pauseVideo: () => void (e.state === 1 || e.state === 3 ? (e.state = 2) : null),
@@ -146,6 +174,7 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
               setAttribute: () => undefined,
               remove: () => { f.gone = true; e.removed++; e.state = -1; e.loaded = false; },
               get contentDocument() { return e.loaded && !f.gone ? echoDoc : null; },
+              get contentWindow() { return e.loaded && !f.gone ? frameWindow : null; },
             };
             return f;
           },
@@ -208,13 +237,15 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
         if (e.state === -1 && e.gap > 0 && (e.gap -= 10) <= 0) e.state = e.ad ? -1 : 3;
         else if (e.state === 3 && (e.loading -= 10) <= 0) {
           e.state = 1;
+          // et encore quand le titre démarre
+          e.muted = false; e.volume = 1;
           // un compte qui n'accepte qu'une lecture : l'autre se met en pause
           if (opts.echo.exclusive && sim.state === 1) sim.state = 2;
         } else if (e.state === 1) {
           e.pos += 0.01 * e.rate;
           if (e.pos >= durOf(e.id)) { e.pos = durOf(e.id); e.state = 0; }
         }
-        const u = user(), audible = !e.muted && e.state === 1 ? e.volume : 0;
+        const u = user(), audible = e.state === 1 ? echoLevel() : 0;
         heard.push({ gm: sim.state === 1 ? sim.volume / u : 0, ge: audible / (u / 100), id: sim.songs[sim.index].id, eid: e.id });
       }
       if (sim.stale > 0) sim.stale -= 10;
@@ -254,7 +285,10 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     }
     return r;
   };
-  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo: e, heard, navs };
+  const echo = new Proxy(e, {
+    get: (o, k) => (k === "muted" ? echoLevel() === 0 : k === "volume" ? echoLevel() : o[k as keyof typeof o]),
+  });
+  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo, heard, navs };
 }
 
 /** Fondu général de 6 s : 3 s de sortie, 3 s d'entrée, le suivant lancé 1,5 s avant la fin. */
@@ -1029,5 +1063,41 @@ describe("Music in the Box : suite automatique", () => {
     expect(s.main).toBeLessThan(0.1);
     expect(s.echo).toBeLessThan(0.1);
     expect([p.sim.volume, p.echo.muted]).toEqual([60, true]);
+  });
+});
+
+describe("Music in the Box : l'écho ne s'entend jamais hors de sa prise de parole", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+
+  it("YouTube remet le son de la balise de l'écho : le gain Web Audio garde le silence, puis suit le volume choisi", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.call("volume", { value: 30 });
+    p.sim.pos = 180;
+    p.until(6.6);
+    // l'écho joue, calé, et sa balise a été remise à plein volume par « YouTube » : rien ne s'entend
+    expect([p.echo.state, p.echo.routed]).toEqual([1, true]);
+    expect(p.heard.every((h) => h.ge === 0)).toBe(true);
+    p.until(5.5);
+    // il a la parole : au volume choisi (30), jamais à 100 %
+    expect(p.echo.volume).toBeGreaterThan(0.25);
+    expect(p.echo.volume).toBeLessThanOrEqual(0.3);
+    p.to(7);
+    expect(Math.max(...p.heard.map((h) => h.ge))).toBeLessThanOrEqual(1.01);
+    expect(listen(p.heard, "a", "b").doubled).toBe(0);
+    expect([p.sim.volume, p.echo.muted]).toEqual([30, true]);
+  });
+
+  it("sans Web Audio dans le cadre : pas de second lecteur, fondu simple, raison donnée", () => {
+    const p = page({ echo: { noAudio: true } });
+    p.fade(SIX);
+    p.sim.pos = 180;
+    p.run(3000);
+    expect((p.call("state").ok as { cross: string }).cross).toBe("indisponible");
+    p.until(0);
+    p.to(4);
+    expect([p.current(), p.sim.volume, p.echo.loads]).toEqual(["b", 60, 0]);
+    expect(p.heard.every((h) => h.ge === 0)).toBe(true);
   });
 });

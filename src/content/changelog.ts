@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.10",
+    date: "2026-11-25",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » ne s’emballe plus", text: "Le son de la notification d’un clip gardé pouvait être pris pour « Clip ça ! » et relancer des clips en boucle. La voix fait maintenant une courte pause après chaque clip." },
+      { icon: "disc", title: "Un fondu enchaîné sans à-coups", text: "Dans Music in the Box, le fondu entre deux titres ne fait plus entendre de sons en double ni de sauts de volume. Avec le plugin Music in the Box 1.0.7." },
+    ],
+  },
+  {
     version: "1.0.9",
     date: "2026-11-25",
     highlights: [

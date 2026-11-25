@@ -1789,6 +1789,12 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » ne s’emballe plus": "“Clip that!” no longer runs away",
+  "Le son de la notification d’un clip gardé pouvait être pris pour « Clip ça ! » et relancer des clips en boucle. La voix fait maintenant une courte pause après chaque clip.":
+    "The notification sound of a saved clip could be taken for “Clip that!” and set off clips in a loop. Voice now takes a short pause after each clip.",
+  "Un fondu enchaîné sans à-coups": "A smooth crossfade",
+  "Dans Music in the Box, le fondu entre deux titres ne fait plus entendre de sons en double ni de sauts de volume. Avec le plugin Music in the Box 1.0.7.":
+    "In Music in the Box, the crossfade between two tracks no longer plays doubled sounds or volume jumps. With the Music in the Box 1.0.7 plugin.",
   "« Clip ça ! » ne s’écoute plus lui-même": "“Clip that!” no longer hears itself",
   "Quand vous regardez un clip dans iClips, sa phrase « Clip ça ! » sortie des haut-parleurs ne crée plus un nouveau clip : l’écoute se tait pendant la lecture et revient juste après, sans toucher à vos réglages. Avec le plugin iClips 0.7.1.":
     "When you watch a clip in iClips, its “Clip that!” coming out of the speakers no longer creates a new clip: listening goes quiet during playback and comes back right after, without touching your settings. With the iClips 0.7.1 plugin.",
