@@ -407,6 +407,7 @@ kbd.down { transform: translateY(3px); box-shadow: 0 0 0 rgba(52, 68, 89, 0.18),
 .plugins { isolation: isolate; min-height: 100svh; padding-bottom: calc(var(--blend) + clamp(40px, 6vw, 90px)); --veil: linear-gradient(180deg, color-mix(in srgb, var(--ibox-cream) 30%, transparent), color-mix(in srgb, var(--ibox-cream) 18%, transparent)); }
 .plugins h1, .mitb-hero h1 { font-size: clamp(2.9rem, 6.6vw, 7.4rem); line-height: 0.94; letter-spacing: -0.012em; }
 .plugin-list { list-style: none; max-width: 1100px; margin: 0 auto; padding: 0 var(--pad); }
+.plugin-list > li + li { margin-top: clamp(24px, 3.2vw, 44px); }
 .plugin { display: grid; overflow: hidden; border-radius: clamp(22px, 2.4vw, 34px); text-decoration: none; color: var(--ink);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.56)); -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 30px 70px -30px rgba(36, 48, 70, 0.45); transition: transform var(--base) var(--ease-spring), box-shadow var(--base); }
