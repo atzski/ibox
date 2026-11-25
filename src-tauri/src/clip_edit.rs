@@ -900,6 +900,7 @@ mod tests {
 
     /// Son refait sur un clip à pistes séparées (`IBOX_EDIT_SAMPLE` fait avec IBOX_SYNTH_TRACKS) :
     /// micro coupé, le mélange ne garde que le jeu.
+    #[cfg(windows)]
     #[test]
     #[ignore]
     fn mix_reel() {
@@ -978,6 +979,7 @@ mod tests {
     }
 
     /// Recadrage vertical réel (`IBOX_EDIT_SAMPLE`) : 9:16, coupe exacte, son gardé.
+    #[cfg(windows)]
     #[test]
     #[ignore]
     fn vertical_reel() {
