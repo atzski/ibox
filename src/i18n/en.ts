@@ -1789,6 +1789,9 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » vous suit quand vous enchaînez": "“Clip that!” keeps up when you chain them",
+  "Une phrase dite fort ou traînée compte de nouveau. Après six clips à la voix en deux minutes, l’écoute fait une pause de deux minutes puis reprend seule, sans rien à réactiver.":
+    "A phrase said loudly or drawn out counts again. After six voice clips in two minutes, listening pauses for two minutes then resumes by itself, with nothing to turn back on.",
   "« Clip ça ! » ne part plus tout seul": "“Clip that!” no longer goes off by itself",
   "Un son long du jeu pouvait être pris pour « Clip ça ! » et garder un clip sans que vous parliez. La phrase est courte : un son qui dure trop longtemps ne compte plus, et votre « Clip ça ! » passe toujours du premier coup.":
     "A long game sound could be taken for “Clip that!” and keep a clip without you speaking. The phrase is short: a sound that lasts too long no longer counts, and your “Clip that!” still gets through the first time.",
@@ -1810,6 +1813,9 @@ export const EN: Record<string, string> = {
   "« Clip ça ! » n’entend plus que vous": "“Clip that!” only hears you now",
   "La musique, une sonnerie ou les dialogues d’un jeu pouvaient passer pour « Clip ça ! » et garder des clips sans fin. La voix n’accepte plus que la phrase dite clairement, et trois clips à la voix en moins de 90 s la mettent en pause, avec une notification.":
     "Music, a ringtone or game dialogue could pass for “Clip that!” and keep clips endlessly. Voice now only accepts the phrase said clearly, and three voice clips in under 90 s pause it, with a notification.",
+  "Des fins de titre sans saut": "Song endings without skips",
+  "Dans Music in the Box, la fin d’un titre ne saute plus jusqu’au suivant sans fondu : la vraie durée du titre est utilisée, même quand YouTube Music en annonce une autre. Avec le plugin Music in the Box 1.0.12.":
+    "In Music in the Box, a song no longer skips to the next one without a fade: the song’s real length is used, even when YouTube Music reports another. With the Music in the Box 1.0.12 plugin.",
   "Un journal pour Music in the Box": "A log for Music in the Box",
   "Music in the Box note ce que font les fondus entre les titres dans logs/music.log, pour comprendre une fin de titre qui saute. Avec le plugin Music in the Box 1.0.11.":
     "Music in the Box writes what crossfades between songs do to logs/music.log, to understand a song ending that skips. With the Music in the Box 1.0.11 plugin.",
@@ -3715,7 +3721,7 @@ export const EN: Record<string, string> = {
   "« Clip ça ! » vous écoute": "“Clip that!” is listening",
   "Le micro écoute pour « Clip ça ! », sur ce PC seulement.": "The microphone listens for “Clip that!”, on this PC only.",
   "« Clip ça ! » en pause": "“Clip that!” paused",
-  "Trois clips à la voix en moins de 90 s : un son du PC ressemble peut-être à la phrase. Désactivez puis réactivez « Clip ça ! » dans iClips.": "Three voice clips in under 90 s: a sound on the PC may sound like the phrase. Turn “Clip that!” off and on again in iClips.",
+  "Six clips à la voix en moins de 2 min : l'écoute fait une pause de 2 min, au cas où un son du PC ressemblerait à la phrase.": "Six voice clips in under 2 min: listening pauses for 2 min, in case a sound on the PC resembles the phrase.",
   "Ce plugin n'a pas d'écran.": "This plugin has no screen.",
   "Plugin absent ou désactivé.": "Plugin missing or disabled.",
   "Ouvrir {0} dans une fenêtre isolée": "Open {0} in an isolated window",

@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.18",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "disc", title: "Des fins de titre sans saut", text: "Dans Music in the Box, la fin d’un titre ne saute plus jusqu’au suivant sans fondu : la vraie durée du titre est utilisée, même quand YouTube Music en annonce une autre. Avec le plugin Music in the Box 1.0.12." },
+      { icon: "sparkle", title: "« Clip ça ! » vous suit quand vous enchaînez", text: "Une phrase dite fort ou traînée compte de nouveau. Après six clips à la voix en deux minutes, l’écoute fait une pause de deux minutes puis reprend seule, sans rien à réactiver." },
+    ],
+  },
+  {
     version: "1.0.17",
     date: "2026-11-26",
     highlights: [

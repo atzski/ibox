@@ -27,7 +27,8 @@ function nextJson(ids: string[], selected: string, extra: { automix?: string; in
   return { contents: { playlistPanelRenderer: { contents, isInfinite: !!extra.infinite } } };
 }
 
-interface Song { id: string; dur: number }
+/** `shown` : durée que le lecteur annonce quand elle est fausse (la fiche du titre garde `dur`). */
+interface Song { id: string; dur: number; shown?: number }
 
 /** Faux lecteur YouTube Music : une file de titres, une position qui avance, un volume. */
 /** Le second lecteur (« écho ») : `exclusive`, le compte met l'autre lecture en pause ; `ad`, il reçoit des publicités. */
@@ -82,7 +83,9 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
     getPlayerState: () => sim.state,
     getVideoData: () => ({ video_id: sim.songs[sim.index]?.id ?? null }),
     getCurrentTime: () => (sim.stale > 0 ? sim.stalePos : sim.pos),
-    getDuration: () => sim.songs[sim.index]?.dur ?? 0,
+    getDuration: () => sim.songs[sim.index]?.shown ?? sim.songs[sim.index]?.dur ?? 0,
+    // fiche du titre : sa vraie durée, en secondes entières
+    getPlayerResponse: () => (sim.songs[sim.index] ? { videoDetails: { videoId: sim.songs[sim.index].id, lengthSeconds: String(Math.floor(sim.songs[sim.index].dur)) } } : null),
     getVolume: () => sim.volume,
     setVolume: (v: number) => {
       sim.volume = v;
@@ -1526,5 +1529,38 @@ describe("Music in the Box : journal du pont (logs/music.log)", () => {
     p.sim.pos = 170;
     p.run(1000);
     expect(drain(p).join("\n")).toMatch(/saut de position : 10\d\.\d → 17\d\.\d/);
+  });
+});
+
+describe("Music in the Box : durée annoncée fausse par le lecteur", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+  // relevé dans iBox : 256,8 s annoncées pour un titre de 237 s (ici 219,8 pour 200)
+  const wrong = () => [{ id: "a", dur: 200, shown: 219.8 }, { id: "b", dur: 180 }, { id: "c", dur: 200 }];
+
+  it("le fondu enchaîné suit la vraie durée : il part avant la vraie fin, l'état l'annonce", () => {
+    const p = page({ echo: {}, songs: wrong() });
+    p.fade(SIX);
+    p.sim.pos = 170;
+    p.run(500);
+    expect((p.call("state").ok as { duration: number }).duration).toBe(200);
+    p.until(3);
+    p.to(4);
+    const log = p.journal.join("\n");
+    expect(log).toMatch(/écho : prend la parole/);
+    expect(log).not.toMatch(/préparation abandonnée/);
+    expect(p.current()).toBe("b");
+    // l'ancien titre s'est fait entendre en baissant pendant que le suivant montait
+    expect(p.heard.some((h) => h.ge > 0.3 && h.gm > 0.3)).toBe(true);
+  });
+
+  it("fondu simple : le titre baisse avant sa vraie fin au lieu d'être coupé", () => {
+    const p = page({ songs: wrong() });
+    p.fade(SIX);
+    p.sim.pos = 185;
+    p.sim.sets.length = 0;
+    for (let n = 0; n < 2000 && p.current() === "a"; n++) p.run(10);
+    expect(p.current()).toBe("b");
+    expect(Math.min(...p.sim.sets)).toBeLessThan(10);
   });
 });
