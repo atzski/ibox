@@ -83,7 +83,9 @@ function Flyer({ game, spec }: { game: Game; spec: CaseSpec }) {
   const waited = useRef(0);
   const waitedTarget = useRef(0);
 
-  useFrame((_, dt) => {
+  useFrame((_, rawDt) => {
+    // première image après la pause du canevas gardé : son `dt` couvre toute l'attente
+    const dt = Math.min(rawDt, 1 / 30);
     const g = group.current;
     if (!g) return;
     // pas de vol sans textures (sinon un boîtier nu apparaîtrait une image)

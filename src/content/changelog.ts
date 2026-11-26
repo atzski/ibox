@@ -10,6 +10,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.23",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "front", title: "Les fiches s’ouvrent sans figer", text: "Ouvrir la fiche d’un jeu ne fige plus l’interface quand l’étagère 3D vient de se mettre en pause." },
+      { icon: "sparkle", title: "Le bon jingle sur chaque fiche", text: "Une fiche ne joue plus le jingle d’un autre jeu, comme celui de Zelda sur « Callus »." },
+      { icon: "shelf", title: "Retour à l’étagère sans accroc", text: "Revenir d’une fiche à l’étagère 3D se fait sans accroc : l’étagère reste vivante sous la fiche." },
+    ],
+  },
+  {
     version: "1.0.22",
     date: "2026-11-26",
     highlights: [

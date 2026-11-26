@@ -1791,6 +1791,12 @@ export const EN: Record<string, string> = {
   "Music in the Box": "Music in the Box",
   "Seulement YouTube Music": "YouTube Music only",
   "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique.": "Music in the Box now follows YouTube Music only: a video playing elsewhere, on Twitter, YouTube or in a browser tab, no longer replaces your music.",
+  "Les fiches s’ouvrent sans figer": "Game pages open without freezing",
+  "Ouvrir la fiche d’un jeu ne fige plus l’interface quand l’étagère 3D vient de se mettre en pause.": "Opening a game’s page no longer freezes the interface right after the 3D shelf has paused.",
+  "Le bon jingle sur chaque fiche": "The right jingle on every page",
+  "Une fiche ne joue plus le jingle d’un autre jeu, comme celui de Zelda sur « Callus ».": "A game’s page no longer plays another game’s jingle, such as Zelda’s on “Callus”.",
+  "Retour à l’étagère sans accroc": "A smooth way back to the shelf",
+  "Revenir d’une fiche à l’étagère 3D se fait sans accroc : l’étagère reste vivante sous la fiche.": "Going back from a game’s page to the 3D shelf is now seamless: the shelf stays alive under the page.",
   "Un nouveau moteur pour « Clip ça ! »": "A new engine for “Clip that!”",
   "« Clip ça ! » passe par Vosk, un moteur de reconnaissance vocale open source qui fonctionne sans Internet, livré avec iBox. Il reconnaît la phrase elle-même : « Tac », « Clic », « C’est ça » ou une conversation ne gardent plus de clip, et votre « Clip ça ! » est reconnu dès le début de l’écoute.":
     "“Clip that!” now runs on Vosk, an open-source speech recognition engine that works without the Internet and ships with iBox. It recognizes the phrase itself: “Tac”, “Clic”, “C’est ça” or a conversation no longer keep a clip, and your “Clip that!” is recognized from the moment listening starts.",

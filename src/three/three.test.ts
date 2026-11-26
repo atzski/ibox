@@ -85,6 +85,17 @@ describe("ressorts", () => {
     expect(Math.abs(s.x)).toBeLessThan(2);
   });
 
+  it("une image au dt aberrant (après une pause du canevas) ne fige pas l'interface", () => {
+    // R3F : timestamp en ms − secondes à l'image qui suit frameloop="never" (~139 000 s mesurés)
+    const s = { x: 0, v: 0 };
+    const t0 = performance.now();
+    stepSpring(s, 1, 138_982);
+    expect(performance.now() - t0).toBeLessThan(5);
+    expect(Number.isFinite(s.x) && Math.abs(s.x) < 2).toBe(true);
+    stepSpring(s, 1, -3);
+    expect(Number.isFinite(s.x)).toBe(true);
+  });
+
   it("damp est indépendant du découpage temporel", () => {
     let a = 0;
     for (let i = 0; i < 60; i++) a = damp(a, 1, 5, 1 / 60);
