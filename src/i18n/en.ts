@@ -1791,6 +1791,12 @@ export const EN: Record<string, string> = {
   "Music in the Box": "Music in the Box",
   "Seulement YouTube Music": "YouTube Music only",
   "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique.": "Music in the Box now follows YouTube Music only: a video playing elsewhere, on Twitter, YouTube or in a browser tab, no longer replaces your music.",
+  "Un nouveau moteur pour « Clip ça ! »": "A new engine for “Clip that!”",
+  "« Clip ça ! » passe par Vosk, un moteur de reconnaissance vocale open source qui fonctionne sans Internet, livré avec iBox. Il reconnaît la phrase elle-même : « Tac », « Clic », « C’est ça » ou une conversation ne gardent plus de clip, et votre « Clip ça ! » est reconnu dès le début de l’écoute.":
+    "“Clip that!” now runs on Vosk, an open-source speech recognition engine that works without the Internet and ships with iBox. It recognizes the phrase itself: “Tac”, “Clic”, “C’est ça” or a conversation no longer keep a clip, and your “Clip that!” is recognized from the moment listening starts.",
+  "Rien ne part tout seul": "Nothing goes off by itself",
+  "La musique, un jeu ou une notification qui sortent du PC ne comptent jamais comme votre voix. Le journal logs/voix.log dit pourquoi chaque son a été gardé ou refusé.":
+    "Music, a game or a notification coming out of the PC never count as your voice. The logs/voix.log file says why each sound was kept or rejected.",
   "« Clip ça ! » écoute votre voix, pas le PC":"“Clip that!” listens to your voice, not the PC",
   "« Clip ça ! » ne se fie plus au score du moteur vocal, qui confondait votre phrase avec la musique, un jeu ou une notification. iBox compare maintenant votre micro à tout ce que le PC fait sortir (enceintes, casque, écran) : seule une voix au micro, nettement au-dessus de ce son, garde un clip. Le journal logs/voix.log dit pourquoi chaque son a été refusé.":
     "“Clip that!” no longer trusts the speech engine's score, which mixed up your phrase with music, a game or a notification. iBox now compares your mic with everything the PC plays (speakers, headset, screen): only a voice at the mic, clearly above that sound, keeps a clip. The logs/voix.log file says why each sound was rejected.",

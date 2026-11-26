@@ -216,6 +216,9 @@ if (-not $Publish) {
       } else { Write-Warning "$ssFile doit contenir deux lignes (devid, devpassword) : ScreenScraper indisponible dans cette version." }
     } else { Write-Warning "Pas d'identifiants ScreenScraper ($ssFile) : source indisponible dans cette version." }
 
+    # Vosk (« Clip ça ! ») livré par l'installeur : versions officielles vérifiées par SHA-256
+    & (Join-Path $PSScriptRoot "get-vosk.ps1")
+    if (-not $?) { throw "Vosk indisponible : impossible de construire l'installeur." }
     npx tauri build --bundles nsis
     if ($LASTEXITCODE -ne 0) { throw "Échec de la compilation Tauri (code $LASTEXITCODE)." }
   } finally {

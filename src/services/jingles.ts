@@ -16,8 +16,14 @@ let timer: number | undefined;
 let current: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 let restoreMusic: (() => void) | null = null;
+/**
+ * Change à chaque arrêt : un son encore en chemin (lecture du fichier) pour une
+ * fiche qu'on vient de quitter n'a plus le droit de démarrer sur la suivante.
+ */
+let request = 0;
 
 export function stopJingle() {
+  request++;
   window.clearTimeout(timer);
   if (current) {
     // fondu de sortie doux (~0,9 s) plutôt qu'un arrêt net
@@ -56,9 +62,11 @@ export function playJingle(gameDbId?: number, force = false) {
   const s = useSettings.getState();
   // jingles : leur propre réglage (indépendant des effets sonores), actif tant qu'il n'est pas coupé
   if (!isTauri() || gameDbId === undefined || (!force && s.gameSounds === false)) return;
+  const mine = request;
   timer = window.setTimeout(async () => {
     try {
       const bytes = await invoke<ArrayBuffer>("game_sound", { gameId: gameDbId });
+      if (mine !== request) return; // fiche quittée pendant la lecture du fichier
       const url = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
       const el = new Audio(url);
       el.volume = Math.min(1, Math.max(0, (useSettings.getState().jingleVolume ?? DEFAULT_JINGLE_VOLUME) * JINGLE_GAIN));

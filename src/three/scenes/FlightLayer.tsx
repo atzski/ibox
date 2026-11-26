@@ -1,7 +1,7 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useGraphics } from "@/services/graphics";
 import { tuneRenderer } from "../rendererTuning";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { Group } from "three";
 import type { Game } from "@/domain/types";
 import { CaseModel } from "../cases/CaseModel";
@@ -28,21 +28,37 @@ export function FlightLayer() {
   const spec = useFlight((s) => s.spec);
   const dark = useIsDark();
   const graphics = useGraphics();
-  if (!game || !spec) return null;
+  // entre deux vols : canevas gardé (contexte, shaders), caché et sans rendu
+  const lastSpec = useRef(spec);
+  if (spec) lastSpec.current = spec;
+  const lights = spec ?? lastSpec.current;
+  const flying = !!game && !!spec;
+  if (!lights) return null;
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]" style={flying ? undefined : { visibility: "hidden" }}>
       <Canvas
+        frameloop={flying ? "always" : "never"}
         flat
         dpr={graphics.profile === "quality" ? [1, 2] : graphics.dpr}
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 50 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => tuneRenderer(gl)}
       >
-        <StudioLights tint={spec.model === "box" ? spec.cardboard : spec.plastic} dark={dark} />
-        <Flyer key={game.id} game={game} spec={spec} />
+        <StudioLights tint={lights.model === "box" ? lights.cardboard : lights.plastic} dark={dark} />
+        {flying && <Flyer key={game.id} game={game} spec={spec} />}
+        <ClearWhenIdle idle={!flying} />
       </Canvas>
     </div>
   );
+}
+
+/** Vol terminé : le canevas gardé est vidé (sinon le boîtier posé réapparaîtrait une image au vol suivant). */
+function ClearWhenIdle({ idle }: { idle: boolean }) {
+  const gl = useThree((s) => s.gl);
+  useLayoutEffect(() => {
+    if (idle) gl.clear();
+  }, [idle, gl]);
+  return null;
 }
 
 /** Place d'arrivée estimée tant que la visionneuse n'a pas publié la sienne. */

@@ -640,10 +640,16 @@ pub mod commands {
         Ok(())
     }
 
+    /// Lit la base pour un jingle (le fichier dépend du jeu iiDB associé et de l'ajout du jeu).
+    fn with_sounds<T>(app: &AppHandle, f: impl FnOnce(&Path, &Connection) -> T) -> Result<T> {
+        let dir = sounds_dir(app);
+        app.state::<LibraryState>().with(|c| Ok(f(&dir, c)))
+    }
+
     /// Jingle personnel : un fichier audio choisi par l'utilisateur, copié pour ce jeu.
     #[tauri::command]
     pub fn game_sound_import(app: AppHandle, game_id: i64, path: String) -> Result<()> {
-        sounds::import(&sounds_dir(&app), game_id, Path::new(&path))
+        with_sounds(&app, |dir, c| sounds::import(dir, c, game_id, Path::new(&path)))?
     }
 
     #[tauri::command]
@@ -654,8 +660,7 @@ pub mod commands {
     /// (jingle personnel, un jingle disponible)
     #[tauri::command]
     pub fn game_sound_info(app: AppHandle, game_id: i64) -> (bool, bool) {
-        let dir = sounds_dir(&app);
-        (sounds::find_custom(&dir, game_id).is_some(), sounds::find(&dir, game_id).is_some())
+        with_sounds(&app, |dir, c| (sounds::find_custom(dir, c, game_id).is_some(), sounds::find(dir, c, game_id).is_some())).unwrap_or((false, false))
     }
 
     // ——— Collections : logo (iiDB / SteamGridDB) et fond (SteamGridDB) ———
@@ -795,7 +800,7 @@ pub mod commands {
     /// Le jingle d'un jeu (octets bruts), s'il a été téléchargé.
     #[tauri::command]
     pub fn game_sound(app: AppHandle, game_id: i64) -> Result<tauri::ipc::Response> {
-        let p = sounds::find(&sounds_dir(&app), game_id).ok_or("aucun son")?;
+        let p = with_sounds(&app, |dir, c| sounds::find(dir, c, game_id))?.ok_or("aucun son")?;
         std::fs::read(p).map(tauri::ipc::Response::new).map_err(|e| e.to_string())
     }
 

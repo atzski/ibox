@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useLibrary, compareGames, countByPlatform, isFavorite } from "@/services/library";
 import { useSettings, type LibraryView, type GridDensity } from "@/services/settings";
 import { rememberedFocus, useNav } from "@/app/navigation";
-import { useIsDark, useReducedMotion, useScreenChrome, useShell } from "@/app/shellState";
+import { useIsDark, useReducedMotion, useScreenActive, useScreenChrome, useShell } from "@/app/shellState";
 import { getPlatform, PLATFORMS } from "@/domain/platforms";
 import { matchesQuery } from "@/domain/text";
 import { themeVars } from "@/theme/platformTheme";
@@ -136,16 +136,19 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
     ],
   });
 
-  // Q / E (ou L / R à la manette) : bascule de vue
+  // Q / E (ou L / R à la manette) : bascule de vue (réenregistrée au retour d'une fiche)
+  const screenActive = useScreenActive();
   useEffect(
     () =>
-      input.onTab(() => {
-        if (isPc) return "quiet";
-        sound.play("view");
-        set("libraryView", view === "grid" ? "shelf" : "grid");
-        return "quiet";
-      }),
-    [view, set, isPc],
+      screenActive
+        ? input.onTab(() => {
+            if (isPc) return "quiet";
+            sound.play("view");
+            set("libraryView", view === "grid" ? "shelf" : "grid");
+            return "quiet";
+          })
+        : undefined,
+    [view, set, isPc, screenActive],
   );
 
   const switchPlatform = (id: string) => {
@@ -358,7 +361,8 @@ function useImmersiveChrome(enabled: boolean, resetKey: string, onTop: (top: num
   const [hidden, setHidden] = useState(false);
   const memo = useRef({ last: 0, up: 0, down: 0 });
   const setShell = useShell((s) => s.set);
-  const active = enabled && hidden;
+  const screenActive = useScreenActive();
+  const active = enabled && hidden && screenActive;
 
   useEffect(() => {
     memo.current = { last: 0, up: 0, down: 0 };

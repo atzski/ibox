@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - run: rustup update stable
       - run: npm ci
+      # Vosk (« Clip ça ! ») : bibliothèque et modèle officiels, vérifiés par SHA-256, livrés par l'installeur
+      - run: pwsh -NoProfile -File scripts/get-vosk.ps1
       - run: npm test
       - run: cargo +stable test --locked --manifest-path src-tauri/Cargo.toml
       - run: npm run tauri build -- --bundles nsis --config src-tauri/tauri.ci.conf.json

@@ -5,7 +5,7 @@ import { attachInterfaceSleep, setWindowHidden, usePerformanceMode } from "@/ser
 import { attachSocial } from "@/services/social";
 import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
 import { RemotePlayLayer } from "@/components/remoteplay/RemotePlayOnline";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary, ScreenFallback } from "@/components/shell/ErrorBoundary";
 import { ProfileGate } from "@/components/start/ProfileGate";
 import { SetupWizard } from "@/components/start/SetupWizard";
@@ -21,7 +21,7 @@ import { InetboxModal } from "@/components/social/InetboxPanel";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { EASE, SPRING, TWEEN } from "@/motion/tokens";
 import { rememberedFocus, routeKey, useNav, useRoute, type Route } from "./navigation";
-import { clearAmbientGame, useIsDark, useReducedMotion } from "./shellState";
+import { clearAmbientGame, ScreenActive, useIsDark, useReducedMotion } from "./shellState";
 import { useSettings } from "@/services/settings";
 import { setPluginLook } from "@/services/plugins";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
@@ -116,7 +116,7 @@ function FocusOnShow({ route }: { route: Route }) {
  * Monte un écran et place le focus (élément mémorisé au retour, sinon focus initial).
  * Une erreur d'affichage reste confinée à l'écran : barre du haut et navigation restent utilisables.
  */
-function ScreenHost({ route }: { route: Route }) {
+function ScreenHost({ route, active = true }: { route: Route; active?: boolean }) {
   useEffect(() => () => clearAmbientGame(), []);
   return (
     <ErrorBoundary
@@ -127,7 +127,8 @@ function ScreenHost({ route }: { route: Route }) {
     >
       <Suspense fallback={null}>
         <Screen route={route} />
-        <FocusOnShow route={route} />
+        {/* écran gardé en vie : le focus revient à chaque retour au premier plan */}
+        {active && <FocusOnShow route={route} />}
       </Suspense>
     </ErrorBoundary>
   );
@@ -149,6 +150,47 @@ const screenVariants = {
     transition: { duration: dir < 0 ? 0.09 : 0.12, ease: EASE.in },
   }),
 };
+
+/**
+ * Écran Bibliothèque à afficher : celui du dessus, ou l'étagère 3D gardée en vie
+ * sous la fiche d'un jeu ouverte depuis elle. La reconstruire au retour (scène,
+ * textures, shaders) figeait l'interface ~350 ms en plein milieu de la transition.
+ * La grille de jaquettes, qui écoute clavier et stick sur toute la fenêtre, n'est
+ * pas gardée.
+ */
+function libraryLayer(stack: Route[], shelf: boolean): { route: Extract<Route, { name: "library" }>; active: boolean } | null {
+  const top = stack[stack.length - 1];
+  if (top?.name === "library") return { route: top, active: true };
+  const below = stack[stack.length - 2];
+  if (shelf && top?.name === "game" && below?.name === "library" && below.platformId !== "pc") return { route: below, active: false };
+  return null;
+}
+
+/** Couche de l'écran Bibliothèque : effacée et inerte (sans être démontée) tant qu'une fiche la recouvre. */
+function LibraryLayer({ route, active, direction }: { route: Route; active: boolean; direction: number }) {
+  const [gone, setGone] = useState(false);
+  if (active && gone) setGone(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  return (
+    <motion.div
+      custom={direction}
+      variants={screenVariants}
+      initial="enter"
+      animate={active ? "center" : "exit"}
+      exit="exit"
+      onAnimationComplete={(def) => def === "exit" && !activeRef.current && setGone(true)}
+      className="absolute inset-0"
+      style={gone ? { display: "none" } : undefined}
+      inert={!active}
+      aria-hidden={active ? undefined : true}
+    >
+      <ScreenActive.Provider value={active}>
+        <ScreenHost route={route} active={active} />
+      </ScreenActive.Provider>
+    </motion.div>
+  );
+}
 
 export function App() {
   const singleWindow = usePlatform((p) => p.os === "linux");
@@ -252,6 +294,9 @@ export function App() {
 
   const route = useRoute();
   const direction = useNav((s) => s.direction);
+  const stack = useNav((s) => s.stack);
+  const shelfView = useSettings((s) => s.libraryView) === "shelf";
+  const library = libraryLayer(stack, shelfView);
   const reduced = useReducedMotion();
   const load = useLibrary((s) => s.load);
 
@@ -374,17 +419,22 @@ export function App() {
         )}
         <main className="relative min-h-0 flex-1">
           <AnimatePresence mode="wait" custom={direction} initial={false}>
-            <motion.div
-              key={routeKey(route)}
-              custom={direction}
-              variants={screenVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="absolute inset-0"
-            >
-              <ScreenHost route={route} />
-            </motion.div>
+            {library && <LibraryLayer key={routeKey(library.route)} route={library.route} active={library.active} direction={direction} />}
+          </AnimatePresence>
+          <AnimatePresence mode="wait" custom={direction} initial={false}>
+            {route.name !== "library" && (
+              <motion.div
+                key={routeKey(route)}
+                custom={direction}
+                variants={screenVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="absolute inset-0"
+              >
+                <ScreenHost route={route} />
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
         <HintBar />

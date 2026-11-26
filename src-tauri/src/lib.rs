@@ -34,6 +34,7 @@ mod clips_auto;
 mod share;
 mod voice;
 mod voice_echo;
+mod voice_vosk;
 mod voice_sapi;
 pub mod music;
 pub mod shortcut;

@@ -18,7 +18,7 @@ import { tuneRenderer } from "../rendererTuning";
 import { sound } from "@/services/sound";
 import { useScenePause } from "@/services/scenePause";
 import { markShelfHandoff, returnFlightPending, setFlightTarget, setViewerReady, startFlight, takeViewerPose, type ScreenPose } from "../handoff";
-import { focusAmbientGame } from "@/app/shellState";
+import { focusAmbientGame, useScreenActive } from "@/app/shellState";
 import { input } from "@/input/InputController";
 import { useLauncher } from "@/services/launcher";
 import { usePlayState } from "@/components/library/PlayControls";
@@ -528,13 +528,18 @@ export function ShelfView({
   // profil graphique : définition et rythme d'images (Steam Deck, économie d'énergie)
   const graphics = useGraphics();
   const shelves = useMemo(() => buildShelves(games, mixed), [games, mixed]);
-  const [returnAt] = useState(() => {
+  // gardée en vie sous la fiche d'un jeu ouverte depuis elle : en pause, sans raccourcis
+  const active = useScreenActive();
+  const findReturn = (id: string | undefined) => {
     for (let r = 0; r < shelves.length; r++) {
-      const i = shelves[r].games.findIndex((g) => g.id === returnGameId);
+      const i = shelves[r].games.findIndex((g) => g.id === id);
       if (i >= 0) return { row: r, index: i };
     }
     return null;
-  });
+  };
+  const [returnAt, setReturnAt] = useState(() => findReturn(returnGameId));
+  /** Chaque retour d'une fiche (étagère gardée en vie) repose la rangée comme un montage. */
+  const [visit, setVisit] = useState(0);
   const [shelfIndex, setShelfIndex] = useState(returnAt?.row ?? 0);
   const [picks, setPicks] = useState<Record<string, number>>(() => (returnAt ? { [shelves[returnAt.row].id]: returnAt.index } : {}));
   const [leaving, setLeaving] = useState(false);
@@ -589,18 +594,41 @@ export function ShelfView({
   }, [entering, shelfIndex]);
 
   // Retour de la fiche : le boîtier quitte la visionneuse et revient se ranger
-  useLayoutEffect(() => {
-    if (reduced || !returnAt) return;
-    const s = shelves[returnAt.row];
-    const g = s?.games[returnAt.index];
+  const comeBack = (at: { row: number; index: number } | null) => {
+    if (reduced || !at) return;
+    const s = shelves[at.row];
+    const g = s?.games[at.index];
     if (!g) return;
     const from = takeViewerPose(g.id);
-    if (from) startFlight(g, s.specs[returnAt.index], from, true);
+    if (from) startFlight(g, s.specs[at.index], from, true);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => comeBack(returnAt), []);
+  // Retour vers l'étagère gardée en vie : rien à reconstruire (scène, textures, shaders),
+  // seulement l'état de départ remis et la rangée reposée sur le jeu quitté
+  const wasActive = useRef(active);
+  useLayoutEffect(() => {
+    if (active === wasActive.current) return;
+    wasActive.current = active;
+    if (!active) return;
+    const at = findReturn(returnGameId);
+    setReturnAt(at);
+    setLeaving(false);
+    setFlown(false);
+    setFlipped(false);
+    setSwap(null);
+    setEntering(false);
+    if (at) {
+      setShelfIndex(at.row);
+      setPicks((p) => ({ ...p, [shelves[at.row].id]: at.index }));
+    }
+    comeBack(at);
+    setVisit((v) => v + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [active]);
 
   useEffect(() => {
-    if (!sel) return;
+    if (!sel || !active) return;
     setFlipped(false);
     spin.current = 0;
     // halo aux couleurs de la vraie jaquette
@@ -613,10 +641,11 @@ export function ShelfView({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [sel]);
+  }, [sel, active]);
 
   // stick droit : fait tourner le boîtier choisi ; relâché, il revient de face
   useEffect(() => {
+    if (!active) return;
     const onAnalog = (e: Event) => {
       const { x } = (e as CustomEvent<{ x: number; y: number }>).detail;
       spin.current = Math.abs(x) < 0.12 ? 0 : x * 1.25;
@@ -624,7 +653,7 @@ export function ShelfView({
     };
     window.addEventListener("ibox:analog", onAnalog);
     return () => window.removeEventListener("ibox:analog", onAnalog);
-  }, []);
+  }, [active]);
 
   const open = (g: Game) => {
     if (leaving || swap || drawing) return;
@@ -738,6 +767,7 @@ export function ShelfView({
   const drawRef = useRef(draw);
   drawRef.current = draw;
   useEffect(() => {
+    if (!active) return;
     const run = () => drawRef.current();
     // la demande n'est consommée qu'au moment de tirer : un montage annulé (mode strict) ne la perd pas
     const waiting = drawPending() ? window.setTimeout(() => takeDraw() && run(), reduced ? 0 : 900) : undefined;
@@ -747,7 +777,7 @@ export function ShelfView({
       window.removeEventListener(DRAW_EVENT, run);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [active]);
 
   const flip = () => {
     if (leaving || drawing || !sel) return;
@@ -838,19 +868,19 @@ export function ShelfView({
       >
         <Canvas
           flat
-          frameloop={scenePaused ? "never" : graphics.fps || graphics.idle ? "demand" : "always"}
+          frameloop={scenePaused || !active ? "never" : graphics.fps || graphics.idle ? "demand" : "always"}
           dpr={graphics.dpr}
           camera={{ fov: 32, position: [0, 0, PERSPECTIVE * ref.width], near: 0.1, far: 60 }}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
           style={{ borderRadius: "inherit" }}
           onCreated={({ gl }) => tuneRenderer(gl)}
         >
-          {(graphics.fps || graphics.idle) && !scenePaused && <FrameCap fps={graphics.fps} idle={graphics.idle} />}
+          {(graphics.fps || graphics.idle) && !scenePaused && active && <FrameCap fps={graphics.fps} idle={graphics.idle} />}
           <fog attach="fog" args={["#090a12", PERSPECTIVE * ref.width + 1.5, PERSPECTIVE * ref.width + 9]} />
           <FlowCamera spec={ref} reduced={reduced} />
           <FlowLights tint={theme.primary} on={!leaving} spec={ref} />
           <CaptureThree target={three} />
-          <group key={shelf.id}>
+          <group key={`${shelf.id}:${visit}`}>
             {shelf.games.map((g, i) =>
               Math.abs(i - index) > WINDOW ? null : (
                 <FlowCase

@@ -1,5 +1,6 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import { create } from "zustand";
+import { useIsPresent } from "motion/react";
 import type { Game, Platform } from "@/domain/types";
 import { useSettings } from "@/services/settings";
 
@@ -36,7 +37,15 @@ export const useShell = create<ShellState>((set) => ({
   set: (patch) => set(patch),
 }));
 
-/** Déclare l'habillage du shell pour l'écran courant. */
+/**
+ * Écran au premier plan. Faux pour l'étagère 3D gardée en vie (en pause, cachée)
+ * sous la fiche d'un jeu ouverte depuis elle : le retour est alors instantané. Un
+ * écran inactif ne touche pas à l'habillage partagé ni aux raccourcis globaux.
+ */
+export const ScreenActive = createContext(true);
+export const useScreenActive = () => useContext(ScreenActive);
+
+/** Déclare l'habillage du shell pour l'écran courant (réappliqué quand il revient au premier plan). */
 export function useScreenChrome(opts: {
   hints: Hint[];
   platform?: Platform | null;
@@ -44,8 +53,13 @@ export function useScreenChrome(opts: {
   title?: string | null;
 }) {
   const set = useShell((s) => s.set);
+  // un écran qui s'efface (sortie animée) ne réécrit plus l'habillage de celui qui arrive
+  const screenActive = useScreenActive();
+  const present = useIsPresent();
+  const active = screenActive && present;
   const key = JSON.stringify(opts.hints) + (opts.platform?.id ?? "") + (opts.tint?.join() ?? "") + (opts.title ?? "");
   useEffect(() => {
+    if (!active) return;
     set({
       hints: opts.hints,
       ambientPlatform: opts.platform ?? null,
@@ -53,7 +67,7 @@ export function useScreenChrome(opts: {
       title: opts.title ?? null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, set]);
+  }, [key, set, active]);
 }
 
 const darkMq = typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)") : null;

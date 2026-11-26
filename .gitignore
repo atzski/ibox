@@ -33,3 +33,6 @@ src-tauri/icons/ios/
 
 # Release builds produced by scripts/release.ps1
 /release/
+
+# Vosk (« Clip ça ! ») : récupéré par scripts/get-vosk.ps1, jamais versionné
+src-tauri/resources/vosk/

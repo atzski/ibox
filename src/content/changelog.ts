@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.22",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "Un nouveau moteur pour « Clip ça ! »", text: "« Clip ça ! » passe par Vosk, un moteur de reconnaissance vocale open source qui fonctionne sans Internet, livré avec iBox. Il reconnaît la phrase elle-même : « Tac », « Clic », « C’est ça » ou une conversation ne gardent plus de clip, et votre « Clip ça ! » est reconnu dès le début de l’écoute." },
+      { icon: "sparkle", title: "Rien ne part tout seul", text: "La musique, un jeu ou une notification qui sortent du PC ne comptent jamais comme votre voix. Le journal logs/voix.log dit pourquoi chaque son a été gardé ou refusé." },
+    ],
+  },
+  {
     version: "1.0.21",
     date: "2026-11-26",
     highlights: [

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ComponentProps } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentProps } from "react";
 import { input } from "@/input/InputController";
 import { useFlight } from "./handoff";
 
@@ -15,10 +15,15 @@ const ShelfViewImpl = lazy(() => loadShelf().then((m) => ({ default: m.ShelfView
 const loadFlight = () => import("./scenes/FlightLayer");
 const FlightLayerImpl = lazy(() => loadFlight().then((m) => ({ default: m.FlightLayer })));
 
-/** Couche du vol étagère → fiche : montée seulement pendant un vol. */
+/**
+ * Couche du vol étagère → fiche : montée au premier vol, puis gardée (cachée, sans
+ * rendu) : créer son contexte 3D à chaque vol coûtait une image d'environ 100 ms.
+ */
 export function FlightLayer() {
   const active = useFlight((s) => !!s.game);
-  if (!active) return null;
+  const [warm, setWarm] = useState(false);
+  if (active && !warm) setWarm(true);
+  if (!active && !warm) return null;
   return (
     <Suspense fallback={null}>
       <FlightLayerImpl />

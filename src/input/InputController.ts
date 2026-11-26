@@ -82,7 +82,8 @@ class InputControllerImpl {
     // `data-nav-inner` : un lien à l'intérieur d'un élément (nom d'artiste dans une ligne) ; il
     // garde l'activation (OK, Entrée) mais n'est pas une destination des flèches
     return Array.from(root.querySelectorAll<HTMLElement>("[data-focusable]:not([data-nav-inner])")).filter(
-      (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null && el.getAttribute("aria-hidden") !== "true",
+      // `inert` : écran qui s'efface sous un autre (étagère gardée sous la fiche)
+      (el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null && el.getAttribute("aria-hidden") !== "true" && !el.closest("[inert]"),
     );
   }
 

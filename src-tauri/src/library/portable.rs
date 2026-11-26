@@ -18,7 +18,13 @@ fn message(error: impl std::fmt::Display) -> String {
 
 fn allowed(name: &str) -> bool {
     if let Some(file) = name.strip_prefix("media/sounds/") {
-        return file.split_once(".custom.").is_some_and(|(id, ext)| {
+        return file.split_once(".custom.").is_some_and(|(id, rest)| {
+            // `<id>.custom.<ext>`, ou `<id>.custom.<marque de l'ajout du jeu>.<ext>` (1.0.21)
+            let ext = match rest.split_once('.') {
+                Some((tag, ext)) if tag.len() == 8 && tag.chars().all(|c| c.is_ascii_hexdigit()) => ext,
+                Some(_) => return false,
+                None => rest,
+            };
             id.parse::<u64>().is_ok()
                 && matches!(ext, "mp3" | "ogg" | "wav" | "m4a" | "opus" | "webm")
         });
@@ -282,6 +288,8 @@ mod tests {
             .unwrap()
             .contains("dark"));
         assert!(!allowed("media/sounds/../../escape.custom.ogg"));
+        assert!(allowed("media/sounds/2.custom.0a1b2c3d.ogg"));
+        assert!(!allowed("media/sounds/2.custom.x/../y.ogg"));
         assert!(!allowed("media/collections/1-hero:other"));
     }
 }
