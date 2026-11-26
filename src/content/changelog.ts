@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.19",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "Plus de clips au lancement", text: "Au démarrage d’iBox ou d’un jeu, les sons d’accueil et la notification « Clip ça ! vous écoute » pouvaient garder un ou deux clips tout seuls. L’écoute ignore désormais les 20 premières secondes." },
+      { icon: "sparkle", title: "« Clip ça ! » n’écoute plus la musique", text: "Avec de la musique ou un jeu dans les enceintes, des sons étaient pris pour « Clip ça ! » toutes les quelques secondes. Seule la phrase dite nettement garde maintenant un clip : si elle ne passe pas, redites-la un peu plus clairement." },
+    ],
+  },
+  {
     version: "1.0.18",
     date: "2026-11-26",
     highlights: [

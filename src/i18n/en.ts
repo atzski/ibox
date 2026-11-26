@@ -1789,6 +1789,12 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » n’écoute plus la musique": "“Clip that!” no longer listens to the music",
+  "Avec de la musique ou un jeu dans les enceintes, des sons étaient pris pour « Clip ça ! » toutes les quelques secondes. Seule la phrase dite nettement garde maintenant un clip : si elle ne passe pas, redites-la un peu plus clairement.":
+    "With music or a game on the speakers, sounds were taken for “Clip that!” every few seconds. Only the phrase said clearly keeps a clip now: if it doesn't get through, say it again a little more clearly.",
+  "Plus de clips au lancement": "No more clips at launch",
+  "Au démarrage d’iBox ou d’un jeu, les sons d’accueil et la notification « Clip ça ! vous écoute » pouvaient garder un ou deux clips tout seuls. L’écoute ignore désormais les 20 premières secondes.":
+    "When iBox or a game starts, the welcome sounds and the “Clip that! is listening” notification could keep one or two clips by themselves. Listening now ignores the first 20 seconds.",
   "« Clip ça ! » vous suit quand vous enchaînez": "“Clip that!” keeps up when you chain them",
   "Une phrase dite fort ou traînée compte de nouveau. Après six clips à la voix en deux minutes, l’écoute fait une pause de deux minutes puis reprend seule, sans rien à réactiver.":
     "A phrase said loudly or drawn out counts again. After six voice clips in two minutes, listening pauses for two minutes then resumes by itself, with nothing to turn back on.",

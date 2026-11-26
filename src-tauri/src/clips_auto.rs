@@ -69,6 +69,8 @@ const PAUSE_GRACE_MS: u64 = 1_500;
 /// Après chaque clip gardé, la voix reste sourde 3 s (+ la grâce) : le son de déclencheur de la
 /// notification, entendu par le micro, était pris pour « Clip ça ! » et relançait un clip en boucle.
 const AFTER_CLIP_MS: u64 = 3_000;
+/// Au démarrage de l'écoute, la voix reste sourde 20 s (voir `voice_thread`).
+const AFTER_START_MS: u64 = 20_000;
 /// Garde-fou : 6 clips à la voix en moins de 2 min mettent « Clip ça ! » en pause 2 min, puis
 /// l'écoute reprend seule (un son du PC pris pour la phrase ne garde plus de clips sans fin).
 /// 3 en 90 s, à réactiver à la main (1.0.11), coupait le joueur qui enchaîne les « Clip ça ! ».
@@ -288,7 +290,7 @@ fn heard(app: &AppHandle) {
     // un clip rejoué dans iClips, ou la notification d'un clip qui vient d'être gardé :
     // la phrase vient des haut-parleurs, pas du joueur
     if QUIET_UNTIL.load(Ordering::Relaxed) > now() {
-        log("décision : ignoré (clip en lecture ou notification de clip)");
+        log("décision : ignoré (démarrage de l'écoute, clip en lecture ou notification de clip)");
         return;
     }
     let paused = RUNAWAY_UNTIL.load(Ordering::Relaxed) > now();
@@ -341,6 +343,11 @@ fn voice_thread(app: &AppHandle) {
                 set_listening(&app, false);
             }
             if want && listener.is_none() && now() >= RETRY_AT.load(Ordering::Relaxed) {
+                // l'écoute qui démarre est sourde 20 s : la notification « vous écoute » et les sons
+                // d'iBox au lancement (accueil, jeu) étaient pris pour « Clip ça ! » à chaque
+                // démarrage (journal : 1 à 15 s après). Posée avant : le moteur peut entendre une
+                // phrase avant même d'avoir rendu la main. L'essai de la voix (Studio) n'est pas visé.
+                QUIET_UNTIL.fetch_max(now() + AFTER_START_MS, Ordering::Relaxed);
                 match start(&app, ui, mic.as_deref()) {
                     Ok(l) => {
                         if let Ok(mut v) = VOICE.lock() { *v = (None, Some(l.tag().to_string())); }
