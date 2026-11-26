@@ -218,11 +218,6 @@ pub fn log_lines(v: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Le pont rend un état seulement si un titre est chargé ou en cours.
-pub fn active(v: &Value) -> bool {
-    matches!(v.get("playerState").and_then(Value::as_i64), Some(1 | 2 | 3)) && v.get("videoId").and_then(Value::as_str).is_some()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,8 +251,6 @@ mod tests {
         let v = json!({ "videoId": "abc", "playerState": 2, "title": "T", "artist": "A", "position": 12.5, "duration": 200.0, "volume": 40 });
         let n = now_playing(&v).unwrap();
         assert_eq!((n.title.as_str(), n.position_ms, n.duration_ms, n.playing, n.volume), ("T", 12_500, 200_000, false, Some(40)));
-        assert!(active(&v));
-        assert!(!active(&json!({ "videoId": "abc", "playerState": -1 })));
         assert!(now_playing(&json!({ "playerState": 1 })).is_none());
     }
 }

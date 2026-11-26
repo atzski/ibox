@@ -4,10 +4,9 @@ Statut : étapes 0 et 1 faites (18/11/2026) : pont YouTube Music, lecteur Window
 
 Objectif : contrôler sa musique (YouTube Music en priorité) depuis un overlay léger et animé, pendant une partie, au clavier ou à la manette : lecture, titre suivant, recherche, playlists.
 
-Le module reprend la logique de l'overlay Ctrl+Maj+S (`src-tauri/src/capture.rs`) : une fenêtre créée hors commande synchrone, cachée puis réaffichée, avec son propre aiguillage dans `src/main.tsx`. La musique arrive par **deux sources** qui partagent un même contrat :
+Le module reprend la logique de l'overlay Ctrl+Maj+S (`src-tauri/src/capture.rs`) : une fenêtre créée hors commande synchrone, cachée puis réaffichée, avec son propre aiguillage dans `src/main.tsx`. La musique vient d'**une seule source** : **YouTube Music piloté dans une WebView2 cachée** (lecture, recherche, playlists, file d'attente).
 
-- **Contrôles média de Windows (SMTC)** : marche avec n'importe quel lecteur, mais seulement pour lire, mettre en pause et changer de titre.
-- **YouTube Music piloté dans une WebView2 cachée** : ajoute la recherche et les playlists.
+La source SMTC (contrôles média de Windows, n'importe quel lecteur) a été retirée le 26/11/2026 : une vidéo ouverte ailleurs (Twitter, YouTube, un onglet de navigateur) prenait la place de la musique.
 
 Maquette interactive de l'overlay : artifact « Music in the Box » (privé).
 
@@ -21,7 +20,6 @@ Maquette interactive de l'overlay : artifact « Music in the Box » (privé).
  │  mod.rs       état central (NowPlaying, file d'attente),    │
  │               commandes music_*, événement music://state    │
  │  source.rs    trait Source { play, pause, next, seek, ... } │
- │  smtc.rs      Source SMTC (tout lecteur Windows)            │
  │  ytm/host.rs  Source YT Music : WebView2 cachée « ytmusic » │
  │  ytm/bridge.js  script injecté dans music.youtube.com       │
  │  hotkeys.rs   clavier (RegisterHotKey) + XInput (manette)   │
@@ -43,12 +41,6 @@ Maquette interactive de l'overlay : artifact « Music in the Box » (privé).
 - Il garde `NowPlaying { source, title, artist, album, art_id, duration_ms, position_ms, playing, can_next, can_prev, liked? }` et la file d'attente.
 - Il émet `music://state` uniquement quand quelque chose change. La position n'est pas envoyée en continu : l'interface l'interpole à partir de `position_ms` et de l'heure de l'instantané.
 - La pochette est servie en octets par `music_art(id)`, comme `overlay_preview` le fait déjà avec `ipc::Response`.
-
-### Source SMTC (`smtc.rs`)
-
-- Elle utilise `GlobalSystemMediaTransportControlsSessionManager`, via la crate `windows` déjà présente. Il faut ajouter les fonctionnalités `Media_Control` et `Storage_Streams`.
-- Elle s'abonne aux changements de session, de métadonnées, de lecture et de position. Les actions utilisées sont `TryTogglePlayPause`, `TrySkipNext/Previous` et `TryChangePlaybackPosition`.
-- Elle choisit la session en cours, avec priorité à YouTube Music, que ce soit dans un navigateur ou dans l'appli PWA.
 
 ### Source YouTube Music (`ytm/`)
 

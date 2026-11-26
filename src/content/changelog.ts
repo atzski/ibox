@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.21",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "disc", title: "Seulement YouTube Music", text: "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique." },
+    ],
+  },
+  {
     version: "1.0.20",
     date: "2026-11-26",
     highlights: [
