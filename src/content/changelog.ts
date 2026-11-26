@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.24",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » ne garde plus de clips pour rien", text: "Dans iBox installé, le moteur Vosk ne se chargeait pas et « Clip ça ! » repassait sur la reconnaissance vocale de Windows, qui gardait des clips pour rien. Vosk se charge désormais à chaque fois." },
+    ],
+  },
+  {
     version: "1.0.23",
     date: "2026-11-26",
     highlights: [

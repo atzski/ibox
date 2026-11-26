@@ -1791,6 +1791,8 @@ export const EN: Record<string, string> = {
   "Music in the Box": "Music in the Box",
   "Seulement YouTube Music": "YouTube Music only",
   "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique.": "Music in the Box now follows YouTube Music only: a video playing elsewhere, on Twitter, YouTube or in a browser tab, no longer replaces your music.",
+  "« Clip ça ! » ne garde plus de clips pour rien": "“Clip that!” no longer saves clips for nothing",
+  "Dans iBox installé, le moteur Vosk ne se chargeait pas et « Clip ça ! » repassait sur la reconnaissance vocale de Windows, qui gardait des clips pour rien. Vosk se charge désormais à chaque fois.": "In installed iBox, the Vosk engine never loaded and “Clip that!” fell back to Windows speech recognition, which saved clips for nothing. Vosk now loads every time.",
   "Les fiches s’ouvrent sans figer": "Game pages open without freezing",
   "Ouvrir la fiche d’un jeu ne fige plus l’interface quand l’étagère 3D vient de se mettre en pause.": "Opening a game’s page no longer freezes the interface right after the 3D shelf has paused.",
   "Le bon jingle sur chaque fiche": "The right jingle on every page",

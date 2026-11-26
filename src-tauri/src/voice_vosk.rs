@@ -229,6 +229,19 @@ pub fn dir() -> Option<std::path::PathBuf> {
     listen::DIR.lock().ok().and_then(|d| d.clone()).filter(|d| d.join("libvosk.dll").is_file() && d.join("model").join("am").join("final.mdl").is_file())
 }
 
+/// Chemin sans le préfixe Windows `\\?\` (`\\?\UNC\serveur` redevient `\\serveur`).
+#[cfg(any(windows, test))]
+fn plain(path: &std::path::Path) -> String {
+    let s = path.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        s.into_owned()
+    }
+}
+
 #[cfg(windows)]
 mod engine {
     use std::ffi::{c_char, c_float, c_int, c_short, c_void, CStr, CString};
@@ -317,7 +330,9 @@ mod engine {
         /// `dir` : dossier de `libvosk.dll` ; `model` : dossier du modèle.
         pub fn load(dir: &Path, model: &Path) -> Result<Self, String> {
             let api = api(dir)?;
-            let path = CString::new(model.to_string_lossy().as_bytes()).map_err(|e| e.to_string())?;
+            // Vosk ouvre le modèle par des chemins « char* » : le préfixe `\\?\` que Tauri met au
+            // dossier des ressources de l'app installée le rend illisible (1.0.22-1.0.23)
+            let path = CString::new(super::plain(model).as_bytes()).map_err(|e| e.to_string())?;
             let ptr = unsafe { (api.model_new)(path.as_ptr()) };
             if ptr.is_null() {
                 return Err(format!("modèle Vosk illisible ({})", model.display()));
@@ -382,6 +397,14 @@ mod engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chemin_sans_prefixe_long() {
+        use std::path::Path;
+        assert_eq!(plain(Path::new(r"\\?\C:\Users\a\iBox\resources\vosk\model")), r"C:\Users\a\iBox\resources\vosk\model");
+        assert_eq!(plain(Path::new(r"\\?\UNC\nas\jeux\vosk")), r"\\nas\jeux\vosk");
+        assert_eq!(plain(Path::new(r"C:\vosk\model")), r"C:\vosk\model");
+    }
 
     fn w(word: &str, conf: f32) -> Word {
         Word { word: word.into(), conf, start: 1.0, end: 1.5 }
