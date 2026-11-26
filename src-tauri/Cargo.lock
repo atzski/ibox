@@ -2296,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "1.0.16"
+version = "1.0.17"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",

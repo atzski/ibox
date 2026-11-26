@@ -1789,6 +1789,9 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » ne part plus tout seul": "“Clip that!” no longer goes off by itself",
+  "Un son long du jeu pouvait être pris pour « Clip ça ! » et garder un clip sans que vous parliez. La phrase est courte : un son qui dure trop longtemps ne compte plus, et votre « Clip ça ! » passe toujours du premier coup.":
+    "A long game sound could be taken for “Clip that!” and keep a clip without you speaking. The phrase is short: a sound that lasts too long no longer counts, and your “Clip that!” still gets through the first time.",
   "« Clip ça ! » plus facile à déclencher": "“Clip that!” is easier to trigger",
   "La phrase reconnue de justesse garde maintenant le clip du premier coup, sans avoir à la répéter. Trois clips à la voix en moins de 90 s mettent toujours l’écoute en pause, au cas où un son du PC lui ressemblerait.":
     "A phrase recognised only just now keeps the clip the first time, without having to repeat it. Three voice clips in under 90 s still pause listening, in case a sound on the PC resembles it.",
