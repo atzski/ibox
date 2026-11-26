@@ -1791,6 +1791,8 @@ export const EN: Record<string, string> = {
   "Music in the Box": "Music in the Box",
   "Seulement YouTube Music": "YouTube Music only",
   "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique.": "Music in the Box now follows YouTube Music only: a video playing elsewhere, on Twitter, YouTube or in a browser tab, no longer replaces your music.",
+  "Chaque plugin a son icône": "Each plugin has its own icon",
+  "La fenêtre d’un plugin, comme le Studio d’iClips, a maintenant son propre bouton dans la barre des tâches de Windows, avec le logo du plugin au lieu de celui d’iBox.": "A plugin’s window, such as the iClips Studio, now has its own button in the Windows taskbar, with the plugin’s logo instead of iBox’s.",
   "Le son des clips se règle dans iClips": "Clip sound is set in iClips",
   "Dans le Studio d’iClips, les barres Son du jeu et Micro changent vraiment ce que vous entendez pendant la lecture : iBox fournit maintenant au Studio les pistes du jeu et du micro gardées à part.": "In the iClips Studio, the Game sound and Microphone sliders now really change what you hear during playback: iBox now gives the Studio the game and mic tracks kept apart.",
   "« Clip ça ! » ne garde plus de clips pour rien": "“Clip that!” no longer saves clips for nothing",

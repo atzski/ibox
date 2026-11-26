@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.26",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "Chaque plugin a son icône", text: "La fenêtre d’un plugin, comme le Studio d’iClips, a maintenant son propre bouton dans la barre des tâches de Windows, avec le logo du plugin au lieu de celui d’iBox." },
+    ],
+  },
+  {
     version: "1.0.25",
     date: "2026-11-26",
     highlights: [

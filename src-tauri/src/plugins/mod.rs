@@ -170,6 +170,65 @@ pub struct PluginList {
     pub platform_supported: bool,
 }
 
+/// Icône d'un plugin pour sa fenêtre (barre des tâches, Alt+Tab) : son `icon.png`, en RGBA.
+fn window_icon(dir: &std::path::Path) -> Option<tauri::image::Image<'static>> {
+    let bytes = std::fs::read(dir.join("icon.png")).ok().filter(|b| b.len() <= 256 * 1024)?;
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::EXPAND);
+    let mut reader = decoder.read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buf).ok()?;
+    if info.bit_depth != png::BitDepth::Eight {
+        return None;
+    }
+    buf.truncate(info.buffer_size());
+    let rgba = rgba(info.color_type, buf)?;
+    Some(tauri::image::Image::new_owned(rgba, info.width, info.height))
+}
+
+/// Pixels 8 bits d'un PNG décodé → RGBA.
+fn rgba(color: png::ColorType, buf: Vec<u8>) -> Option<Vec<u8>> {
+    Some(match color {
+        png::ColorType::Rgba => buf,
+        png::ColorType::Rgb => buf.chunks_exact(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect(),
+        png::ColorType::GrayscaleAlpha => buf.chunks_exact(2).flat_map(|p| [p[0], p[0], p[0], p[1]]).collect(),
+        png::ColorType::Grayscale => buf.iter().flat_map(|&g| [g, g, g, 255]).collect(),
+        png::ColorType::Indexed => return None,
+    })
+}
+
+/// Identité Windows de la fenêtre d'un plugin : son propre bouton dans la barre des tâches, avec
+/// son icône, au lieu de se ranger sous celui d'iBox.
+#[cfg(windows)]
+fn own_taskbar_button(w: &tauri::WebviewWindow, id: &str) {
+    use windows::Win32::Foundation::{HWND, PROPERTYKEY};
+    use windows::Win32::System::Com::CoTaskMemAlloc;
+    use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
+    use windows::Win32::System::Variant::VT_LPWSTR;
+    use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+    // PKEY_AppUserModel_ID
+    const KEY: PROPERTYKEY = PROPERTYKEY { fmtid: windows::core::GUID::from_u128(0x9f4c2855_9f79_4b39_a8d0_e1d42de1d5f3), pid: 5 };
+    let Ok(h) = w.hwnd() else { return };
+    let name: Vec<u16> = format!("atzski.iBox.plugin.{id}").encode_utf16().chain(Some(0)).collect();
+    unsafe {
+        let Ok(store) = SHGetPropertyStoreForWindow::<IPropertyStore>(HWND(h.0 as _)) else { return };
+        // chaîne allouée par COM : PropVariantClear (Drop) la libère
+        let text = CoTaskMemAlloc(name.len() * 2) as *mut u16;
+        if text.is_null() {
+            return;
+        }
+        std::ptr::copy_nonoverlapping(name.as_ptr(), text, name.len());
+        let mut value = PROPVARIANT::default();
+        (*value.Anonymous.Anonymous).vt = VT_LPWSTR;
+        (*value.Anonymous.Anonymous).Anonymous.pwszVal = windows::core::PWSTR(text);
+        if store.SetValue(&KEY, &value).is_ok() {
+            let _ = store.Commit();
+        }
+    }
+}
+#[cfg(not(windows))]
+fn own_taskbar_button(_: &tauri::WebviewWindow, _: &str) {}
+
 fn icon_of(dir: &std::path::Path) -> Option<String> {
     let bytes = std::fs::read(dir.join("icon.png")).ok().filter(|b| b.len() <= 256 * 1024 && b.starts_with(b"\x89PNG"))?;
     Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
@@ -325,6 +384,7 @@ pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String
     let home = protocol::url(&id, "");
     let title = screen.title.unwrap_or_else(|| a.manifest.name.clone());
     let label = protocol::screen_label(&id);
+    let icon = window_icon(&a.dir);
     std::thread::spawn(move || {
         let ui = app.clone();
         let _ = app.run_on_main_thread(move || {
@@ -334,18 +394,26 @@ pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String
                 let _ = w.set_focus();
                 return;
             }
-            let built = tauri::WebviewWindowBuilder::new(&ui, &label, tauri::WebviewUrl::CustomProtocol(url))
-                .title(title)
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(960.0, 600.0)
-                .maximized(true)
-                .background_color(tauri::webview::Color(12, 11, 18, 255))
-                // le plugin reste chez lui : ni autre site, ni fenêtre surgissante
-                .on_navigation(move |u| u.as_str().starts_with(&home))
-                .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
-                .build();
+            let make = || {
+                let home = home.clone();
+                tauri::WebviewWindowBuilder::new(&ui, &label, tauri::WebviewUrl::CustomProtocol(url.clone()))
+                    .title(title.clone())
+                    .inner_size(1280.0, 800.0)
+                    .min_inner_size(960.0, 600.0)
+                    .maximized(true)
+                    .background_color(tauri::webview::Color(12, 11, 18, 255))
+                    // le plugin reste chez lui : ni autre site, ni fenêtre surgissante
+                    .on_navigation(move |u| u.as_str().starts_with(&home))
+                    .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+            };
+            // l'icône du plugin, pas celle d'iBox ; refusée, la fenêtre s'ouvre quand même
+            let built = match icon.and_then(|i| make().icon(i).ok()) {
+                Some(b) => b.build(),
+                None => make().build(),
+            };
             match built {
                 Ok(w) => {
+                    own_taskbar_button(&w, &id);
                     let _ = w.set_focus();
                 }
                 Err(e) => eprintln!("iBox : écran du plugin indisponible : {e}"),
@@ -358,6 +426,19 @@ pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn icone_du_plugin_en_rgba() {
+        assert_eq!(rgba(png::ColorType::Rgb, vec![1, 2, 3]), Some(vec![1, 2, 3, 255]));
+        assert_eq!(rgba(png::ColorType::GrayscaleAlpha, vec![9, 7]), Some(vec![9, 9, 9, 7]));
+        assert_eq!(rgba(png::ColorType::Indexed, vec![0]), None);
+        // le vrai logo d'un plugin, s'il est là (dossier du dépôt iClips voisin)
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../iclips");
+        if dir.join("icon.png").is_file() {
+            let icon = window_icon(&dir).expect("icon.png d'iClips lisible");
+            assert_eq!(icon.rgba().len() as u32, icon.width() * icon.height() * 4);
+        }
+    }
 
     #[test]
     fn version_order() {
