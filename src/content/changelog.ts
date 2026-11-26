@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.20",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » écoute votre voix, pas le PC", text: "« Clip ça ! » ne se fie plus au score du moteur vocal, qui confondait votre phrase avec la musique, un jeu ou une notification. iBox compare maintenant votre micro à tout ce que le PC fait sortir (enceintes, casque, écran) : seule une voix au micro, nettement au-dessus de ce son, garde un clip. Le journal logs/voix.log dit pourquoi chaque son a été refusé." },
+      { icon: "sparkle", title: "Votre phrase passe du premier coup", text: "Dite normalement, même un peu bas, « Clip ça ! » est de nouveau reconnu : la règle de la 1.0.19 refusait la plupart des vraies phrases." },
+    ],
+  },
+  {
     version: "1.0.19",
     date: "2026-11-26",
     highlights: [

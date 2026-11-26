@@ -33,6 +33,7 @@ mod clip_edit;
 mod clips_auto;
 mod share;
 mod voice;
+mod voice_echo;
 mod voice_sapi;
 pub mod music;
 pub mod shortcut;

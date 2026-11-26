@@ -1789,6 +1789,12 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » écoute votre voix, pas le PC": "“Clip that!” listens to your voice, not the PC",
+  "« Clip ça ! » ne se fie plus au score du moteur vocal, qui confondait votre phrase avec la musique, un jeu ou une notification. iBox compare maintenant votre micro à tout ce que le PC fait sortir (enceintes, casque, écran) : seule une voix au micro, nettement au-dessus de ce son, garde un clip. Le journal logs/voix.log dit pourquoi chaque son a été refusé.":
+    "“Clip that!” no longer trusts the speech engine's score, which mixed up your phrase with music, a game or a notification. iBox now compares your mic with everything the PC plays (speakers, headset, screen): only a voice at the mic, clearly above that sound, keeps a clip. The logs/voix.log file says why each sound was rejected.",
+  "Votre phrase passe du premier coup": "Your phrase gets through the first time",
+  "Dite normalement, même un peu bas, « Clip ça ! » est de nouveau reconnu : la règle de la 1.0.19 refusait la plupart des vraies phrases.":
+    "Said normally, even a little quietly, “Clip that!” is recognized again: the 1.0.19 rule rejected most real phrases.",
   "« Clip ça ! » n’écoute plus la musique": "“Clip that!” no longer listens to the music",
   "Avec de la musique ou un jeu dans les enceintes, des sons étaient pris pour « Clip ça ! » toutes les quelques secondes. Seule la phrase dite nettement garde maintenant un clip : si elle ne passe pas, redites-la un peu plus clairement.":
     "With music or a game on the speakers, sounds were taken for “Clip that!” every few seconds. Only the phrase said clearly keeps a clip now: if it doesn't get through, say it again a little more clearly.",
