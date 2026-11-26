@@ -1791,6 +1791,8 @@ export const EN: Record<string, string> = {
   "Music in the Box": "Music in the Box",
   "Seulement YouTube Music": "YouTube Music only",
   "Music in the Box ne suit plus que YouTube Music : une vidéo ouverte ailleurs, sur Twitter, YouTube ou dans un onglet, ne prend plus la place de votre musique.": "Music in the Box now follows YouTube Music only: a video playing elsewhere, on Twitter, YouTube or in a browser tab, no longer replaces your music.",
+  "Le son des clips se règle dans iClips": "Clip sound is set in iClips",
+  "Dans le Studio d’iClips, les barres Son du jeu et Micro changent vraiment ce que vous entendez pendant la lecture : iBox fournit maintenant au Studio les pistes du jeu et du micro gardées à part.": "In the iClips Studio, the Game sound and Microphone sliders now really change what you hear during playback: iBox now gives the Studio the game and mic tracks kept apart.",
   "« Clip ça ! » ne garde plus de clips pour rien": "“Clip that!” no longer saves clips for nothing",
   "Dans iBox installé, le moteur Vosk ne se chargeait pas et « Clip ça ! » repassait sur la reconnaissance vocale de Windows, qui gardait des clips pour rien. Vosk se charge désormais à chaque fois.": "In installed iBox, the Vosk engine never loaded and “Clip that!” fell back to Windows speech recognition, which saved clips for nothing. Vosk now loads every time.",
   "Les fiches s’ouvrent sans figer": "Game pages open without freezing",

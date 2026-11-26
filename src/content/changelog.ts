@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.25",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "Le son des clips se règle dans iClips", text: "Dans le Studio d’iClips, les barres Son du jeu et Micro changent vraiment ce que vous entendez pendant la lecture : iBox fournit maintenant au Studio les pistes du jeu et du micro gardées à part." },
+    ],
+  },
+  {
     version: "1.0.24",
     date: "2026-11-26",
     highlights: [
