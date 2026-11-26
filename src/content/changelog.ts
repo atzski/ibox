@@ -10,6 +10,20 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.16",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "disc", title: "Un journal pour Music in the Box", text: "Music in the Box note ce que font les fondus entre les titres dans logs/music.log, pour comprendre une fin de titre qui saute. Avec le plugin Music in the Box 1.0.11." },
+    ],
+  },
+  {
+    version: "1.0.15",
+    date: "2026-11-26",
+    highlights: [
+      { icon: "sparkle", title: "« Clip ça ! » plus facile à déclencher", text: "La phrase reconnue de justesse garde maintenant le clip du premier coup, sans avoir à la répéter. Trois clips à la voix en moins de 90 s mettent toujours l’écoute en pause, au cas où un son du PC lui ressemblerait." },
+    ],
+  },
+  {
     version: "1.0.14",
     date: "2026-11-26",
     highlights: [

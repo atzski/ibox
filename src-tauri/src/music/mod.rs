@@ -76,6 +76,9 @@ pub(crate) fn now_ms() -> u64 {
 /// Windows en cours, sinon YouTube Music au repos. Bloquant.
 pub fn current(app: &AppHandle) -> MusicState {
     let yt = ytm::window(app).and_then(|_| ytm::call(app, "state", Value::Null).ok());
+    if let Some(v) = &yt {
+        diag::music(app, &ytm::log_lines(v));
+    }
     let now = match &yt {
         Some(v) if ytm::active(v) => ytm::now_playing(v),
         _ => smtc::now_playing().or_else(|| yt.as_ref().and_then(ytm::now_playing)),

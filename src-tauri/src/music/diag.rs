@@ -22,6 +22,25 @@ pub fn log(app: &AppHandle, event: &str) {
     }
 }
 
+/// Journal de Music in the Box : `logs/music.log`, ce que le pont a noté (étapes des fondus,
+/// sauts du lecteur qu'aucune commande n'explique). Repart de zéro au-delà de 512 Ko.
+pub fn music(app: &AppHandle, lines: &[String]) {
+    if lines.is_empty() {
+        return;
+    }
+    let Ok(dir) = app.path().app_log_dir() else { return };
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("music.log");
+    if std::fs::metadata(&path).is_ok_and(|m| m.len() > 2 * MAX_BYTES) {
+        let _ = std::fs::remove_file(&path);
+    }
+    let at = super::now_ms();
+    let text: String = lines.iter().map(|l| format!("{at} {l}\n")).collect();
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = f.write_all(text.as_bytes());
+    }
+}
+
 /// Programme au premier plan, mode d'affichage selon Windows, taille de sa fenêtre.
 #[cfg(windows)]
 fn foreground() -> String {

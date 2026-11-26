@@ -210,6 +210,14 @@ pub fn now_playing(v: &Value) -> Option<super::NowPlaying> {
     })
 }
 
+/// Lignes du journal que le pont joint à son état (pont 13 et plus), sans retour à la ligne.
+pub fn log_lines(v: &Value) -> Vec<String> {
+    v.get("log")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_str).take(200).map(|s| s.replace(['\r', '\n'], " ")).collect())
+        .unwrap_or_default()
+}
+
 /// Le pont rend un état seulement si un titre est chargé ou en cours.
 pub fn active(v: &Value) -> bool {
     matches!(v.get("playerState").and_then(Value::as_i64), Some(1 | 2 | 3)) && v.get("videoId").and_then(Value::as_str).is_some()
@@ -218,6 +226,13 @@ pub fn active(v: &Value) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bridge_log_lines_are_read_one_per_line() {
+        let v = json!({ "videoId": "a", "log": ["écho : préparation", "saut de position : 143.0 → 162.0\nfin", 3] });
+        assert_eq!(log_lines(&v), vec!["écho : préparation".to_string(), "saut de position : 143.0 → 162.0 fin".to_string()]);
+        assert!(log_lines(&json!({ "videoId": "a" })).is_empty());
+    }
 
     #[test]
     fn decode_reads_the_double_encoded_bridge_answer() {

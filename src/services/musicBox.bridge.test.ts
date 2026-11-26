@@ -305,7 +305,14 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
   const ytmParse = new Function(`${parseSrc}; return ytmParse;`)();
   new Function("window", "document", "location", "navigator", "localStorage", "ytmParse", "fetch", src)(win, document, location, { mediaSession: null }, storage, ytmParse, fetchNext);
   let seq = 0;
-  const call = (cmd: string, arg: unknown = null) => JSON.parse(win.__ibox!.start({ id: ++seq, cmd, arg })) as { ok?: unknown; error?: string };
+  /** Journal du pont, relevé à chaque lecture de l'état (comme iBox, qui l'écrit dans logs/music.log). */
+  const journal: string[] = [];
+  const call = (cmd: string, arg: unknown = null) => {
+    const r = JSON.parse(win.__ibox!.start({ id: ++seq, cmd, arg })) as { ok?: unknown; error?: string };
+    const log = cmd === "state" ? (r.ok as { log?: string[] } | undefined)?.log : undefined;
+    if (log) journal.push(...log);
+    return r;
+  };
   /** Gains entendus à chaque instant : lecteur (volume / volume choisi) et écho, s'il a la parole. */
   const heard: { gm: number; ge: number; id: string; eid: string | null }[] = [];
   const raw: { gm: number; ge: number; id: string; eid: string | null }[] = [];
@@ -376,7 +383,7 @@ function page(opts: { songs?: Song[]; volume?: number; store?: Map<string, strin
   const echo = new Proxy(e, {
     get: (o, k) => (k === "muted" ? echoLevel() === 0 : k === "volume" ? echoLevel() : o[k as keyof typeof o]),
   });
-  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo, heard, navs, main: { get routed() { return mainRouted; }, get gain() { return mainLevel(); } } };
+  return { sim, store, call, later, run, until, to, fade, shown, current: () => sim.songs[sim.index].id, echo, heard, navs, journal, main: { get routed() { return mainRouted; }, get gain() { return mainLevel(); } } };
 }
 
 /** Fondu général de 6 s : 3 s de sortie, 3 s d'entrée, le suivant lancé 1,5 s avant la fin. */
@@ -1481,5 +1488,43 @@ describe("Music in the Box : ajout à la file d'attente", () => {
     const q = (await p.later("queue")).ok as Item[];
     expect(q.map((x) => [x.videoId, x.queueIndex ?? null])).toEqual([["a", null], ["b", null]]);
     expect((await p.later("enqueue", { videoId: "x" })).error).toBe("titre-inconnu");
+  });
+});
+
+describe("Music in the Box : journal du pont (logs/music.log)", () => {
+  beforeEach(() => void vi.useFakeTimers());
+  afterEach(() => void vi.useRealTimers());
+  /** Ce que le journal a reçu depuis le dernier appel (l'état est lu à chaque pas). */
+  const drain = (p: ReturnType<typeof page>) => {
+    p.call("state");
+    return p.journal.splice(0);
+  };
+
+  it("un fondu enchaîné laisse ses étapes, et le journal se vide à chaque lecture de l'état", () => {
+    const p = page({ echo: {} });
+    p.fade(SIX);
+    p.sim.pos = 170;
+    drain(p);
+    p.until(3);
+    p.to(4);
+    const log = drain(p).join("\n");
+    expect(log).toMatch(/écho : préparation/);
+    expect(log).toMatch(/écho : prend la parole/);
+    expect(log).toMatch(/le pont passe au titre suivant/);
+    expect(log).not.toMatch(/saut de position/);
+    expect(drain(p)).toEqual([]);
+  });
+
+  it("un saut du lecteur qu'aucune commande n'explique est noté ; un déplacement demandé ne l'est pas", () => {
+    const p = page();
+    p.run(1500);
+    drain(p);
+    p.call("seek", { seconds: 100 });
+    p.run(1500);
+    expect(drain(p).join("\n")).not.toMatch(/saut de position/);
+    p.run(2000);
+    p.sim.pos = 170;
+    p.run(1000);
+    expect(drain(p).join("\n")).toMatch(/saut de position : 10\d\.\d → 17\d\.\d/);
   });
 });

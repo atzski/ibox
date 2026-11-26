@@ -1789,6 +1789,9 @@ export const EN: Record<string, string> = {
   "Disponible": "Available",
   "Décodage vidéo": "Video decoding",
   "Music in the Box": "Music in the Box",
+  "« Clip ça ! » plus facile à déclencher": "“Clip that!” is easier to trigger",
+  "La phrase reconnue de justesse garde maintenant le clip du premier coup, sans avoir à la répéter. Trois clips à la voix en moins de 90 s mettent toujours l’écoute en pause, au cas où un son du PC lui ressemblerait.":
+    "A phrase recognised only just now keeps the clip the first time, without having to repeat it. Three voice clips in under 90 s still pause listening, in case a sound on the PC resembles it.",
   "« Clip ça ! » vous entend, même en pleine partie": "“Clip that!” hears you, even mid-game",
   "La phrase dite au milieu du son d’un jeu est mieux reconnue : si elle n’est pas sûre du premier coup, la répéter suffit. Un dialogue de jeu ne garde toujours pas de clip, et un journal de l’écoute (sans rien de ce qui est dit) aide à comprendre un raté.":
     "The phrase said over a game's sound is recognised better: if it isn't sure the first time, just say it again. Game dialogue still doesn't keep a clip, and a listening log (with nothing of what is said) helps understand a miss.",
@@ -1804,6 +1807,9 @@ export const EN: Record<string, string> = {
   "« Clip ça ! » n’entend plus que vous": "“Clip that!” only hears you now",
   "La musique, une sonnerie ou les dialogues d’un jeu pouvaient passer pour « Clip ça ! » et garder des clips sans fin. La voix n’accepte plus que la phrase dite clairement, et trois clips à la voix en moins de 90 s la mettent en pause, avec une notification.":
     "Music, a ringtone or game dialogue could pass for “Clip that!” and keep clips endlessly. Voice now only accepts the phrase said clearly, and three voice clips in under 90 s pause it, with a notification.",
+  "Un journal pour Music in the Box": "A log for Music in the Box",
+  "Music in the Box note ce que font les fondus entre les titres dans logs/music.log, pour comprendre une fin de titre qui saute. Avec le plugin Music in the Box 1.0.11.":
+    "Music in the Box writes what crossfades between songs do to logs/music.log, to understand a song ending that skips. With the Music in the Box 1.0.11 plugin.",
   "Une file d’attente pour Music in the Box": "A queue for Music in the Box",
   "Un bouton + à côté de chaque titre (recherche, albums, playlists, fiches d’artiste) l’ajoute à la file. À suivre montre la vraie file, avec les titres ajoutés, et un titre ajouté passe avant la lecture automatique. Avec le plugin Music in the Box 1.0.10.":
     "A + button next to each song (search, albums, playlists, artist pages) adds it to the queue. Up next shows the real queue, added songs included, and an added song plays before autoplay. With the Music in the Box 1.0.10 plugin.",
