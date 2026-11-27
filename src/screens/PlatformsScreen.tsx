@@ -15,6 +15,9 @@ import { AmbienceHalo } from "@/components/platforms/ConsoleStage";
 import { ConsoleShelf } from "@/components/platforms/ConsoleShelf";
 import { StatusPill } from "@/components/platforms/StatusPill";
 import { consoleStatus } from "@/components/platforms/status";
+import { androidStatus, useAndroidEmulators } from "@/services/androidEmulators";
+import { usePlatform } from "@/services/platform";
+import { useCapability } from "@/services/capabilities";
 
 type Filter = { kind: "all" } | { kind: "maker"; value: string } | { kind: "type"; value: "home" | "handheld" | "arcade" } | { kind: "state"; value: "ready" | "discover" };
 
@@ -38,17 +41,25 @@ export function PlatformsScreen() {
   const [filter, setFilter] = useState<Filter>({ kind: "all" });
   const [query, setQuery] = useState("");
 
+  // sans souris (Android), pas de molette à rappeler
+  const keyboard = useCapability("keyboard");
   useScreenChrome({
     title: "iBox Platforms",
     hints: [
-      { keys: ["←", "→"], label: "Parcourir (ou molette)" },
+      { keys: ["←", "→"], label: keyboard ? "Parcourir (ou molette)" : "Parcourir" },
       { keys: ["Entrée"], label: "Découvrir" },
       { keys: ["Pg↑", "Pg↓"], label: "Défiler vite" },
       { keys: ["Échap"], label: "Retour" },
     ],
   });
 
-  const status = (c: ConsoleInfo) => consoleStatus(c, { platformMap, emulators, overview, progress });
+  // Android : émulateurs Android installés (table d'ES-DE) au lieu des émulateurs pour PC
+  const android = usePlatform((p) => !!p.android);
+  const androidSummary = useAndroidEmulators();
+  useEffect(() => {
+    if (android) void useAndroidEmulators.getState().load();
+  }, [android]);
+  const status = (c: ConsoleInfo) => (android ? androidStatus(c.id, androidSummary) : consoleStatus(c, { platformMap, emulators, overview, progress }));
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,7 +81,7 @@ export function PlatformsScreen() {
       })
       .sort((a, b) => a.year - b.year || a.name.localeCompare(b.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, query, platformMap, emulators, overview]);
+  }, [filter, query, platformMap, emulators, overview, androidSummary]);
 
   const initial = rememberedFocus({ name: "platforms" })?.replace("console:", "") ?? "gamecube";
   const [activeId, setActiveId] = useState<string>(initial);
@@ -160,7 +171,7 @@ export function PlatformsScreen() {
 
       {/* filtres : discrets, une seule ligne */}
       <div className="flex items-center gap-4 px-[3rem] pt-1">
-        <div data-nav-group="platform-filters" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <div data-nav-group="platform-filters" className="ibox-pf-filters flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           {chips.map((c, i) => {
             const on = same(filter, c.f);
             return (
@@ -182,7 +193,7 @@ export function PlatformsScreen() {
             );
           })}
         </div>
-        <label className="ibox-focusable-within flex h-9 w-[15rem] shrink-0 items-center gap-2 rounded-full bg-white/70 px-3 text-ink-soft ring-1 ring-ink/8 focus-within:ring-2 focus-within:ring-accent">
+        <label className="ibox-pf-search ibox-focusable-within flex h-9 w-[15rem] shrink-0 items-center gap-2 rounded-full bg-white/70 px-3 text-ink-soft ring-1 ring-ink/8 focus-within:ring-2 focus-within:ring-accent">
           <Icon name="search" size="1em" />
           <input
             data-focusable

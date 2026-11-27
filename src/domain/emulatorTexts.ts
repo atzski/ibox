@@ -63,6 +63,7 @@ export const REQUIREMENT_TEXT: Record<string, { title: string; body: string }> =
 /** Libellé d'état d'une console dans la galerie et sur la fiche. */
 export const STATUS_LABEL: Record<string, string> = {
   ready: "Prête à jouer",
+  "core-check": "RetroArch installé, cœur à vérifier",
   setup: "À configurer",
   "missing-bios": "BIOS manquant",
   "missing-prereq": "Prérequis manquant",

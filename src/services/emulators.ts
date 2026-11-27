@@ -249,7 +249,7 @@ export function formatBytes(n: number): string {
 }
 
 /** État d'une console pour l'interface. */
-export type ConsoleStatus = "ready" | "setup" | "missing-bios" | "missing-prereq" | "not-installed" | "installing" | "error" | "discovery" | "manual";
+export type ConsoleStatus = "ready" | "core-check" | "setup" | "missing-bios" | "missing-prereq" | "not-installed" | "installing" | "error" | "discovery" | "manual";
 
 /** Versions spécialisées pour ce jeu (identifiant de titre lu par le scanner). */
 export function packagesForGame(overview: Overview | null, platformId: string, serial: string | null | undefined): EmulatorPackage[] {

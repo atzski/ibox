@@ -1,8 +1,7 @@
 import type { Game } from "@/domain/types";
-import { requirePlatform } from "@/domain/platforms";
 import { metadataApi, type MediaKind } from "@/services/metadata";
 import { isTauri } from "@/services/native";
-import { caseFor } from "@/three/cases/caseSpecs";
+import { basePalette, fullScanSplit } from "./painters";
 
 export type Palette = [string, string, string, string, string];
 
@@ -17,50 +16,49 @@ export interface ArtAssets {
   screenshot?: ImageBitmap;
   /** Logo du jeu (SteamGridDB), utilisé au dos. */
   logo?: ImageBitmap;
-  /** Bannière paysage (jeux PC seulement : dos et disque du boîtier DVD). */
+  /** Bannière paysage (jeux PC et applications Android : dos et disque du boîtier DVD). */
   hero?: ImageBitmap;
+  /** Icône d'une application Android (logo, emplacement 1) : sa face quand il n'y a pas de jaquette. */
+  icon?: ImageBitmap;
   /** Couleurs de la vraie jaquette, sinon celles de l'habillage. */
   palette: Palette;
   /** Une vraie jaquette avant est disponible (téléchargée, importée ou scan complet). */
   hasCover: boolean;
 }
 
-/**
- * Découpe d'un scan complet (dos | tranche | face) pour une console : la
- * largeur de la tranche se déduit des proportions de l'image elle-même (deux
- * faces au format du boîtier + la tranche) ; à défaut, des dimensions du boîtier.
- */
-export function fullScanSplit(platformId: string, img?: { width: number; height: number }): { backEnd: number; frontStart: number } {
-  const spec = caseFor(platformId);
-  const face = spec.width / spec.height;
-  let spine = spec.depth / (2 * spec.width + spec.depth);
-  if (img && img.height > 0) {
-    const measured = 1 - (2 * face) / (img.width / img.height);
-    if (measured > 0.015 && measured < 0.14) spine = measured;
-  }
-  return { backEnd: (1 - spine) / 2, frontStart: (1 + spine) / 2 };
-}
-
-export function basePalette(game: Game): Palette {
-  if (game.art.motif !== "placeholder") return game.art.palette;
-  const t = requirePlatform(game.platformId).theme;
-  return [t.soft, t.primary, t.deep, t.primary, "#ffffff"];
-}
+export { fullScanSplit, basePalette };
 
 /** Signature des images d'un jeu : change à chaque ajout ou remplacement. */
 export function mediaSignature(game: Game): string {
   return (game.media ?? []).map((m) => `${m.kind}${m.slot}@${m.addedAt}`).join(",");
 }
 
-async function loadBitmap(game: Game, kind: MediaKind, resizeWidth?: number): Promise<ImageBitmap | undefined> {
+async function loadBitmap(game: Game, kind: MediaKind, resizeWidth?: number, slot = 0): Promise<ImageBitmap | undefined> {
   if (game.dbId === undefined || !isTauri()) return undefined;
-  if (!(game.media ?? []).some((m) => m.kind === kind && m.slot === 0)) return undefined;
+  if (!(game.media ?? []).some((m) => m.kind === kind && m.slot === slot)) return undefined;
   try {
-    const bytes = await metadataApi.read(game.dbId, kind, 0);
+    const bytes = await metadataApi.read(game.dbId, kind, slot);
     return await createImageBitmap(new Blob([bytes]), resizeWidth ? { resizeWidth, resizeQuality: "medium" } : undefined);
   } catch {
     return undefined; // fichier manquant ou illisible : habillage généré
   }
+}
+
+/** Emplacement de l'icône d'une application Android parmi les logos (`android_apps::ICON_SLOT`). */
+const ANDROID_ICON_SLOT = 1;
+
+function loadIcon(game: Game): Promise<ImageBitmap | undefined> {
+  return game.platformId === "android" ? loadBitmap(game, "logo", undefined, ANDROID_ICON_SLOT) : Promise.resolve(undefined);
+}
+
+/**
+ * Bannière Android TV d'une application (`android_apps::BANNER_SLOT`) : dos et disque du boîtier,
+ * à défaut d'un vrai « Fond ». Jamais en emplacement 0, où elle servirait de fond d'écran étiré.
+ */
+const ANDROID_BANNER_SLOT = 1;
+
+function loadBanner(game: Game): Promise<ImageBitmap | undefined> {
+  return game.platformId === "android" ? loadBitmap(game, "hero", undefined, ANDROID_BANNER_SLOT) : Promise.resolve(undefined);
 }
 
 const cache = new Map<string, Promise<ArtAssets>>();
@@ -71,14 +69,16 @@ export function loadAssets(game: Game): Promise<ArtAssets> {
   if (!p) {
     p = (async () => {
       const kinds: MediaKind[] = ["front", "back", "spine", "full", "disc", "title", "screenshot", "logo"];
-      if (game.platformId === "pc") kinds.push("hero");
-      const bitmaps = await Promise.all(kinds.map((k) => loadBitmap(game, k)));
+      if (game.platformId === "pc" || game.platformId === "android") kinds.push("hero");
+      const [bitmaps, icon, banner] = await Promise.all([Promise.all(kinds.map((k) => loadBitmap(game, k))), loadIcon(game), loadBanner(game)]);
       const a: Partial<ArtAssets> = {};
       kinds.forEach((k, i) => {
         if (bitmaps[i]) (a as Record<string, ImageBitmap>)[k] = bitmaps[i]!;
       });
+      if (icon) a.icon = icon;
+      if (banner && !a.hero) a.hero = banner;
       const coverSource = a.front ?? a.full;
-      const palette = coverSource ? extractPalette(coverSource, a.front ? 0 : fullScanSplit(game.platformId, a.full).frontStart) : basePalette(game);
+      const palette = coverSource ? extractPalette(coverSource, a.front ? 0 : fullScanSplit(game.platformId, a.full).frontStart) : icon ? extractPalette(icon) : basePalette(game);
       return { ...a, palette, hasCover: !!coverSource } as ArtAssets;
     })();
     cache.set(key, p);
@@ -98,8 +98,9 @@ export async function loadThumbAssets(game: Game, width: number): Promise<ArtAss
   // scan complet (dos | tranche | face) : la face n'en est que la moitié droite
   const full = front ? undefined : await loadBitmap(game, "full", Math.round(width * 2.2));
   const coverSource = front ?? full;
-  const palette = coverSource ? extractPalette(coverSource, front ? 0 : fullScanSplit(game.platformId, full).frontStart) : basePalette(game);
-  return { front, full, palette, hasCover: !!coverSource };
+  const icon = coverSource ? undefined : await loadIcon(game);
+  const palette = coverSource ? extractPalette(coverSource, front ? 0 : fullScanSplit(game.platformId, full).frontStart) : icon ? extractPalette(icon) : basePalette(game);
+  return { front, full, icon, palette, hasCover: !!coverSource };
 }
 
 // ——— Palette ———

@@ -192,6 +192,8 @@ for (const id of ["gamecube", "wii", "ps2", "pc", "ps1", "psp", "ds", "3ds"]) {
 SPECS.xbox = keep({ kind: "ps2", width: 1.35, height: 1.9, depth: 0.14, plastic: "#15171b", plasticInner: "#20242a", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
 SPECS.xbox360 = keep({ kind: "ps2", width: 1.35, height: 1.9, depth: 0.14, plastic: "#2f6b2a", plasticInner: "#3a7d33", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
 SPECS.ps3 = keep({ kind: "ps2", width: 1.35, height: 1.7, depth: 0.12, plastic: "#1b2a44", plasticInner: "#24344f", media: DVD_DISC, glb: "/models/cases/ps2.glb" });
+// applications Android : même boîtier DVD que le PC (bandeau « ANDROID », art/covers.ts)
+SPECS.android = SPECS.pc;
 for (const id of ["saturn", "dreamcast"]) {
   SPECS[id] = { ...(SPECS.ps1 as KeepCaseSpec), glb: "/models/cases/ps1.glb" };
 }

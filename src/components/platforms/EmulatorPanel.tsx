@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { EASE, SPRING } from "@/motion/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
@@ -98,7 +99,7 @@ function Monogram({ name, tone }: { name: string; tone: string }) {
     <span
       aria-hidden
       className="grid size-14 shrink-0 place-items-center rounded-2xl font-display text-[1.25rem] font-semibold text-white shadow-sm"
-      style={{ background: `linear-gradient(145deg, color-mix(in oklab, ${tone} 85%, white), color-mix(in oklab, ${tone} 80%, #101522))` }}
+      style={{ background: compat(`linear-gradient(145deg, color-mix(in oklab, ${tone} 85%, white), color-mix(in oklab, ${tone} 80%, #101522))`) }}
     >
       {letters}
     </span>

@@ -38,6 +38,8 @@ export interface Profile {
   hardware: { os: string | null; arch: string | null; label: string | null; cpu: string | null; gpu: string | null; handheld: boolean };
   performance: { label: string; rank: number; scale: number } | null;
   settings: Setting[];
+  /** Fiche manuelle (émulateurs Android autonomes) : libellés de la source, [clé, libellé]. */
+  labels?: [string, string][];
   ignored: IgnoredField[];
   notes: string | null;
   votesUp: number;
@@ -60,6 +62,8 @@ export interface Recommendation {
   reasons: { text: string; points: number }[];
   autoEligible: boolean;
   local: LocalVerdict | null;
+  /** Android : rapport venu de votre appareil, ou d'un appareil à la même puce. */
+  device?: "sameDevice" | "sameSoc";
 }
 
 export interface Outcome {
@@ -82,7 +86,7 @@ export interface RecommendResult {
   errors: [SourceId, ProviderError][];
 }
 
-export interface Change { key: string; label: string; before: string | null; after: string }
+export interface Change { key: string; label: string; before: string | null; after: string; /** Fiche manuelle : réglage reporté dans l'émulateur. */ done?: boolean }
 export interface Plan { target: string; changes: Change[]; skipped: Rejected[]; existed: boolean }
 
 /** Entrée du journal des optimisations (`sc_applications`). */
@@ -99,13 +103,15 @@ export interface Entry {
   changes: string;
   beforeSha: string | null;
   afterSha: string;
+  /** Une fiche de réglages Android (cible `android-sheet:…`, rien n'écrit) est `applied` tant qu'elle n'est pas retirée. */
   status: "pending" | "applied" | "failed" | "restored" | "conflict";
   createdAt: string;
   restoredAt: string | null;
 }
 
 export interface GameStatus {
-  state: "unsupported" | "noEmulator" | "noGameId" | "ready";
+  /** `manual` : émulateur Android autonome, réglages à reporter à la main (fiche). */
+  state: "unsupported" | "noEmulator" | "noGameId" | "ready" | "manual";
   adapter: string | null;
   emulatorVersion: string | null;
   active: Entry | null;
@@ -136,6 +142,8 @@ export interface HardwareReport {
     apis: { d3d11: boolean | null; d3d12: boolean | null; vulkanLoader: boolean | null; opengl: boolean | null; metal: boolean | null };
     device: DeviceType;
     deviceModel: string | null;
+    /** Android : appareil et puce tels que le système les annonce. */
+    android?: { manufacturer: string | null; model: string | null; socCode: string | null; socName: string | null; sdk: number | null; simulated: boolean };
   };
   class: { cpu: Tier; gpu: Tier; reasons: string[] };
 }
@@ -153,7 +161,7 @@ export interface ProviderInfo {
 // ——— Appels natifs ———
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!isTauri()) throw new Error("Disponible uniquement dans l'application Windows.");
+  if (!isTauri()) throw new Error("Disponible uniquement dans l'application iBox.");
   const { invoke } = await import("@tauri-apps/api/core");
   try {
     return await invoke<T>(cmd, args);
@@ -172,6 +180,10 @@ export const smartConfigApi = {
   restore: (applicationId: number, force: boolean) => call<void>("smartconfig_restore", { applicationId, force }),
   history: (gameId?: number) => call<Entry[]>("smartconfig_history", { gameId: gameId ?? null }),
   cacheClear: () => call<number>("smartconfig_cache_clear"),
+  /** Android, émulateur autonome : enregistre la fiche des réglages à reporter à la main. */
+  sheet: (gameId: number, profile: Profile, mode: ScMode | null) => call<number>("smartconfig_sheet", { gameId, profile, mode }),
+  sheetCheck: (applicationId: number, done: string[]) => call<void>("smartconfig_sheet_check", { applicationId, done }),
+  sheetWithdraw: (applicationId: number) => call<void>("smartconfig_sheet_withdraw", { applicationId }),
   feedback: (gameId: number, applicationId: number | null, answer: { worked?: boolean; performanceOk?: boolean; graphicsIssues?: boolean }) =>
     call<number>("smartconfig_feedback", {
       gameId,
@@ -281,7 +293,11 @@ export const sourceName = (id: string) => SOURCE_LABEL[id] ?? id;
 export const usable = (k: MatchKind) => k === "exact" || k === "similarHardware" || k === "generic";
 
 /** `dolphin.internal_resolution` → « internal resolution » quand le natif n'a pas encore donné de libellé. */
-export const keyLabel = (key: string) => key.replace(/^[^.]+\./, "").replace(/_/g, " ");
+export const keyLabel = (key: string, profile?: Profile) => profile?.labels?.find(([k]) => k === key)?.[1] ?? key.replace(/^[^.]+\./, "").replace(/_/g, " ");
+/** Adaptateur « fiche » : émulateur Android autonome, réglages à reporter à la main. */
+export const isSheetAdapter = (adapter: string | null | undefined) => !!adapter?.startsWith("android.");
+export const DEVICE_LABEL = { sameDevice: "Votre appareil", sameSoc: "Même puce" } as const;
+export const DEVICE_HINT = { sameDevice: "Rapport fait sur le même modèle d'appareil que le vôtre.", sameSoc: "Rapport fait sur un appareil équipé de la même puce que le vôtre." } as const;
 export function valueText(v: Value): string {
   if (v.type === "bool") return v.value ? "Activé" : "Désactivé";
   return String(v.value);
@@ -326,6 +342,10 @@ interface ScState {
   search: (gameId: number, mode?: ScMode) => Promise<RecommendResult | undefined>;
   apply: (gameId: number, title: string, rec: Recommendation, force?: boolean) => Promise<number>;
   restore: (gameId: number, title: string, entryId: number, force?: boolean) => Promise<void>;
+  /** Android, émulateur autonome : fiche de réglages (rien n'est écrit). */
+  sheet: (gameId: number, title: string, rec: Recommendation) => Promise<number>;
+  sheetCheck: (gameId: number, entryId: number, done: string[]) => Promise<void>;
+  sheetWithdraw: (gameId: number, title: string, entryId: number) => Promise<void>;
 }
 
 const patch = (gameId: number, change: Partial<GameSc>) =>
@@ -391,7 +411,35 @@ export const useSmartConfig = create<ScState>((_set, get) => ({
       throw e;
     }
   },
+
+  sheet: async (gameId, title, rec) => {
+    const id = await smartConfigApi.sheet(gameId, rec.profile, rec.mode);
+    await get().refresh(gameId);
+    if (scPrefs().notifyApplied) {
+      notify({ icon: "tune", tone: "ok", title: "Fiche SmartConfig prête", body: title, link: { kind: "game", gameId: `lib-${gameId}` } });
+    }
+    return id;
+  },
+
+  sheetCheck: async (gameId, entryId, done) => {
+    await smartConfigApi.sheetCheck(entryId, done);
+    await get().refresh(gameId);
+  },
+
+  sheetWithdraw: async (gameId, title, entryId) => {
+    await smartConfigApi.sheetWithdraw(entryId);
+    await get().refresh(gameId);
+    if (scPrefs().notifyRestored) {
+      notify({ icon: "reset", tone: "info", title: "Fiche SmartConfig retirée", body: title, link: { kind: "game", gameId: `lib-${gameId}` } });
+    }
+  },
 }));
+
+/** Fiche manuelle : avancement (réglages reportés / total). */
+export function sheetProgress(entry: Entry | null | undefined): { done: number; total: number } {
+  const lines = entry ? parseChanges(entry) : [];
+  return { done: lines.filter((l) => l.done).length, total: lines.length };
+}
 
 export const useGameSc = (gameId: number | undefined) => useSmartConfig((s) => (gameId === undefined ? undefined : s.games[gameId]));
 
@@ -439,6 +487,7 @@ export const dismissFeedback = (applicationId: number) => addToSet(DISMISSED_KEY
 export type ScBadge =
   | "searching"
   | "applied"
+  | "sheet"
   | "custom"
   | "newRecommendation"
   | "available"
@@ -455,6 +504,11 @@ export function badgeOf(sc: GameSc | undefined): ScBadge | null {
   if (st.state === "unsupported") return "unsupported";
   if (sc.searching) return "searching";
   const suggested = suggestedOf(sc.result);
+  // fiche manuelle (Android) : « à reporter » tant que tout n'est pas coché
+  if (st.state === "manual" && st.active) {
+    const { done, total } = sheetProgress(st.active);
+    return total > 0 && done === total ? "applied" : "sheet";
+  }
   if (st.active) {
     if (sc.manual) return "custom";
     if (suggested && suggested.profile.sourceRef !== st.active.sourceRef) {
@@ -467,3 +521,6 @@ export function badgeOf(sc: GameSc | undefined): ScBadge | null {
   if (sc.searchError) return "error";
   return "idle";
 }
+
+/** Entrée du journal qui est une fiche de réglages Android (aucun fichier écrit). */
+export const isSheetEntry = (e: Pick<Entry, "target">) => e.target.startsWith("android-sheet:");

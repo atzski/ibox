@@ -15,9 +15,10 @@ import { useMediaUrl } from "@/art/useMediaUrl";
 import { requirePlatform } from "@/domain/platforms";
 import { caseFor, mediaLabel } from "@/three/cases/caseSpecs";
 import { InspectController, type CaseView, type ShownSide } from "@/three/inspectController";
-import { InspectViewer } from "@/three/lazy";
+import { InspectViewer, use3D } from "@/three/lazy";
 import { useGamepad } from "@/input/gamepad";
 import { PcGameSheet } from "./PcGameSheet";
+import { AndroidAppSheet } from "./AndroidAppSheet";
 import { themeVars } from "@/theme/platformTheme";
 import { mixHex } from "@/art/paint";
 import { useArtPalette } from "@/art/usePalette";
@@ -42,6 +43,8 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Section";
 import { sound } from "@/services/sound";
 import { input } from "@/input/InputController";
+import { usePlatform } from "@/services/platform";
+import { useCapability } from "@/services/capabilities";
 import type { Game } from "@/domain/types";
 
 export function GameScreen({ gameId }: { gameId: string }) {
@@ -54,6 +57,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
   }
   // le PC n'a pas de boîtier physique : fiche immersive dédiée
   if (game.platformId === "pc") return <PcGameSheet game={game} />;
+  // application Android : même fiche immersive, boîtier DVD « ANDROID »
+  if (game.platformId === "android") return <AndroidAppSheet game={game} />;
   return <GameSheet game={game} />;
 }
 
@@ -63,6 +68,13 @@ function GameSheet({ game }: { game: Game }) {
   const spec = caseFor(platform);
   const media = mediaLabel(spec);
   const padActive = useGamepad((g) => g.active);
+  // Android, écran étroit : la barre des faces passe en icônes seules (styles/android.css pour la grille)
+  const compactDock = usePlatform((p) => p.android === true) && window.innerWidth < 1000;
+  // jaquette à plat (sans 3D) sur cet écran étroit : la pastille des succès, en entier, couvrait
+  // son bandeau du haut ; elle n'y garde que son anneau (libellé au focus)
+  const threeD = use3D();
+  const ringOnly = compactDock && !threeD;
+  const keyboard = useCapability("keyboard");
   const reduced = useReducedMotion();
   const dark = useIsDark();
   const favorite = useIsFavorite(game);
@@ -193,7 +205,7 @@ function GameSheet({ game }: { game: Game }) {
   }, [controller]);
 
   return (
-    <div className="relative grid h-full grid-cols-[minmax(24rem,31rem)_minmax(0,1fr)] gap-8 px-[3rem] pb-4" style={themeVars(platform)}>
+    <div className="ibox-game relative grid h-full grid-cols-[minmax(24rem,31rem)_minmax(0,1fr)] gap-8 px-[3rem] pb-4" style={themeVars(platform)}>
       {/* ——— Informations ——— */}
       <motion.aside
         initial={{ opacity: 0, x: -24 }}
@@ -352,21 +364,22 @@ function GameSheet({ game }: { game: Game }) {
               onOpenManual={manual.open}
             />
             <div className="absolute top-4 left-5 z-20">
-              <Achievements key={game.id} game={game} compact />
+              <Achievements key={game.id} game={game} compact ringOnly={ringOnly} />
             </div>
             <div className="pointer-events-none absolute top-5 right-6 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-[0.78rem] font-bold text-ink-soft">
-              <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner · gâchettes pour zoomer" : "Glisser pour tourner · molette pour zoomer"}
+              <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner · gâchettes pour zoomer" : keyboard ? "Glisser pour tourner · molette pour zoomer" : "Glisser pour tourner"}
             </div>
             <Dock>
-              <DockButton icon={open ? "close" : "open"} label={open ? "Fermer" : "Ouvrir"} active={open} onClick={toggleOpen} primary />
+              <DockButton compact={compactDock} icon={open ? "close" : "open"} label={open ? "Fermer" : "Ouvrir"} active={open} onClick={toggleOpen} primary />
               <DockDivider />
-              <DockButton icon="front" label="Face" active={view === "front" && !open} onClick={() => show("front")} />
-              <DockButton icon="backFace" label="Dos" active={view === "back"} onClick={() => show("back")} />
-              <DockButton icon="spine" label="Tranche" active={view === "spine"} onClick={() => show("spine")} />
+              <DockButton compact={compactDock} icon="front" label="Face" active={view === "front" && !open} onClick={() => show("front")} />
+              <DockButton compact={compactDock} icon="backFace" label="Dos" active={view === "back"} onClick={() => show("back")} />
+              <DockButton compact={compactDock} icon="spine" label="Tranche" active={view === "spine"} onClick={() => show("spine")} />
               <DockDivider />
-              <DockButton icon="disc" label={discOut ? media.out : media.noun} active={discOut} onClick={toggleDisc} />
-              {manual.available && <DockButton icon="manual" label="Manuel" active={manual.reading} onClick={manual.open} />}
+              <DockButton compact={compactDock} icon="disc" label={discOut ? media.out : media.noun} active={discOut} onClick={toggleDisc} />
+              {manual.available && <DockButton compact={compactDock} icon="manual" label="Manuel" active={manual.reading} onClick={manual.open} />}
               <DockButton
+                compact={compactDock}
                 icon="reset"
                 label="Recentrer"
                 onClick={() => {

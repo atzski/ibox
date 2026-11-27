@@ -4,6 +4,9 @@
 //! installés. Les profils de lancement sont vérifiés dans le code source de
 //! chaque émulateur (docs/EMULATORS.md).
 
+pub mod android;
+pub mod android_catalog;
+pub mod android_table;
 pub mod commands;
 pub mod detect;
 pub mod launch;
@@ -16,6 +19,10 @@ pub enum LaunchError {
     NoEmulator(String),
     #[error("Seuls les programmes .exe sont acceptés : {0}")]
     NotAnExe(String),
+    /// Linux : le fichier choisi n'est pas un programme (AppImage, lanceur Flatpak, binaire).
+    #[error("Ce fichier n'est pas un programme exécutable (AppImage, lanceur Flatpak ou programme Linux) : {0}")]
+    #[cfg_attr(not(unix), allow(dead_code))]
+    NotExecutable(String),
     #[error("L'émulateur est introuvable : {0}. A-t-il été déplacé ou désinstallé ?")]
     ExeMissing(String),
     #[error("Le fichier du jeu est introuvable : {0}. Le disque est peut-être débranché.")]

@@ -13,7 +13,7 @@ import {
   type ScMode,
   type SourceId,
 } from "@/services/smartconfig";
-import { CopyLink, ModePicker } from "./ScParts";
+import { CopyLink, ModePicker, useHereWords } from "./ScParts";
 
 /** Briques de la page Paramètres (passées par l'écran pour garder un seul style). */
 export interface SettingsUi {
@@ -28,13 +28,14 @@ const DOCS_URL = "https://github.com/atzski/ibox/blob/main/docs/SMARTCONFIG.md";
 export function SmartConfigSettings({ ui: { Group, Row, Toggle } }: { ui: SettingsUi }) {
   const p = useSmartConfigPrefs();
   const go = useNav((s) => s.go);
+  const w = useHereWords();
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [cache, setCache] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!isTauri()) return setProvidersError("Disponible uniquement dans l'application Windows.");
+    if (!isTauri()) return setProvidersError("Disponible uniquement dans l'application iBox.");
     smartConfigApi.providers().then(setProviders).catch((e) => setProvidersError(errorText(e)));
   }, []);
 
@@ -52,7 +53,7 @@ export function SmartConfigSettings({ ui: { Group, Row, Toggle } }: { ui: Settin
 
   return (
     <>
-      <Group title="SmartConfig" icon="tune" note="Des réglages d'émulateur adaptés à votre PC, jeu par jeu. Rien n'est modifié sans votre accord, et tout se restaure.">
+      <Group title="SmartConfig" icon="tune" note={w.android ? "Des réglages d'émulateur adaptés à votre appareil, jeu par jeu. Rien n'est modifié sans votre accord, et tout se restaure." : "Des réglages d'émulateur adaptés à votre PC, jeu par jeu. Rien n'est modifié sans votre accord, et tout se restaure."}>
         <Row label="Activer SmartConfig" note="Affiche SmartConfig sur la fiche des jeux pris en charge">
           <Toggle checked={p.enabled} onChange={(v) => setScPref("enabled", v)} label="Activer SmartConfig" />
         </Row>
@@ -86,7 +87,7 @@ export function SmartConfigSettings({ ui: { Group, Row, Toggle } }: { ui: Settin
         <Row label="Recommandation disponible" note="Après une recherche automatique, si vous avez quitté la fiche ; une fois par jeu et par configuration">
           <Toggle checked={p.notifyAvailable} onChange={(v) => setScPref("notifyAvailable", v)} label="Notification : recommandation disponible" />
         </Row>
-        <Row label="Petit questionnaire après une partie" note="Une question, au plus une fois par optimisation et par semaine ; les réponses restent sur ce PC">
+        <Row label="Petit questionnaire après une partie" note={w.android ? "Une question, au plus une fois par optimisation et par semaine ; les réponses restent sur cet appareil" : "Une question, au plus une fois par optimisation et par semaine ; les réponses restent sur ce PC"}>
           <Toggle checked={p.askFeedback} onChange={(v) => setScPref("askFeedback", v)} label="Questionnaire après une partie" />
         </Row>
       </Group>
@@ -108,11 +109,14 @@ export function SmartConfigSettings({ ui: { Group, Row, Toggle } }: { ui: Settin
 
       <Group title="Confidentialité" icon="lock">
         <ul className="flex flex-col gap-2 py-2 text-[0.88rem] font-semibold text-ink">
-          <Bullet>Aucune télémétrie. Votre matériel est détecté sur ce PC et n'est jamais envoyé.</Bullet>
+          <Bullet>{w.android ? "Aucune télémétrie. Votre matériel est détecté sur cet appareil et n'est jamais envoyé." : "Aucune télémétrie. Votre matériel est détecté sur ce PC et n'est jamais envoyé."}</Bullet>
           <Bullet>Seul le titre du jeu consulté part vers une source, quand une recherche a lieu.</Bullet>
-          <Bullet>Ni chemin, ni bibliothèque, ni identifiant de votre PC ne sont transmis.</Bullet>
-          <Bullet>Vos retours après une partie restent sur ce PC.</Bullet>
-          <Bullet>SmartConfig ne modifie que le fichier de réglages propre au jeu, jamais vos manettes, sauvegardes, BIOS ou chemins.</Bullet>
+          <Bullet>{w.android ? "Ni chemin, ni bibliothèque, ni identifiant de votre appareil ne sont transmis." : "Ni chemin, ni bibliothèque, ni identifiant de votre PC ne sont transmis."}</Bullet>
+          {w.android && <Bullet>Votre appareil est reconnu sur place parmi les rapports reçus : son modèle n'est jamais envoyé.</Bullet>}
+          <Bullet>{w.android ? "Vos retours après une partie restent sur cet appareil." : "Vos retours après une partie restent sur ce PC."}</Bullet>
+          {w.android
+            ? <Bullet>Sur Android, SmartConfig n'écrit qu'un fichier de réglages RetroArch par jeu, dans le dossier iBox/SmartConfig ; les autres émulateurs reçoivent une fiche à reporter à la main.</Bullet>
+            : <Bullet>SmartConfig ne modifie que le fichier de réglages propre au jeu, jamais vos manettes, sauvegardes, BIOS ou chemins.</Bullet>}
         </ul>
       </Group>
 

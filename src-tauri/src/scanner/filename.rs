@@ -46,7 +46,8 @@ pub fn parse(stem: &str) -> ParsedName {
 
     let title = title.replace('_', " ");
     let title = collapse_spaces(&title);
-    let title = move_trailing_article(title.trim_matches(|c: char| c == '-' || c.is_whitespace()));
+    let title = tidy_hand_typed(title.trim_matches(|c: char| c == '-' || c.is_whitespace()));
+    let title = move_trailing_article(&title);
 
     let mut parsed = ParsedName {
         title,
@@ -69,6 +70,52 @@ pub fn parse(stem: &str) -> ParsedName {
 
 fn collapse_spaces(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Nom tapé à la main, tout en minuscules (« joker-poker », « space impakto », « pong-3ds ») :
+/// sans espace, tirets et points séparent les mots ; puis majuscule à chaque mot, sauf les petits
+/// mots de liaison, et sigles courts avec chiffres en capitales (« 3DS »). Un nom qui a déjà une
+/// majuscule (No-Intro, Redump, GoodTools) ou aucune lettre latine reste tel quel.
+fn tidy_hand_typed(title: &str) -> String {
+    let lower = title.chars().any(|c| c.is_lowercase());
+    if !lower || title.chars().any(|c| c.is_uppercase()) {
+        return title.to_string();
+    }
+    let spaced = if title.contains(' ') {
+        title.to_string()
+    } else {
+        collapse_spaces(&title.replace(['-', '.'], " "))
+    };
+    const SMALL: [&str; 14] = [
+        "of", "the", "and", "a", "an", "in", "on", "to", "de", "du", "des", "la", "le", "et",
+    ];
+    let capital = |w: &str| -> String {
+        let mut c = w.chars();
+        c.next()
+            .map(|f| f.to_uppercase().chain(c).collect())
+            .unwrap_or_default()
+    };
+    spaced
+        .split(' ')
+        .enumerate()
+        .map(|(i, word)| {
+            if i > 0 && SMALL.contains(&word) {
+                return word.to_string();
+            }
+            let digits = word.chars().any(|c| c.is_ascii_digit());
+            let letters = word.chars().any(|c| c.is_alphabetic());
+            if digits
+                && letters
+                && word.chars().count() <= 4
+                && word.chars().all(|c| c.is_ascii_alphanumeric())
+            {
+                return word.to_uppercase();
+            }
+            // « spider-man » → « Spider-Man »
+            word.split('-').map(capital).collect::<Vec<_>>().join("-")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// « Legend of Zelda, The - Wind Waker » → « The Legend of Zelda - Wind Waker ».
@@ -163,6 +210,28 @@ mod tests {
         let p = parse("Super_Mario_World_(U)_[!]");
         assert_eq!(p.title, "Super Mario World");
         assert_eq!(p.region, Some(Region::NtscU));
+    }
+
+    #[test]
+    fn noms_tapes_a_la_main_en_titre_propre() {
+        assert_eq!(parse("joker-poker").title, "Joker Poker");
+        assert_eq!(parse("space impakto").title, "Space Impakto");
+        assert_eq!(parse("ucity").title, "Ucity");
+        assert_eq!(parse("pong-3ds").title, "Pong 3DS");
+        assert_eq!(
+            parse("legend_of_the_mystical_ninja (usa)").title,
+            "Legend of the Mystical Ninja"
+        );
+        assert_eq!(parse("spider-man 2").title, "Spider-Man 2");
+        assert_eq!(parse("super.mario.world").title, "Super Mario World");
+    }
+
+    #[test]
+    fn noms_deja_en_casse_mixte_inchanges() {
+        assert_eq!(parse("Spider-Man (USA)").title, "Spider-Man");
+        assert_eq!(parse("Dr. Mario (World)").title, "Dr. Mario");
+        assert_eq!(parse("ゼルダの伝説").title, "ゼルダの伝説");
+        assert_eq!(parse("1942").title, "1942");
     }
 
     #[test]

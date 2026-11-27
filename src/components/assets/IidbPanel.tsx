@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePlatform } from "@/services/platform";
 import type { Platform } from "@/domain/types";
 import { PLATFORMS } from "@/domain/platforms";
 import { isTauri } from "@/services/native";
@@ -21,6 +22,7 @@ import {
 } from "@/services/platformArt";
 import { ArtworkPicker } from "./ArtworkPicker";
 import { GamesArtPanel } from "./GamesArtPanel";
+import { platformOnDevice } from "@/services/capabilities";
 
 const mb = (b: number) => (b === 0 ? "vide" : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} Ko` : `${(b / 1024 / 1024).toFixed(1)} Mo`);
 
@@ -31,6 +33,7 @@ const mb = (b: number) => (b === 0 ? "vide" : b < 1024 * 1024 ? `${Math.max(1, M
  */
 export function IidbPanel() {
   const native = isTauri();
+  const android = usePlatform((p) => !!p.android);
   const [status, setStatus] = useState<AssetsStatus | null>(null);
   const [access, setAccess] = useState<IidbAccess | null>(null);
   const [key, setKey] = useState("");
@@ -84,9 +87,9 @@ export function IidbPanel() {
   return (
     <div>
       <p className="mb-4 max-w-[58rem] text-[0.9rem] font-semibold text-ink-soft">
-        iiDB (projet iiSU) fournit icônes, logos et illustrations de consoles. Chaque personne utilise sa propre clé, à copier
-        depuis son profil iiSU Accounts. Les images sont téléchargées sur cet ordinateur, jamais intégrées au projet ; sans
-        connexion, iBox garde celles déjà reçues et son propre habillage.
+        {android
+          ? "iiDB (projet iiSU) fournit icônes, logos et illustrations de consoles. Chaque personne utilise sa propre clé, à copier depuis son profil iiSU Accounts. Les images sont téléchargées sur cet appareil, jamais intégrées au projet ; sans connexion, iBox garde celles déjà reçues et son propre habillage."
+          : "iiDB (projet iiSU) fournit icônes, logos et illustrations de consoles. Chaque personne utilise sa propre clé, à copier depuis son profil iiSU Accounts. Les images sont téléchargées sur cet ordinateur, jamais intégrées au projet ; sans connexion, iBox garde celles déjà reçues et son propre habillage."}
       </p>
 
       {status?.connected ? (
@@ -164,7 +167,7 @@ export function IidbPanel() {
             </p>
           )}
           {!sync.running && r?.errors.map((e) => (
-            <p key={e} className="mt-1 text-[0.76rem] font-semibold text-peach-deep">
+            <p key={e} data-no-i18n className="mt-1 text-[0.76rem] font-semibold text-peach-deep">
               {e}
             </p>
           ))}
@@ -185,7 +188,7 @@ export function IidbPanel() {
 
       <h3 className="mt-6 text-[1rem] font-bold text-ink">Consoles</h3>
       <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(27rem,1fr))] gap-3" data-nav-group="iidb-platforms">
-        {PLATFORMS.map((p) => (
+        {PLATFORMS.filter((p) => platformOnDevice(p.id)).map((p) => (
           <PlatformArtRow key={p.id} platform={p} onPick={(slot) => setPicking({ platform: p, slot })} onLink={() => setLinking(p)} connected={!!status?.connected} />
         ))}
       </div>

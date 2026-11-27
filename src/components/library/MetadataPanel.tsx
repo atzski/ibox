@@ -1,6 +1,6 @@
 import { saved } from "@/services/saved";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { isLinux } from "@/services/platform";
+import { isLinux, usePlatform } from "@/services/platform";
 import { useLibrary } from "@/services/library";
 import { useSettings } from "@/services/settings";
 import { formatBytes, metadataApi, type MetadataStatus, type ProviderId } from "@/services/metadata";
@@ -57,6 +57,7 @@ function sourceLabel(id: string): string {
  * récupération automatique, bases téléchargées et cache des images.
  */
 export function MetadataPanel() {
+  const android = usePlatform((p) => !!p.android);
   const native = useLibrary((s) => s.native);
   const meta = useLibrary((s) => s.meta);
   const fetchMetadata = useLibrary((s) => s.fetchMetadata);
@@ -128,9 +129,9 @@ export function MetadataPanel() {
   return (
     <div>
       <p className="mb-4 text-[0.9rem] font-semibold text-ink-soft">
-        Les correspondances sûres (identifiant interne, nom identique, même jeu dans une autre région) sont appliquées
-        automatiquement. Les autres vous sont proposées sur la fiche du jeu, jamais appliquées sans vous. Tout est conservé
-        sur cet ordinateur et reste disponible hors connexion.
+        {android
+          ? "Les correspondances sûres (identifiant interne, nom identique, même jeu dans une autre région) sont appliquées automatiquement. Les autres vous sont proposées sur la fiche du jeu, jamais appliquées sans vous. Tout est conservé sur cet appareil et reste disponible hors connexion."
+          : "Les correspondances sûres (identifiant interne, nom identique, même jeu dans une autre région) sont appliquées automatiquement. Les autres vous sont proposées sur la fiche du jeu, jamais appliquées sans vous. Tout est conservé sur cet ordinateur et reste disponible hors connexion."}
       </p>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(24rem,1fr))] gap-3" data-nav-group="meta-sources">

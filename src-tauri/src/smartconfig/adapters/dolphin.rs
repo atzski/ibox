@@ -102,6 +102,7 @@ fn decode(key: &str, s: &str) -> Option<Value> {
             _ => return None,
         }),
         Kind::Int { .. } => Value::Int(s.parse().ok()?),
+        Kind::Text => return None,
         Kind::Choice(_) => Value::Choice(match key {
             "dolphin.gfx_backend" => match s {
                 "Vulkan" => "vulkan",

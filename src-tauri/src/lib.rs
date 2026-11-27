@@ -9,9 +9,13 @@
 // Linux (Steam Deck) : les fonctions propres à Windows (capture, clips, hôte Remote Play…)
 // restent compilées mais ne sont jamais appelées. Voir docs/STEAMDECK.md.
 #![cfg_attr(not(windows), allow(dead_code))]
+// Android : les fenêtres annexes du bureau ne sont pas construites (mobile.rs) ; leurs imports restent
+#![cfg_attr(mobile, allow(unused_imports))]
 
 pub mod assets;
 pub mod db;
+pub mod device;
+pub mod android_chip;
 pub mod emulators;
 pub mod launcher;
 pub mod library;
@@ -45,6 +49,12 @@ pub mod toast;
 pub mod remote_play;
 pub mod smartconfig;
 mod achievements;
+#[cfg(mobile)]
+pub mod mobile;
+pub mod android;
+pub mod second_screen;
+pub mod android_apps;
+pub mod android_ingame;
 
 use library::commands as lib_cmd;
 use metadata::commands as meta_cmd;
@@ -80,12 +90,29 @@ fn app_quit(app: tauri::AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     platform::prepare_webview();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // bureau seulement : Android gère lui-même l'instance unique, le démarrage et les mises à jour
+    #[cfg(desktop)]
+    let builder = builder
         // une seule instance : relancer iBox réaffiche la fenêtre existante
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| shell::show_main(app)))
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![shell::HIDDEN_ARG])))
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    builder
+        .plugin(tauri_plugin_dialog::init())
+        // socle Android : intents, stockage, plein écran, manette (sans effet ailleurs)
+        .plugin(tauri_plugin_ibox_android::init())
+        // applications Android de la bibliothèque et installeur des mises à jour (docs/ANDROID.md §9)
+        .plugin(tauri_plugin_ibox_android::apps::init())
+        .plugin(tauri_plugin_ibox_android::ingame::init())
+        // Android : iBox revient au premier plan après une partie (temps de jeu, « jeu en cours »)
+        .on_window_event(|_window, _event| {
+            #[cfg(mobile)]
+            if matches!(_event, tauri::WindowEvent::Resumed) {
+                launcher::android::on_resumed(_window.app_handle());
+                android_apps::on_resumed(_window.app_handle());
+            }
+        })
         // fichiers des plugins installés, servis à leur seule fenêtre (docs/PLUGINS.md)
         .register_asynchronous_uri_scheme_protocol(plugins::protocol::SCHEME, |ctx, request, responder| {
             let app = ctx.app_handle().clone();
@@ -93,6 +120,9 @@ pub fn run() {
             std::thread::spawn(move || responder.respond(plugins::protocol::handle(&app, &label, &request)));
         })
         .setup(|app| {
+            // Android : HTTPS prêt avant le premier appel réseau
+            #[cfg(mobile)]
+            mobile::init_tls();
             // en premier : toute panique qui suit laisse une trace dans logs/crash.log
             if let Ok(dir) = app.path().app_log_dir() {
                 crash::install(&dir);
@@ -126,6 +156,9 @@ pub fn run() {
             // démarrage avec Windows : iBox attend discrètement dans la zone de notification
             shell::startup(app.handle());
             platform::apply_preview(app.handle());
+            if !platform::preview() {
+                platform::fit_small_screen(app.handle());
+            }
             profile::load(app.handle());
             inetbox::start(app.handle().clone());
             capture::start(app.handle().clone());
@@ -144,7 +177,12 @@ pub fn run() {
             let commands = typed(tauri::generate_handler![
             app_info,
             platform::platform_info,
+            device::device_info,
+            device::device_report_save,
+            device::android_device_state,
+            device::android_frame_rate,
             power::power_status,
+            power::power_report,
             perf::perf_sample,
             pc::steam_shortcut::steam_add_ibox,
             manuals::commands::manual_list,
@@ -193,6 +231,9 @@ pub fn run() {
             smartconfig::commands::smartconfig_history,
             smartconfig::commands::smartconfig_cache_clear,
             smartconfig::commands::smartconfig_feedback,
+            smartconfig::commands::smartconfig_sheet,
+            smartconfig::commands::smartconfig_sheet_check,
+            smartconfig::commands::smartconfig_sheet_withdraw,
             inetbox::inetbox_call,
             profile::profile_activate,
             profile::profile_delete,
@@ -367,6 +408,7 @@ pub fn run() {
             pc::commands::pc_steam_key_delete,
             lib_cmd::folders_list,
             lib_cmd::folder_add,
+            lib_cmd::folder_suggestions,
             lib_cmd::folder_update,
             lib_cmd::folder_remove,
             lib_cmd::library_remove_missing,
@@ -419,6 +461,32 @@ pub fn run() {
             launch_cmd::launch_status,
             launch_cmd::game_launch,
             launch_cmd::game_adopt_running,
+            launcher::android::android_emulators,
+            launcher::android::android_emulator_choose,
+            launcher::android::android_platform,
+            launcher::android::android_bios_folder_set,
+            launcher::android::android_open,
+            android::android_storage,
+            android::android_storage_request,
+            android::android_pick_folder,
+            android::android_saf_covered,
+            android::android_browse,
+            android::android_pad_relay,
+            android::android_immersive,
+            second_screen::second_screen_status,
+            second_screen::second_screen_configure,
+            second_screen::second_screen_push,
+            android_ingame::android_notify_configure,
+            android_ingame::android_notify_status,
+            android_ingame::android_notify_request,
+            android_ingame::android_notify_settings,
+            android_apps::android_apps_list,
+            android_apps::android_apps_sync,
+            android_apps::android_apps_add,
+            android_apps::android_apps_remove,
+            android_apps::android_app_plan,
+            android_apps::android_app_launch,
+            android_apps::android_app_uninstall,
             ]);
             // La fenêtre d'un plugin est « locale » pour Tauri (protocole `iboxplugin` d'iBox) :
             // sans ce filtre, son JavaScript pourrait appeler toutes les commandes d'iBox. Elle

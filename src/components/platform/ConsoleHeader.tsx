@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { EASE, SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
@@ -61,10 +62,10 @@ export function ConsoleHeader({
   );
 
   const t = platform?.theme;
-  const deep = `color-mix(in oklab, ${t?.deep ?? "#101522"} 78%, #101522)`;
+  const deep = compat(`color-mix(in oklab, ${t?.deep ?? "#101522"} 78%, #101522)`);
   const veil = night
-    ? `linear-gradient(90deg, color-mix(in oklab, ${deep} 88%, transparent) 0%, color-mix(in oklab, ${deep} 62%, transparent) 38%, transparent 78%)`
-    : `linear-gradient(90deg, color-mix(in oklab, ${t?.soft ?? "#eef0f4"} 96%, transparent) 0%, color-mix(in oklab, ${t?.soft ?? "#eef0f4"} 82%, transparent) 34%, transparent 76%)`;
+    ? compat(`linear-gradient(90deg, color-mix(in oklab, ${deep} 88%, transparent) 0%, color-mix(in oklab, ${deep} 62%, transparent) 38%, transparent 78%)`)
+    : compat(`linear-gradient(90deg, color-mix(in oklab, ${t?.soft ?? "#eef0f4"} 96%, transparent) 0%, color-mix(in oklab, ${t?.soft ?? "#eef0f4"} 82%, transparent) 34%, transparent 76%)`);
 
   if (compact) {
     return (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, SoftShadows } from "@react-three/drei";
+import { useGraphics } from "@/services/budget";
 import { BufferGeometry, Color, Float32BufferAttribute, Object3D, ShadowMaterial, type DirectionalLight, type Mesh, type Object3D as O3D, type SpotLight } from "three";
 
 /**
@@ -23,6 +24,9 @@ export function InspectStudio({ tint, dark, reduced, floorY, subject }: {
   const rim = useRef<SpotLight>(null);
   const target = useMemo(() => new Object3D(), []);
   const frame = useRef(0);
+  // palier allégé (Steam Deck) : carte d'ombre de 1024 px et pénombre à 6 échantillons au lieu de 12
+  const { shadowMap } = useGraphics();
+  const light = shadowMap < 2048;
 
   // le boîtier se charge par morceaux (textures, modèle) : on (re)déclare
   // régulièrement ses maillages comme porteurs et receveurs d'ombres
@@ -66,7 +70,7 @@ export function InspectStudio({ tint, dark, reduced, floorY, subject }: {
   return (
     <>
       {/* ombres douces à pénombre (PCSS) : plus floues loin du boîtier */}
-      <SoftShadows size={22} samples={12} focus={0.6} />
+      <SoftShadows size={22} samples={light ? 6 : 12} focus={0.6} />
       <ambientLight intensity={dark ? 0.32 : 0.4} />
       <primitive object={target} />
       <directionalLight
@@ -76,7 +80,7 @@ export function InspectStudio({ tint, dark, reduced, floorY, subject }: {
         color="#fff4e6"
         target={target}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMap, shadowMap]}
         shadow-bias={-0.0004}
         shadow-normalBias={0.025}
         shadow-camera-left={-4}

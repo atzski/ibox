@@ -32,6 +32,31 @@ export function saturatePixels(data: Uint8ClampedArray, s: number): void {
   }
 }
 
+/** Agrandissement du bitmap réduit, une fois pour toutes (voir `smoothed`). */
+export const SMOOTH_SCALE = 4;
+
+/**
+ * Le bitmap réduit, ré-étiré par le navigateur d'un facteur 10 à 20, laisse voir ses pixels en
+ * carrés baveux dès que l'image a des bords nets (icône d'une application Android, logo) : le
+ * filtrage bilinéaire ne lisse qu'entre deux pixels voisins. On l'agrandit donc ici, avec un vrai
+ * flou d'à peu près un pixel d'origine (filtre de canevas, calculé une seule fois) ; le navigateur
+ * n'a plus qu'un facteur 3 à 5 à étirer, sans marches visibles. Sans filtre de canevas (moteurs
+ * anciens), l'agrandissement lissé seul garde l'essentiel du gain.
+ */
+function smoothed(src: HTMLCanvasElement, w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w * SMOOTH_SCALE;
+  c.height = h * SMOOTH_SCALE;
+  const ctx = c.getContext("2d")!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  if ("filter" in ctx) ctx.filter = `blur(${SMOOTH_SCALE * 0.75}px)`;
+  // marge d'un pixel d'origine : le flou ne fond pas les bords vers la transparence
+  const m = SMOOTH_SCALE;
+  ctx.drawImage(src, -m, -m, c.width + 2 * m, c.height + 2 * m);
+  return c;
+}
+
 async function soften(src: string, blur: number, saturation: number, displayWidth: number): Promise<string | null> {
   try {
     const img = new Image();
@@ -63,7 +88,7 @@ async function soften(src: string, blur: number, saturation: number, displayWidt
     const pixels = ctx.getImageData(0, 0, w, h);
     saturatePixels(pixels.data, saturation);
     ctx.putImageData(pixels, 0, 0);
-    return out.toDataURL("image/png");
+    return smoothed(out, w, h).toDataURL("image/png");
   } catch {
     // image d'une autre origine (canevas verrouillé) ou illisible : l'appelant garde le filtre CSS
     return null;

@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { motion } from "motion/react";
 import type { Platform } from "@/domain/types";
 import { PlatformGlyph } from "./PlatformGlyph";
@@ -41,11 +42,11 @@ export function PlatformCard({
   const games = count > 0 ? `${count} jeu${count > 1 ? "x" : ""}` : "Aucun jeu";
   // logo clair : voile et texte « nuit » aux couleurs profondes de la console
   const night = tone === "light";
-  const deep = `color-mix(in oklab, ${t.deep} 78%, #101522)`;
+  const deep = compat(`color-mix(in oklab, ${t.deep} 78%, #101522)`);
   const background = hero
     ? deep
     : night
-      ? `linear-gradient(150deg, color-mix(in oklab, ${t.deep} 70%, ${t.primary}) 0%, ${deep} 100%)`
+      ? compat(`linear-gradient(150deg, color-mix(in oklab, ${t.deep} 70%, ${t.primary}) 0%, ${deep} 100%)`)
       : platformCardBackground(platform);
 
   return (
@@ -75,8 +76,8 @@ export function PlatformCard({
             className="pointer-events-none absolute inset-0 -z-10"
             style={{
               background: night || (hero && !logo)
-                ? `linear-gradient(180deg, transparent 30%, color-mix(in oklab, ${deep} 72%, transparent) 70%, color-mix(in oklab, ${deep} 92%, transparent) 100%)`
-                : `linear-gradient(180deg, transparent 30%, color-mix(in oklab, ${t.soft} 80%, transparent) 68%, color-mix(in oklab, ${t.soft} 96%, transparent) 100%)`,
+                ? compat(`linear-gradient(180deg, transparent 30%, color-mix(in oklab, ${deep} 72%, transparent) 70%, color-mix(in oklab, ${deep} 92%, transparent) 100%)`)
+                : compat(`linear-gradient(180deg, transparent 30%, color-mix(in oklab, ${t.soft} 80%, transparent) 68%, color-mix(in oklab, ${t.soft} 96%, transparent) 100%)`),
             }}
           />
         )}

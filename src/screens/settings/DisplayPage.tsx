@@ -1,8 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { reloadForLanguage } from "@/services/profiles";
 import { usePlatform } from "@/services/platform";
-import { usePower } from "@/services/power";
-import { graphicsFor, resolveProfile, type GraphicsProfile } from "@/services/graphics";
-import { isHandheld, resolvePerformance, type PerformanceChoice } from "@/services/performance";
+import { useAndroidDevice } from "@/services/androidDevice";
+import { retry3D, useThreeD, type ThreeDChoice } from "@/services/render3d";
+import { deviceTierOf, presetOf, usePerfBudget, usePerfTier, type PerfPreset } from "@/services/budget";
+import { thermalSteps, type PerfTier } from "@/services/device";
 import { setTvMode } from "@/services/tvMode";
 import { useSettings, type GridDensity, type MotionPreference, type ThemePreference } from "@/services/settings";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -13,7 +15,7 @@ import { useLibrary } from "@/services/library";
 import { PLATFORMS } from "@/domain/platforms";
 import type { Game, Platform } from "@/domain/types";
 import { usePlatformArt, usePlatformArtStore } from "@/services/platformArt";
-import { useMediaUrl } from "@/art/useMediaUrl";
+import { hasMedia, useMediaUrl } from "@/art/useMediaUrl";
 import { APP_THEMES } from "@/theme/appThemes";
 import { wallpaperApi } from "@/services/wallpaper";
 import { ArtworkPicker } from "@/components/assets/ArtworkPicker";
@@ -21,6 +23,7 @@ import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 import { matchesQuery } from "@/domain/text";
 import { isLinux } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
+import { platformOnDevice } from "@/services/capabilities";
 
 // ——— Apparence ———
 
@@ -37,7 +40,7 @@ export function DisplayPage() {
               if (v === (s.language ?? "fr")) return;
               s.set("language", v);
               // on repart toujours du texte d'origine : la fenêtre se recharge
-              window.setTimeout(() => window.location.reload(), 150);
+              reloadForLanguage();
             }}
             options={[
               { value: "fr", label: "Français" },
@@ -107,10 +110,8 @@ export function DisplayPage() {
         </Row>
       </Group>
       <Group title="Performances" icon="chip">
-        <PerformanceModeRow />
-      </Group>
-      <Group title="Rendu 3D" icon="sparkle">
-        <GraphicsProfileRow />
+        <PerformanceRow />
+        <ThreeDRow />
       </Group>
       <Group title="Animations" icon="motion">
         <Row label="Animations">
@@ -217,11 +218,11 @@ function WallpaperGroup() {
   const [limit, setLimit] = useState(24);
   const [wallError, setWallError] = useState<string | null>(null);
   const heroGames = useMemo(
-    () => games.filter((g) => (g.media ?? []).some((m) => m.kind === "hero")).sort((a, b) => a.sortTitle.localeCompare(b.sortTitle)),
+    () => games.filter((g) => hasMedia(g, "hero")).sort((a, b) => a.sortTitle.localeCompare(b.sortTitle)),
     [games],
   );
   const shownHeroes = heroGames.filter((g) => matchesQuery(g.title, query));
-  const heroPlatforms = PLATFORMS.filter((p) => rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
+  const heroPlatforms = PLATFORMS.filter((p) => platformOnDevice(p.id) && rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
   const homeOnly = false;
   const [homePicker, setHomePicker] = useState(false);
   const bg = s.customBackground;
@@ -339,11 +340,12 @@ function WallpaperGroup() {
 }
 
 function ConsoleIconsGroup() {
+  const android = usePlatform((p) => !!p.android);
   const [iconFor, setIconFor] = useState<Platform | null>(null);
   return (
-    <Group title="Icônes des consoles" icon="gamepad" note="Galerie iiDB ou image de votre PC. Votre choix reste prioritaire sur les mises à jour.">
+    <Group title="Icônes des consoles" icon="gamepad" note={android ? "Galerie iiDB ou image de votre appareil. Votre choix reste prioritaire sur les mises à jour." : "Galerie iiDB ou image de votre PC. Votre choix reste prioritaire sur les mises à jour."}>
       <div data-nav-group="themes-icons" className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 border-none py-1">
-        {PLATFORMS.map((p) => (
+        {PLATFORMS.filter((p) => platformOnDevice(p.id)).map((p) => (
           <button
             key={p.id}
             data-focusable
@@ -413,72 +415,131 @@ function GameHeroThumb({ game }: { game: Game }) {
 }
 
 /**
- * Mode performance : l'interface reste la même, sans ce qui coûte cher aux petites machines
- * (`services/performance.ts`). Automatique : activé sur une console portable.
+ * Performances : un seul réglage pour les effets de l'interface et le rendu 3D
+ * (`services/budget.ts`). Automatique suit l'appareil (palier), la chaleur et la batterie.
  */
-function PerformanceModeRow() {
-  const choice = useSettings((s) => s.performanceMode ?? "auto");
-  const set = useSettings((s) => s.set);
-  const handheld = usePlatform(isHandheld);
+function PerformanceRow() {
+  const s = useSettings();
+  const preset = presetOf(s);
+  const platform = usePlatform();
+  const android = platform.android === true;
+  const budget = usePerfBudget();
   // phrases entières (traduites telles quelles)
-  const note =
-    choice === "on"
-      ? "Pour les petites machines : flous remplacés par des aplats, ombres simplifiées, étagère 3D à la définition de l'écran, dessinée seulement quand elle bouge."
-      : choice === "off"
-        ? "Tous les effets de l'interface, sur toutes les machines."
-        : resolvePerformance(choice, handheld)
-          ? "Automatique : activé pour l'instant, sur cette console portable (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge)."
-          : "Automatique : désactivé pour l'instant. Il s'active tout seul sur un Steam Deck.";
+  const AUTO_ANDROID: Record<PerfTier, string> = {
+    full: "Automatique : tous les effets pour l'instant.",
+    handheld: "Automatique : tous les effets, cette console Android est assez puissante. L'étagère 3D suit la fréquence de l'écran et reste au repos quand rien ne bouge.",
+    lite: "Automatique : allégé, sur cette console Android (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge).",
+    low: "Automatique : allégé, console Android modeste (flous et ombres allégés, étagère 3D plus légère à 30 images par seconde).",
+    minimal: "Automatique : allégé, console Android d'entrée de gamme (flous et ombres allégés, vue en jaquettes à la place de l'étagère 3D).",
+  };
+  const NOTES: Record<PerfPreset, string> = {
+    auto: "",
+    quality: "Tous les effets, rendu 3D affiné jusqu'à ×1,5, au rythme de l'écran.",
+    balanced: "Tous les effets, étagère 3D à 60 images par seconde et au repos quand rien ne bouge. Pour les consoles portables puissantes et les ordinateurs portables.",
+    light: "Pour les petites machines : flous remplacés par des aplats, ombres simplifiées, étagère 3D à la définition de l'écran, dessinée seulement quand elle bouge.",
+    battery: "Comme Allégé, à 30 images par seconde : la batterie dure plus longtemps.",
+  };
+  const autoNote =
+    budget.profile === "battery"
+      ? android
+        ? "Automatique : économie pour l'instant, avec l'économiseur d'énergie d'Android (30 images par seconde)."
+        : "Automatique : économie pour l'instant, sur batterie (30 images par seconde)."
+      : android
+        ? AUTO_ANDROID[budget.tier]
+        : budget.light
+          ? "Automatique : allégé, sur cette console portable (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge)."
+          : budget.tier === "handheld"
+            ? "Automatique : tous les effets, cette console portable est assez puissante. L'étagère 3D reste à 60 images par seconde et au repos quand rien ne bouge."
+            : "Automatique : tous les effets pour l'instant. Allégé tout seul sur un Steam Deck et les consoles portables modestes, économie sur batterie.";
   return (
-    <Row label="Mode performance" note={note}>
-      <Segmented<PerformanceChoice>
-        label="Mode performance"
-        value={choice}
-        onChange={(v) => set("performanceMode", v)}
-        options={[
-          { value: "auto", label: "Automatique" },
-          { value: "on", label: "Activé" },
-          { value: "off", label: "Désactivé" },
-        ]}
-      />
+    <>
+      <Row label="Performances" note={preset === "auto" ? autoNote : NOTES[preset]}>
+        <Segmented<PerfPreset>
+          label="Performances"
+          value={preset}
+          onChange={(v) => s.set("perfPreset", v)}
+          options={[
+            { value: "auto", label: "Automatique" },
+            { value: "quality", label: "Qualité" },
+            { value: "balanced", label: "Équilibré" },
+            { value: "light", label: "Allégé" },
+            { value: "battery", label: "Économie" },
+          ]}
+        />
+      </Row>
+      {android && <DeviceTierRow />}
+    </>
+  );
+}
+
+// phrases entières (traduites telles quelles)
+const TIER_TITLE: Record<PerfTier, string> = { full: "Palier complet", handheld: "Palier fort", lite: "Palier allégé", low: "Palier modeste", minimal: "Palier minimal" };
+
+/** Console Android : appareil et puce reconnus, palier choisi, chaleur. */
+function DeviceTierRow() {
+  const platform = usePlatform();
+  const thermal = useAndroidDevice((st) => st?.thermal ?? 0);
+  const tier = usePerfTier();
+  const base = deviceTierOf(platform);
+  const chip = platform.device?.chip;
+  const steps = thermalSteps(thermal);
+  const note =
+    steps > 0 && tier !== base
+      ? "La console chauffe : un palier de moins pour l'instant, le temps qu'elle refroidisse."
+      : chip && !chip.known
+        ? "Puce absente de la table d'iBox : palier choisi d'après la mémoire et le processeur graphique."
+        : "Choisi d'après la puce et la mémoire de la console.";
+  return (
+    <Row label={TIER_TITLE[tier]} note={note}>
+      <span data-no-i18n className="text-right text-[0.85rem] font-semibold text-ink-soft">
+        {[platform.device?.name, chip?.name ?? chip?.soc, chip?.memoryMb ? `${Math.round(chip.memoryMb / 1024)} Go` : null].filter(Boolean).join(" · ")}
+      </span>
     </Row>
   );
 }
 
-/** Profil graphique : l'étagère 3D garde le même rendu, seuls la définition et le rythme changent. */
-function GraphicsProfileRow() {
-  const s = useSettings();
-  const deck = usePlatform((p) => p.steamDeck !== null);
-  const onBattery = usePower((p) => p.onBattery);
-  const lite = resolvePerformance(s.performanceMode, usePlatform(isHandheld));
-  const choice = s.graphicsProfile ?? "auto";
-  const g = graphicsFor(resolveProfile(choice, deck, onBattery, lite));
+/**
+ * Étagère 3D ou vue en jaquettes (`services/render3d.ts`) : sur un appareil sans WebGL, trop
+ * modeste, ou dont la 3D s'est arrêtée, iBox montre la même bibliothèque en jaquettes.
+ */
+function ThreeDRow() {
+  const choice = useSettings((s) => s.threeD ?? "auto");
+  const set = useSettings((s) => s.set);
+  const state = useThreeD(usePerfTier());
   // phrases entières (traduites telles quelles)
-  const NOTES = {
-    quality: "Rendu affiné jusqu'à ×1,5, au rythme de l'écran.",
-    deck: "Définition de l'écran, 60 images par seconde.",
-    battery: "Définition de l'écran, 30 images par seconde : la batterie dure plus longtemps.",
-  } as const;
-  const AUTO = {
-    quality: "Automatique : Qualité pour l'instant (rendu affiné jusqu'à ×1,5, au rythme de l'écran).",
-    deck: deck
-      ? "Automatique : Steam Deck pour l'instant (définition de l'écran, 60 images par seconde)."
-      : "Automatique : Steam Deck pour l'instant, avec le mode performance (définition de l'écran, 60 images par seconde).",
-    battery: "Automatique : Économie d'énergie pour l'instant, sur batterie (définition de l'écran, 30 images par seconde).",
-  } as const;
+  const note =
+    state.reason === "missing"
+      ? "WebGL n'est pas disponible sur cet appareil : vue en jaquettes à la place de l'étagère 3D."
+      : state.reason === "lost"
+        ? "La 3D s'est arrêtée deux fois (contexte graphique perdu) : vue en jaquettes jusqu'au prochain démarrage."
+        : choice === "off"
+          ? "Vue en jaquettes partout : étagère, collections et fiches sans 3D. Le plus léger pour les petites machines."
+          : choice === "on"
+            ? "Étagère et boîtiers en 3D, même sur un appareil modeste."
+            : state.reason === "tier"
+              ? "Automatique : vue en jaquettes, cet appareil est trop modeste pour l'étagère 3D."
+              : state.reason === "software"
+                ? "Automatique : vue en jaquettes, la carte graphique n'est pas accélérée (rendu logiciel)."
+                : "Automatique : 3D active. Elle laisse sa place à la vue en jaquettes si WebGL manque, si la 3D s'arrête ou sur les appareils les plus modestes.";
   return (
-    <Row label="Profil graphique" note={choice === "auto" ? AUTO[g.profile] : NOTES[g.profile]}>
-      <Segmented<GraphicsProfile>
-        label="Profil graphique"
-        value={choice}
-        onChange={(v) => s.set("graphicsProfile", v)}
-        options={[
-          { value: "auto", label: "Automatique" },
-          { value: "quality", label: "Qualité" },
-          { value: "deck", label: "Steam Deck" },
-          { value: "battery", label: "Économie" },
-        ]}
-      />
+    <Row label="Étagère 3D" note={note}>
+      {state.reason === "lost" ? (
+        <Button icon="reset" onClick={retry3D}>
+          Réessayer la 3D
+        </Button>
+      ) : (
+        <Segmented<ThreeDChoice>
+          label="Étagère 3D"
+          value={choice}
+          onChange={(v) => set("threeD", v)}
+          options={[
+            { value: "auto", label: "Automatique" },
+            { value: "on", label: "Activée" },
+            { value: "off", label: "Jaquettes" },
+          ]}
+        />
+      )}
     </Row>
   );
 }
+

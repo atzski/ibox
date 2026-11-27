@@ -46,6 +46,7 @@ export function consoleStatus(
 
 export const STATUS_TONE: Record<ConsoleStatus, "good" | "warn" | "info" | "busy" | "bad"> = {
   ready: "good",
+  "core-check": "warn",
   setup: "warn",
   "missing-bios": "warn",
   "missing-prereq": "warn",

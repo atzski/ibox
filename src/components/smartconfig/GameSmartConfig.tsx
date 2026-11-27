@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useNav } from "@/app/navigation";
+import { usePlatform } from "@/services/platform";
 import { useLauncher } from "@/services/launcher";
 import { sound } from "@/services/sound";
 import {
@@ -12,8 +13,10 @@ import {
   badgeOf,
   errorText,
   isManualChanges,
+  isSheetAdapter,
   notifyAvailable,
   scPrefs,
+  sheetProgress,
   suggestedOf,
   useGameSc,
   useSmartConfig,
@@ -22,11 +25,13 @@ import {
 } from "@/services/smartconfig";
 import { ConfigsModal, type ScGame } from "./ConfigsModal";
 import { BADGE, formatDate, useEmulatorName } from "./ScParts";
+import { SheetModal } from "./SheetChecklist";
 
 /** État en deux mots, sur la pastille repliée. */
 const SHORT: Record<keyof typeof BADGE, string> = {
   searching: "Recherche…",
   applied: "Optimisé",
+  sheet: "À reporter",
   custom: "Personnalisé",
   newRecommendation: "Nouveauté",
   available: "Prêt à optimiser",
@@ -38,6 +43,7 @@ const SHORT: Record<keyof typeof BADGE, string> = {
 
 const SUBTITLE: Partial<Record<string, string>> = {
   idle: "Des réglages adaptés à votre PC, en un geste. Rien n'est modifié sans votre accord.",
+  idleAndroid: "Des réglages adaptés à votre appareil, en un geste. Rien n'est modifié sans votre accord.",
   noReliable: "Aucune configuration assez fiable pour votre matériel : vos réglages actuels sont conservés.",
   unsupported: "SmartConfig ne sait pas encore régler cet émulateur pour ce jeu.",
   available: "Une configuration adaptée à votre matériel a été trouvée.",
@@ -59,6 +65,8 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
   const go = useNav((s) => s.go);
   const emulator = useEmulatorName(sc?.status?.adapter);
   const [modal, setModal] = useState<null | { open?: "suggested"; playAfter?: boolean }>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const android = usePlatform((p) => !!p.android);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRestore, setConfirmRestore] = useState(false);
@@ -76,7 +84,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
     if (!prefs.enabled) return;
     let alive = true;
     void refresh(game.dbId).then((st) => {
-      if (!alive || !st || st.state !== "ready") return;
+      if (!alive || !st || (st.state !== "ready" && st.state !== "manual")) return;
       const cur = useSmartConfig.getState().games[game.dbId];
       if (!prefs.autoSearch || cur?.result || cur?.searching || prefs.mode === "manual") return;
       void search(game.dbId).then((r) => afterAutoSearch(game, r ? suggestedOf(r) : undefined));
@@ -90,6 +98,8 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
   if (!badge) return null;
   const st = sc!.status;
   const active = st?.active ?? null;
+  // Android, émulateur autonome : fiche de réglages à reporter à la main
+  const sheet = st?.state === "manual" || isSheetAdapter(st?.adapter);
 
   /** « Optimiser » : recherche si besoin, puis aperçu (confirmation) ou application directe. */
   const optimize = async (thenPlay: boolean) => {
@@ -103,7 +113,8 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
         if (err) setError(err);
         return;
       }
-      if (scPrefs().confirmApply) {
+      // une fiche se prépare toujours depuis le détail (rien n'est écrit, l'utilisateur reporte lui-même)
+      if (scPrefs().confirmApply || sheet) {
         setModal({ open: "suggested", playAfter: thenPlay });
         return;
       }
@@ -138,9 +149,14 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
   };
 
   // sans identifiant de jeu : recherche et consultation possibles, application expliquée
-  const ready = st?.state === "ready" || st?.state === "noGameId";
+  const ready = st?.state === "ready" || st?.state === "noGameId" || st?.state === "manual";
   const canOptimize = ready && !busy && !sc?.searching && prefs.mode !== "manual" && (badge === "idle" || badge === "available" || badge === "newRecommendation" || badge === "error");
-  const subtitle = badge === "applied" && active
+  const progress = sheetProgress(active);
+  const subtitle = sheet && active
+    ? `${progress.done} / ${progress.total} réglage(s) reporté(s) dans ${emulator || "l'émulateur"} · fiche du ${formatDate(active.createdAt)}`
+    : badge === "idle" && android
+    ? SUBTITLE.idleAndroid
+    : badge === "applied" && active
     ? active.mode
       ? `Mode ${MODE_LABEL[active.mode as ScMode] ?? active.mode} · appliquée le ${formatDate(active.createdAt)}`
       : `Appliquée le ${formatDate(active.createdAt)}`
@@ -245,11 +261,14 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
           {canOptimize && (
             <>
               <Button tone="orange" icon="tune" disabled={busy} onClick={() => void optimize(false)}>Optimiser</Button>
-              <Button tone="green" icon="play" disabled={busy || phase !== "idle"} onClick={() => void optimize(true)}>Optimiser et jouer</Button>
+              {!sheet && <Button tone="green" icon="play" disabled={busy || phase !== "idle"} onClick={() => void optimize(true)}>Optimiser et jouer</Button>}
             </>
           )}
           {sc?.searching && <Button icon="search" disabled>Recherche…</Button>}
-          {(badge === "applied" || badge === "custom" || badge === "newRecommendation") && active && !confirmRestore && (
+          {sheet && active && (
+            <Button tone="orange" icon="manual" disabled={busy} onClick={() => { sound.play("open"); setSheetOpen(true); }}>Fiche de réglages</Button>
+          )}
+          {!sheet && (badge === "applied" || badge === "custom" || badge === "newRecommendation") && active && !confirmRestore && (
             <Button tone="teal" icon="reset" disabled={busy} onClick={() => void doRestore(false)}>Restaurer</Button>
           )}
           {st?.emulatorChanged && active && !sc?.searching && (
@@ -264,6 +283,7 @@ export function GameSmartConfig({ game }: { game: ScGame }) {
           </motion.div>
         )}
       </AnimatePresence>
+      {sheetOpen && active && <SheetModal gameId={game.dbId} title={game.title} platformName={game.platformName} entry={active} emulator={emulator} onClose={() => setSheetOpen(false)} />}
       {modal && <ConfigsModal game={game} open={modal.open} playAfter={modal.playAfter} onClose={() => setModal(null)} />}
     </section>
   );

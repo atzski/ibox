@@ -17,6 +17,9 @@ import { Button } from "@/components/ui/Button";
 import { CoverImage } from "@/components/game/CoverImage";
 import { AmbienceHalo, ConsolePhoto } from "@/components/platforms/ConsoleStage";
 import { EmulatorPanel } from "@/components/platforms/EmulatorPanel";
+import { AndroidEmulatorPanel, useAndroidPlatform } from "@/components/platforms/AndroidEmulatorPanel";
+import { androidStatus, useAndroidEmulators } from "@/services/androidEmulators";
+import { usePlatform } from "@/services/platform";
 import { StatusPill } from "@/components/platforms/StatusPill";
 import { consoleStatus } from "@/components/platforms/status";
 import type { Game } from "@/domain/types";
@@ -39,11 +42,22 @@ const KIND_LABEL = { home: "Console de salon", handheld: "Console portable", hyb
  */
 export function PlatformSheet({ platformId }: { platformId: string }) {
   const info = consoleInfo(platformId);
+  const android = usePlatform((p) => !!p.android);
   if (!info) return null;
-  return <Sheet info={info} />;
+  return android ? <AndroidSheet info={info} /> : <Sheet info={info} />;
 }
 
-function Sheet({ info }: { info: ConsoleInfo }) {
+/** Android : les émulateurs Android de la console (table d'ES-DE) au lieu des émulateurs pour PC. */
+function AndroidSheet({ info }: { info: ConsoleInfo }) {
+  const android = useAndroidPlatform(info.id);
+  const summary = useAndroidEmulators();
+  const status = summary.loaded ? androidStatus(info.id, summary, android.detail?.bios) : "setup";
+  return <Sheet info={info} android={{ ...android, status }} />;
+}
+
+type AndroidState = ReturnType<typeof useAndroidPlatform> & { status: ConsoleStatus };
+
+function Sheet({ info, android }: { info: ConsoleInfo; android?: AndroidState }) {
   const reduced = useReducedMotion();
   const lang = useSettings((s) => s.language ?? "fr");
   const go = useNav((s) => s.go);
@@ -65,13 +79,16 @@ function Sheet({ info }: { info: ConsoleInfo }) {
   });
 
   const loadRequirements = useCallback(() => {
+    // Android : BIOS vérifiés par la fiche Android (AndroidEmulatorPanel)
+    if (android) return;
     void emulatorsApi.requirements(info.id).then(setRequirements).catch(() => setRequirements([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info.id]);
   // relu après chaque installation (RetroArch change le dossier des BIOS, Mesen le runtime…)
   const installedKey = overview?.installed.map((i) => i.packageId + i.version).join(",") ?? "";
   useEffect(loadRequirements, [loadRequirements, installedKey]);
 
-  const status = consoleStatus(info, { platformMap, emulators, overview, progress, requirements });
+  const status = android ? android.status : consoleStatus(info, { platformMap, emulators, overview, progress, requirements });
   const credit = PHOTO_CREDIT[info.id];
 
   return (
@@ -127,7 +144,7 @@ function Sheet({ info }: { info: ConsoleInfo }) {
           {info.history[lang]}
         </p>
 
-        <HeroAction info={info} status={status} />
+        {android ? <AndroidHeroAction info={info} status={status} /> : <HeroAction info={info} status={status} />}
 
         <Section title="Le matériel">
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2.5">
@@ -152,7 +169,11 @@ function Sheet({ info }: { info: ConsoleInfo }) {
                 : "iBox installe l'émulateur ; les jeux s'installent et se lancent ensuite depuis celui-ci. Cette console n'a pas encore de bibliothèque dans iBox."}
             </p>
           )}
-          <EmulatorPanel info={info} requirements={requirements} onRequirementsChange={loadRequirements} />
+          {android ? (
+            <AndroidEmulatorPanel info={info} detail={android.detail} error={android.error} reload={android.reload} />
+          ) : (
+            <EmulatorPanel info={info} requirements={requirements} onRequirementsChange={loadRequirements} />
+          )}
         </Section>
 
         {platform && PLATFORM_BLURBS[info.id] && (
@@ -207,6 +228,37 @@ function HeroAction({ info, status }: { info: ConsoleInfo; status: ConsoleStatus
       {status !== "installing" && action.run !== reach && (
         <Button variant="ghost" icon="chevronRight" onClick={reach}>
           Émulateur et prérequis
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Android : la première chose à faire (jouer, ajouter ses jeux, installer un émulateur). */
+function AndroidHeroAction({ info, status }: { info: ConsoleInfo; status: ConsoleStatus }) {
+  const go = useNav((s) => s.go);
+  const games = useLibrary((s) => s.games);
+  const count = games.filter((g) => g.platformId === info.id && !g.isDemo).length;
+  const reach = () => {
+    const section = document.getElementById("play-today");
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => section?.querySelector<HTMLElement>("[data-focusable]:not([disabled])")?.focus({ preventScroll: true }), 350);
+  };
+  const ready = status === "ready" || status === "core-check" || status === "missing-bios";
+  const action =
+    ready && count > 0
+      ? { label: "Voir la collection", icon: "shelf" as const, run: () => go({ name: "library", platformId: info.id }) }
+      : ready
+        ? { label: "Ajouter mes jeux", icon: "folder" as const, run: () => document.getElementById("collection")?.scrollIntoView({ behavior: "smooth" }) }
+        : { label: "Installer un émulateur", icon: "download" as const, run: reach };
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-3">
+      <Button variant="primary" size="lg" icon={action.icon} autoFocusScreen onClick={action.run}>
+        {action.label}
+      </Button>
+      {action.run !== reach && (
+        <Button variant="ghost" icon="chevronRight" onClick={reach}>
+          Émulateurs et BIOS
         </Button>
       )}
     </div>

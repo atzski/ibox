@@ -15,6 +15,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+#[cfg(mobile)]
+use crate::mobile::DesktopWindow;
 
 pub const LABEL: &str = "ytmusic";
 const HOME: &str = "https://music.youtube.com/";
@@ -63,6 +65,13 @@ pub fn close(app: &AppHandle) {
     });
 }
 
+/// Android : pas de lecteur YouTube Music dans une seconde fenêtre.
+#[cfg(mobile)]
+fn build(_: &AppHandle) -> Option<WebviewWindow> {
+    None
+}
+
+#[cfg(desktop)]
 fn build(app: &AppHandle) -> Option<WebviewWindow> {
     if let Some(w) = window(app) {
         return Some(w);

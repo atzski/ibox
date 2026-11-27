@@ -304,6 +304,30 @@ export const PLATFORMS: Platform[] = [
     layout: { coverAspect: 2 / 3, gridCardWidth: 12 },
   },
   {
+    // jeux et applications Android installés (Android seulement, src/services/androidApps.ts) :
+    // pas de fichier à scanner, même boîtier DVD que le PC, bandeau « ANDROID »
+    id: "android",
+    name: "Android",
+    shortName: "Android",
+    manufacturer: "Google",
+    year: 2008,
+    // vert tendre, accents menthe, blanc crème
+    theme: {
+      primary: "#A6DCAF",
+      soft: "#EEF8EF",
+      deep: "#2E7A45",
+      gradient: ["#F5FBF5", "#E1F2E3"],
+      mood: "light",
+      motion: "snappy",
+    },
+    glyph: "handheld-wide",
+    caseKind: "pc",
+    media: "disc",
+    extensions: [],
+    emulatorHints: [],
+    layout: { coverAspect: 2 / 3, gridCardWidth: 12 },
+  },
+  {
     id: "ps1",
     name: "PlayStation",
     shortName: "PS1",
@@ -524,6 +548,9 @@ export const PLATFORMS: Platform[] = [
 ];
 
 const BY_ID = new Map(PLATFORMS.map((p) => [p.id, p]));
+
+/** Consoles sans émulateur : jeux PC et applications Android, lancés directement. */
+export const isEmulatedPlatform = (id: PlatformId): boolean => id !== "pc" && id !== "android";
 
 export function getPlatform(id: PlatformId): Platform | undefined {
   return BY_ID.get(id);

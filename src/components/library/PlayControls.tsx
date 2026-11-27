@@ -1,6 +1,8 @@
 import { useSettings } from "@/services/settings";
 import { launchState, pcApi, sourceInfo } from "@/services/pc";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePlatform } from "@/services/platform";
+import { useAndroidEmulators } from "@/services/androidEmulators";
 import { sound } from "@/services/sound";
 import type { Game } from "@/domain/types";
 import { useLauncher, launcherApi } from "@/services/launcher";
@@ -11,11 +13,13 @@ import { ChooseEmulatorModal } from "./EmulatorsPanel";
 import { RemotePlayGameDialog } from "@/components/remoteplay/RemotePlayOnline";
 import { isTauri } from "@/services/native";
 import { consoleInfo } from "@/domain/platformCatalog";
+import { useCapability } from "@/services/capabilities";
 
 /** « Remote Play » : inviter un ami iNetbox sur ce jeu, sans passer par les paramètres. */
 export function RemotePlayButton({ game, onLaunch, size = "md" }: { game: Game; onLaunch?: () => void; size?: "md" | "lg" }) {
   const [open, setOpen] = useState(false);
-  if (!isTauri() || game.dbId === undefined) return null;
+  const remotePlay = useCapability("remotePlay");
+  if (!isTauri() || game.dbId === undefined || !remotePlay) return null;
   return (
     <>
       <Button variant="soft" tone="blue" size={size} icon="globe" className="self-start" onClick={() => setOpen(true)}>
@@ -29,6 +33,13 @@ export function RemotePlayButton({ game, onLaunch, size = "md" }: { game: Game; 
 /** État du bouton « Jouer » d'un jeu, avec la raison quand il est indisponible. */
 export function usePlayState(game: Game) {
   const { emulators, platformMap, phase, current } = useLauncher();
+  // Android : émulateur Android choisi pour la console (services/androidEmulators.ts)
+  const android = usePlatform((p) => !!p.android);
+  const androidEmulator = useAndroidEmulators((s) => s.effective[game.platformId] ?? null);
+  const androidLoaded = useAndroidEmulators((s) => s.loaded);
+  useEffect(() => {
+    if (android && !androidLoaded) void useAndroidEmulators.getState().load();
+  }, [android, androidLoaded]);
   const emulatorId = game.emulatorId ?? platformMap[game.platformId] ?? null;
   const emulator = emulators.find((e) => e.id === emulatorId) ?? null;
   const busy = phase === "animating" || phase === "starting" || phase === "running";
@@ -37,6 +48,9 @@ export function usePlayState(game: Game) {
   if (game.dbId === undefined) reason = "Jeu de démonstration";
   else if (game.missing) reason = "Fichier introuvable";
   else if (busy && !thisOne) reason = "Un jeu est déjà en cours";
+  if (android) {
+    return { emulator: androidEmulator ? { name: androidEmulator } : null, emulatorId: null, reason, busy, thisOne, configured: !!androidEmulator, perGame: false };
+  }
   return { emulator, emulatorId, reason, busy, thisOne, configured: !!emulator, perGame: game.emulatorId != null };
 }
 
@@ -93,12 +107,34 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
   const go = useNav((s) => s.go);
   const { emulator, reason, busy, thisOne, configured, perGame } = usePlayState(game);
   const [choosing, setChoosing] = useState(false);
+  // Android : pas d'installation d'émulateur pour PC, l'émulateur se choisit dans Paramètres › Consoles
+  const pcEmulators = useCapability("pcEmulators");
+  const android = usePlatform((p) => !!p.android);
+  const installable = (pcEmulators || android) && !!consoleInfo(game.platformId)?.recommended;
   const consoleEmu = emulators.find((e) => e.id === platformMap[game.platformId]);
 
   const launch = () => {
     beforeLaunch?.();
     void play(game.dbId!, game.title);
   };
+
+  // Application Android : ouverte par Android, sans émulateur
+  if (game.platformId === "android") {
+    const why = game.missing ? "Application désinstallée" : reason;
+    return (
+      <div className={row ? "flex flex-wrap items-start gap-3" : "flex flex-col gap-2"}>
+        {why ? (
+          <Button variant="primary" size="lg" icon="play" disabled title={why}>
+            {why}
+          </Button>
+        ) : (
+          <Button variant="primary" size="lg" icon="play" autoFocusScreen={!busy} disabled={busy} onClick={launch}>
+            {thisOne && busy ? "En cours…" : "Jouer"}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   // Jeu PC : lancé par sa propre méthode (exécutable, boutique), sans émulateur
   if (game.platformId === "pc") {
@@ -136,13 +172,13 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
           <Button
             variant="primary"
             size="lg"
-            icon={consoleInfo(game.platformId)?.recommended ? "download" : "gear"}
+            icon={installable ? "download" : "gear"}
             autoFocusScreen
-            onClick={() => go(consoleInfo(game.platformId) ? { name: "platform", platformId: game.platformId } : { name: "settings", category: "pc" })}
+            onClick={() => go(consoleInfo(game.platformId) && (pcEmulators || android) ? { name: "platform", platformId: game.platformId } : { name: "settings", category: pcEmulators ? "pc" : "consoles" })}
           >
-            {consoleInfo(game.platformId)?.recommended ? "Installer l'émulateur" : "Configurer un émulateur"}
+            {installable ? "Installer l'émulateur" : "Configurer un émulateur"}
           </Button>
-          {consoleInfo(game.platformId)?.recommended && (
+          {installable && (
             <span className="max-w-[22rem] pl-2 text-[0.78rem] font-bold text-ink-soft">Votre jeu est presque prêt : installez l'émulateur recommandé pour cette console.</span>
           )}
         </div>
@@ -166,7 +202,8 @@ export function PlayControls({ game, beforeLaunch, row }: { game: Game; beforeLa
           )}
           <button
             data-focusable
-            onClick={() => setChoosing(true)}
+            // Android : l'émulateur se choisit sur la fiche de la console (iBox Platforms)
+            onClick={() => (android && consoleInfo(game.platformId) ? go({ name: "platform", platformId: game.platformId }) : setChoosing(true))}
             className="ibox-focusable rounded-full px-2 py-0.5 font-bold text-accent-text underline-offset-2 hover:underline [--ring-radius:999px]"
           >
             Changer

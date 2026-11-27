@@ -57,10 +57,19 @@ pub fn add_manual(conn: &mut Connection, exe_path: &str, title: &str) -> Result<
         return Err(LibraryError::EmptyTitle);
     }
     let p = Path::new(exe_path);
-    // programme (.exe) ou fichier de commandes (.bat, .cmd) qui lance le jeu
-    let runnable = p.extension().and_then(|e| e.to_str())
-        .is_some_and(|e| ["exe", "bat", "cmd"].iter().any(|ok| e.eq_ignore_ascii_case(ok)));
-    if !runnable {
+    // Windows : programme (.exe) ou fichier de commandes (.bat, .cmd) qui lance le jeu ;
+    // Linux : tout fichier exécutable (AppImage rendue exécutable au besoin, script, programme),
+    // la même règle que pour le lancement (`launcher::repo::validate_exe`)
+    let runnable = if cfg!(unix) {
+        p.is_file() && crate::launcher::repo::validate_exe(exe_path).is_ok()
+    } else {
+        p.extension().and_then(|e| e.to_str())
+            .is_some_and(|e| ["exe", "bat", "cmd"].iter().any(|ok| e.eq_ignore_ascii_case(ok)))
+    };
+    if !runnable && p.is_file() && cfg!(unix) {
+        return Err(invalid("Choisissez un programme exécutable : AppImage, script ou programme Linux."));
+    }
+    if !runnable && !cfg!(unix) {
         return Err(invalid("Choisissez un programme (.exe) ou un fichier de commandes (.bat, .cmd)."));
     }
     let meta = std::fs::metadata(p).map_err(|_| invalid(format!("Fichier introuvable : {exe_path}")))?;
@@ -808,7 +817,17 @@ pub mod commands {
         state.with(|c| split_install(c, install_id, &title))
     }
 
+    /// Android : aucune boutique PC sur l'appareil. Sans cette version vide, la lecture des
+    /// raccourcis Windows échouait à chaque démarrage (« Dossier Windows introuvable »).
+    #[cfg(target_os = "android")]
+    #[tauri::command]
+    pub async fn pc_sync(enabled: Vec<String>) -> Res<Vec<SyncSummary>> {
+        let _ = enabled;
+        Ok(Vec::new())
+    }
+
     /// Synchronise les boutiques activées qui savent lister leurs jeux.
+    #[cfg(not(target_os = "android"))]
     #[tauri::command]
     pub async fn pc_sync(app: tauri::AppHandle, enabled: Vec<String>) -> Res<Vec<SyncSummary>> {
         use tauri::Manager;
@@ -884,6 +903,7 @@ pub mod commands {
     /// Empreinte de l'état des jeux Steam (`appid` entièrement installés, triés) : lecture des
     /// seuls manifestes, assez légère pour être faite toutes les quelques secondes. iBox relance
     /// la synchronisation complète quand elle change (installation finie dans Steam…).
+    #[cfg(not(target_os = "android"))]
     #[tauri::command]
     pub async fn pc_steam_installed() -> Res<Vec<String>> {
         tauri::async_runtime::spawn_blocking(|| {
@@ -895,6 +915,13 @@ pub mod commands {
         })
         .await
         .map_err(|e| e.to_string())
+    }
+
+    /// Android : pas de Steam sur l'appareil.
+    #[cfg(target_os = "android")]
+    #[tauri::command]
+    pub async fn pc_steam_installed() -> Res<Vec<String>> {
+        Ok(Vec::new())
     }
 
     /// Ouvre la fenêtre d'installation de la boutique. Renvoie le nom de la boutique.
@@ -953,6 +980,12 @@ mod tests {
         let p = dir.join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(&p, b"MZ").unwrap();
+        // Linux (CI, Steam Deck) : un programme doit avoir le droit d'exécution
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
         p.to_string_lossy().to_string()
     }
 
@@ -975,14 +1008,20 @@ mod tests {
         assert!(l.args.is_empty() && !l.detached);
         assert_eq!(l.by, "Ajout manuel");
 
-        // pas de doublon ; un .exe obligatoire ; un titre obligatoire
+        // pas de doublon ; un programme obligatoire (un document n'en est jamais un) ; un titre obligatoire
         assert!(add_manual(&mut conn, &path, "Encore").is_err());
-        assert!(add_manual(&mut conn, &exe(tmp.path(), "notes.txt"), "Notes").is_err());
+        let notes = tmp.path().join("notes.txt");
+        std::fs::write(&notes, b"x").unwrap();
+        assert!(add_manual(&mut conn, &notes.to_string_lossy(), "Notes").is_err());
         assert!(add_manual(&mut conn, &exe(tmp.path(), "B/b.exe"), "  ").is_err());
-        // fichiers de commandes acceptés
-        assert!(add_manual(&mut conn, &exe(tmp.path(), "C/start.bat"), "Avec .bat").is_ok());
-        assert!(add_manual(&mut conn, &exe(tmp.path(), "D/run.CMD"), "Avec .cmd").is_ok());
-        assert!(add_manual(&mut conn, &exe(tmp.path(), "E/script.ps1"), "PowerShell").is_err());
+        // Windows : fichiers de commandes acceptés, PowerShell refusé (Linux : la règle est le droit
+        // d'exécution, vérifiée par `launcher::repo::tests::programmes_linux`)
+        #[cfg(windows)]
+        {
+            assert!(add_manual(&mut conn, &exe(tmp.path(), "C/start.bat"), "Avec .bat").is_ok());
+            assert!(add_manual(&mut conn, &exe(tmp.path(), "D/run.CMD"), "Avec .cmd").is_ok());
+            assert!(add_manual(&mut conn, &exe(tmp.path(), "E/script.ps1"), "PowerShell").is_err());
+        }
 
         // retirer : le fichier reste sur le disque, le jeu quitte la bibliothèque
         let inst = installs(&conn, id).unwrap()[0].id;

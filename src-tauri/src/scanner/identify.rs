@@ -79,10 +79,14 @@ pub fn identify(path: &Path, header: Option<&HeaderInfo>, ctx: &Context) -> Opti
             return None;
         }
     }
+    let file_stem = path.file_stem()?.to_string_lossy().to_string();
     let stem = if extracted {
         extracted_title(path)
+    } else if file_stem.eq_ignore_ascii_case("eboot") {
+        // homebrew PSP « dossier du jeu + EBOOT.PBP » : le nom est celui du dossier
+        path.parent().and_then(Path::file_name).map(|n| n.to_string_lossy().to_string()).unwrap_or(file_stem)
     } else {
-        path.file_stem()?.to_string_lossy().to_string()
+        file_stem
     };
     let name: ParsedName = filename::parse(&stem);
 
@@ -257,6 +261,13 @@ mod tests {
             ("ps2", IdMethod::Folder)
         );
         assert!(id.alternatives.contains(&"gamecube".to_string()));
+    }
+
+    #[test]
+    fn homebrew_psp_nomme_d_apres_son_dossier() {
+        let header = HeaderInfo::new("psp");
+        let id = identify(Path::new("/storage/emulated/0/Roms/psp/joker-poker/EBOOT.PBP"), Some(&header), &Context::default()).unwrap();
+        assert_eq!((id.platform_id.as_str(), id.title.as_str()), ("psp", "Joker Poker"));
     }
 
     #[test]

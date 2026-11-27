@@ -8,6 +8,7 @@ import { useLibrary } from "@/services/library";
 import { useLauncher } from "@/services/launcher";
 import { useNav } from "@/app/navigation";
 import { sound } from "@/services/sound";
+import { usePlatform } from "@/services/platform";
 
 /** Pastille discrète d'une boutique (couleur iBox, aucun logo officiel). */
 export function SourceBadge({ source, size = "sm" }: { source: string; size?: "sm" | "md" }) {
@@ -40,7 +41,7 @@ export function PcCardMeta({ game }: { game: Game }) {
 /** Nom proposé pour un exécutable : le dossier du jeu plutôt que « Launcher.exe ». */
 function suggestTitle(path: string): string {
   const parts = path.split(/[\\/]/);
-  const file = (parts.pop() ?? "").replace(/\.(exe|bat|cmd)$/i, "");
+  const file = (parts.pop() ?? "").replace(/\.(exe|bat|cmd|appimage|sh|x86_64)$/i, "");
   const folder = parts.pop() ?? "";
   const generic = /^(launcher|game|start|play|setup|bin|win64|x64)$/i;
   const pick = generic.test(file) || file.length < 3 ? folder : file;
@@ -90,8 +91,17 @@ export function AddPcGameModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const linux = usePlatform((p) => p.os === "linux");
   return (
-    <Modal title="Ajouter un jeu PC" subtitle="Choisissez le programme du jeu (.exe) ou son fichier de commandes (.bat, .cmd). Il n'est ni copié ni modifié." onClose={onClose}>
+    <Modal
+      title="Ajouter un jeu PC"
+      subtitle={
+        linux
+          ? "Choisissez le programme du jeu (AppImage, script ou programme Linux). Il n'est ni copié ni modifié."
+          : "Choisissez le programme du jeu (.exe) ou son fichier de commandes (.bat, .cmd). Il n'est ni copié ni modifié."
+      }
+      onClose={onClose}
+    >
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Button icon="folder" autoFocusScreen onClick={() => void pick()} disabled={busy}>

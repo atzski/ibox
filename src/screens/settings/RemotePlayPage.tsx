@@ -1,3 +1,4 @@
+import { useCapability } from "@/services/capabilities";
 import { useEffect, useState } from "react";
 import { tr } from "@/i18n";
 import { useSettings } from "@/services/settings";
@@ -6,7 +7,6 @@ import { RemotePlaySession } from "@/components/remoteplay/RemotePlaySession";
 import { ExperimentalBadge } from "@/components/remoteplay/RemotePlayOnline";
 import { onlineApi } from "@/services/remotePlayOnline";
 import { diagnoseGuest, remotePlayApi, testNetwork, type GuestReport, type HostReport, type NetworkReport, type RemotePlayConfig } from "@/services/remotePlay";
-import { usePlatform } from "@/services/platform";
 import { Group, Row, Toggle } from "./ui";
 
 // ——— Remote Play ———
@@ -15,8 +15,9 @@ import { Group, Row, Toggle } from "./ui";
 const DEFAULT_STUN = ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"];
 
 export function RemotePlayPage() {
-  const linux = usePlatform((p) => p.os === "linux");
-  return linux ? <RemotePlayDeckPage /> : <RemotePlayHostPage />;
+  // sans hôte (Steam Deck) : seulement rejoindre la partie d'un ami
+  const hosts = useCapability("remotePlayHost");
+  return hosts ? <RemotePlayHostPage /> : <RemotePlayDeckPage />;
 }
 
 /**

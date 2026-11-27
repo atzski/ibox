@@ -1,3 +1,5 @@
+import { compat } from "@/theme/cssCompat";
+import { interfaceAsleep } from "@/services/performance";
 import { SPRING, TWEEN } from "@/motion/tokens";
 import { invoke } from "@tauri-apps/api/core";
 import { useLauncher } from "@/services/launcher";
@@ -138,7 +140,8 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
   useEffect(() => {
     if (!social.user) return;
     void useGroups.getState().load();
-    const t = window.setInterval(() => void useGroups.getState().load(), 15000);
+    // pendant une partie (interface en veille) : rien, la relecture reprend au retour
+    const t = window.setInterval(() => !interfaceAsleep() && void useGroups.getState().load(), 15000);
     return () => window.clearInterval(t);
   }, [social.user?.id]);
 
@@ -194,7 +197,7 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: reduced ? 0 : "105%", opacity: reduced ? 0 : 1 }}
         transition={SPRING.snappy}
-        className="absolute top-3 right-3 bottom-3 flex w-[min(27rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.8rem] bg-white/94 shadow-[0_24px_60px_-20px_rgba(30,40,70,0.5)] ring-1 ring-white/70 backdrop-blur-xl"
+        className="ibox-friends-panel absolute top-3 right-3 bottom-3 flex w-[min(27rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.8rem] bg-white/94 shadow-[0_24px_60px_-20px_rgba(30,40,70,0.5)] ring-1 ring-white/70 backdrop-blur-xl"
       >
         <header className="flex items-center gap-2 px-5 pt-5 pb-3">
           {view !== "list" ? (
@@ -719,7 +722,7 @@ function BigAction({ icon, label, onClick, badge = 0, autoFocus, tint = "var(--a
       className="group ibox-focusable relative flex flex-col items-center gap-1.5 rounded-2xl py-1 text-[0.8rem] font-bold text-ink [--ring-radius:1rem]"
     >
       <span className="relative grid size-[3.1rem] place-items-center rounded-full text-white shadow-[0_6px_14px_-6px_rgba(30,40,70,0.55)] ring-[3px] ring-white transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105"
-        style={{ background: `radial-gradient(circle at 30% 25%, color-mix(in oklab, ${tint} 55%, white), color-mix(in oklab, ${tint} 82%, white) 70%)` }}>
+        style={{ background: compat(`radial-gradient(circle at 30% 25%, color-mix(in oklab, ${tint} 55%, white), color-mix(in oklab, ${tint} 82%, white) 70%)`) }}>
         <Icon name={icon} size="1.35rem" />
         {badge > 0 && (
           <span className="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#E5735F] px-1 text-[0.7rem] font-extrabold text-white ring-2 ring-white">{badge}</span>
@@ -780,7 +783,7 @@ function MyGame() {
     let live = true;
     const check = () => void invoke<[number, string] | null>("pc_running_game").then((r) => live && setDetected(r ? { gameId: r[0], title: r[1] } : null), () => undefined);
     check();
-    const t = window.setInterval(check, 10000);
+    const t = window.setInterval(() => !interfaceAsleep() && check(), 10000);
     return () => { live = false; window.clearInterval(t); };
   }, [launched]);
   const running = launched ?? detected;

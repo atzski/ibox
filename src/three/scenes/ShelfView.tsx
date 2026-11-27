@@ -1,9 +1,11 @@
+import { compat } from "@/theme/cssCompat";
 import { SPRING, TWEEN } from "@/motion/tokens";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { FrameCap } from "../FrameCap";
 import { wakeScenes } from "../activity";
+import { frameDrawn } from "../frameProbe";
 import { useInterfaceSleep } from "@/services/performance";
-import { useGraphics } from "@/services/graphics";
+import { useGraphics } from "@/services/budget";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,7 +14,8 @@ import type { Game, Platform } from "@/domain/types";
 import { requirePlatform } from "@/domain/platforms";
 import { CaseModel } from "../cases/CaseModel";
 import { caseFor, type CaseSpec } from "../cases/caseSpecs";
-import { useCaseTextures } from "../useCaseTextures";
+import { KEEP_UNUSED, pruneCaseTextures, useCaseTextures } from "../useCaseTextures";
+import { onMemoryTrim } from "@/services/androidDevice";
 import { createGlareMaterial } from "./flowGlare";
 import { tuneRenderer } from "../rendererTuning";
 import { sound } from "@/services/sound";
@@ -33,6 +36,9 @@ import { drawPath, pickDraw } from "@/domain/draw";
 import { DRAW_EVENT, drawPending, takeDraw } from "@/app/draw";
 import { MediaModal } from "@/components/library/MediaModal";
 import { usePlatformArt } from "@/services/platformArt";
+
+/** Android : un boîtier de plus tous les tant de pixels glissés. */
+const SWIPE_STEP = 64;
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
 
 /*
@@ -420,6 +426,8 @@ function CaptureThree({ target }: { target: { current: { camera: Camera; gl: Web
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+  // diagnostic de l'appareil : images réellement dessinées (rien sans relevé en cours)
+  useFrame(frameDrawn);
   useEffect(() => {
     target.current = { camera, gl };
     if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__iboxShelf = { camera, gl, scene };
@@ -475,7 +483,7 @@ function Backdrop({ game, tint }: { game: Game; tint: string }) {
     };
   }, [game]);
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ background: `color-mix(in oklab, ${tint} 18%, #07070c)`, transition: "background .6s" }}>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ background: compat(`color-mix(in oklab, ${tint} 18%, #07070c)`), transition: "background .6s" }}>
       <AnimatePresence initial={false} mode="wait">
         {layer && (
           <motion.div
@@ -527,6 +535,10 @@ export function ShelfView({
   const scenePaused = useScenePause((s) => s.paused) || asleep;
   // profil graphique : définition et rythme d'images (Steam Deck, économie d'énergie)
   const graphics = useGraphics();
+  // paliers modestes et consoles à 3 ou 4 Go : moins de boîtiers gardés hors de l'écran que le
+  // plafond de `useCaseTextures` ; Android qui manque de mémoire (jeu lancé) : tout l'inutilisé part
+  const keep = graphics.keep;
+  useEffect(() => onMemoryTrim((level) => pruneCaseTextures(level >= 20 ? 0 : Math.min(keep, 4))), [keep]);
   const shelves = useMemo(() => buildShelves(games, mixed), [games, mixed]);
   // gardée en vie sous la fiche d'un jeu ouverte depuis elle : en pause, sans raccourcis
   const active = useScreenActive();
@@ -563,6 +575,7 @@ export function ShelfView({
     else groups.current.delete(id);
   };
   const lastWheel = useRef(0);
+  /** Doigt posé sur l'étagère (écran tactile des consoles portables). */
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
   const later = (fn: () => void, ms: number) => timers.current.push(window.setTimeout(fn, ms));
@@ -573,6 +586,10 @@ export function ShelfView({
   const pickOf = (s: Shelf) => Math.min(picks[s.id] ?? 0, s.games.length - 1);
   const index = shelf ? pickOf(shelf) : 0;
   const sel = shelf?.games[index];
+  // au-delà du plafond du palier, les boîtiers les plus anciens hors de l'écran libèrent leurs textures
+  useEffect(() => {
+    if (keep < KEEP_UNUSED) pruneCaseTextures(keep);
+  }, [sel, keep]);
   const playState = usePlayState(sel ?? games[0]);
   const first = shelf?.specs[0] ?? caseFor("gamecube");
   // Mixed shelves must fit every case independently of insertion order.
@@ -715,6 +732,48 @@ export function ShelfView({
   };
 
   /**
+   * Écran tactile (Android, consoles portables PC) : l'étagère se parcourt au doigt. Glisser de côté
+   * fait défiler la rangée (un boîtier tous les SWIPE_STEP pixels, quelques-uns de plus si l'on lance
+   * vite) ; glisser en hauteur change de console. Un glissé n'ouvre jamais le boîtier sous le doigt.
+   * Souris, clavier et manette : inchangés.
+   */
+  const swipe = useRef<{ id: number; x: number; y: number; t: number; start: number; last: number; moved: boolean } | null>(null);
+  const swiped = useRef(false);
+  const onSwipeDown = (e: ReactPointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    swiped.current = false;
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), start: index, last: index, moved: false };
+  };
+  const onSwipeMove = (e: ReactPointerEvent) => {
+    const s = swipe.current;
+    if (!s || e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!s.moved && Math.hypot(dx, dy) > 10) s.moved = swiped.current = true;
+    if (!s.moved || Math.abs(dy) > Math.abs(dx)) return;
+    const target = s.start - Math.round(dx / SWIPE_STEP);
+    if (target !== s.last) {
+      s.last = target;
+      select(target);
+    }
+  };
+  const onSwipeUp = (e: ReactPointerEvent) => {
+    const s = swipe.current;
+    if (!s || e.pointerId !== s.id) return;
+    swipe.current = null;
+    if (!s.moved || e.type === "pointercancel") return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dy) > 56 && Math.abs(dy) > Math.abs(dx) * 1.3) {
+      if (shelves.length > 1) changeShelf(shelfIndex + (dy < 0 ? 1 : -1));
+      return;
+    }
+    // lancé : la rangée continue sur sa lancée (4 boîtiers au plus)
+    const speed = dx / Math.max(1, performance.now() - s.t);
+    if (Math.abs(speed) > 0.8) select(s.last - Math.sign(speed) * Math.min(4, Math.round(Math.abs(speed) * 2)));
+  };
+
+  /**
    * « Au hasard » : un jeu est tiré dans tout ce que l'étagère montre (toutes ses
    * rangées), puis la rangée défile jusqu'à lui en ralentissant, un cran sonore
    * par boîtier. À l'arrivée, le boîtier tiré fait un tour sur lui-même.
@@ -826,7 +885,7 @@ export function ShelfView({
         className="ibox-shelf-soft pointer-events-none absolute left-1/2 aspect-[4/3] w-[44%] -translate-x-1/2 -translate-y-1/2"
         style={{
           top: `${TRACK_Y * 100}%`,
-          background: `radial-gradient(closest-side, color-mix(in srgb, ${halo} 55%, transparent), transparent)`,
+          background: compat(`radial-gradient(closest-side, color-mix(in srgb, ${halo} 55%, transparent), transparent)`),
           filter: "blur(26px)",
           opacity: leaving ? 0 : 1,
           transition: "opacity .4s, background .5s",
@@ -837,7 +896,7 @@ export function ShelfView({
         className="pointer-events-none absolute left-1/2 h-[18%] w-[min(1400px,140%)] -translate-x-1/2"
         style={{
           top: `calc(${TRACK_Y * 100}% + 26%)`,
-          background: `radial-gradient(ellipse 14% 22% at 50% 18%, color-mix(in srgb, ${halo} 45%, transparent), transparent 75%), radial-gradient(ellipse 50% 30% at 50% 30%, rgba(0,0,0,.45), transparent 70%)`,
+          background: compat(`radial-gradient(ellipse 14% 22% at 50% 18%, color-mix(in srgb, ${halo} 45%, transparent), transparent 75%), radial-gradient(ellipse 50% 30% at 50% 30%, rgba(0,0,0,.45), transparent 70%)`),
           transition: "background .6s",
         }}
       />
@@ -852,6 +911,10 @@ export function ShelfView({
         aria-label="Étagère de jeux. Gauche et droite pour parcourir, haut et bas pour changer de console, Entrée pour ouvrir, F pour retourner le boîtier."
         aria-activedescendant={`shelf-${sel.id}`}
         onKeyDown={onKeyDown}
+        onPointerDown={onSwipeDown}
+        onPointerMove={onSwipeMove}
+        onPointerUp={onSwipeUp}
+        onPointerCancel={onSwipeUp}
         onWheel={(e) => {
           const now = performance.now();
           if (now - lastWheel.current < 140 || Math.abs(e.deltaY) + Math.abs(e.deltaX) < 4) return;
@@ -859,7 +922,7 @@ export function ShelfView({
           if (e.shiftKey && shelves.length > 1) changeShelf(shelfIndex + (e.deltaY > 0 ? 1 : -1));
           else select(index + (e.deltaY > 0 || e.deltaX > 0 ? 1 : -1));
         }}
-        className="ibox-focusable absolute inset-0 rounded-xl outline-none [--ring-radius:var(--radius-xl)]"
+        className="ibox-focusable absolute inset-0 touch-none rounded-xl outline-none [--ring-radius:var(--radius-xl)]"
         style={{
           opacity: swap === "out" ? 0 : 1,
           transform: swap === "out" ? "translateY(18px)" : "none",
@@ -867,11 +930,13 @@ export function ShelfView({
         }}
       >
         <Canvas
+          // l'anticrénelage se choisit à la création du contexte : un changement de palier remonte la scène
+          key={graphics.antialias ? "msaa" : "no-msaa"}
           flat
           frameloop={scenePaused || !active ? "never" : graphics.fps || graphics.idle ? "demand" : "always"}
           dpr={graphics.dpr}
           camera={{ fov: 32, position: [0, 0, PERSPECTIVE * ref.width], near: 0.1, far: 60 }}
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+          gl={{ antialias: graphics.antialias, alpha: true, powerPreference: "high-performance" }}
           style={{ borderRadius: "inherit" }}
           onCreated={({ gl }) => tuneRenderer(gl)}
         >
@@ -900,7 +965,7 @@ export function ShelfView({
                   returning={!!returnAt && shelfIndex === returnAt.row && i === returnAt.index && !reduced}
                   entering={entering}
                   register={register}
-                  onClick={() => (i === index ? open(g) : select(i))}
+                  onClick={() => (swiped.current ? undefined : i === index ? open(g) : select(i))}
                 />
               ),
             )}
@@ -952,7 +1017,8 @@ export function ShelfView({
 
       {/* titre du jeu choisi, sous la rangée */}
       <div
-        className="pointer-events-none absolute inset-x-0 flex flex-col items-center px-6 text-center"
+        // ibox-shelf-caption : ancré en bas sur les écrans bas d'Android (styles/android.css)
+        className="ibox-shelf-caption pointer-events-none absolute inset-x-0 flex flex-col items-center px-6 text-center"
         style={{ top: "66%", opacity: leaving ? 0 : 1, transition: "opacity .3s" }}
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -974,7 +1040,7 @@ export function ShelfView({
             </div>
           </motion.div>
         </AnimatePresence>
-        <div className="pointer-events-auto mt-4 flex items-center gap-2">
+        <div className="ibox-shelf-actions pointer-events-auto mt-4 flex items-center gap-2">
           <FlowAction icon="play" label="Jouer" primary disabled={!!playState.reason || sel.dbId === undefined} title={playState.reason ?? undefined} onClick={quickPlay} />
           <FlowAction icon="open" label="Fiche" onClick={() => open(sel)} />
           <FlowAction icon="reset" label={flipped ? "Face" : "Dos"} onClick={flip} />

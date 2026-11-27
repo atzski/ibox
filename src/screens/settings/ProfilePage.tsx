@@ -11,6 +11,7 @@ import { ProfileModal, ProfilePreview } from "@/components/profile/ProfileModal"
 import { Avatar } from "@/components/profile/Avatar";
 import { isFavorite, useLibrary } from "@/services/library";
 import { Group, Row } from "./ui";
+import { usePlatform } from "@/services/platform";
 
 // ——— Profil ———
 
@@ -53,7 +54,7 @@ function PlayersGroup() {
   const profiles = listProfiles();
   const [removing, setRemoving] = useState<LocalProfile | null>(null);
   return (
-    <Group title="Joueurs de ce PC" icon="user">
+    <Group title={usePlatform.getState().android ? "Joueurs de cet appareil" : "Joueurs de ce PC"} icon="user">
       {profiles.map((p) => (
         <Row key={p.id} label={p.name} note={p.id === activeId ? "Profil en cours" : undefined}>
           <div className="flex items-center gap-2">

@@ -17,7 +17,8 @@ import type { Game, Platform } from "@/domain/types";
 import { tr } from "@/i18n";
 import { useCommands } from "@/input/commands";
 import { useGamepad } from "@/input/gamepad";
-import { SETTINGS_CATEGORIES } from "@/screens/settings/categories";
+import { visibleSettingsCategories } from "@/screens/settings/categories";
+import { capabilities, platformOnDevice, type Capability } from "@/services/capabilities";
 import { isDecor, useCollections, type Collection } from "@/services/extras";
 import { useLauncher } from "@/services/launcher";
 import { countByPlatform, useLibrary } from "@/services/library";
@@ -50,15 +51,17 @@ interface Destination {
   icon: IconName;
   hue: Tone;
   route: Route;
+  /** absent de l'appareil sans cette capacité (Android) */
+  needs?: Capability;
 }
 
 const DESTINATIONS: Destination[] = [
   { label: "Accueil", hint: "Retour à l'écran d'accueil", icon: "home", hue: "blue", route: { name: "home" } },
   { label: "Toute la collection", hint: "Tous vos jeux, sur l'étagère", icon: "shelf", hue: "purple", route: { name: "library", platformId: "all" } },
-  { label: "iBox Platforms", hint: "Les consoles et leurs émulateurs", icon: "gamepad", hue: "red", route: { name: "platforms" } },
+  { label: "iBox Platforms", hint: "Les consoles et leurs émulateurs", icon: "gamepad", hue: "red", route: { name: "platforms" }, needs: "platforms" },
   { label: "Succès", hint: "Votre salle des trophées", icon: "trophy", hue: "yellow", route: { name: "achievements" } },
   { label: "Communauté", hint: "Captures et clips partagés", icon: "chat", hue: "green", route: { name: "community" } },
-  { label: "SmartConfig", hint: "Réglages adaptés à votre PC", icon: "tune", hue: "orange", route: { name: "smartconfig" } },
+  { label: "SmartConfig", hint: "Réglages adaptés à votre PC", icon: "tune", hue: "orange", route: { name: "smartconfig" }, needs: "smartConfig" },
 ];
 
 /** Pastille colorée d'une ligne qui n'est pas un jeu (même dessin que le rail des Paramètres). */
@@ -110,11 +113,17 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
   const hasFolders = useLibrary((s) => s.folders.length > 0);
   const scanRunning = useLibrary((s) => s.scan.running);
   const { active: padActive, family, connected } = useGamepad();
+  // Android au doigt : ni clavier ni manette active, aucune touche à rappeler
+  const showKeys = padActive || capabilities().keyboard;
   const side = useSettings((s) => s.gamepadConfirm);
   const q = query.trim();
 
   const sections = useMemo<Section[]>(() => {
     const nav = useNav.getState();
+    // pages et destinations présentes sur l'appareil (Android : ni PC, ni SmartConfig…)
+    const caps = capabilities();
+    const places = DESTINATIONS.filter((d) => !d.needs || caps[d.needs]);
+    const pages = visibleSettingsCategories(caps);
     const navigate = (route: Route) => {
       onClose();
       if (route.name === "home") nav.home();
@@ -177,7 +186,7 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
       const recent = played.length ? played : [...games].sort((a, b) => (b.addedAt > a.addedAt ? 1 : -1)).slice(0, 4);
       return [
         { label: played.length ? "Reprendre" : "Ajoutés récemment", entries: recent.map(gameEntry), best: 0 },
-        { label: "Aller à", entries: DESTINATIONS.map(destinationEntry), best: 0 },
+        { label: "Aller à", entries: places.map(destinationEntry), best: 0 },
         { label: "Actions", entries: actions.map(actionEntry), best: 0 },
       ].filter((s) => s.entries.length > 0);
     }
@@ -187,10 +196,10 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
     const now = Date.now();
     const counts = countByPlatform(games);
     const foundGames = rank(games, q, (g) => g.title, 8, (g) => gameBonus(g, now));
-    const foundPlatforms = rank(PLATFORMS, q, (p) => [p.name, p.shortName, p.manufacturer, p.id, sigle(p.shortName), sigle(p.name)], 4, (p) => ((counts.get(p.id) ?? 0) > 0 ? 5 : 0));
+    const foundPlatforms = rank(PLATFORMS.filter((p) => platformOnDevice(p.id, caps)), q, (p) => [p.name, p.shortName, p.manufacturer, p.id, sigle(p.shortName), sigle(p.name)], 4, (p) => ((counts.get(p.id) ?? 0) > 0 ? 5 : 0));
     const foundCollections = rank(list.filter((c) => !isDecor(c.id)), q, (c: Collection) => c.name, 4);
-    const foundPages = rank(SETTINGS_CATEGORIES, q, (c) => [...both(c.label), ...both(c.hint), c.keywords], 4);
-    const foundPlaces = rank(DESTINATIONS, q, (d) => [...both(d.label), ...both(d.hint)], 3);
+    const foundPages = rank(pages, q, (c) => [...both(c.label), ...both(c.hint), c.keywords], 4);
+    const foundPlaces = rank(places, q, (d) => [...both(d.label), ...both(d.hint)], 3);
     const foundActions = rank(actions, q, (a) => [...both(a.label), ...both(a.hint), a.keywords], 3);
     const best = (found: { score: number }[]) => found[0]?.score ?? 0;
     const out: Section[] = [
@@ -327,9 +336,13 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
                       <span data-no-i18n={entry.raw || undefined} className="block truncate text-[0.98rem] font-bold text-ink">{entry.title}</span>
                       {entry.detail && <span className="block truncate text-[0.8rem] font-semibold text-ink-soft">{entry.detail}</span>}
                     </span>
-                    {entry === first && (
+                    {/* meilleur résultat : la touche qui l'ouvre, celle de la manette s'il y en a une
+                        (« Entrée » sur une console sans clavier n'a pas de sens) */}
+                    {entry === first && showKeys && (padActive ? (
+                      <span className="flex shrink-0">{padKeysOf(["Entrée"]).map((k) => <PadGlyph key={k} k={k} family={family} side={side} size={20} />)}</span>
+                    ) : (
                       <kbd className="shrink-0 rounded-md bg-white px-2 py-0.5 font-body text-[0.68rem] font-extrabold text-ink-soft shadow-xs">Entrée</kbd>
-                    )}
+                    ))}
                     <Icon name="chevronRight" size="1em" className="shrink-0 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
                   </button>
                 ))}
@@ -340,7 +353,7 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
       </div>
 
       {/* aide des commandes : la barre du bas de l'écran est masquée par la fenêtre */}
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 border-t border-[var(--ibox-line)] pt-3" aria-hidden>
+      {showKeys && <div className="mt-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 border-t border-[var(--ibox-line)] pt-3" aria-hidden>
         {hints.map((h) => (
           <span key={h.label} className="flex items-center gap-1.5 text-[0.78rem] font-bold text-ink-soft">
             {padActive
@@ -351,7 +364,7 @@ export function QuickSearch({ games, onClose, onCollection }: { games: Game[]; o
             <span>{h.label}</span>
           </span>
         ))}
-      </div>
+      </div>}
     </Modal>
   );
 }

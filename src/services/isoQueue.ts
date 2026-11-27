@@ -85,7 +85,7 @@ export const useIsoQueue = create<IsoQueueState>((set, get) => {
       const library = useLibrary.getState();
       await library.reload();
       // jaquettes et infos des jeux qui viennent d'être rangés, en arrière-plan
-      if (useSettings.getState().autoFetchMetadata) void library.fetchMetadata(created);
+      if (useSettings.getState().autoFetchMetadata) void library.fetchMetadata(created, { auto: true });
     },
 
     restoreIgnored: async () => {

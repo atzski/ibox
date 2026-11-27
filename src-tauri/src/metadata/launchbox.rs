@@ -24,7 +24,7 @@ pub const IMAGE_HOST: &str = "images.launchbox-app.com";
 const MAX_ZIP: u64 = 400 * 1024 * 1024;
 
 /// Consoles d'iBox → nom de la plateforme dans LaunchBox.
-const PLATFORMS: [(&str, &str); 15] = [
+const PLATFORMS: [(&str, &str); 16] = [
     ("gamecube", "Nintendo GameCube"),
     ("wii", "Nintendo Wii"),
     ("wiiu", "Nintendo Wii U"),
@@ -40,6 +40,8 @@ const PLATFORMS: [(&str, &str); 15] = [
     ("ps1", "Sony Playstation"),
     ("ps2", "Sony Playstation 2"),
     ("psp", "Sony PSP"),
+    // applications Android de la bibliothèque (src/android_apps)
+    ("android", "Android"),
 ];
 
 pub fn supports(platform: &str) -> bool {
@@ -328,6 +330,17 @@ mod tests {
         assert_eq!(idx.games, vec![(900, "switch2", "Mario Kart World".to_string())]);
         assert_eq!(idx.images.len(), 2);
         assert!(idx.images.iter().all(|(id, k, _, _)| *id == 900 && *k == "back"));
+    }
+
+    /// Chaque type d'image retenu doit entrer dans la table (la contrainte de 010 refusait « disc »).
+    #[test]
+    fn tous_les_types_d_image_entrent_en_base() {
+        let conn = crate::db::open_in_memory().unwrap();
+        for t in ["Box - Front", "Box - Back", "Box - Spine", "Box - Full", "Disc"] {
+            let kind = kind_of(t).unwrap();
+            conn.execute("INSERT INTO ref_launchbox_images (db_id, kind, region, file) VALUES (1, ?1, NULL, 'x.jpg')", [kind])
+                .unwrap_or_else(|e| panic!("{t} ({kind}) : {e}"));
+        }
     }
 
     #[test]

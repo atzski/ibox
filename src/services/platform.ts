@@ -5,6 +5,7 @@
  */
 import { create } from "zustand";
 import { isTauri } from "./native";
+import type { HandheldDevice } from "./device";
 
 export interface PlatformInfo {
   os: "windows" | "linux";
@@ -18,6 +19,10 @@ export interface PlatformInfo {
   preview: boolean;
   /** Banc d'essai Remote Play de l'aperçu : seul le banc est affiché. */
   bench?: boolean;
+  /** Version Android (docs/ANDROID.md) ; `os` y vaut `linux` (une seule fenêtre, comme le Deck). */
+  android?: boolean;
+  /** Console portable PC reconnue (écran, puissance graphique), voir `services/device.ts`. */
+  device?: HandheldDevice | null;
 }
 
 export const WINDOWS: PlatformInfo = { os: "windows", steamDeck: null, gameMode: false, preview: false };
@@ -26,9 +31,14 @@ export const usePlatform = create<PlatformInfo>(() => WINDOWS);
 
 /** Charge la plateforme réelle ; sans effet hors Tauri ou en cas d'échec. */
 export async function loadPlatform(): Promise<PlatformInfo> {
-  // développement : `?platform=deck` simule un Steam Deck en Mode Jeu dans l'aperçu navigateur
-  if (import.meta.env.DEV && new URLSearchParams(location.search).get("platform") === "deck") {
+  // développement : `?platform=deck` simule un Steam Deck en Mode Jeu dans l'aperçu navigateur,
+  // `?device=ally` (deck, ally-z1, legion-go, legion-go-s, claw) une console portable reconnue
+  const sim = import.meta.env.DEV || import.meta.env.VITE_IBOX_BENCH === "1" ? new URLSearchParams(location.search) : null;
+  const device = sim?.get("device") ? (await import("./device")).simulatedPlatform(sim.get("device")!) : null;
+  if (sim?.get("platform") === "deck") {
     usePlatform.setState({ os: "linux", steamDeck: "Steam Deck OLED", gameMode: true, preview: false }, true);
+  } else if (device) {
+    usePlatform.setState(device, true);
   } else if (isTauri()) {
     try {
       const { invoke } = await import("@tauri-apps/api/core");
@@ -37,8 +47,14 @@ export async function loadPlatform(): Promise<PlatformInfo> {
       /* on garde Windows */
     }
   }
+  // Android : mise en page des petits écrans tactiles (styles/android.css)
+  if (usePlatform.getState().android) document.documentElement.dataset.platform = "android";
   return usePlatform.getState();
 }
 
-/** Version iBox pour Steam Deck (Linux). */
+/**
+ * Système Linux : Steam Deck et autres Linux, mais aussi Android (`os` y vaut `linux`). Jamais
+ * pour dire « Steam Deck » : une différence de comportement passe par une capacité
+ * (`services/capabilities.ts`).
+ */
 export const isLinux = (p: PlatformInfo = usePlatform.getState()) => p.os === "linux";

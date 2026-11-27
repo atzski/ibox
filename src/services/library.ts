@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { interfaceAsleep } from "./performance";
 import { usePower } from "./power";
 import type { Game, PlatformId } from "@/domain/types";
 import { DEMO_GAMES } from "@/domain/demoLibrary";
@@ -17,6 +18,8 @@ import {
 } from "./nativeLibrary";
 import { useSettings, type LibrarySort } from "./settings";
 import { notify } from "./notifications";
+import { capabilities } from "./capabilities";
+import { usePlatform } from "./platform";
 import { metadataApi, type JobProgress, type JobSummary } from "./metadata";
 
 /**
@@ -72,7 +75,8 @@ interface LibraryState {
   toggleFavorite: (game: Game) => Promise<void>;
   correctGame: (game: Game, patch: GamePatch) => Promise<void>;
   /** Récupère infos et images. Sans `gameIds` : les jeux jamais traités. */
-  fetchMetadata: (gameIds?: number[] | null, opts?: { force?: boolean; refreshRefs?: boolean }) => Promise<JobSummary | undefined>;
+  /** `auto` : lancée par iBox (nouveaux jeux), pas par l'utilisateur ; une annulation l'arrête pour la session. */
+  fetchMetadata: (gameIds?: number[] | null, opts?: { force?: boolean; refreshRefs?: boolean; auto?: boolean }) => Promise<JobSummary | undefined>;
   cancelMetadata: () => Promise<void>;
   dismissMetaResult: () => void;
 }
@@ -161,6 +165,24 @@ function visible(all: Game[], showDemo: boolean): { games: Game[]; demoVisible: 
   return { games: demoVisible ? [...real, ...DEMO_GAMES] : real, demoVisible };
 }
 
+/** Récupération des métadonnées annulée dans cette session (survit à un rechargement). */
+const META_CANCELLED = "ibox.meta.cancelled";
+function metaCancelled(): boolean {
+  try {
+    return sessionStorage.getItem(META_CANCELLED) === "1";
+  } catch {
+    return false;
+  }
+}
+function setMetaCancelled(on: boolean): void {
+  try {
+    if (on) sessionStorage.setItem(META_CANCELLED, "1");
+    else sessionStorage.removeItem(META_CANCELLED);
+  } catch {
+    /* stockage indisponible : sans effet */
+  }
+}
+
 export const useLibrary = create<LibraryState>((set, get) => {
   const setReal = (realGames: Game[]) =>
     set({ realGames, ...visible(realGames, useSettings.getState().showDemoGames) });
@@ -191,6 +213,8 @@ export const useLibrary = create<LibraryState>((set, get) => {
         set({ status: "ready" });
         // jeux PC des boutiques (Steam…) : lus en arrière-plan, sans bloquer l'accueil
         if (get().native) void get().syncPc();
+        // Android : jeux et applications installés (console « Android »)
+        if (get().native && capabilities().androidApps) void import("./androidApps").then((m) => m.syncAndroidApps());
       } catch (e) {
         setReal([]);
         set({ status: "error", error: message(e, "La collection n'a pas pu être chargée.") });
@@ -202,7 +226,8 @@ export const useLibrary = create<LibraryState>((set, get) => {
     },
 
     syncPc: async () => {
-      if (!get().native || get().pcSync.running) return [];
+      // Android : pas de boutiques PC (sinon « Dossier Windows introuvable » au démarrage)
+      if (!get().native || get().pcSync.running || !capabilities().pcGames) return [];
       set({ pcSync: { running: true } });
       try {
         // boutiques lues par défaut, sauf celles que l'utilisateur a désactivées
@@ -218,7 +243,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
         for (const s of summaries) if (s.warning) notify({ icon: "lock", tone: "warn", title: "Boutique PC", body: s.warning, link: { kind: "settings", category: "pc" } });
         // jaquettes, fonds et logos des nouveaux jeux
         const fresh = summaries.flatMap((s) => s.newGameIds);
-        if (fresh.length && useSettings.getState().autoFetchMetadata) void get().fetchMetadata(fresh);
+        if (fresh.length && useSettings.getState().autoFetchMetadata) void get().fetchMetadata(fresh, { auto: true });
         return summaries;
       } catch (e) {
         set({ pcSync: { running: false, error: message(e, "Les boutiques PC n'ont pas pu être lues.") } });
@@ -268,7 +293,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
         }
         // Jaquettes et infos des nouveaux jeux, en arrière-plan
         if (useSettings.getState().autoFetchMetadata && (summary.added > 0 || summary.updated > 0 || summary.moved > 0)) {
-          void get().fetchMetadata(null);
+          void get().fetchMetadata(null, { auto: true });
         }
         return summary;
       } catch (e) {
@@ -304,10 +329,16 @@ export const useLibrary = create<LibraryState>((set, get) => {
 
     fetchMetadata: async (gameIds = null, opts = {}) => {
       if (!get().native || get().meta.running) return undefined;
+      // Android : récupération annulée par l'utilisateur, iBox ne la relance pas de lui-même dans
+      // cette session, même après un rechargement (changement de langue) ; la base LaunchBox, coupée
+      // en plein téléchargement, repartait sinon aussitôt (D19, docs/ANDROID-RECETTE.md)
+      const { auto, ...fetchOpts } = opts;
+      if (auto && usePlatform.getState().android && metaCancelled()) return undefined;
+      if (!auto) setMetaCancelled(false);
       set({ meta: { running: true } });
       const unlisten = await metadataApi.onProgress((progress) => set((s) => ({ meta: { ...s.meta, progress } })));
       try {
-        const summary = await metadataApi.fetch(gameIds, opts);
+        const summary = await metadataApi.fetch(gameIds, fetchOpts);
         await refresh();
         set({ meta: { running: false, summary, finishedAt: Date.now() } });
         if (summary.images > 0) notify({ icon: "front", tone: "ok", title: "Jaquettes récupérées", body: `${summary.images} image${summary.images > 1 ? "s" : ""} pour ${summary.games} jeu${summary.games > 1 ? "x" : ""}`, link: { kind: "library", platformId: "all" } });
@@ -322,6 +353,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
     },
 
     cancelMetadata: async () => {
+      setMetaCancelled(true);
       await metadataApi.cancel();
     },
 
@@ -362,11 +394,14 @@ if (typeof window !== "undefined") {
   let steamState: string | null = null;
   let steamTick = 0;
   window.setInterval(() => {
+    // pendant une partie (interface en veille) : rien, la relecture reprend au retour dans iBox
+    if (interfaceAsleep()) return;
     // sur batterie (Steam Deck) : toutes les 12 s seulement
     if (usePower.getState().onBattery && steamTick++ % 3 !== 0) return;
     const s = useLibrary.getState();
     // synchronisation déjà en cours : on réessaie au tour suivant (sinon le changement serait perdu)
-    if (!s.native || s.status !== "ready" || s.pcSync.running || useSettings.getState().pcConnectors.steam === false) return;
+    // Android : aucune boutique PC à surveiller
+    if (!s.native || s.status !== "ready" || s.pcSync.running || useSettings.getState().pcConnectors.steam === false || !capabilities().pcGames) return;
     void pcApi.steamInstalled().then((ids) => {
       const next = ids.join(",");
       const changed = steamState !== null && next !== steamState;

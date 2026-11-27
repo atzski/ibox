@@ -20,7 +20,7 @@ import { useMediaUrl } from "@/art/useMediaUrl";
 import { trimStyle, useImageInfo } from "@/art/imageTone";
 import { caseFor, mediaLabel } from "@/three/cases/caseSpecs";
 import { InspectController, type CaseView, type ShownSide } from "@/three/inspectController";
-import { InspectViewer } from "@/three/lazy";
+import { InspectViewer, use3D } from "@/three/lazy";
 import { useGameManual } from "@/components/manual/useGameManual";
 import { flightPending } from "@/three/handoff";
 import { useGamepad } from "@/input/gamepad";
@@ -305,7 +305,7 @@ function MergeVersions({ game, onClose }: { game: Game; onClose: () => void }) {
  * pour tourner, ouvrir, voir le dos, la tranche et le disque), dans la colonne
  * de gauche ; la barre d'outils est réduite aux icônes pour tenir dans la largeur.
  */
-function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, accent, reduced }: {
+export function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, accent, reduced }: {
   game: Game;
   spec: ReturnType<typeof caseFor>;
   controller: InspectController;
@@ -318,6 +318,8 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
 }) {
   const dark = useIsDark();
   const padActive = useGamepad((g) => g.active);
+  // vue sans 3D (jaquette à plat) : rien à faire tourner
+  const threeD = use3D();
   const media = mediaLabel(spec);
   const [view, setView] = useState<ShownSide>("front");
   const manual = useGameManual(game);
@@ -404,9 +406,11 @@ function PcCase({ game, spec, controller, open, setOpen, discOut, setDiscOut, ac
         manualOut={manual.reading}
         onOpenManual={manual.open}
       />
-      <div className="pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.72rem] font-bold whitespace-nowrap text-ink-soft">
-        <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner" : "Glisser pour tourner"}
-      </div>
+      {threeD && (
+        <div className="pointer-events-none absolute top-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[0.72rem] font-bold whitespace-nowrap text-ink-soft">
+          <Icon name="reset" size="1em" /> {padActive ? "Stick droit pour tourner" : "Glisser pour tourner"}
+        </div>
+      )}
       <Dock>
         <DockButton compact primary icon={open ? "close" : "open"} label={open ? "Fermer" : "Ouvrir"} active={open} onClick={toggleOpen} />
         <DockDivider />
@@ -522,7 +526,7 @@ function InstallRow({ game, inst, several }: { game: Game; inst: PcInstall; seve
 
 /** Temps de jeu : celui suivi par iBox, ou celui de la boutique s'il est plus grand. */
 /** Les informations connues du jeu, en pastilles ; rien n'est affiché pour ce qui manque. */
-function FactStrip({ facts }: { facts: { icon: IconName; label: string; value?: string | number }[] }) {
+export function FactStrip({ facts }: { facts: { icon: IconName; label: string; value?: string | number }[] }) {
   const known = facts.filter((f) => f.value !== undefined && f.value !== null && f.value !== "");
   if (known.length === 0) return null;
   return (

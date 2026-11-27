@@ -23,6 +23,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Avatar } from "@/components/profile/Avatar";
 import { AchievementTile, AwardRibbon, GOLD, GOLD_SOFT, ProgressRing, SKY, StripeBar, formatDate } from "@/components/achievements/RaParts";
 import type { Game } from "@/domain/types";
+import { useCapability } from "@/services/capabilities";
 
 type Source = "ra" | "steam";
 type View = { kind: "hub" } | { kind: "game"; source: Source; id: number } | { kind: "link"; game: Game };
@@ -115,6 +116,8 @@ export function AchievementsScreen({ gameId }: { gameId?: string }) {
 }
 
 function Onboarding() {
+  // Android : pas de jeux PC, donc pas de clé Steam
+  const pcGames = useCapability("pcGames");
   return (
     <div className="grid h-full place-items-center px-[3rem]">
       <div className="max-w-[36rem] rounded-[2.2rem] bg-white p-9 text-center shadow-lg">
@@ -127,11 +130,13 @@ function Onboarding() {
         </motion.span>
         <h1 className="mt-5 font-display text-[1.8rem] font-semibold text-ink">Votre salle des trophées</h1>
         <p className="mt-2 text-[0.98rem] font-semibold text-ink-soft">
-          Reliez RetroAchievements (gratuit) pour vos jeux rétro, et votre clé Steam pour vos jeux PC : succès, maîtrises, niveau de joueur et classement entre amis apparaîtront ici. Chaque succès débloqué s’affiche en direct pendant vos parties.
+          {pcGames
+            ? "Reliez RetroAchievements (gratuit) pour vos jeux rétro, et votre clé Steam pour vos jeux PC : succès, maîtrises, niveau de joueur et classement entre amis apparaîtront ici. Chaque succès débloqué s’affiche en direct pendant vos parties."
+            : "Reliez RetroAchievements (gratuit) pour vos jeux rétro : succès, maîtrises, niveau de joueur et classement entre amis apparaîtront ici. Chaque succès débloqué s’affiche en direct pendant vos parties."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button variant="primary" icon="key" autoFocusScreen onClick={() => openLink({ kind: "settings", category: "system" })}>Relier RetroAchievements</Button>
-          <Button icon="gamepad" onClick={() => openLink({ kind: "settings", category: "pc" })}>Clé Steam</Button>
+          {pcGames && <Button icon="gamepad" onClick={() => openLink({ kind: "settings", category: "pc" })}>Clé Steam</Button>}
         </div>
       </div>
     </div>

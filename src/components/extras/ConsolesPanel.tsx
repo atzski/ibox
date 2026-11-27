@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { PLATFORMS, getPlatform } from "@/domain/platforms";
+import { PLATFORMS, getPlatform, isEmulatedPlatform } from "@/domain/platforms";
 import { launcherApi, useLauncher, type Emulator } from "@/services/launcher";
 import { useLibrary } from "@/services/library";
 import { useSettings } from "@/services/settings";
@@ -45,7 +45,7 @@ export function ConsolesPanel() {
     for (const g of games) m.set(g.platformId, (m.get(g.platformId) ?? 0) + 1);
     return m;
   }, [games]);
-  const consoles = PLATFORMS.filter((p) => p.id !== "pc");
+  const consoles = PLATFORMS.filter((p) => isEmulatedPlatform(p.id));
   const used = consoles.filter((p) => (counts.get(p.id) ?? 0) > 0 || platformMap[p.id] !== undefined);
   const rest = consoles.filter((p) => !used.includes(p));
 

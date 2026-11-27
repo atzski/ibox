@@ -159,7 +159,7 @@ impl EmuReady {
     }
 
     fn game_id(&self, game: &GameQuery, system: &str) -> Result<Option<String>, ProviderError> {
-        let query: String = strip_tags(&game.title).chars().take(100).collect();
+        let query = search_query(&game.title);
         if query.trim().is_empty() {
             return Ok(None);
         }
@@ -241,6 +241,126 @@ impl EmuReady {
         unique.dedup();
         Ok((unique.len() == 1).then(|| unique.remove(0)))
     }
+
+    /// Android : rapports « appareil » du jeu pour un émulateur Android, ceux de **votre appareil**
+    /// d'abord (nom exact), puis ceux de la **même puce**, puis les autres ; les mieux placés sont
+    /// lus en détail (réglages). Rien du matériel n'est envoyé : la reconnaissance se fait ici,
+    /// sur les appareils que la réponse de `listings.byGame` décrit déjà.
+    pub fn fetch_android(&self, game: &GameQuery, system: &str, emulator: &str, names: &[&str], device: &DeviceHint, cache: &dyn Cache) -> Result<Fetched, ProviderError> {
+        let _one = self.serial.lock().unwrap_or_else(|e| e.into_inner());
+        let key = format!("emuready:game:{system}:{}", normalize_title(&game.title));
+        let (body, stale_a) = cached(cache, &key, || Ok((json!(self.game_id(game, system)?).to_string(), TTL_GAME)))?;
+        let Some(game_id) = serde_json::from_str::<Option<String>>(&body).ok().flatten() else {
+            return Ok(Fetched { profiles: Vec::new(), matched: false, stale: stale_a });
+        };
+        let key = format!("emuready:android:{game_id}:{emulator}:{}", device.cache_key());
+        let (body, stale_b) = cached(cache, &key, || {
+            let data = self.call("listings.byGame", json!({ "gameId": game_id }))?;
+            let listings = data.get("listings").and_then(J::as_array).or_else(|| data.as_array()).cloned().unwrap_or_default();
+            let mut mine: Vec<&J> = listings.iter().filter(|l| names.iter().any(|n| emulator_is(l, n)) && approved(l)).collect();
+            mine.sort_by_key(|l| (device.rank(l), perf(l).map(|p| p.rank).unwrap_or(99), -(int(l, "upVotes") - int(l, "downVotes"))));
+            let mut out = Vec::new();
+            let mut partial = false;
+            for (i, l) in mine.iter().take(ANDROID_LISTINGS).enumerate() {
+                let detailed = if i < ANDROID_DETAILS { self.detail("listings.byId", l, emulator, false) } else { None };
+                if i < ANDROID_DETAILS && detailed.is_none() {
+                    partial = true;
+                }
+                out.push(detailed.unwrap_or_else(|| normalize_listing(l, emulator, false)));
+            }
+            Ok((serde_json::to_string(&out).unwrap_or_else(|_| "[]".into()), if partial { TTL_PARTIAL } else { TTL_PROFILES }))
+        })?;
+        let profiles: Vec<Profile> = serde_json::from_str(&body).map_err(|e| ProviderError::Invalid(e.to_string()))?;
+        Ok(Fetched { profiles, matched: true, stale: stale_a || stale_b })
+    }
+}
+
+/// Rapports « appareil » lus en détail sur Android (une requête chacun) : votre appareil et votre
+/// puce passent en premier.
+const ANDROID_DETAILS: usize = 6;
+/// Rapports gardés au plus (les autres ne seraient que des rapports sans réglages).
+const ANDROID_LISTINGS: usize = 24;
+
+/// Votre appareil Android, tel qu'il se compare aux appareils d'EmuReady (marque + modèle, puce).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct DeviceHint {
+    /// Noms normalisés de l'appareil (« ayn thor »).
+    pub names: Vec<String>,
+    /// Noms normalisés de la puce (« snapdragon 8 gen 2 » ; une entrée de la table commune qui
+    /// regroupe deux puces voisines, « Snapdragon 865 / 870 », en donne deux).
+    pub socs: Vec<String>,
+}
+
+/// Comment un rapport se rapporte à votre appareil.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeviceMatch {
+    SameDevice,
+    SameSoc,
+    Other,
+}
+
+impl DeviceHint {
+    pub fn new(manufacturer: Option<&str>, model: Option<&str>, soc: Option<&str>) -> Self {
+        let mut names = Vec::new();
+        if let Some(m) = model.map(normalize_device).filter(|m| !m.is_empty()) {
+            if let Some(b) = manufacturer.map(normalize_device).filter(|b| !b.is_empty() && !m.starts_with(b.as_str())) {
+                names.push(format!("{b} {m}"));
+            }
+            names.push(m);
+        }
+        Self { names, socs: soc.map(soc_variants).unwrap_or_default() }
+    }
+
+    /// Rapport → même appareil (marque + modèle exacts), même puce, ou autre.
+    pub fn classify(&self, label: Option<&str>, soc: Option<&str>) -> DeviceMatch {
+        if label.map(normalize_device).is_some_and(|l| self.names.iter().any(|n| *n == l)) {
+            DeviceMatch::SameDevice
+        } else if soc.map(normalize_soc).is_some_and(|b| !b.is_empty() && self.socs.contains(&b)) {
+            DeviceMatch::SameSoc
+        } else {
+            DeviceMatch::Other
+        }
+    }
+
+    fn rank(&self, l: &J) -> DeviceMatch {
+        let label = [s(l, "/device/brand/name"), s(l, "/device/modelName")].into_iter().flatten().collect::<Vec<_>>().join(" ");
+        self.classify(Some(&label), s(l, "/device/soc/name"))
+    }
+
+    fn cache_key(&self) -> String {
+        let raw = format!("{}|{}", self.names.first().map(String::as_str).unwrap_or(""), self.socs.join("+"));
+        crate::smartconfig::backup::sha256(raw.as_bytes())[..16].to_string()
+    }
+}
+
+/// « Snapdragon 865 / 870 » → « snapdragon 865 », « snapdragon 870 » ; « Helio G90T / G95 » →
+/// « helio g90t », « helio g95 » (la variante courte reprend le début du premier nom).
+pub fn soc_variants(name: &str) -> Vec<String> {
+    let mut parts = name.split('/').map(normalize_soc).filter(|p| !p.is_empty());
+    let Some(first) = parts.next() else { return Vec::new() };
+    let head: Vec<&str> = first.split(' ').collect();
+    let mut out = vec![first.clone()];
+    for part in parts {
+        let n = part.split(' ').count();
+        let full = if n < head.len() { format!("{} {part}", head[..head.len() - n].join(" ")) } else { part };
+        if !out.contains(&full) {
+            out.push(full);
+        }
+    }
+    out
+}
+
+/// Nom d'appareil comparable : minuscules, alphanumériques séparés d'une espace.
+pub fn normalize_device(name: &str) -> String {
+    name.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// Nom de puce comparable : sans le nom du fondeur (« Qualcomm Snapdragon 8 Gen 2 » = « Snapdragon 8 Gen 2 »).
+pub fn normalize_soc(name: &str) -> String {
+    let n = normalize_device(name);
+    let words: Vec<&str> = n.split(' ').filter(|w| !matches!(*w, "qualcomm" | "mediatek" | "unisoc" | "samsung" | "google" | "qti")).collect();
+    words.join(" ")
 }
 
 /// Lit le cache frais, sinon appelle `f` ; en cas d'échec réseau, sert le cache expiré.
@@ -329,6 +449,13 @@ pub fn emulator_name(adapter: &str) -> Option<&'static str> {
     })
 }
 
+/// Texte envoyé à la recherche d'EmuReady : titre sans mentions, « - » des noms de fichiers No-Intro
+/// (qui remplace « : ») ôté. La recherche d'EmuReady ne trouve rien avec « - » (« Grand Theft Auto -
+/// Vice City Stories », vérifié le 2026-11-27) ; la correspondance reste un titre normalisé identique.
+fn search_query(title: &str) -> String {
+    strip_tags(title).replace(" - ", " ").chars().take(100).collect()
+}
+
 /// Retire les mentions entre parenthèses ou crochets (région, révision).
 fn strip_tags(title: &str) -> String {
     let mut out = String::new();
@@ -410,7 +537,20 @@ pub fn normalize_listing(l: &J, emulator: &str, pc: bool) -> Profile {
         "azahar" => azahar_settings(&fields),
         "retroarch" => retroarch_settings(&fields),
         "eden" => eden_settings(&fields),
+        e if e.starts_with("android.") => sheet_settings(&fields),
         _ => (Vec::new(), Vec::new()),
+    };
+    // fiche à appliquer à la main : libellés d'EmuReady des réglages retenus
+    let labels: Vec<(String, String)> = if emulator.starts_with("android.") {
+        l.get("customFieldValues")
+            .and_then(J::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|v| Some((format!("sheet.{}", sheet_key(s(v, "/customFieldDefinition/name")?)?), short(s(v, "/customFieldDefinition/label"), 60)?)))
+            .filter(|(k, _)| settings.iter().any(|st| &st.key == k))
+            .collect()
+    } else {
+        Vec::new()
     };
     let hardware = if pc {
         let cpu = [s(l, "/cpu/brand/name"), s(l, "/cpu/modelName")].into_iter().flatten().collect::<Vec<_>>().join(" ");
@@ -446,6 +586,7 @@ pub fn normalize_listing(l: &J, emulator: &str, pc: bool) -> Profile {
         hardware,
         performance: perf(l),
         settings,
+        labels,
         ignored,
         notes: short(s(l, "/notes"), 500),
         votes_up: int(l, "upVotes").clamp(0, 1_000_000) as u32,
@@ -536,6 +677,44 @@ fn dolphin_settings(fields: &[(String, J)]) -> (Vec<Setting>, Vec<IgnoredField>)
     }
     (out, ignored)
 }
+
+/// Clé d'un champ EmuReady dans une fiche manuelle : `[a-z0-9_]`, 48 caractères au plus.
+fn sheet_key(name: &str) -> Option<String> {
+    let k: String = name.trim().to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).take(48).collect();
+    (!k.is_empty() && k.chars().any(|c| c.is_ascii_alphanumeric())).then_some(k)
+}
+
+/// Fiche à appliquer à la main (émulateurs Android autonomes, dont iBox ne peut pas écrire
+/// les réglages) : chaque champ réglé du rapport, tel qu'EmuReady l'affiche. Rien n'est écrit
+/// dans un fichier : les valeurs ne servent qu'à l'affichage, après nettoyage (texte court sans
+/// caractère de contrôle, nombre entier, booléen).
+fn sheet_settings(fields: &[(String, J)]) -> (Vec<Setting>, Vec<IgnoredField>) {
+    let mut out = Vec::new();
+    let mut ignored = Vec::new();
+    for (name, v) in fields {
+        if informative(name) {
+            continue;
+        }
+        let Some(key) = sheet_key(name).map(|k| format!("sheet.{k}")) else { continue };
+        let value = match v {
+            J::Bool(b) => Value::Bool(*b),
+            J::Number(n) if n.as_i64().is_some() => Value::Int(n.as_i64().unwrap_or_default()),
+            J::Number(n) => Value::Choice(n.to_string()),
+            J::String(t) if t.trim().is_empty() => continue,
+            J::String(t) if t.chars().any(char::is_control) => {
+                ignored.push(IgnoredField { field: name.clone(), reason: "texte illisible".into() });
+                continue;
+            }
+            J::String(t) => Value::Choice(t.trim().chars().take(SHEET_TEXT).collect()),
+            _ => continue,
+        };
+        out.push(Setting { key, value });
+    }
+    (out, ignored)
+}
+
+/// Longueur maximale d'une valeur de fiche manuelle.
+const SHEET_TEXT: usize = crate::smartconfig::validation::MAX_TEXT;
 
 /// Champs purement informatifs communs à tous les émulateurs EmuReady.
 fn informative(name: &str) -> bool {
@@ -1234,5 +1413,124 @@ mod tests {
             eprintln!("  #{i} {:?} score {} mode {:?} · {} · {} acceptés / {} refusés", r.kind, r.score, r.mode, r.profile.hardware.label.as_deref().unwrap_or("?"), r.validated.accepted.len(), r.validated.rejected.len());
         }
         eprintln!("  conseillée : {:?}", out.suggested);
+    }
+}
+
+/// Android : reconnaissance de l'appareil et fiches manuelles, sur les réponses réelles nettoyées.
+#[cfg(test)]
+mod android_tests {
+    use super::*;
+    use crate::smartconfig::providers::memory::MemCache;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    const SEARCH: &str = include_str!("../fixtures/emuready_search.json");
+    const BY_GAME: &str = include_str!("../fixtures/emuready_by_game.json");
+    const BY_ID: &str = include_str!("../fixtures/emuready_by_id.json");
+
+    /// `listings.byId` : le rapport demandé (tiré de `listings.byGame`), avec les réglages de la fixture détaillée.
+    struct Server(Arc<AtomicUsize>);
+
+    impl Transport for Server {
+        fn get(&self, url: &str) -> Result<Response, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            assert!(!url.contains("pcListings"), "aucun rapport PC sur Android");
+            let ok = |b: String| Ok(Response { status: 200, retry_after: None, body: b.into_bytes() });
+            if url.contains("games.searchGames") {
+                return ok(SEARCH.into());
+            }
+            if url.contains("listings.byGame") {
+                return ok(BY_GAME.into());
+            }
+            let id = url.split("%22id%22%3A%22").nth(1).map(|r| r.chars().take(36).collect::<String>()).unwrap();
+            let all: J = serde_json::from_str(BY_GAME).unwrap();
+            let mut l = all.pointer("/result/data/json/listings").unwrap().as_array().unwrap().iter().find(|l| l["id"] == id.as_str()).unwrap().clone();
+            let detail: J = serde_json::from_str(BY_ID).unwrap();
+            l["customFieldValues"] = detail.pointer("/result/data/json/customFieldValues").unwrap().clone();
+            ok(json!({ "result": { "data": { "json": l } } }).to_string())
+        }
+    }
+
+    fn game() -> GameQuery {
+        GameQuery { game_id: 1, platform: "gamecube".into(), title: "Super Mario Sunshine (USA)".into(), ..Default::default() }
+    }
+
+    #[test]
+    fn tiret_des_noms_no_intro() {
+        assert_eq!(search_query("Grand Theft Auto - Vice City Stories (USA)").trim(), "Grand Theft Auto Vice City Stories");
+        assert_eq!(normalize_title("Grand Theft Auto - Vice City Stories (USA)"), normalize_title("Grand Theft Auto: Vice City Stories"));
+    }
+
+    #[test]
+    fn reconnaissance_de_l_appareil() {
+        let thor = DeviceHint::new(Some("AYN"), Some("Thor Max"), Some("Snapdragon 8 Gen 2"));
+        assert_eq!(thor.classify(Some("AYN Thor Max"), Some("Snapdragon 8 Gen 2")), DeviceMatch::SameDevice);
+        assert_eq!(thor.classify(Some("ayn  thor-max"), None), DeviceMatch::SameDevice);
+        let odin = DeviceHint::new(Some("AYN"), Some("Odin2"), Some("Qualcomm Snapdragon 8 Gen 2"));
+        assert_eq!(odin.classify(Some("AYN Thor Max"), Some("Snapdragon 8 Gen 2")), DeviceMatch::SameSoc);
+        assert_eq!(odin.classify(Some("Retroid Pocket Nova"), Some("Dragonwing QCS8550")), DeviceMatch::Other);
+        // entrée groupée de la table commune des puces
+        let rp5 = DeviceHint::new(Some("Retroid"), Some("Retroid Pocket 5"), Some("Snapdragon 865 / 870"));
+        assert_eq!(rp5.classify(Some("Retroid Pocket Mini"), Some("Snapdragon 865")), DeviceMatch::SameSoc);
+        assert_eq!(rp5.classify(Some("Xiaomi Poco F3"), Some("Snapdragon 870")), DeviceMatch::SameSoc);
+        assert_eq!(rp5.classify(Some("AYN Odin"), Some("Snapdragon 845")), DeviceMatch::Other);
+        assert_eq!(soc_variants("Helio G90T / G95"), vec!["helio g90t".to_string(), "helio g95".to_string()]);
+        assert_eq!(soc_variants("Snapdragon 7 Gen 1 / 6 Gen 1"), vec!["snapdragon 7 gen 1".to_string(), "snapdragon 6 gen 1".to_string()]);
+        // le modèle répète déjà la marque
+        assert_eq!(DeviceHint::new(Some("Retroid"), Some("Retroid Pocket 5"), None).names, vec!["retroid pocket 5".to_string()]);
+        // rien de connu : jamais « même appareil »
+        assert_eq!(DeviceHint::default().classify(Some("AYN Thor Max"), Some("Snapdragon 8 Gen 2")), DeviceMatch::Other);
+    }
+
+    #[test]
+    fn rapports_de_votre_appareil_puis_de_votre_puce_en_tete() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let er = EmuReady::for_tests(Box::new(Server(calls.clone())), 30);
+        let cache = MemCache::default();
+        let hint = DeviceHint::new(Some("AYN"), Some("Thor Max"), Some("Snapdragon 8 Gen 2"));
+        let f = er.fetch_android(&game(), "nintendo_gamecube", "android.dolphin", &["Dolphin"], &hint, &cache).unwrap();
+        assert!(f.matched);
+        // 1 recherche + 1 liste + 6 détails, aucun rapport PC
+        assert_eq!(calls.load(Ordering::SeqCst), 8);
+        let labels: Vec<&str> = f.profiles.iter().map(|p| p.hardware.label.as_deref().unwrap_or_default()).collect();
+        assert_eq!(&labels[..3], &["AYN Thor Max"; 3]);
+        // fiches : réglages lisibles (clé `sheet.*`, libellé d'EmuReady), rien d'informatif
+        let p = &f.profiles[0];
+        assert_eq!(p.kind, ProfileKind::Configuration);
+        assert!(p.settings.iter().all(|s| s.key.starts_with("sheet.")));
+        assert!(p.settings.iter().any(|s| s.key == "sheet.graphics_backend"));
+        assert!(!p.settings.iter().any(|s| s.key == "sheet.emulator_version" || s.key == "sheet.driver_version"));
+        assert!(p.labels.iter().any(|(k, l)| k == "sheet.graphics_backend" && !l.is_empty()));
+        // même puce : un Odin 2 voit d'abord les rapports de la Thor
+        let odin = DeviceHint::new(Some("AYN"), Some("Odin2"), Some("Snapdragon 8 Gen 2"));
+        let f = er.fetch_android(&game(), "nintendo_gamecube", "android.dolphin", &["Dolphin"], &odin, &cache).unwrap();
+        assert_eq!(f.profiles[0].hardware.label.as_deref(), Some("AYN Thor Max"));
+        // cache : aucun appel de plus pour le même appareil
+        let before = calls.load(Ordering::SeqCst);
+        er.fetch_android(&game(), "nintendo_gamecube", "android.dolphin", &["Dolphin"], &odin, &cache).unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), before);
+        // RetroArch : réglages typés (fichier écrit par iBox), pas de fiche
+        let ra = normalize_listing(&json!({ "id": "x", "customFieldValues": [{ "customFieldDefinition": { "name": "vsync", "label": "VSync" }, "value": false }] }), "retroarch", false);
+        assert_eq!(ra.settings, vec![Setting { key: "retroarch.vsync".into(), value: Value::Bool(false) }]);
+        assert!(ra.labels.is_empty());
+    }
+
+    #[test]
+    fn fiche_sans_texte_dangereux() {
+        let fields = vec![
+            ("resolution".to_string(), json!("3x Native (1920x1584)")),
+            ("evil".to_string(), json!("2x\n[Core]")),
+            ("fast".to_string(), json!(true)),
+            ("speed".to_string(), json!(150)),
+            ("emulator_version".to_string(), json!("2512")),
+            ("empty".to_string(), json!("  ")),
+            ("Bad Name!".to_string(), json!("x")),
+        ];
+        let (s, ignored) = sheet_settings(&fields);
+        let keys: Vec<&str> = s.iter().map(|x| x.key.as_str()).collect();
+        assert_eq!(keys, vec!["sheet.resolution", "sheet.fast", "sheet.speed", "sheet.bad_name_"]);
+        assert_eq!(ignored.len(), 1);
+        let long = sheet_settings(&[("x".to_string(), json!("a".repeat(200)))]).0;
+        assert!(matches!(&long[0].value, Value::Choice(t) if t.chars().count() == SHEET_TEXT));
     }
 }

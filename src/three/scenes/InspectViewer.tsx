@@ -10,7 +10,7 @@ import { useManualTexture } from "../useManualTexture";
 import { InspectController } from "../inspectController";
 import { InspectStudio } from "./InspectStudio";
 import { FrameCap } from "../FrameCap";
-import { useGraphics } from "@/services/graphics";
+import { useGraphics } from "@/services/budget";
 import { useInterfaceSleep } from "@/services/performance";
 import { cachedRect, tuneRenderer } from "../rendererTuning";
 import { damp } from "../springs";
@@ -289,7 +289,7 @@ export function InspectViewer(props: ViewerProps) {
       tabIndex={0}
       role="application"
       aria-label={`Boîtier 3D de ${props.game.title}. Glisser ou flèches gauche et droite pour tourner, Entrée pour ouvrir.`}
-      className="ibox-focusable absolute inset-0 cursor-grab rounded-xl outline-none active:cursor-grabbing [--ring-radius:var(--radius-xl)]"
+      className="ibox-focusable absolute inset-0 cursor-grab touch-none rounded-xl outline-none active:cursor-grabbing [--ring-radius:var(--radius-xl)]"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

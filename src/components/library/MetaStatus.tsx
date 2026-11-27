@@ -77,7 +77,12 @@ export function MetaStatus() {
                 ? p
                   ? `${p.phase === "games" ? `${p.done} / ${p.total}` : ""}${p.current ? `${p.phase === "games" ? " — " : ""}${p.current}` : ""}`
                   : "Préparation…"
-                : (meta.error ?? (meta.summary ? summarizeMeta(meta.summary) : ""))}
+                : meta.error
+                  ? // erreur brute du natif (titres, messages techniques) : jamais traduite par morceaux
+                    <span data-no-i18n>{meta.error}</span>
+                  : meta.summary
+                    ? summarizeMeta(meta.summary)
+                    : ""}
             </div>
             {meta.running && (
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cream-deep">
@@ -89,7 +94,9 @@ export function MetaStatus() {
               </div>
             )}
             {!meta.running && warnings.length > 0 && (
-              <div className="mt-1 truncate text-[0.75rem] font-bold text-peach-deep" title={warnings.join("\n")}>
+              // messages bruts du natif (titres, textes de SQLite…) : la traduction par gabarits en ferait
+              // un mélange (« Erreur of base of… »), ils restent tels quels
+              <div data-no-i18n className="mt-1 truncate text-[0.75rem] font-bold text-peach-deep" title={warnings.join("\n")}>
                 {warnings[0]}
               </div>
             )}

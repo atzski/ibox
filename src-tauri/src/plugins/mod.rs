@@ -424,6 +424,14 @@ pub async fn plugins_uninstall(app: AppHandle, id: String) -> Result<PluginList,
 /// Ouvre (ou ramène devant) l'écran plein d'un plugin activé, dans sa propre fenêtre
 /// `plugin-<id>:screen`, sans aucune commande d'iBox (lib.rs). La fenêtre se crée par la boucle
 /// d'événements, depuis un autre fil (jamais dans une commande synchrone : WebView2 bloquerait).
+#[cfg(mobile)]
+#[tauri::command]
+pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String>, dark: Option<bool>) -> Result<(), String> {
+    let _ = (app, id, lang, dark);
+    Err(crate::platform::UNAVAILABLE.into())
+}
+
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String>, dark: Option<bool>) -> Result<(), String> {
     let a = active(app.clone(), &id).ok_or("Plugin absent ou désactivé.")?;

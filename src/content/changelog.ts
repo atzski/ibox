@@ -10,6 +10,17 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.29",
+    date: "2026-11-27",
+    highlights: [
+      { icon: "gamepad", title: "Steam Deck : vos jeux se lancent", text: "Sous Linux, iBox n’acceptait que les programmes Windows (.exe) : les émulateurs en AppImage ou en Flatpak, et les jeux PC, refusaient de se lancer. Ils se lancent maintenant, et vous pouvez choisir vous-même une AppImage ou un lanceur Flatpak dans les paramètres. Merci au joueur qui l’a signalé." },
+      { icon: "gamepad", title: "Consoles portables reconnues", text: "iBox reconnaît le Steam Deck, le ROG Ally, la Legion Go, la MSI Claw et les autres portables Windows, et s’y adapte tout seul : réglages de performance à leur mesure, texte agrandi sur l’écran intégré (pas sur une télé ni un moniteur), toucher et clavier virtuel partout où l’on tape." },
+      { icon: "power", title: "Plus léger et plus économe", text: "Un seul réglage Performances règle effets, flous et étagère 3D. Les jaquettes sont peintes en arrière-plan, sans bloquer l’interface, et prennent bien moins de mémoire ; le démarrage est plus rapide. En mode allégé, le décor de l’accueil reste immobile et les fonds adoucis ne font plus de carrés." },
+      { icon: "grid", title: "Vue en jaquettes si la 3D manque", text: "Sans 3D utilisable (vieux PC, pilote graphique absent ou qui se réinitialise), l’étagère laisse place à une vue en jaquettes qui fait la même chose. Vous pouvez aussi la choisir dans Paramètres › Apparence › Performances." },
+      { icon: "sparkle", title: "Corrections", text: "Les bases LaunchBox se mettent de nouveau à jour. Un jeu sans fiche prend un titre propre tiré de son fichier. Au retour d’un jeu, la sélection revient où vous l’aviez laissée. Changer de langue ne fait plus réapparaître « Qui joue ? ». Les vignettes des jeux PC s’affichent en entier." },
+    ],
+  },
+  {
     version: "1.0.28",
     date: "2026-11-27",
     highlights: [

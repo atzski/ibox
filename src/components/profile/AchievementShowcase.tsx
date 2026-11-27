@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { SPRING } from "@/motion/tokens";
 import { motion } from "motion/react";
 import { Icon } from "@/components/ui/Icon";
@@ -28,7 +29,7 @@ export function AchievementShowcase({ highlight, accent }: { highlight: Achievem
   return (
     <section
       className="relative mt-3 isolate overflow-hidden rounded-[1.6rem] p-4 text-ink shadow-[0_18px_40px_-24px_rgba(30,40,70,0.6)] ring-1 ring-ink/10"
-      style={{ background: `linear-gradient(135deg, color-mix(in oklab, ${tint} 16%, var(--ibox-cream-deep)), var(--ibox-cream-deep) 60%)` }}
+      style={{ background: compat(`linear-gradient(135deg, color-mix(in oklab, ${tint} 16%, var(--ibox-cream-deep)), var(--ibox-cream-deep) 60%)`) }}
     >
       {/* halo discret dans le coin, à la couleur de la source */}
       <span aria-hidden className="absolute -top-16 -right-12 -z-10 size-44 rounded-full opacity-40 blur-3xl" style={{ background: from }} />
@@ -36,7 +37,7 @@ export function AchievementShowcase({ highlight, accent }: { highlight: Achievem
       <div className="flex items-center gap-4">
         {/* médaille : anneau qui se remplit selon la progression */}
         <div className="relative grid size-[4.2rem] shrink-0 place-items-center rounded-full p-[3px]"
-          style={{ background: `conic-gradient(${from} 0turn, ${to} ${pct / 100}turn, color-mix(in oklab, var(--ibox-ink) 12%, transparent) ${pct / 100}turn)` }}>
+          style={{ background: compat(`conic-gradient(${from} 0turn, ${to} ${pct / 100}turn, color-mix(in oklab, var(--ibox-ink) 12%, transparent) ${pct / 100}turn)`) }}>
           <span className="grid size-full place-items-center rounded-full bg-[var(--ibox-cream-deep)]">
             <span className="grid size-[2.9rem] place-items-center rounded-full"
               style={{ background: `linear-gradient(145deg, ${to}, ${from})`, boxShadow: `0 6px 16px -6px ${from}, inset 0 -3px 6px rgba(0,0,0,0.18)`, color: "#fff" }}>

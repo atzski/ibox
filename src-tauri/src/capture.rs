@@ -16,6 +16,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(mobile)]
+use crate::mobile::DesktopWindow;
 
 const LABEL: &str = "overlay";
 
@@ -275,6 +277,13 @@ pub(crate) fn on_hotkey(app: &AppHandle) {
     show(app);
 }
 
+/// Android : pas d'overlay de capture (une seule fenêtre).
+#[cfg(mobile)]
+fn window(_: &AppHandle) -> Option<tauri::WebviewWindow> {
+    None
+}
+
+#[cfg(desktop)]
 fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(LABEL) { return Some(w); }
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))

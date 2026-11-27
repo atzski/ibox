@@ -88,8 +88,12 @@ export function ScanStatus() {
                 </div>
               )}
               {!scan.running && scan.summary && scan.summary.errors.length > 0 && (
-                <div className="mt-1 truncate text-[0.75rem] font-bold text-peach-deep" title={scan.summary.errors.join("\n")}>
-                  <span>{`${scan.summary.errors.length} avertissement${scan.summary.errors.length > 1 ? "s" : ""} :`}</span> {scan.summary.errors[0]}
+                <div className="mt-1 truncate text-[0.75rem] font-bold text-peach-deep">
+                  <span>{`${scan.summary.errors.length} avertissement${scan.summary.errors.length > 1 ? "s" : ""} :`}</span>{" "}
+                  {/* message brut du natif : pas de traduction par morceaux */}
+                  <span data-no-i18n title={scan.summary.errors.join("\n")}>
+                    {scan.summary.errors[0]}
+                  </span>
                 </div>
               )}
             </div>

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { input } from "@/input/InputController";
-import { setFieldValue, useGamepad } from "@/input/gamepad";
+import { isTextField, setFieldValue, useGamepad } from "@/input/gamepad";
+import { capabilities } from "@/services/capabilities";
 import { useSettings } from "@/services/settings";
 import { sound } from "@/services/sound";
 import { PadGlyph, type PadKey } from "./PadGlyph";
@@ -11,6 +12,8 @@ import { PadGlyph, type PadKey } from "./PadGlyph";
 type Field = HTMLInputElement | HTMLTextAreaElement;
 
 const ROWS = ["1234567890", "azertyuiop", "qsdfghjklm", "wxcvbn,.-'", "éèêàçù@_?!"];
+/** Interface en anglais : disposition QWERTY. */
+const ROWS_EN = ["1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.-", "éèàçñü@_?!"];
 
 /**
  * Clavier virtuel : s'ouvre quand on valide un champ de texte à la manette
@@ -22,8 +25,17 @@ export function PadKeyboard() {
   useEffect(() => {
     let n = 0;
     const onOpen = (e: Event) => setOpen({ field: (e as CustomEvent<Field>).detail, n: ++n });
+    // écran tactile sans clavier du système (Steam Deck) : le clavier d'iBox s'ouvre au toucher ;
+    // Windows et Android ouvrent le leur, iBox n'en ajoute pas un second
+    const onTouch = (e: PointerEvent) => {
+      if (e.pointerType === "touch" && !capabilities().systemTouchKeyboard && isTextField(e.target as Element)) setOpen({ field: e.target as Field, n: ++n });
+    };
     window.addEventListener("ibox:pad-keyboard", onOpen);
-    return () => window.removeEventListener("ibox:pad-keyboard", onOpen);
+    window.addEventListener("pointerup", onTouch, true);
+    return () => {
+      window.removeEventListener("ibox:pad-keyboard", onOpen);
+      window.removeEventListener("pointerup", onTouch, true);
+    };
   }, []);
   if (!open || !open.field.isConnected) return null;
   return <KeyboardPanel key={open.n} field={open.field} onClose={() => setOpen(null)} />;
@@ -130,7 +142,7 @@ function KeyboardPanel({ field, onClose }: { field: Field; onClose: () => void }
           </span>
         </div>
         <div className="grid gap-1.5" data-nav-group="pad-keyboard">
-          {ROWS.map((row, r) => (
+          {(document.documentElement.lang === "en" ? ROWS_EN : ROWS).map((row, r) => (
             <div key={row} className="grid grid-cols-10 gap-1.5">
               {[...row].map((ch, i) => (
                 <button key={ch} data-focusable data-no-i18n data-autofocus={(r === 1 && i === 0) || undefined} className={keyClass} onClick={() => type(ch)}>

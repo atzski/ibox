@@ -8,6 +8,26 @@ import type { WebGLRenderer } from "three";
  */
 export function tuneRenderer(gl: WebGLRenderer): void {
   gl.debug.checkShaderErrors = import.meta.env.DEV;
+  watchContextLoss(gl.domElement);
+}
+
+/**
+ * Contexte WebGL perdu (pilote réinitialisé, mémoire graphique reprise par le système, onglet
+ * GPU tué) : Three.js ne sait pas tout recharger, la scène est remontée ou laisse sa place à la
+ * vue 2D (`services/render3d.ts`). Chaque canevas 3D d'iBox passe par `tuneRenderer`.
+ */
+export function watchContextLoss(canvas: HTMLCanvasElement): void {
+  if (canvas.dataset.lossWatch) return;
+  canvas.dataset.lossWatch = "1";
+  canvas.addEventListener(
+    "webglcontextlost",
+    (e) => {
+      // sans `preventDefault`, le navigateur ne rendrait jamais le contexte
+      e.preventDefault();
+      void import("@/services/render3d").then((m) => m.reportContextLost());
+    },
+    { once: true },
+  );
 }
 
 /**

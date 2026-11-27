@@ -2,8 +2,8 @@
 //!
 //! Le modèle et la classification sont indépendants du système ; seule la
 //! collecte l'est : `win.rs` (Windows), `linux.rs` (Linux, SteamOS, Steam
-//! Deck ; analyseurs purs compilés aussi pour les tests sur Windows). Android
-//! n'a pas de collecteur (voir docs/SMARTCONFIG.md §16.2). Une information
+//! Deck ; analyseurs purs compilés aussi pour les tests sur Windows), `android.rs`
+//! (propriétés système, docs/SMARTCONFIG.md §16.2). Une information
 //! impossible à obtenir reste `None` : rien n'est deviné. Rien ne quitte la
 //! machine : la seule vue partageable est `PublicSummary`, présentée à
 //! l'utilisateur avant toute contribution (phase 5).
@@ -15,6 +15,8 @@ mod win;
 
 #[cfg(any(target_os = "linux", test))]
 pub mod linux;
+
+pub mod android;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +32,9 @@ pub struct HardwareInfo {
     pub device: DeviceType,
     /// Modèle annoncé par le micrologiciel (ex. « ROG Ally RC71L ») : jamais un numéro de série.
     pub device_model: Option<String>,
+    /// Android : appareil et puce tels que le système les annonce (comparés aux appareils d'EmuReady).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub android: Option<android::AndroidDevice>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -220,16 +225,26 @@ impl HardwareInfo {
 
 /// Détection sur la plateforme courante (lente : DXGI, registre, sysfs) — à appeler hors du fil principal.
 pub fn detect() -> HardwareInfo {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "linux"))]
     {
-        win::detect()
+        #[cfg(windows)]
+        let mut hw = win::detect();
+        #[cfg(target_os = "linux")]
+        let mut hw = linux::detect();
+        // console portable reconnue par sa fiche (`platform::identify`) : la Legion Go, par
+        // exemple, ne se nomme que « 83E1 » dans `SystemProductName`
+        if crate::platform::device().is_some() {
+            hw.device = DeviceType::Handheld;
+        }
+        hw
     }
-    #[cfg(target_os = "linux")]
+    // Android : relevé des propriétés système (simulation éventuelle : `commands::hardware_of`)
+    #[cfg(target_os = "android")]
     {
-        linux::detect()
+        android::detect(None)
     }
-    // Android, macOS : aucun collecteur — rien n'est deviné
-    #[cfg(not(any(windows, target_os = "linux")))]
+    // macOS : aucun collecteur — rien n'est deviné
+    #[cfg(not(any(windows, target_os = "linux", target_os = "android")))]
     {
         HardwareInfo { os: OsInfo { family: std::env::consts::OS.into(), version: None, arch: std::env::consts::ARCH.into() }, ..Default::default() }
     }

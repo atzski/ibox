@@ -13,7 +13,7 @@ use super::recommend::{self, Context, GameMatch, Outcome};
 use super::storage;
 use crate::library::commands::LibraryState;
 use crate::library::LibraryError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
@@ -55,7 +55,55 @@ fn backups_dir(app: &AppHandle) -> Res<PathBuf> {
 fn hardware_of(app: &AppHandle) -> HardwareInfo {
     let state = app.state::<SmartConfigState>();
     let mut cached = state.hardware.lock().unwrap_or_else(|e| e.into_inner());
-    cached.get_or_insert_with(hardware::detect).clone()
+    cached.get_or_insert_with(|| detect(app)).clone()
+}
+
+#[cfg(not(target_os = "android"))]
+fn detect(_app: &AppHandle) -> HardwareInfo {
+    hardware::detect()
+}
+
+/// Android : relevé des propriétés système. Builds de débogage : un relevé simulé
+/// `smartconfig-device.txt` dans les données d'iBox le remplace (essais dans l'émulateur du PC).
+#[cfg(target_os = "android")]
+fn detect(app: &AppHandle) -> HardwareInfo {
+    let sim = if cfg!(debug_assertions) { app.path().app_data_dir().ok().and_then(|d| std::fs::read_to_string(d.join("smartconfig-device.txt")).ok()) } else { None };
+    hardware::android::detect(sim.as_deref())
+}
+
+/// Émulateur du jeu et adaptateur SmartConfig. Bureau : émulateur enregistré dans iBox.
+/// Android : celui que le lanceur choisira (`android::resolve`) ; `install` sans adaptateur =
+/// émulateur installé mais non couvert.
+#[cfg(not(target_os = "android"))]
+fn emulator_of(_app: &AppHandle, _game: &GameQuery, install: Option<Install>) -> Res<(Option<Install>, Option<Box<dyn adapters::Adapter>>)> {
+    let adapter = install.as_ref().and_then(|i| adapters::by_id(&i.profile_id));
+    Ok((install, adapter))
+}
+
+#[cfg(target_os = "android")]
+fn emulator_of(app: &AppHandle, game: &GameQuery, _install: Option<Install>) -> Res<(Option<Install>, Option<Box<dyn adapters::Adapter>>)> {
+    Ok(match super::android::resolve(app, &game.platform)? {
+        None => (None, None),
+        Some(None) => (Some(Install { profile_id: "android".into(), exe: PathBuf::new(), version: None, core: None }), None),
+        Some(Some(l)) => {
+            let install = Install { profile_id: l.emulator.id.into(), exe: PathBuf::from(&l.package), version: None, core: l.core.clone() };
+            (Some(install), Some(super::android::adapter(&l)))
+        }
+    })
+}
+
+/// Un programme de l'émulateur est-il ouvert ? Android : iBox ne voit pas les autres
+/// applications (seul compte le jeu lancé par iBox, vérifié à part).
+fn emulator_open(install: &Install) -> bool {
+    #[cfg(target_os = "android")]
+    {
+        let _ = install;
+        false
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        install.exe.parent().is_some_and(crate::emulators::install::running_inside)
+    }
 }
 
 #[derive(Serialize)]
@@ -152,13 +200,22 @@ fn status(app: &AppHandle, game_id: i64) -> Res<GameStatus> {
     let lib = app.state::<LibraryState>();
     let (game, install, from_source) = context_with_source(&lib, game_id)?;
     let mut st = GameStatus { state: "unsupported", adapter: None, emulator_version: None, active: None, emulator_changed: false, ask_feedback: None, reason: None, game_id_from_source: from_source };
+    let (install, adapter) = emulator_of(app, &game, install)?;
     let Some(install) = install else {
         st.state = "noEmulator";
         return Ok(st);
     };
-    let Some(adapter) = adapters::by_id(&install.profile_id).filter(|a| a.platforms().contains(&game.platform.as_str())) else { return Ok(st) };
+    let Some(adapter) = adapter.filter(|a| a.platforms().contains(&game.platform.as_str())) else { return Ok(st) };
     st.adapter = Some(adapter.id().into());
     st.emulator_version = install.version.clone();
+    // Android, émulateur autonome : fiche de réglages à appliquer à la main
+    if adapter.id().starts_with("android.") {
+        st.state = "manual";
+        let history = lib.with(|c| backup::history(c, Some(game_id), 20).map_err(err))?;
+        st.active = history.into_iter().find(|e| e.status == "applied" && e.adapter == adapter.id() && backup::is_sheet(&e.target));
+        st.ask_feedback = lib.with(|c| Ok(storage::should_ask_feedback(c, game_id)?))?;
+        return Ok(st);
+    }
     let main = lib.with(|c| Ok(storage::main_file(c, game_id)?))?;
     let loc = super::platform::locate(adapter.as_ref(), &install).ok();
     if let Err(e) = adapter.game_key(&game, &adapters::KeyContext { install: &install, location: loc.as_ref(), main_file: main.as_deref() }) {
@@ -192,12 +249,32 @@ pub async fn smartconfig_recommend(app: AppHandle, game_id: i64, mode: Mode, sou
     tauri::async_runtime::spawn_blocking(move || {
         let lib = app.state::<LibraryState>();
         let (game, install) = context(&lib, game_id)?;
+        let (install, adapter) = emulator_of(&app, &game, install)?;
         let install = install.ok_or("aucun émulateur associé à ce jeu")?;
-        let adapter = adapters::by_id(&install.profile_id).ok_or("émulateur non pris en charge par SmartConfig")?;
+        let adapter = adapter.ok_or("émulateur non pris en charge par SmartConfig")?;
         let hw = hardware_of(&app);
         let state = app.state::<SmartConfigState>();
         let mut profiles: Vec<Profile> = Vec::new();
         let (mut matched, mut stale, mut errors) = (false, false, Vec::new());
+        // Android : rapports « appareil » d'EmuReady, votre appareil puis votre puce d'abord
+        #[cfg(target_os = "android")]
+        {
+            let emu = super::android::by_id(adapter.id()).ok_or("émulateur non pris en charge par SmartConfig")?;
+            let system = super::android::system_key(&game.platform).ok_or("console non couverte par EmuReady")?;
+            if sources.contains(&SourceId::EmuReady) {
+                let d = hw.android.clone().unwrap_or_default();
+                let hint = super::providers::emuready::DeviceHint::new(d.manufacturer.as_deref(), d.model.as_deref(), d.soc_name.as_deref().or(d.soc_code.as_deref()));
+                match state.emuready()?.fetch_android(&game, system, adapter.id(), emu.emuready, &hint, &DbCache(&lib)) {
+                    Ok(f) => {
+                        profiles.extend(f.profiles);
+                        matched |= f.matched;
+                        stale |= f.stale;
+                    }
+                    Err(e) => errors.push((SourceId::EmuReady, e)),
+                }
+            }
+        }
+        #[cfg(not(target_os = "android"))]
         let mut run = |provider: &dyn Provider| {
             if !sources.contains(&provider.id()) || !provider.supports(adapter.id(), &game.platform) {
                 return;
@@ -211,15 +288,18 @@ pub async fn smartconfig_recommend(app: AppHandle, game_id: i64, mode: Mode, sou
                 Err(e) => errors.push((provider.id(), e)),
             }
         };
-        // profils « Vérifié par iBox » : livrés avec l'application, aucun réseau
-        run(&Verified);
-        if sources.contains(&SourceId::EmuReady) {
-            run(state.emuready()?);
-        }
-        // Switch en XCI : apprendre l'identifiant de titre pour pouvoir appliquer ensuite
-        if sources.contains(&SourceId::EmuReady) {
-            if let Ok(er) = state.emuready() {
-                learn_switch_title_id(&lib, er, &game);
+        #[cfg(not(target_os = "android"))]
+        {
+            // profils « Vérifié par iBox » : livrés avec l'application, aucun réseau
+            run(&Verified);
+            if sources.contains(&SourceId::EmuReady) {
+                run(state.emuready()?);
+            }
+            // Switch en XCI : apprendre l'identifiant de titre pour pouvoir appliquer ensuite
+            if sources.contains(&SourceId::EmuReady) {
+                if let Ok(er) = state.emuready() {
+                    learn_switch_title_id(&lib, er, &game);
+                }
             }
         }
         // vos retours après session : profils déjà essayés exclus ou rétrogradés
@@ -243,8 +323,9 @@ struct Resolved {
 fn resolve(app: &AppHandle, game_id: i64) -> Res<Resolved> {
     let lib = app.state::<LibraryState>();
     let (game, install) = context(&lib, game_id)?;
+    let (install, adapter) = emulator_of(app, &game, install)?;
     let install = install.ok_or("aucun émulateur associé à ce jeu")?;
-    let adapter = adapters::by_id(&install.profile_id).ok_or("émulateur non pris en charge par SmartConfig")?;
+    let adapter = adapter.ok_or("émulateur non pris en charge par SmartConfig")?;
     let main_file = lib.with(|c| Ok(storage::main_file(c, game_id)?))?;
     Ok(Resolved { game, install, adapter, main_file })
 }
@@ -269,7 +350,7 @@ pub async fn smartconfig_apply(app: AppHandle, game_id: i64, profile: Profile, m
         if crate::launcher::commands::launch_status(app.state()).is_some() {
             return Err("Un jeu est en cours : fermez-le avant de modifier ses réglages.".into());
         }
-        if install.exe.parent().is_some_and(crate::emulators::install::running_inside) {
+        if emulator_open(&install) {
             return Err(format!("{} est ouvert : fermez-le avant de modifier ses réglages.", adapter.name()));
         }
         let hw = hardware_of(&app);
@@ -319,7 +400,7 @@ pub async fn smartconfig_restore(app: AppHandle, application_id: i64, force: boo
         let lib = app.state::<LibraryState>();
         let entry = lib.with(|c| backup::entry(c, application_id).map_err(err))?.ok_or("optimisation introuvable")?;
         if let Ok(Resolved { install, adapter, .. }) = resolve(&app, entry.game_id) {
-            if install.exe.parent().is_some_and(crate::emulators::install::running_inside) {
+            if emulator_open(&install) {
                 return Err(format!("{} est ouvert : fermez-le avant de restaurer.", adapter.name()));
             }
         }
@@ -347,4 +428,70 @@ pub fn smartconfig_feedback(app: AppHandle, game_id: i64, application_id: Option
 /// Au démarrage : reprise des optimisations interrompues. Renvoie le nombre de conflits.
 pub fn recover(app: &AppHandle) -> usize {
     app.state::<LibraryState>().with(|c| backup::recover(c).map_err(err)).unwrap_or(0)
+}
+
+/// Une ligne de fiche manuelle (forme de `adapters::Change`, plus l'état coché).
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SheetLine {
+    pub key: String,
+    pub label: String,
+    pub before: Option<String>,
+    pub after: String,
+    #[serde(default)]
+    pub done: bool,
+}
+
+/// Android, émulateur autonome : enregistre la fiche des réglages d'un profil, à appliquer à la
+/// main (rien n'est écrit sur le disque). Renvoie l'identifiant de l'entrée du journal.
+#[tauri::command]
+pub async fn smartconfig_sheet(app: AppHandle, game_id: i64, profile: Profile, mode: Option<Mode>) -> Res<i64> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = resolve(&app, game_id)?;
+        if !r.adapter.id().starts_with("android.") {
+            return Err("cet émulateur reçoit ses réglages directement : utilisez « Appliquer »".into());
+        }
+        let accepted = super::validation::validate(&profile.settings, r.adapter.specs(), &hardware_of(&app)).accepted;
+        if accepted.is_empty() {
+            return Err("aucun réglage à reporter dans cette configuration".into());
+        }
+        let lines: Vec<SheetLine> = super::android::sheet_lines(&accepted, &profile.labels).into_iter().map(|c| SheetLine { key: c.key, label: c.label, before: c.before, after: c.after, done: false }).collect();
+        let applied = Profile { settings: accepted, ..profile.clone() };
+        let profile_json = serde_json::to_string(&applied).map_err(|e| e.to_string())?;
+        let changes_json = serde_json::to_string(&lines).map_err(|e| e.to_string())?;
+        let mode_s = mode.map(|m| serde_json::to_value(m).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default());
+        let target = super::android::sheet_target(r.adapter.id(), game_id);
+        let e = backup::NewEntry {
+            game_id,
+            adapter: r.adapter.id(),
+            emulator_version: r.install.version.as_deref(),
+            source: profile.source.as_str(),
+            source_ref: &profile.source_ref,
+            mode: mode_s.as_deref(),
+            profile_json: &profile_json,
+            changes_json: &changes_json,
+        };
+        app.state::<LibraryState>().with(|c| backup::record_manual(c, &target, &e).map_err(err))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Coche les réglages faits d'une fiche (`done` : clés), décoche les autres.
+#[tauri::command]
+pub fn smartconfig_sheet_check(app: AppHandle, application_id: i64, done: Vec<String>) -> Res<()> {
+    let lib = app.state::<LibraryState>();
+    let entry = lib.with(|c| backup::entry(c, application_id).map_err(err))?.ok_or("fiche introuvable")?;
+    let mut lines: Vec<SheetLine> = serde_json::from_str(&entry.changes).map_err(|e| e.to_string())?;
+    for l in &mut lines {
+        l.done = done.contains(&l.key);
+    }
+    let json = serde_json::to_string(&lines).map_err(|e| e.to_string())?;
+    lib.with(|c| backup::update_manual(c, application_id, &json).map_err(err))
+}
+
+/// Retire une fiche (retour arrière) : l'interface rappelle les réglages à remettre à la main.
+#[tauri::command]
+pub fn smartconfig_sheet_withdraw(app: AppHandle, application_id: i64) -> Res<()> {
+    app.state::<LibraryState>().with(|c| backup::withdraw_manual(c, application_id).map_err(err))
 }

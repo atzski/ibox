@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { saved } from "@/services/saved";
 import { SPRING, TWEEN } from "@/motion/tokens";
 import type React from "react";
@@ -14,7 +15,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { CoverImage } from "@/components/game/CoverImage";
 import { useLibrary } from "@/services/library";
 import { COLLECTION_COLORS, useCollections, useCollectionStyles, matchesSmartRule, type SmartRule, type Collection, type CollectionStyle } from "@/services/extras";
-import { useMediaUrl } from "@/art/useMediaUrl";
+import { hasMedia, useMediaUrl } from "@/art/useMediaUrl";
 import { invoke } from "@tauri-apps/api/core";
 import { useReducedMotion, useIsDark } from "@/app/shellState";
 import { useNav } from "@/app/navigation";
@@ -23,6 +24,7 @@ import { PLATFORMS } from "@/domain/platforms";
 import { sound } from "@/services/sound";
 import { POKEMON, SHOWDOWN, pokemonImages } from "@/content/decorations";
 import { anchorFor, layoutGrid, moveInGrid, occupiedCells, type GridItem } from "./collectionGrid";
+import { platformOnDevice } from "@/services/capabilities";
 
 /** Grille de l'accueil : cases carrées d'au moins 12,5 rem, étirées sur toute la largeur. */
 const CELL = { min: 12.5, gap: 1.5 };
@@ -364,9 +366,8 @@ function inkOn(hex: string) {
   const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return lum > 0.62 ? "#2b3445" : "#ffffff";
 }
-const hasMedia = (g: Game, kind: string) => (g.media ?? []).some((m) => m.kind === kind);
 function styleFor(style: CollectionStyle | undefined, items: Game[]) {
-  const pick = (id: number | undefined, kind: string) => items.find((g) => g.dbId === id && hasMedia(g, kind));
+  const pick = (id: number | undefined, kind: "logo" | "hero") => items.find((g) => g.dbId === id && hasMedia(g, kind));
   return {
     logo: pick(style?.logoGameId, "logo"),
     hero: pick(style?.heroGameId, "hero") ?? items.find((g) => hasMedia(g, "hero")),
@@ -428,13 +429,13 @@ function CollectionCard({ collection: c, items, onOpen, onEdit, draft, images, f
         onClick={onOpen}
         onContextMenu={(e) => { e.preventDefault(); onEdit?.(); }}
         className={`group ibox-focusable ibox-lift relative flex ${fill ? "h-full w-full" : "h-[12.5rem] w-[19rem]"} flex-col justify-end overflow-hidden rounded-[1.6rem] text-left shadow-md [--ring-radius:1.6rem]`}
-        style={{ background: `linear-gradient(150deg, ${c.color}, color-mix(in oklab, ${c.color} 60%, #1b2030))` }}
+        style={{ background: compat(`linear-gradient(150deg, ${c.color}, color-mix(in oklab, ${c.color} 60%, #1b2030))`) }}
       >
         {heroUrl ? (
           // fond choisi : toujours affiché, quel que soit le style de carte
           <img src={heroUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : look !== "grid" && look !== "plain" && (hero && <GameHero game={hero} className={`absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-105 ${look === "hero" ? "opacity-100" : "opacity-45 mix-blend-luminosity"}`} />)}
-        {shade > 0 && <span aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)` }} />}
+        {shade > 0 && <span aria-hidden className="absolute inset-0" style={{ background: compat(`linear-gradient(180deg, transparent 20%, color-mix(in oklab, ${c.color} ${100 - shade}%, #0b0f1d) 100%)`) }} />}
         {look === "grid" ? (
           <span className="absolute inset-x-3 top-3 grid grid-cols-6 gap-1.5">
             {covers.map((g) => <span key={g.id} className="aspect-[3/4] overflow-hidden rounded-md shadow-sm ring-1 ring-[#ffffff80]"><CoverImage game={g} className="size-full" /></span>)}
@@ -596,7 +597,7 @@ function CollectionEditor({ collection, games, onClose }: { collection: Collecti
               <select data-focusable aria-label="Console ou boutique" className="ibox-focusable h-10 rounded-full bg-white px-4 font-bold text-ink [--ring-radius:999px]" value={style.rule.value}
                 onChange={(event) => setLocalStyle({ ...style, rule: { kind: "platform", value: event.target.value } })}>
                 <option value="">Choisir…</option><option value="steam">Steam</option>
-                {PLATFORMS.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
+                {PLATFORMS.filter((p) => platformOnDevice(p.id)).map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}
               </select>
             )}
           </EditorSection>

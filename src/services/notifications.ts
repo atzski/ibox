@@ -68,6 +68,13 @@ export const useNotifications = create<NotifState>()(
   ),
 );
 
+/**
+ * Android : les alertes « Boutique PC » gardées par une version précédente (la phase 0 lisait
+ * encore les boutiques PC) n'ont plus de sens sur l'appareil. Appelé une fois au démarrage.
+ */
+export const forgetPcStoreNotices = () =>
+  useNotifications.setState((s) => ({ items: s.items.filter((i) => i.title !== "Boutique PC") }));
+
 export const notify = (n: Omit<Notice, "id" | "at" | "read">) => {
   // réglage lu sans dépendance circulaire (Paramètres › Notifications)
   try {
@@ -80,10 +87,15 @@ export const notify = (n: Omit<Notice, "id" | "at" | "read">) => {
     /* réglages illisibles : on notifie */
   }
   useNotifications.getState().push(n);
-  // un signal discret dans iBox (fenêtre cachée : la carte en bas à droite joue le sien)
-  void import("./sound").then(({ sound }) => sound.play(linkOf(n)?.kind === "achievements" ? "success" : "notify")).catch(() => undefined);
+  // un signal discret dans iBox (fenêtre cachée : la carte en bas à droite joue le sien). Android,
+  // iBox derrière un émulateur : rien par-dessus le jeu, la notification d'Android a son propre son
+  if (!hiddenOnAndroid()) void import("./sound").then(({ sound }) => sound.play(linkOf(n)?.kind === "achievements" ? "success" : "notify")).catch(() => undefined);
   forwardToScreen(n);
 };
+
+/** Android, iBox en arrière-plan (partie en cours) : `data-platform` posé par `services/platform`. */
+const hiddenOnAndroid = () =>
+  typeof document !== "undefined" && document.visibilityState !== "visible" && document.documentElement.dataset.platform === "android";
 
 /**
  * iBox n'est pas au premier plan (partie en cours, autre fenêtre) : la notification s'affiche

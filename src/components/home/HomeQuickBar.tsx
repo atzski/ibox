@@ -1,4 +1,5 @@
 import { SPRING } from "@/motion/tokens";
+import { usePlatform } from "@/services/platform";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar } from "@/components/profile/Avatar";
@@ -36,6 +37,7 @@ export function HomeQuickBar({ onAchievements, onBackground, onSearch, onCommuni
 
 /** Changer d'utilisateur (à côté du profil, barre du haut de l'accueil) : déplie les autres profils du PC. */
 export function UserSwitcher() {
+  const android = usePlatform((p) => !!p.android);
   useSettings((s) => s.profiles);
   const activeId = useSettings((s) => s.activeProfileId);
   const [open, setOpen] = useState(false);
@@ -102,7 +104,7 @@ export function UserSwitcher() {
                 <span data-no-i18n className="min-w-0 flex-1 truncate text-[0.92rem] font-bold text-ink">{p.name}</span>
               </button>
             ))}
-            {others.length === 0 && <p className="px-2 pb-1 text-[0.82rem] font-semibold text-ink-soft">Vous êtes le seul joueur sur ce PC.</p>}
+            {others.length === 0 && <p className="px-2 pb-1 text-[0.82rem] font-semibold text-ink-soft">{android ? "Vous êtes le seul joueur sur cet appareil." : "Vous êtes le seul joueur sur ce PC."}</p>}
             <button
               data-focusable
               onClick={() => {

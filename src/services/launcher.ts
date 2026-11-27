@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { isTauri } from "./native";
+import { usePlatform } from "./platform";
 import { useSettings } from "./settings";
 import { music } from "./music";
 import { sound } from "./sound";
@@ -73,6 +74,12 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
   }
 }
 
+/** Le jeu est-il une application Android de la bibliothèque ? */
+async function isAndroidAppId(gameId: number): Promise<boolean> {
+  const { useLibrary } = await import("./library");
+  return useLibrary.getState().realGames.some((g) => g.dbId === gameId && g.platformId === "android");
+}
+
 export const launcherApi = {
   list: () => call<Emulator[]>("emulators_list"),
   add: (exePath: string) => call<Emulator>("emulator_add", { exePath }),
@@ -84,19 +91,25 @@ export const launcherApi = {
   setPlatform: (platformId: string, emulatorId: number | null) => call<void>("platform_emulator_set", { platformId, emulatorId }),
   setGame: (gameId: number, emulatorId: number | null) => call<void>("game_emulator_set", { gameId, emulatorId }),
   splitArgs: (text: string) => call<string[]>("args_split", { text }),
-  plan: (gameId: number) => call<LaunchPlan>("launch_plan", { gameId }),
+  // applications Android (console « android ») : ouvertes par leur intent de lancement
+  plan: async (gameId: number) => call<LaunchPlan>((await isAndroidAppId(gameId)) ? "android_app_plan" : "launch_plan", { gameId }),
   detect: () => call<Suggestion[]>("emulators_detect"),
   status: () => call<Running | null>("launch_status"),
-  launch: (gameId: number) => call<Running>("game_launch", { gameId }),
+  launch: async (gameId: number) => call<Running>((await isAndroidAppId(gameId)) ? "android_app_launch" : "game_launch", { gameId }),
   adoptRunning: () => call<Running | null>("game_adopt_running"),
 
   async pickExe(): Promise<string | null> {
     if (!isTauri()) return null;
     const { open } = await import("@tauri-apps/plugin-dialog");
+    // Linux (Steam Deck) : AppImage, ou tout fichier pour un lanceur Flatpak ou un programme sans
+    // extension (le natif vérifie qu'il est exécutable). Windows : les .exe seulement.
+    const linux = usePlatform.getState().os === "linux";
     const picked = await open({
       multiple: false,
       title: "Choisir le programme de l'émulateur",
-      filters: [{ name: "Programmes", extensions: ["exe"] }],
+      filters: linux
+        ? [{ name: "AppImage", extensions: ["AppImage", "appimage"] }, { name: "Tous les fichiers", extensions: ["*"] }]
+        : [{ name: "Programmes", extensions: ["exe"] }],
     });
     return typeof picked === "string" ? picked : null;
   },

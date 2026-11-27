@@ -13,6 +13,7 @@ SmartConfig recommande puis applique, jeu par jeu, des réglages d'émulateur ad
 | 3 — Application réelle | **faite** | adaptateurs **Dolphin**, **PCSX2** (CRC de l'ELF calculé depuis l'image), **DuckStation**, **PPSSPP**, **RPCS3**, **Azahar** (identifiant lu dans l'en-tête NCCH), **RetroArch** (surcharges par jeu, cœurs vérifiés), **Eden** (Switch, identifiant de titre des NSP/NSZ) : aperçu, application par jeu, vérification, restauration. Émulateurs sans adaptateur et pourquoi : §6.9 |
 | 4 — Interface | à faire | commandes Tauri prêtes, aucun écran |
 | 5 — Communauté | **retirée (0.1.76)** | décision du 2026-11-17 : les réglages partagés par les joueurs viennent **uniquement d'EmuReady** ; iNetbox ne stocke aucun profil (§13) |
+| 7 — Android | **faite (2026-11-27)** | détection de l'appareil (`hardware/android.rs`), rapports EmuReady de votre appareil puis de votre puce, RetroArch par `CONFIGFILE` (fichier d'iBox qui inclut la configuration principale), fiche à cocher pour les émulateurs autonomes, interface tactile et manette (§16.2) |
 | 6 — Extension | **faite (préparation)** | détection Linux/SteamOS/Steam Deck (analyseurs testés), point d'extension `locate_unix`, Android documenté (§16) ; profils « Vérifié par iBox » (fichier embarqué, vide, §17) ; retours locaux exploités par le moteur (§5) ; fondations d'AutoTune sans collecte (§18) |
 
 Aucun réglage n'a encore été validé **en jeu** : seuls les tests automatisés et la lecture du code source de chaque émulateur garantissent le format (liste des points à vérifier : §10).
@@ -40,7 +41,8 @@ Contraintes relevées : les installations iBox de Dolphin, PCSX2 et DuckStation 
 ```
 src-tauri/src/smartconfig/
   model.rs        format interne commun (Profile, Setting typé, Mode, MatchKind)
-  hardware/       détection locale (win.rs ; linux.rs préparé) + classification explicable (mod.rs)
+  hardware/       détection locale (win.rs ; android.rs ; linux.rs préparé) + classification explicable (mod.rs)
+  android.rs      Android : émulateurs du lanceur, RetroArch par CONFIGFILE, fiches manuelles, point d'accroche du lancement
   platform.rs     système hôte : localisation Windows / Linux (XDG, Flatpak) préparée
   providers/      trait Provider + Cache ; emuready.rs ; verified.rs (profils vérifiés iBox)
   verified/       profiles.json : profils « Vérifié par iBox » embarqués (vide)
@@ -391,7 +393,7 @@ Table `sc_applications` (migration 015, additive) : jeu, adaptateur, version de 
 |---|---|
 | `smartconfig_hardware(refresh?)` | matériel + classification |
 | `smartconfig_providers()` | sources de données (Paramètres) |
-| `smartconfig_status(gameId)` | état local pour la fiche : `unsupported` / `noEmulator` / `noGameId` (+ `reason`) / `ready`, optimisation active, émulateur mis à jour depuis, questionnaire à proposer |
+| `smartconfig_status(gameId)` | état local pour la fiche : `unsupported` / `noEmulator` / `noGameId` (+ `reason`) / `ready` / `manual` (Android, fiche), optimisation active, émulateur mis à jour depuis, questionnaire à proposer |
 | `smartconfig_recommend(gameId, mode, sources)` | recherche + classement |
 | `smartconfig_preview(gameId, profile)` | aperçu exact, rien n'est écrit |
 | `smartconfig_apply(gameId, profile, mode?, force)` | application sauvegardée |
@@ -399,6 +401,9 @@ Table `sc_applications` (migration 015, additive) : jeu, adaptateur, version de 
 | `smartconfig_history(gameId?)` | historique |
 | `smartconfig_cache_clear()` | vider le cache |
 | `smartconfig_feedback(…)` | retour après session (local) |
+| `smartconfig_sheet(gameId, profile, mode?)` | Android, émulateur autonome : fiche des réglages à reporter (journal, rien n'est écrit) |
+| `smartconfig_sheet_check(applicationId, done)` | coche les réglages reportés |
+| `smartconfig_sheet_withdraw(applicationId)` | retire une fiche |
 
 Le questionnaire après session : au plus une fois par optimisation et une fois par semaine et par jeu (`storage::should_ask_feedback`).
 
@@ -454,9 +459,9 @@ Aucune télémétrie. Détection matérielle locale. Profils vérifiés iBox : i
 - **Conditions EmuReady** : les conditions publiées (https://www.emuready.com/terms) ne mentionnent ni l'API, ni la licence des rapports, ni d'exigence d'attribution ; elles interdisent un usage commercial non autorisé (iBox n'est pas commercial). **Recommandé : prévenir l'équipe EmuReady (GitHub `Producdevity/EmuReady`) avant de publier l'intégration**, et demander une clé d'attribution si elle le souhaite.
 - **Constat signalé** : la réponse publique de `pcListings.get` contient l'adresse e-mail des auteurs. iBox ne la lit ni ne la conserve ; il serait correct de le signaler à EmuReady.
 
-## 16. Portages préparés (phase 6) — rien n'est encore porté
+## 16. Autres systèmes : Linux (préparé), Android (porté)
 
-iBox reste une application Windows. La phase 6 prépare le terrain **sans développer les portages** : aucun chemin Linux ou Android d'émulateur n'est implémenté, aucune valeur n'est devinée.
+La phase 6 a préparé Linux sans le porter (§16.1). Android est porté (§16.2) : détection de l'appareil, recommandations EmuReady par appareil, application à RetroArch au lancement et fiche à reporter pour les émulateurs autonomes.
 
 ### 16.1 Linux, SteamOS, Steam Deck
 
@@ -490,12 +495,111 @@ Reste à faire pour un vrai portage (chaque point à vérifier dans le code sour
 
 ### 16.2 Android
 
-Ce qui changerait — rien n'est codé au-delà des points d'extension cités :
+**État (2026-11-27, branche `claude/android-smartconfig-d39a6a`)** : SmartConfig fonctionne sur Android (capacité `smartConfig` activée, `services/capabilities.ts`). Essais : §16.2.7.
 
-- **Stockage** : les émulateurs Android rangent leur configuration dans leur propre espace ou dans un dossier choisi via le **Storage Access Framework** (URI `content://`, droits accordés par l'utilisateur). `Location`/`Adapter::target` manipulent des `PathBuf` et `backup` écrit avec `std::fs` : il faudrait une abstraction de cible (lecture/écriture par URI, sauvegarde et relecture par la même voie) et un adaptateur par émulateur Android (Dolphin Android, AetherSX2/NetherSX2, DuckStation, PPSSPP), avec ses propres clés et souvent un autre format.
-- **Détection** : pas d'ID PCI. Le constructeur du GPU viendra du nom renvoyé par Vulkan/OpenGL ES (`GpuVendor::from_name`, `GpuVendor::Qualcomm`/`Arm` déjà présents ; `integrated_guess` les classe intégrés) ; modèle d'appareil via `Build.MODEL` ; RAM via `ActivityManager`. Aucun collecteur n'existe (`hardware::detect` renvoie seulement système et architecture).
-- **Sources** : les rapports EmuReady « appareil » sont surtout Android ; sur un appareil Android, ils deviendraient de même système et de même architecture (le moteur les classe déjà selon `os`/`arch`, sans changement). Les forks restent `Experimental`.
-- **Moteur** : inchangé (déterministe, indépendant du système).
+Module `smartconfig/android.rs` (émulateurs, adaptateurs, point d'accroche du lancement) et `hardware/android.rs` (relevé de l'appareil). Le moteur (`recommend.rs`) et le journal (`backup.rs`) sont communs au bureau et à Android.
+
+#### 16.2.1 Détection de l'appareil
+
+**Une seule source : le profil d'appareil commun** (`src-tauri/src/android_chip.rs`), celui qui donne aussi le palier de performance de l'interface (`docs/ANDROID.md` §15.1). Il lit les propriétés système sans lancer de processus (`__system_property_get`) et porte la table des puces. SmartConfig ne relit rien : `hardware/android.rs` traduit ce profil (`from_snapshot`, pur, testé sous Windows) ; `read` ne fait qu'appeler `android_chip::props()` et ajouter le nombre de fils.
+
+Ajouté au profil commun pour SmartConfig (2026-11-27) : pilotes déclarés `ro.hardware.vulkan` et `ro.hardware.egl`, version d'Android (`ro.build.version.release`, `sdk`), et `gpu_model` (GPU d'après le nom commercial de la puce, table `GPUS`, sinon famille d'après le pilote).
+
+| Donnée | Source (profil commun) | Si indisponible |
+|---|---|---|
+| Appareil | `ro.product.manufacturer` + `ro.product.model` **exacts** (« AYN Thor Max ») : comparés aux appareils d'EmuReady. Le nom affiché par le profil (« Émulateur Android » dans un AVD) n'y sert pas | `None` |
+| Puce | `ro.soc.model`, sinon `ro.board.platform`, sinon `ro.hardware` ; nom commercial d'après la table `CHIPS` (codes exacts puis préfixes) ; fondeur `ro.soc.manufacturer` (« QTI » → Qualcomm) | code seul |
+| GPU | `gpu_model` : modèle exact pour les puces de `GPUS` (Snapdragon 845 à 8 Elite, Dimensity 1100/1200, Helio G99) ; les entrées qui regroupent des puces au GPU différent (« Snapdragon 6xx », « Unisoc T618 »…) en sont absentes | « Adreno » / « Mali » / « PowerVR » d'après le pilote, sinon aucun |
+| RAM | `/proc/meminfo` `MemTotal` | `None` |
+| Fils | `available_parallelism` | `None` |
+| Version | « Android 13 (API 33) » | `None` |
+| Vulkan | pilote déclaré par le fabricant (`ro.hardware.vulkan`) | `None` (inconnu) |
+| OpenGL ES | exigé de tout appareil Android (Android CDD § 7.1.4.1) | toujours `Some(true)` |
+| Direct3D, Metal | n'existent pas | `Some(false)` |
+| Type d'appareil | fabricants (AYN, Retroid, AYANEO, Anbernic…) ou modèles (Odin, Thor, G Cloud, Razer Edge…) de consoles portables connus | `Unknown` (téléphone ou tablette : rien n'est supposé) |
+
+Le relevé est affiché dans l'univers SmartConfig (onglet « Votre appareil ») et **n'est jamais envoyé**.
+
+**Relevé simulé** (builds de débogage seulement, `cfg(debug_assertions)`) : un fichier `smartconfig-device.txt` dans les données d'iBox (`clé=valeur` : noms des propriétés Android, plus `arch`, `threads`, `ram_mb`) remplace le profil pour SmartConfig, pour essayer dans l'émulateur du PC comme sur une vraie console ; l'interface l'annonce (« Relevé simulé »). Un APK optimisé (`-Optimized`, release) l'ignore. Le palier de performance de l'interface, lui, reste celui de l'appareil réel.
+
+#### 16.2.2 Émulateur d'un jeu
+
+SmartConfig suit la règle du lanceur (`launcher/android.rs`, `choice`) : préférence enregistrée dans `android-emulators.json` si elle est installée, sinon le premier émulateur installé dans l'ordre d'ES-DE (`android_table::choose`). `android::resolve` refait ce choix en lecture seule et traduit la commande d'ES-DE (`android::from_command`) : émulateur, paquet, configuration principale (`CONFIGFILE`), cœur (`LIBRETRO`).
+
+Émulateurs couverts (`android::EMULATORS`, noms EmuReady relevés par `emulators.get` le 2026-11-27) :
+
+| Clé ES-DE | Adaptateur | EmuReady | Consoles |
+|---|---|---|---|
+| `RETROARCH` | `retroarch` (fichier écrit) | RetroArch | PS1, N64, DS, PSP (les seuls systèmes qu'EmuReady rattache à RetroArch) |
+| `DOLPHIN`, `DOLPHIN-MMJR`, `DOLPHIN-MMJR2` | `android.dolphin` (fiche) | Dolphin | GameCube, Wii |
+| `NETHERSX2` (+ variantes Turnip), `ARMSX2` | `android.nethersx2`, `android.armsx2` | NethersX2, AetherSX2 ; ARMSX2 | PS2 |
+| `DUCKSTATION`, `PPSSPP` | `android.duckstation`, `android.ppsspp` | DuckStation, PPSSPP | PS1, PSP |
+| `AZAHAR`, `LIME3DS`, `CITRA` | `android.azahar`, `android.lime3ds`, `android.citra` | Azahar, Lime3DS, Citra | 3DS |
+| `EDEN`, `EDEN-NIGHTLY` | `android.eden` | Eden | Switch |
+| `MELONDS`, `DRASTIC` | `android.melonds`, `android.drastic` | melonDS, DraStic | DS |
+| `FLYCAST`, `REDREAM` | `android.flycast`, `android.redream` | Flycast, Redream | Dreamcast |
+| `CEMU`, `APS3E`, `YABASANSHIRO-2` | `android.cemu`, `android.aps3e`, `android.yabasanshiro` | Cemu, aPS3e, Yaba Sanshiro | Wii U, PS3, Saturn |
+
+Un émulateur installé mais absent de cette table → « Émulateur non pris en charge ». Le test `commande_de_lancement` vérifie que chaque clé existe dans la table du lanceur.
+
+#### 16.2.3 Recommandations EmuReady (`EmuReady::fetch_android`)
+
+- Même recherche du jeu que sur le bureau (titre normalisé, même système, abstention si ambigu ; cache partagé). Le « - » des noms No-Intro (qui remplace « : ») est retiré du texte envoyé : la recherche d'EmuReady ne trouve rien avec (« Grand Theft Auto - Vice City Stories », vérifié le 2026-11-27), puis `listings.byGame` : les rapports « appareil » de l'émulateur (tous ses noms EmuReady), approuvés.
+- **Reconnaissance de l'appareil, sur place** (`DeviceHint`) : chaque rapport décrit déjà son appareil (marque, modèle, puce). Ordre : **votre appareil** (marque + modèle identiques après normalisation), puis **même puce** (nom commercial identique, fondeur ignoré ; une entrée groupée de la table commune, « Snapdragon 865 / 870 », reconnaît chacune des deux), puis les autres ; à rang égal, performance puis votes. Rien du matériel n'est envoyé : la requête est la même pour tous les appareils.
+- Les 6 premiers sont lus en détail (`listings.byId`, réglages) ; 24 rapports gardés au plus. **Aucun rapport PC** (`pcListings`) sur Android. Coût : ≤ 8 requêtes la première fois pour un jeu, 0 ensuite.
+- Cache : `emuready:android:<jeu>:<émulateur>:<empreinte de l'appareil>`, mêmes durées et même service hors ligne que sur le bureau ; quotas, `Retry-After` et confidentialité inchangés (§4.1).
+- Moteur : votre appareil +15 (compte pour deux indices de proximité), même puce +10 (un indice) ; la raison s'affiche (« Essayé sur le même appareil que le vôtre (AYN Thor Max) »), et une puce « Votre appareil » / « Même puce » sur la carte (`Recommendation.device`). Le reste du classement est celui du §5.
+
+Constat (fixtures du 2026-11-17, Super Mario Sunshine) : EmuReady nomme l'appareil « AYN Thor Max ». Si la Thor annonce un autre modèle (`ro.product.model`), ses rapports passent par la puce (Snapdragon 8 Gen 2), au même rang que ceux de l'Odin 2.
+
+#### 16.2.4 RetroArch : fichier par jeu passé au lancement
+
+Vérifié dans le code de RetroArch v1.22.2 :
+
+- `frontend/drivers/platform_unix.c`, `frontend_unix_get_env` : l'activité lit les extras `ROM`, `LIBRETRO`, `CONFIGFILE`, `IME`, `USED`, `SDCARD`, `APK`, `EXTERNAL`, `DATADIR`. **`CONFIGFILE`** remplace le chemin de la configuration principale (`args->config_path`). Il n'existe aucun extra « append » : `android_app_entry` appelle `rarch_main` avec le seul argument `retroarch`, donc `--appendconfig` est inaccessible sur Android.
+- `libretro-common/file/config_file.c` : `#include "chemin"` (profondeur ≤ 16) ; une clé déjà présente l'emporte sur celle d'un fichier inclus après elle (la table garde la première entrée) ; les entrées incluses sont `readonly` et `config_file_dump` ne les réécrit pas ; il replace les `#include` **après** les entrées (« otherwise they will override any custom-set values »).
+
+D'où le mécanisme d'iBox (`RetroArchAndroid`) :
+
+1. Application : `/storage/emulated/0/iBox/SmartConfig/RetroArch/game-<id>.cfg`, créé dans le dossier d'iBox (accès à tous les fichiers), avec les clés SmartConfig (mêmes clés et liste blanche que sur le bureau, §6.7 ; `video_driver` `vulkan` seulement si un pilote Vulkan est déclaré, `gl` pour OpenGL ES), puis **en dernière ligne** `#include "<configuration principale>"`, celle que la commande d'ES-DE passe (`%EXTERNALDATA%/Android/data/<paquet>/files/retroarch.cfg`). La configuration de l'utilisateur n'est jamais modifiée (elle est d'ailleurs dans `Android/data`, fermé aux autres applications depuis Android 11). Sauvegarde, journal, relecture et restauration : `backup.rs`, comme sur le bureau (fichier absent à l'origine → la restauration le supprime).
+2. **Point d'accroche du lancement** : une seule ligne dans `launcher/android.rs` (`launch`), juste avant `plugin.launch` :
+
+   ```rust
+   crate::smartconfig::android::prepare_launch(app, game_id, &mut intent);
+   ```
+
+   Si le jeu a une optimisation RetroArch active (`applied`, dans le dossier d'iBox), que le fichier existe et qu'il inclut **exactement** la configuration principale de ce lancement, l'extra `CONFIGFILE` désigne le fichier d'iBox ; sinon rien ne change. L'appel ne bloque jamais le lancement. À l'intégration, garder ce seul appel ; `intent` doit être `mut`.
+3. Si RetroArch enregistre sa configuration en quittant (`config_save_on_exit`), il l'écrit dans le fichier d'iBox : les clés modifiées pendant la partie y restent (propres à ce jeu), l'inclusion reste en dernier. iBox voit alors des « modifications manuelles » : une nouvelle application ou la restauration demande confirmation, comme sur le bureau.
+4. RetroArch doit pouvoir lire le stockage partagé : c'est déjà nécessaire pour la ROM, passée par son chemin (`ROM=%ROM%`).
+
+Limite : changer de paquet RetroArch (`com.retroarch` → `com.retroarch.aarch64`) change la configuration principale : le fichier n'est plus passé (inclusion différente) jusqu'à une nouvelle application.
+
+#### 16.2.5 Émulateurs autonomes : fiche à reporter
+
+Dolphin, NetherSX2, DuckStation, PPSSPP, Azahar, Eden… gardent leurs réglages dans `Android/data/<paquet>` (interdit aux autres applications depuis Android 11, même avec l'accès à tous les fichiers) ou dans un dossier choisi dans l'émulateur, que rien ne permet à iBox de connaître de façon documentée. SmartConfig n'écrit donc **rien** pour eux :
+
+- **Adaptateur `Sheet`** : chaque champ réglé du rapport EmuReady devient une ligne `sheet.<champ>` avec le libellé d'EmuReady (`Profile.labels`) ; valeurs nettoyées (booléen, entier, texte ≤ 60 caractères sans caractère de contrôle, `Kind::Text`, jamais écrites dans un fichier) ; champs informatifs (version, pilote, vidéo…) écartés. Même classement que les autres profils.
+- **Fiche** (`smartconfig_sheet`) : « Préparer la fiche » enregistre au journal une entrée `applied` de cible `android-sheet:<émulateur>:<jeu>` (le schéma 015 n'admet pas d'autre statut ; aucune migration), avec la liste des réglages. Chaque réglage se coche une fois reporté dans l'émulateur (`smartconfig_sheet_check`), « Tout est reporté » coche le reste. Une nouvelle fiche remplace la précédente.
+- **Retour arrière** : « Retirer la fiche » (`smartconfig_sheet_withdraw`) passe l'entrée en `restored` ; l'interface rappelle que les réglages déjà reportés se remettent à la main. `backup::restore` refuse une fiche (rien à restaurer sur le disque) et la reprise au démarrage l'ignore.
+- Le questionnaire après session et les retours locaux fonctionnent comme pour une optimisation appliquée.
+
+#### 16.2.6 Interface
+
+- `GameSmartConfig` : état `manual` (fiche) → « Optimiser » ouvre toujours le détail (rien n'est écrit sans « Préparer la fiche »), pas d'« Optimiser et jouer » ; fiche active → pastille « À reporter » (puis « Optimisé » quand tout est coché), bouton « Fiche de réglages » (`SheetModal`).
+- `ConfigsModal` : puce « Votre appareil » / « Même puce », « Réglages à reporter » à la place de l'aperçu de fichier, fiche à cocher (`SheetChecklist`) après préparation. Grille du détail sur une colonne sous 34rem.
+- `SmartConfigScreen` : onglet « Votre appareil », relevé simulé annoncé, fiches dans « Jeux optimisés » (« Fiche : 3 / 7 ») et l'historique (« Fiche de réglages », « Retirer la fiche »), bandeau resserré sous 44rem.
+- Paramètres › SmartConfig et questionnaire : textes « cet appareil » au lieu de « ce PC » ; confidentialité : appareil reconnu sur place, seul fichier écrit par iBox sur Android.
+- Toucher et manette : chaque ligne de fiche est un seul bouton (case + libellé + valeur, 48 px de haut), groupes de navigation `sc-sheet`, `sc-configs`.
+
+#### 16.2.7 Essais dans l'émulateur du PC
+
+`docs/ANDROID.md` §16.1 (AVD `iBox_E_API33`, port 5562, AYN Thor Max simulée). Prouvé par captures : détection, recommandations PPSSPP de la Thor Max en tête, fiche cochée, RetroArch lancé par iBox avec `CONFIGFILE` = fichier d'iBox et démarré en Vulkan. Non vérifié : réécriture du fichier d'iBox par RetroArch à la fermeture (`config_save_on_exit`).
+
+#### 16.2.8 Reste à faire
+
+- Vérifier sur une vraie Thor : `ro.product.model` réel (comparé à « Thor Max » d'EmuReady), `ro.soc.model`, lecture du fichier d'iBox par le RetroArch du Play Store (accès au stockage partagé).
+- Émulateurs dont le dossier de réglages est **choisi par l'utilisateur** dans le stockage partagé (Azahar, PPSSPP « memstick » hors `Android/data`) : écriture directe possible si iBox apprend ce dossier (sélecteur SAF côté iBox), à vérifier dans leur code avant tout adaptateur.
+- Champs EmuReady des émulateurs Android affichés tels quels (libellé et valeur d'EmuReady, en anglais).
 
 ## 17. Profils « Vérifié par iBox » (phase 6)
 

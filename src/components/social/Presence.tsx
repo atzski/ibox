@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { SPRING } from "@/motion/tokens";
 import { useSettings } from "@/services/settings";
 import { motion } from "motion/react";
@@ -80,7 +81,7 @@ export function SettingTile({ icon, label, state, on, onClick, disabled, title, 
   return (
     <button type="button" data-focusable role="switch" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick}
       className="ibox-focusable group relative flex min-w-0 flex-col items-start gap-1.5 rounded-[1.1rem] bg-white p-2.5 text-left shadow-xs ring-1 ring-ink/10 transition-colors [--ring-radius:1.1rem] disabled:cursor-not-allowed disabled:opacity-50"
-      style={on ? { background: `color-mix(in oklab, ${tint} 16%, white)`, boxShadow: `inset 0 0 0 2px color-mix(in oklab, ${tint} 55%, white)` } : undefined}>
+      style={on ? { background: compat(`color-mix(in oklab, ${tint} 16%, white)`), boxShadow: compat(`inset 0 0 0 2px color-mix(in oklab, ${tint} 55%, white)`) } : undefined}>
       <span className="flex w-full items-center justify-between">
         <span className="grid size-7 place-items-center rounded-lg text-white transition-colors" style={{ background: on ? tint : "#B8BFCB" }}>
           <Icon name={icon} size="0.95rem" />

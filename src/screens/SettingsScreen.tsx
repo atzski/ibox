@@ -1,10 +1,11 @@
 import { SPRING } from "@/motion/tokens";
 import { InetboxPanel } from "@/components/social/InetboxPanel";
-import { isLinux } from "@/services/platform";
 import { useEffect, useRef, useState } from "react";
 import { input } from "@/input/InputController";
 import { motion } from "motion/react";
 import { ConsolesPanel } from "@/components/extras/ConsolesPanel";
+import { usePlatform } from "@/services/platform";
+import { AndroidConsolesPanel } from "@/components/android/AndroidConsolesPanel";
 import { useSettings } from "@/services/settings";
 import { useReducedMotion, useScreenChrome } from "@/app/shellState";
 import { Icon } from "@/components/ui/Icon";
@@ -16,6 +17,7 @@ import { Avatar } from "@/components/profile/Avatar";
 import { SmartConfigSettings } from "@/components/smartconfig/SmartConfigSettings";
 import { ControlsPage } from "./settings/ControlsPage";
 import { DisplayPage } from "./settings/DisplayPage";
+import { SecondScreenPage } from "./settings/SecondScreenPage";
 import { HomePage } from "./settings/HomePage";
 import { ImagesPage, LibraryPage } from "./settings/LibraryPage";
 import { PluginsPage } from "./settings/PluginsPage";
@@ -24,11 +26,11 @@ import { RemotePlayPage } from "./settings/RemotePlayPage";
 import { SoundPage } from "./settings/SoundPage";
 import { DownloadPopupsToggle, FriendAlertsToggle, SystemPage } from "./settings/SystemPage";
 import { Group, Row, Toggle } from "./settings/ui";
-import { SETTINGS_CATEGORIES, isSettingsCategory, type SettingsCategory, type SettingsCategoryId } from "./settings/categories";
+import { isSettingsCategory, visibleSettingsCategories, type SettingsCategory, type SettingsCategoryId } from "./settings/categories";
+import { capabilities } from "@/services/capabilities";
 
 type CategoryId = SettingsCategoryId;
 type Category = SettingsCategory;
-const CATEGORIES = SETTINGS_CATEGORIES;
 
 // catégorie gardée entre deux visites
 let lastCategory: CategoryId = "profile";
@@ -38,9 +40,11 @@ let lastCategory: CategoryId = "profile";
  * (pastille qui glisse vers la sélection), une page illustrée à droite.
  * Tout est enregistré automatiquement.
  */
-const isCategory = isSettingsCategory;
-
 export function SettingsScreen({ category }: { category?: string } = {}) {
+  // catégories présentes sur l'appareil (Android : ni PC, ni SmartConfig, ni Remote Play, ni plugins ;
+  // la plateforme est lue avant le premier rendu et ne change plus)
+  const [CATEGORIES] = useState(() => visibleSettingsCategories(capabilities()));
+  const isCategory = (id: unknown): id is CategoryId => isSettingsCategory(id) && CATEGORIES.some((c) => c.id === id);
   const [cat, setCat] = useState<CategoryId>(() => {
     if (isCategory(category)) lastCategory = category;
     return isCategory(lastCategory) ? lastCategory : "profile";
@@ -112,7 +116,8 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
   const groups = [...new Set(CATEGORIES.map((c) => c.group))];
 
   return (
-    <div className="grid h-full grid-cols-[17.5rem_minmax(0,1fr)] gap-7 px-[3rem] pb-6">
+    // ibox-settings : rail et en-tête resserrés sur les petits écrans Android (styles/android.css)
+    <div className="ibox-settings grid h-full grid-cols-[17.5rem_minmax(0,1fr)] gap-7 px-[3rem] pb-6">
       <nav
         className="flex min-h-0 flex-col overflow-y-auto rounded-[1.8rem] bg-white/55 p-3 shadow-[0_14px_40px_-24px_rgba(30,40,70,0.4)] ring-1 ring-white/70 backdrop-blur-md"
         data-nav-group="settings-nav"
@@ -183,7 +188,7 @@ function PageHeader({ category }: { category: Category }) {
   const [a, b] = category.tone;
   return (
     <div
-      className="ibox-light-surface relative mb-5 flex items-center gap-5 overflow-hidden rounded-[1.8rem] px-7 py-6 shadow-[0_14px_36px_-24px_rgba(30,40,70,0.45)] ring-1 ring-white/70"
+      className="ibox-settings-head ibox-light-surface relative mb-5 flex items-center gap-5 overflow-hidden rounded-[1.8rem] px-7 py-6 shadow-[0_14px_36px_-24px_rgba(30,40,70,0.45)] ring-1 ring-white/70"
       style={{ background: `linear-gradient(120deg, ${a} 0%, ${b} 70%)` }}
     >
       <span aria-hidden className="ibox-drift-a absolute -top-16 right-24 size-48 rounded-full bg-white/40 blur-2xl" />
@@ -193,7 +198,7 @@ function PageHeader({ category }: { category: Category }) {
       </span>
       <div className="relative">
         <h1 className="text-[1.9rem] leading-tight font-semibold text-ink">{category.label}</h1>
-        <p className="mt-0.5 text-[0.95rem] font-semibold text-ink-soft">{category.id === "remoteplay" && isLinux() ? "Rejoindre la partie d'un ami sur un PC iBox" : category.hint}</p>
+        <p className="mt-0.5 text-[0.95rem] font-semibold text-ink-soft">{category.id === "remoteplay" && !capabilities().remotePlayHost ? "Rejoindre la partie d'un ami sur un PC iBox" : category.hint}</p>
       </div>
     </div>
   );
@@ -225,7 +230,8 @@ function CategoryPage({ id }: { id: CategoryId }) {
       return (
         <Group title="Réglages par console" icon="gamepad" note="Chaque console : son émulateur, le plein écran, les paramètres de lancement et où vont les sauvegardes.">
           <div className="border-none">
-            <ConsolesPanel />
+            {/* Android : émulateurs Android (table d'ES-DE), docs/ANDROID.md §17 */}
+            {usePlatform.getState().android ? <AndroidConsolesPanel /> : <ConsolesPanel />}
           </div>
         </Group>
       );
@@ -256,5 +262,7 @@ function CategoryPage({ id }: { id: CategoryId }) {
       return <PluginsPage />;
     case "system":
       return <SystemPage />;
+    case "secondscreen":
+      return <SecondScreenPage />;
   }
 }

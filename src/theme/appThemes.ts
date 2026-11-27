@@ -3,6 +3,8 @@
  * lavande, menthe, pêche) en mode clair ; le mode sombre garde ses teintes.
  * Les couleurs propres à chaque console ne changent pas.
  */
+import { compat } from "./cssCompat";
+
 export interface AppTheme {
   id: string;
   name: string;
@@ -65,6 +67,6 @@ export function applyAppTheme(id: string): void {
   const all = new Set(APP_THEMES.flatMap((t) => Object.keys(t.vars)));
   all.forEach((k) => root.style.removeProperty(k));
   const t = APP_THEMES.find((x) => x.id === id);
-  if (t) Object.entries(t.vars).forEach(([k, val]) => root.style.setProperty(k, val));
+  if (t) Object.entries(t.vars).forEach(([k, val]) => root.style.setProperty(k, compat(val)));
   root.dataset.palette = t?.id ?? "ibox";
 }

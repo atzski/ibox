@@ -99,3 +99,31 @@ html[data-perf="lite"][data-input="keyboard"] .ibox-focusable:focus {
 html[data-perf="lite"] .ibox-tilt {
   transform: none;
 }
+
+/* ——— Paliers modestes (`html[data-tier="low"|"minimal"]`, consoles Android d'entrée et de milieu
+       de gamme, docs/ANDROID.md §9). Le palier allégé (Steam Deck) ne change pas. ——— */
+
+/* 6. Décor perpétuel à l'arrêt : halos qui dérivent, motifs qui glissent, fond en Ken Burns,
+      reflets en boucle. Rien n'y bouge assez pour se voir, mais le compositeur ne se repose
+      jamais (GPU et batterie occupés en continu, même iBox immobile) */
+html[data-tier] :is(.ibox-drift-a, .ibox-drift-b, .ibox-drift-c, .ibox-pattern-drift, .ibox-kenburns),
+html[data-tier] .ibox-shine-loop::after {
+  animation: none !important;
+}
+
+/* 7. Ombres portées par filtre (`drop-shadow-*` des logos et jaquettes) : recalculées à chaque
+      mouvement de l'élément ; les ombres de boîte du thème restent */
+html[data-tier] [class*="drop-shadow"] {
+  --tw-drop-shadow: initial !important;
+}
+
+/* 6. Décor immobile : les animations perpétuelles purement décoratives s'arrêtent (formes
+      flottantes, halos qui dérivent, fond en lent zoom, reflets qui passent, motif qui glisse ;
+      ce dernier repeignait tout le motif à chaque image). Le décor reste en place, immobile, comme
+      avec « Fond animé » coupé. Ce qui informe continue : chargement, progression, titres qui
+      défilent. Mesuré sur l'accueil d'un Steam Deck simulé : 20 animations continues, 2 après. */
+html[data-perf="lite"] :is(.ibox-shape, .ibox-drift-a, .ibox-drift-b, .ibox-drift-c, .ibox-kenburns, .ibox-pattern-drift, .ibox-float, .ibox-float-shadow, .ibox-platforms-glow, .ibox-platforms-glow-ink),
+html[data-perf="lite"] :is(.ibox-sweep, .ibox-shine-loop)::after {
+  animation: none !important;
+  opacity: 0;
+}

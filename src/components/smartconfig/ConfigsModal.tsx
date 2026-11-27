@@ -14,6 +14,7 @@ import {
   MODE_LABEL,
   errorText,
   isManualChanges,
+  isSheetAdapter,
   keyLabel,
   providerErrorText,
   scPrefs,
@@ -28,7 +29,8 @@ import {
   type Recommendation,
   type ScMode,
 } from "@/services/smartconfig";
-import { ChangesList, CopyLink, KindChip, LocalChip, ModeChip, ModePicker, ReportedPerf, RiskChip, VerifiedChip, formatDate, useEmulatorName } from "./ScParts";
+import { ChangesList, CopyLink, DeviceChip, KindChip, LocalChip, ModeChip, ModePicker, ReportedPerf, RiskChip, VerifiedChip, formatDate, useEmulatorName } from "./ScParts";
+import { SheetChecklist } from "./SheetChecklist";
 
 export interface ScGame {
   dbId: number;
@@ -254,6 +256,7 @@ function ConfigCard({ rec, index, suggested, onOpen }: { rec: Recommendation; in
           )}
           {p.source === "verified" && <VerifiedChip />}
           <KindChip kind={rec.kind} />
+          {rec.device && <DeviceChip match={rec.device} />}
           {rec.local && <LocalChip verdict={rec.local} />}
           {rec.mode && <ModeChip mode={rec.mode} />}
           {rec.maxRisk && rec.maxRisk !== "low" && <RiskChip risk={rec.maxRisk} />}
@@ -281,16 +284,21 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
   const [manual, setManual] = useState(false);
   const [done, setDone] = useState(false);
   const apply = useSmartConfig((s) => s.apply);
+  const makeSheet = useSmartConfig((s) => s.sheet);
   const play = useLauncher((s) => s.play);
+  const sc = useGameSc(game.dbId);
+  // Android, émulateur autonome : fiche à reporter à la main, aucun aperçu de fichier
+  const sheet = isSheetAdapter(sc?.status?.adapter);
   const p = rec.profile;
   const applicable = rec.kind !== "incompatible" && rec.kind !== "insufficient" && rec.validated.accepted.length > 0;
+  const sheetLines = useMemo(() => rec.validated.accepted.map((s) => ({ key: s.key, label: keyLabel(s.key, p), before: null, after: valueText(s.value) })), [rec, p]);
 
   useEffect(() => {
-    if (!applicable) return;
+    if (!applicable || sheet) return;
     let alive = true;
     smartConfigApi.preview(game.dbId, p).then((pl) => alive && setPlan(pl)).catch((e) => alive && setPlanError(errorText(e)));
     return () => { alive = false; };
-  }, [game.dbId, p, applicable]);
+  }, [game.dbId, p, applicable, sheet]);
 
   // modifications manuelles : la décision s'affiche à la place des boutons, le focus va au choix sûr
   const keepRef = useRef<HTMLButtonElement>(null);
@@ -313,6 +321,21 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
     for (const s of plan?.skipped ?? []) if (!rec.validated.rejected.some((r) => r.key === s.key)) list.push({ name: keyLabel(s.key), reason: s.reason });
     return list;
   }, [rec, p, plan]);
+
+  const runSheet = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await makeSheet(game.dbId, game.title, rec);
+      sound.play("select");
+      setDone(true);
+    } catch (e) {
+      sound.play("error");
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async (force: boolean, thenPlay: boolean) => {
     setBusy(true);
@@ -352,12 +375,13 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
         />
       </div>
 
-      {view === "simple" ? (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[1.2rem] bg-[color-mix(in_srgb,var(--accent)_7%,var(--ibox-white))] p-5 ring-1 ring-[var(--ibox-line)]">
+      {/* fiche préparée : seule la liste à cocher reste (pas de doublon des réglages) */}
+      {sheet && done ? null : view === "simple" ? (
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-[1.2rem] max-[34rem]:grid-cols-1 max-[34rem]:[&>div]:col-span-1 bg-[color-mix(in_srgb,var(--accent)_7%,var(--ibox-white))] p-5 ring-1 ring-[var(--ibox-line)]">
           <Fact label="Jeu"><span data-no-i18n>{game.title}</span></Fact>
           <Fact label="Émulateur"><span data-no-i18n>{[emulator, p.emulatorVersion].filter(Boolean).join(" ")}</span>{p.emulatorFork && <span className="ml-1 text-ink-soft" data-no-i18n>{`(${p.emulatorFork})`}</span>}</Fact>
           <Fact label="Mode">{rec.mode ? MODE_LABEL[rec.mode] : "Indéterminé"}</Fact>
-          <Fact label="Compatibilité matérielle"><KindChip kind={rec.kind} /><div className="mt-1 text-[0.78rem] font-semibold text-ink-soft">{KIND_HINT[rec.kind]}</div></Fact>
+          <Fact label="Compatibilité matérielle"><KindChip kind={rec.kind} />{rec.device && <span className="ml-1"><DeviceChip match={rec.device} /></span>}<div className="mt-1 text-[0.78rem] font-semibold text-ink-soft">{KIND_HINT[rec.kind]}</div></Fact>
           {p.source === "verified" && <Fact label="Source"><VerifiedChip /></Fact>}
           {rec.local && <Fact label="Votre retour" wide><LocalChip verdict={rec.local} /><div className="mt-1 text-[0.78rem] font-semibold text-ink-soft">{LOCAL_HINT[rec.local]}</div></Fact>}
           <Fact label="Performance rapportée" wide><ReportedPerf rec={rec} source={sourceName(p.source)} /></Fact>
@@ -367,8 +391,10 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
           </Fact>
           <Fact label="Date du rapport">{formatDate(p.updatedAt ?? p.createdAt)}</Fact>
           {p.hardware.label && <Fact label="Machine de référence" wide><span data-no-i18n>{p.hardware.label}</span></Fact>}
-          <Fact label="Principales modifications" wide>
-            {!applicable ? (
+          <Fact label={sheet ? "Réglages à reporter" : "Principales modifications"} wide>
+            {sheet && applicable ? (
+              <ChangesList changes={sheetLines.slice(0, 6)} noBefore />
+            ) : !applicable ? (
               <span className="text-ink-soft">Rien d'applicable dans ce rapport.</span>
             ) : planError ? (
               <span className="text-[var(--tone-red-ink)]">{planError}</span>
@@ -377,13 +403,19 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
             ) : (
               <ChangesList changes={plan.changes.slice(0, 4)} empty="Ces réglages sont déjà en place : rien à modifier." />
             )}
+            {sheet && sheetLines.length > 6 && <div className="mt-1 text-[0.8rem] font-bold text-ink-soft">{`… et ${sheetLines.length - 6} autre(s) : voir « Avancé ».`}</div>}
             {plan && plan.changes.length > 4 && <div className="mt-1 text-[0.8rem] font-bold text-ink-soft">{`… et ${plan.changes.length - 4} autre(s) : voir « Avancé ».`}</div>}
           </Fact>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <Panel title="Avant / après" icon="copy">
-            {planError ? <p className="text-[0.88rem] font-bold text-[var(--tone-red-ink)]">{planError}</p> : !plan ? <div className="ibox-shimmer h-24 rounded-lg" /> : (
+          <Panel title={sheet ? "Réglages à reporter" : "Avant / après"} icon="copy">
+            {sheet ? (
+              <>
+                <ChangesList changes={sheetLines} empty="Aucun réglage exploitable." noBefore />
+                <p className="mt-2 text-[0.78rem] font-semibold text-ink-soft">Rien n'est écrit par iBox : Android réserve les réglages de cet émulateur à l'émulateur lui-même.</p>
+              </>
+            ) : planError ? <p className="text-[0.88rem] font-bold text-[var(--tone-red-ink)]">{planError}</p> : !plan ? <div className="ibox-shimmer h-24 rounded-lg" /> : (
               <>
                 <ChangesList changes={plan.changes} empty="Ces réglages sont déjà en place : rien à modifier." />
                 <p className="mt-2 text-[0.78rem] font-semibold break-all text-ink-soft">
@@ -398,7 +430,7 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
               <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 text-[0.88rem]">
                 {rec.validated.accepted.map((s) => (
                   <div key={s.key} className="contents">
-                    <dt className="font-bold text-ink">{plan?.changes.find((c) => c.key === s.key)?.label ?? keyLabel(s.key)}</dt>
+                    <dt data-no-i18n={sheet || undefined} className="font-bold text-ink">{plan?.changes.find((c) => c.key === s.key)?.label ?? keyLabel(s.key, p)}</dt>
                     <dd className="font-mono text-ink-soft">{valueText(s.value)}</dd>
                   </div>
                 ))}
@@ -458,7 +490,18 @@ function ConfigDetail({ game, rec, emulator, onBack, onDone, playAfter }: { game
       {rec.kind === "experimental" && applicable && !done && (
         <p className="text-[0.82rem] font-semibold text-[var(--tone-orange-ink)]">Configuration expérimentale : à essayer en connaissance de cause, restaurable à tout moment.</p>
       )}
-      {done ? (
+      {sheet ? (
+        done && sc?.status?.active ? (
+          <SheetChecklist gameId={game.dbId} title={game.title} entry={sc.status.active} emulator={emulator} onWithdrawn={onDone} />
+        ) : applicable && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button tone="orange" variant="primary" icon="manual" autoFocusScreen disabled={busy} onClick={() => void runSheet()}>
+              {busy ? "Préparation…" : "Préparer la fiche"}
+            </Button>
+            <span className="text-[0.78rem] font-semibold text-ink-soft">Réglages à reporter vous-même dans l'émulateur, avec ce qui reste à faire coché.</span>
+          </div>
+        )
+      ) : done ? (
         <div role="status" className="tone-green flex items-center justify-between gap-3 rounded-[1.2rem] bg-[color-mix(in_srgb,var(--tone)_12%,var(--ibox-white))] p-4">
           <span className="flex items-center gap-2 text-[0.95rem] font-extrabold text-[var(--tone-ink)]"><Icon name="check" /> Réglages appliqués, sauvegarde faite.</span>
           <div className="flex gap-2">

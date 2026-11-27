@@ -6,6 +6,9 @@ import { useInetbox } from "./inetbox";
 import { metadataApi } from "./metadata";
 import { getAppInfo } from "./native";
 import { crashLogTail } from "./crashLog";
+import { usePlatform } from "./platform";
+import { perfTier } from "./performance";
+import { casePaintPath } from "@/art/covers";
 
 /**
  * Rapport de problème : un texte lisible qui décrit l'installation, préparé
@@ -26,6 +29,9 @@ export async function buildDiagnostic(): Promise<string> {
   lines.push(`Version : ${info?.version ?? "?"}`);
   lines.push(`Système : ${navigator.userAgent}`);
   lines.push(`Écran : ${screen.width}×${screen.height} (échelle ${devicePixelRatio})`);
+  // console portable reconnue (docs/HANDHELD.md) : fiche, palier de performance, taille du texte
+  const p = usePlatform.getState();
+  lines.push(`Appareil : ${p.device ? `${p.device.name} (${p.device.id}, GPU ${p.device.gpu})` : p.steamDeck ?? (p.handheld ? "console portable sans fiche" : "PC")} · palier ${perfTier()} · Mode Jeu ${p.gameMode} · texte ${getComputedStyle(document.documentElement).fontSize} · peinture des boîtiers ${casePaintPath()}`);
 
   h("Réglages");
   lines.push(`Thème ${s.theme} · palette ${s.appTheme} · taille ${s.uiScale} · plein écran ${s.fullscreen} · animations ${s.motion}`);

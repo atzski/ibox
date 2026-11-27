@@ -1,0 +1,4 @@
+# Fichiers régénérés à chaque construction Android, toujours en LF : sans cette règle,
+# core.autocrlf les montre modifiés après chaque `scripts/android-build.ps1`.
+src-tauri/gen/android/gradlew text eol=lf
+src-tauri/plugins/ibox-android/permissions/** text eol=lf

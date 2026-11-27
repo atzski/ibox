@@ -112,6 +112,10 @@ pub struct Profile {
     pub performance: Option<ReportedPerformance>,
     /// Réglages déjà normalisés (clés de l'adaptateur), non encore validés.
     pub settings: Vec<Setting>,
+    /// Libellés de la source pour les paramètres d'une fiche à appliquer à la main
+    /// (émulateurs Android autonomes) : (clé, libellé). Vide ailleurs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<(String, String)>,
     /// Champs reçus mais non transposables (ambiguïté, autre OS…), avec la raison.
     pub ignored: Vec<IgnoredField>,
     pub notes: Option<String>,

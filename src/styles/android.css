@@ -1,0 +1,272 @@
+/*
+ * Android (docs/ANDROID.md, « Interface Android ») : petits écrans tactiles de 5 à 7 pouces,
+ * 1080p à densité 2 à 3, soit 960×540 à 640×360 pixels CSS. Tout est sous
+ * html[data-platform="android"] (posé par services/platform.ts) : Windows et Steam Deck ne lisent
+ * aucune de ces règles. Comme styles/performance.css, on vise les classes utilitaires existantes
+ * plutôt que de modifier chaque composant. Hors couche (@layer) : ces règles passent devant Tailwind.
+ */
+
+/* — Cibles tactiles : au moins 48 × 48 dp, sans changer le dessin — */
+/* zone d'appui invisible centrée sur l'élément (le bouton garde sa taille) */
+html[data-platform="android"] .ibox-focusable:not(.ibox-sweep, .ibox-shimmer, .ibox-shine, .ibox-shine-loop, .ibox-saved-mark)::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - 48px) / 2));
+  bottom: min(0px, calc((100% - 48px) / 2));
+  left: min(0px, calc((100% - 48px) / 2));
+  right: min(0px, calc((100% - 48px) / 2));
+}
+/* au doigt, rien ne « survole » : pas d'anneau ni de soulèvement laissés après un appui */
+html[data-platform="android"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* — Marges : les 3rem de chaque côté du bureau rendent trop peu de place — */
+html[data-platform="android"] .px-\[3rem\] {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+html[data-platform="android"] header.px-\[3rem\] {
+  gap: 0.5rem;
+}
+html[data-platform="android"] header .gap-3 {
+  gap: 0.5rem;
+}
+
+/* — Fenêtres modales : jamais plus larges ni plus hautes que l'écran — */
+html[data-platform="android"] [role="dialog"][aria-modal="true"].p-8 {
+  padding: 0.75rem;
+  grid-template-columns: minmax(0, auto);
+}
+html[data-platform="android"] [role="dialog"][aria-modal="true"] > div {
+  max-width: calc(100vw - 1.5rem);
+}
+
+/* — Écrans étroits (densité 3 : 640 pixels CSS) — */
+@media (max-width: 760px) {
+  /* la date sous l'heure : déjà dans la barre d'état d'Android */
+  html[data-platform="android"] header .tabular-nums + div {
+    display: none;
+  }
+}
+
+/* — « Qui joue ? » sur un écran bas : tout tient sans défiler — */
+@media (max-height: 600px) {
+  html[data-platform="android"] .ibox-gate {
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 0.75rem 1rem 4.5rem;
+  }
+  html[data-platform="android"] .ibox-gate > img {
+    width: 40px;
+    height: 40px;
+    margin-top: auto;
+  }
+  html[data-platform="android"] .ibox-gate > h1 {
+    margin-top: 0.25rem;
+    font-size: 1.7rem;
+  }
+  html[data-platform="android"] .ibox-gate > [data-nav-group="profiles"] {
+    margin-top: 0.5rem;
+    gap: 0.75rem;
+    zoom: 0.78;
+  }
+  /* centré s'il reste de la place, en haut sinon */
+  html[data-platform="android"] .ibox-gate > .mt-12 {
+    margin-top: 0.75rem;
+    margin-bottom: auto;
+  }
+  html[data-platform="android"] .ibox-gate > .absolute.bottom-7 {
+    right: 1rem;
+    bottom: 0.75rem;
+  }
+}
+
+/* — Accueil : la vitrine de la collection et « Votre dernière aventure » tiennent sous la barre — */
+@media (max-height: 600px) {
+  /* hauteur restante sous la barre du haut et la barre d'accès rapide */
+  html[data-platform="android"] main .h-\[21rem\] {
+    height: clamp(12.5rem, calc(100vh - 11.75rem), 21rem);
+  }
+  html[data-platform="android"] main section.ibox-sweep.p-6 {
+    padding: 1rem 1.1rem;
+  }
+}
+@media (max-width: 800px) {
+  html[data-platform="android"] main .grid-cols-\[minmax\(0\,1fr\)_19rem\] {
+    gap: 0.75rem;
+  }
+}
+
+/* — Bibliothèque : sur un écran bas, en-tête et outils sur une seule ligne, l'étagère prend le reste — */
+@media (max-height: 600px) {
+  html[data-platform="android"] .ibox-lib-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  /* la carte de la console : son titre est déjà dans la barre du haut, seul le choix de vue reste */
+  html[data-platform="android"] .ibox-lib-head > :first-child {
+    order: 2;
+    flex: none;
+    padding: 0;
+    background: none !important;
+    box-shadow: none;
+    overflow: visible;
+  }
+  html[data-platform="android"] .ibox-lib-head > :first-child > :not(.shrink-0) {
+    display: none;
+  }
+  html[data-platform="android"] .ibox-lib-head > [data-nav-group="library-tools"] {
+    order: 1;
+    flex: 1;
+    margin-top: 0;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  html[data-platform="android"] .ibox-lib-head > [data-nav-group="library-tools"] > label {
+    width: auto;
+    flex: 1 1 9rem;
+    min-width: 0;
+  }
+  html[data-platform="android"] .ibox-lib-head + .mt-4 {
+    margin-top: 0.5rem;
+  }
+}
+
+/* — Paramètres : rail plus étroit, en-tête de page resserré — */
+@media (max-width: 900px) {
+  html[data-platform="android"] .ibox-settings {
+    grid-template-columns: 13.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  /* « Paramètres · Joueur » en tête du rail : le nom est déjà dans la page Profil */
+  html[data-platform="android"] .ibox-settings > nav > div:first-child {
+    display: none;
+  }
+}
+@media (max-height: 600px) {
+  html[data-platform="android"] .ibox-settings {
+    padding-bottom: 0.75rem;
+  }
+  html[data-platform="android"] .ibox-settings-head {
+    gap: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1.3rem;
+  }
+  html[data-platform="android"] .ibox-settings-head > .size-16 {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 1rem;
+  }
+  html[data-platform="android"] .ibox-settings-head h1 {
+    font-size: 1.45rem;
+  }
+  html[data-platform="android"] .ibox-settings-head p {
+    font-size: 0.85rem;
+  }
+}
+
+/* — Fiche d'un jeu : texte et visionneuse 3D à parts égales sur un écran étroit — */
+@media (max-width: 1000px) {
+  html[data-platform="android"] .ibox-game {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+  }
+  /* « Glisser pour tourner » chevaucherait la pastille des succès */
+  html[data-platform="android"] .ibox-game .pointer-events-none.absolute.top-5.right-6 {
+    display: none;
+  }
+}
+@media (max-height: 600px) {
+  html[data-platform="android"] .ibox-game h1.text-\[2\.9rem\] {
+    font-size: 2rem;
+  }
+  html[data-platform="android"] .ibox-game [data-nav-group="inspect-dock"] {
+    bottom: 0.6rem;
+  }
+}
+
+/* — Assistant de premier démarrage : la fenêtre occupe l'écran, marges et titres resserrés — */
+@media (max-height: 600px) {
+  html[data-platform="android"] .ibox-wizard {
+    padding: 0.5rem;
+  }
+  html[data-platform="android"] .ibox-wizard > div {
+    height: 100%;
+    width: 100%;
+    border-radius: 1.4rem;
+  }
+  html[data-platform="android"] .ibox-wizard > div > .pt-7 {
+    padding: 0.9rem 1.25rem 0;
+  }
+  html[data-platform="android"] .ibox-wizard > div > .py-8 {
+    padding: 0.9rem 1.5rem;
+  }
+  html[data-platform="android"] .ibox-wizard > div > .py-5 {
+    padding: 0.6rem 1.25rem;
+  }
+  html[data-platform="android"] .ibox-wizard h2.text-\[2\.6rem\] {
+    margin-top: 0.75rem;
+    font-size: 1.9rem;
+  }
+  html[data-platform="android"] .ibox-wizard h2.text-\[1\.9rem\] {
+    margin-top: 0.5rem;
+    font-size: 1.5rem;
+  }
+  /* le logo de bienvenue */
+  html[data-platform="android"] .ibox-wizard .pt-2.text-center > img {
+    width: 56px;
+    height: 56px;
+  }
+  html[data-platform="android"] .ibox-wizard .pt-2.text-center > .h-5 {
+    height: 0.5rem;
+  }
+}
+
+/* — Étagère et « Votre dernière aventure » sur un écran très bas (densité 3 : 360 pixels CSS) — */
+@media (max-height: 440px) {
+  /* titre et boutons sous la rangée : ancrés en bas pour rester visibles */
+  html[data-platform="android"] .ibox-shelf-caption {
+    top: auto !important;
+    bottom: 0.6rem;
+  }
+  html[data-platform="android"] .ibox-shelf-caption .mt-1\.5.truncate {
+    display: none;
+  }
+  html[data-platform="android"] .ibox-shelf-actions {
+    margin-top: 0.4rem;
+  }
+  /* la jaquette de la carte ne remonte plus sur son titre */
+  html[data-platform="android"] main section.ibox-sweep .w-\[5\.6rem\] {
+    width: 4rem;
+  }
+}
+/* les boutons sous l'étagère (hors .ibox-focusable) : 48 px de haut au doigt */
+html[data-platform="android"] .ibox-shelf-actions > button {
+  height: 48px;
+}
+
+/* — Panneau Amis en mode allégé — sans flou d'arrière-plan, l'aplat à 92 % laissait lire l'accueil
+   à travers le panneau (titres, boutons, étagère) : sur Android il devient plein. */
+html[data-platform="android"][data-perf="lite"] .ibox-friends-panel {
+  background-color: var(--ibox-white) !important;
+}
+
+/* — iBox Platforms : filtres sur une seule ligne — à 960 points, les onze filtres et la recherche
+   passaient sur deux lignes et poussaient l'étagère des consoles vers le bas. La ligne défile au
+   doigt (et suit le focus à la manette). */
+html[data-platform="android"] .ibox-pf-filters {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-block: 4px;
+}
+html[data-platform="android"] .ibox-pf-filters > button {
+  flex-shrink: 0;
+}
+html[data-platform="android"] .ibox-pf-search {
+  width: 11rem;
+}

@@ -194,6 +194,7 @@ pub fn to_profile(e: &Entry) -> Profile {
         },
         performance: performance(&e.performance),
         settings: e.settings.clone(),
+        labels: vec![],
         ignored: vec![],
         notes: Some(notes.chars().take(500).collect()),
         votes_up: 0,

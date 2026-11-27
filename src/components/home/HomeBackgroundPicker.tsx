@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { usePlatform } from "@/services/platform";
 import { invoke } from "@tauri-apps/api/core";
 import { Modal } from "@/components/ui/Modal";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -6,7 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useSettings, type HomeBackground } from "@/services/settings";
 import { useLibrary } from "@/services/library";
 import { usePlatformArt, usePlatformArtStore } from "@/services/platformArt";
-import { useMediaUrl } from "@/art/useMediaUrl";
+import { hasMedia, useMediaUrl } from "@/art/useMediaUrl";
 import { PLATFORMS } from "@/domain/platforms";
 import { matchesQuery } from "@/domain/text";
 import { HOME_PRESETS, type HomePreset } from "@/services/homeBackgrounds";
@@ -14,6 +15,7 @@ import { homeWallpaperApi } from "@/services/wallpaper";
 import { isTauri } from "@/services/native";
 import { sound } from "@/services/sound";
 import type { Game } from "@/domain/types";
+import { platformOnDevice } from "@/services/capabilities";
 
 type Tab = "presets" | "games" | "online" | "file";
 const RANDOM: HomeBackground = { type: "random" };
@@ -131,11 +133,11 @@ function GamesTab({ current, choose }: { current: HomeBackground | null; choose:
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(30);
   const heroes = useMemo(
-    () => games.filter((g) => (g.media ?? []).some((m) => m.kind === "hero")).sort((a, b) => (b.playSeconds ?? 0) - (a.playSeconds ?? 0) || a.sortTitle.localeCompare(b.sortTitle)),
+    () => games.filter((g) => hasMedia(g, "hero")).sort((a, b) => (b.playSeconds ?? 0) - (a.playSeconds ?? 0) || a.sortTitle.localeCompare(b.sortTitle)),
     [games],
   );
   const shown = heroes.filter((g) => matchesQuery(g.title, query));
-  const platforms = PLATFORMS.filter((p) => rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
+  const platforms = PLATFORMS.filter((p) => platformOnDevice(p.id) && rows.some((r) => r.platformId === p.id && r.slot === "platform_hero"));
   const random = current?.type === "random";
   return (
     <>
@@ -190,6 +192,7 @@ function GamesTab({ current, choose }: { current: HomeBackground | null; choose:
 }
 
 function OnlineTab({ choose }: { choose: (bg: HomeBackground) => void }) {
+  const android = usePlatform((p) => !!p.android);
   const games = useLibrary((s) => s.realGames);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<{ id: number; name: string }[]>();
@@ -238,7 +241,9 @@ function OnlineTab({ choose }: { choose: (bg: HomeBackground) => void }) {
   return (
     <>
       <p className="mb-3 text-[0.88rem] text-ink-soft">
-        Des milliers d’illustrations de jeux, issues de la communauté SteamGridDB. L’image choisie est téléchargée une fois puis gardée sur ce PC.
+        {android
+          ? "Des milliers d’illustrations de jeux, issues de la communauté SteamGridDB. L’image choisie est téléchargée une fois puis gardée sur cet appareil."
+          : "Des milliers d’illustrations de jeux, issues de la communauté SteamGridDB. L’image choisie est téléchargée une fois puis gardée sur ce PC."}
       </p>
       <form className="mb-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <input data-focusable data-autofocus aria-label="Chercher un jeu" placeholder="Chercher un jeu : Zelda, Mario Kart, Pokémon…" value={query} maxLength={100}
@@ -280,10 +285,11 @@ function OnlineTab({ choose }: { choose: (bg: HomeBackground) => void }) {
 }
 
 function FileTab({ current, choose }: { current: HomeBackground | null; choose: (bg: HomeBackground | null) => void }) {
+  const android = usePlatform((p) => !!p.android);
   const [error, setError] = useState("");
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-[0.9rem] text-ink-soft">Une image de votre PC (PNG, JPEG, WebP ou GIF). iBox en garde une copie ; l’original n’est pas touché.</p>
+      <p className="text-[0.9rem] text-ink-soft">{android ? "Une image de votre appareil (PNG, JPEG, WebP ou GIF). iBox en garde une copie ; l’original n’est pas touché." : "Une image de votre PC (PNG, JPEG, WebP ou GIF). iBox en garde une copie ; l’original n’est pas touché."}</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" icon="folder" onClick={async () => {
           setError("");

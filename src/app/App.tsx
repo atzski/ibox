@@ -1,7 +1,8 @@
 import { attachAutoJingles } from "@/services/jingles";
 import { PerfOverlay } from "@/components/extras/PerfOverlay";
 import { attachPower } from "@/services/power";
-import { attachInterfaceSleep, setWindowHidden, usePerformanceMode } from "@/services/performance";
+import { perfTier, usePerfTier, usePerformanceMode } from "@/services/performance";
+import { attachAttention, setWindowHidden } from "@/services/attention";
 import { attachSocial } from "@/services/social";
 import { attachRemotePlayOnline } from "@/services/remotePlayOnline";
 import { RemotePlayLayer } from "@/components/remoteplay/RemotePlayOnline";
@@ -14,6 +15,8 @@ import { shellApi } from "@/services/shell";
 import { startUpdateWatch } from "@/services/updater";
 import { startRaWatch } from "@/services/retro";
 import { DuplicatesHost } from "@/components/game/Versions";
+import { DeviceDiagnosticHost } from "@/components/extras/DeviceDiagnostic";
+import { FolderBrowserHost } from "@/components/android/FolderBrowser";
 import { IsoConsoleHost } from "@/components/library/IsoConsoleModal";
 import { PlayerJoinedOverlay } from "@/components/shell/Players";
 import { attachInetbox } from "@/services/inetbox";
@@ -27,10 +30,15 @@ import { setPluginLook } from "@/services/plugins";
 import { setFullscreen, syncWindowTheme } from "@/services/native";
 import { music } from "@/services/music";
 import { startNowPlaying } from "@/services/nowPlaying";
+import { startSecondScreen } from "@/services/secondScreen";
+import { startAndroidNotify } from "@/services/androidNotify";
 import { sound } from "@/services/sound";
 import { input } from "@/input/InputController";
 import { attachGamepads } from "@/input/gamepad";
 import { FlightLayer, preload3D } from "@/three/lazy";
+import { threeDNow } from "@/services/render3d";
+import { attachAndroidDevice } from "@/services/androidDevice";
+import { useAndroidRefresh } from "@/services/budget";
 import { useLibrary } from "@/services/library";
 import { scheduleManualFetch } from "@/services/manuals";
 import { useLauncher } from "@/services/launcher";
@@ -52,7 +60,10 @@ import { captures } from "@/services/community";
 import { applyShortcuts, DEFAULT_KEYS } from "@/services/shortcuts";
 import { isTauri } from "@/services/native";
 import { invoke } from "@tauri-apps/api/core";
-import { isLinux, usePlatform } from "@/services/platform";
+import { usePlatform } from "@/services/platform";
+import { capabilities, useCapability } from "@/services/capabilities";
+import { forgetPcStoreNotices } from "@/services/notifications";
+import { handheldTextScale } from "@/services/device";
 
 // Écrans secondaires chargés à la demande (préchargés pendant un temps mort, voir
 // `preloadScreens`) : le démarrage ne lit que l'accueil, la bibliothèque et la fiche.
@@ -70,6 +81,7 @@ const PlatformSheet = lazy(() => loadPlatformSheet().then((m) => ({ default: m.P
 const AchievementsScreen = lazy(() => loadAchievements().then((m) => ({ default: m.AchievementsScreen })));
 // Linux (Steam Deck) : notifications dans la fenêtre principale, pas dans une fenêtre à part
 const NativeGuestBench = lazy(() => import("@/components/remoteplay/NativeGuestBench").then((m) => ({ default: m.NativeGuestBench })));
+const NotifyAsk = lazy(() => import("@/components/android/NotifyAsk").then((m) => ({ default: m.NotifyAsk })));
 const InlineToasts = lazy(() => import("@/components/social/ToastWindow").then((m) => ({ default: () => <m.ToastWindow inline /> })));
 
 function preloadScreens(): void {
@@ -196,7 +208,13 @@ export function App() {
   const singleWindow = usePlatform((p) => p.os === "linux");
   useEffect(() => attachInetbox(), []);
   useEffect(() => attachSocial(), []);
-  useEffect(() => attachRemotePlayOnline(), []);
+  // Android : pas de Remote Play (ni invitations reçues, ni fenêtres de partie)
+  const remotePlay = useCapability("remotePlay");
+  const systemNotifications = useCapability("systemNotifications");
+  useEffect(() => (remotePlay ? attachRemotePlayOnline() : undefined), [remotePlay]);
+  // Android : ni boutiques PC, ni leurs vieilles alertes dans l'historique
+  const pcGames = useCapability("pcGames");
+  useEffect(() => { if (!pcGames) forgetPcStoreNotices(); }, [pcGames]);
   useEffect(() => attachAutoJingles(), []);
   // manuels : chaque boîte reçoit le sien, en arrière-plan
   useEffect(() => scheduleManualFetch(() => useLibrary.getState().realGames.length, (cb) => useLibrary.subscribe(cb)), []);
@@ -220,7 +238,7 @@ export function App() {
     void shellApi.visible().then((v) => setBackground(v === false), () => undefined);
     void shellApi.onVisibility((v) => setBackground(!v)).then((f) => (alive ? (off = f) : f()));
     // Linux (Steam Deck) : jamais de démarrage automatique (il lancerait iBox à chaque Mode Bureau)
-    if (!import.meta.env.DEV && !isLinux() && !useSettings.getState().autostartOffered) {
+    if (!import.meta.env.DEV && capabilities().autostart && !useSettings.getState().autostartOffered) {
       void shellApi.autostartSet(true).then(() => useSettings.getState().set("autostartOffered", true), () => undefined);
     }
     return () => {
@@ -232,8 +250,12 @@ export function App() {
   useEffect(() => startUpdateWatch(), []);
   // batterie et sortie de veille (Steam Deck) : veilles espacées, reprise au réveil
   useEffect(() => attachPower(), []);
-  // veille de l'interface : animations et 3D à l'arrêt quand personne ne regarde iBox
-  useEffect(() => attachInterfaceSleep(), []);
+  // Android : chaleur, batterie, écran (paliers de performance, docs/ANDROID.md §9)
+  useEffect(() => attachAndroidDevice(), []);
+  useAndroidRefresh();
+  // qui regarde iBox (focus, fenêtre masquée, partie, Mode Jeu) : veille de l'interface et
+  // lecture des manettes réglées en un seul endroit (services/attention.ts)
+  useEffect(() => attachAttention(), []);
   // succès RetroAchievements débloqués pendant une partie : annoncés en direct
   useEffect(() => startRaWatch(
     () => useLauncher.getState().phase === "running",
@@ -316,7 +338,8 @@ export function App() {
   useEffect(() => {
     const detach = input.attachKeyboard();
     const detachPads = attachGamepads();
-    preload3D();
+    // mode sans 3D (WebGL absent, palier minimal, réglage) : Three.js n'est pas préchargé
+    preload3D(() => threeDNow(perfTier()));
     preloadScreens();
     // tableau des succès préchargé : l'écran Succès s'ouvre déjà rempli
     const warm = window.setTimeout(() => void import("@/services/achievementsCache").then((m) => m.prefetchAchievements()), 8000);
@@ -344,6 +367,10 @@ export function App() {
   useEffect(() => music.attach(), []);
   // Music in the Box : « En cours » dans la barre du haut, et l'ambiance des menus qui s'efface
   useEffect(() => startNowPlaying(), []);
+  // Second écran des consoles Android (AYN Thor) : écran du bas tenu à jour, sans effet ailleurs
+  useEffect(() => startSecondScreen(), []);
+  // Android : notifications pendant les parties (succès, amis, « Partie en cours »), docs/ANDROID.md §17
+  useEffect(() => startAndroidNotify(), []);
 
   // Thème : color-scheme pilote toutes les couleurs light-dark() des tokens
   const theme = useSettings((s) => s.theme);
@@ -366,6 +393,12 @@ export function App() {
     if (lite) document.documentElement.dataset.perf = "lite";
     else delete document.documentElement.dataset.perf;
   }, [lite]);
+  // paliers modestes (Android) : allègements de plus, sous `html[data-tier]` (`styles/performance.css`)
+  const tier = usePerfTier();
+  useEffect(() => {
+    if (tier === "low" || tier === "minimal") document.documentElement.dataset.tier = tier;
+    else delete document.documentElement.dataset.tier;
+  }, [tier]);
 
   const animatedBg = useSettings((s) => s.animatedBackground !== false);
   useEffect(() => {
@@ -375,8 +408,22 @@ export function App() {
   // Palette et taille de l'interface (Paramètres › Apparence, Thèmes)
   const appTheme = useSettings((s) => s.appTheme ?? "ibox");
   const uiScale = useSettings((s) => s.uiScale ?? 1);
-  useEffect(() => applyAppTheme(appTheme), [appTheme]);
-  useEffect(() => document.documentElement.style.setProperty("--ui-scale", String(uiScale)), [uiScale]);
+  // `dark` : sur une WebView ancienne, les light-dark() du thème sont résolus à l'application
+  useEffect(() => applyAppTheme(appTheme), [appTheme, dark]);
+  // console portable : texte agrandi d'office selon l'écran (services/device.ts), en plus du réglage
+  const device = usePlatform((p) => p.device);
+  useEffect(() => {
+    const apply = () => {
+      const dpr = window.devicePixelRatio || 1;
+      // télévision ou moniteur (dock du Deck, Ally en HDMI) : pas d'agrandissement pour 7 pouces
+      const k = handheldTextScale(device, window.innerWidth, dpr, { width: Math.round(screen.width * dpr), height: Math.round(screen.height * dpr) });
+      document.documentElement.style.setProperty("--ui-scale", String(Math.round(uiScale * k * 1000) / 1000));
+    };
+    apply();
+    if (!device) return;
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, [uiScale, device]);
 
   // Plein écran : appliqué au démarrage et à chaque changement ; F11 bascule
   const fullscreen = useSettings((s) => s.fullscreen);
@@ -448,15 +495,23 @@ export function App() {
       <IsoConsoleHost />
       <CommandsHost />
       <PlayerSheetHost />
+      <DeviceDiagnosticHost />
+      {/* Android : sélecteur de dossier à la manette (services/android.ts) */}
+      <FolderBrowserHost />
       <PlayerJoinedOverlay />
       <LaunchOverlay />
       <SmartConfigFeedback />
-      <RemotePlayLayer />
+      {remotePlay && <RemotePlayLayer />}
       <FlightLayer />
       <PerfOverlay />
       {singleWindow && (
         <Suspense fallback={null}>
           <InlineToasts />
+        </Suspense>
+      )}
+      {systemNotifications && (
+        <Suspense fallback={null}>
+          <NotifyAsk />
         </Suspense>
       )}
       {preview && (

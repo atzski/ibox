@@ -1,6 +1,8 @@
 import { DEFAULT_BLOCKS, type HomeBlock } from "./homeLayout";
 import type { RiotAvatar, RiotChampionAvatar } from "./avatarProviders";
 import type { SmartConfigPrefs } from "./smartconfig";
+import type { SecondScreenPrefs } from "@/components/second/model";
+import type { IngamePrefs } from "./androidNotify";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
@@ -161,10 +163,17 @@ export interface SettingsState {
   captureClips?: boolean;
   /** Panneau des performances (images par seconde, processeur, GPU, mémoire, Remote Play). */
   perfOverlay?: boolean;
-  /** Profil graphique des scènes 3D (`services/graphics.ts`). */
+  /**
+   * Réglage Performances (`services/budget.ts`) : automatique, qualité, équilibré, allégé,
+   * économie. Absent : repris des deux anciens réglages ci-dessous, puis automatique.
+   */
+  perfPreset?: "auto" | "quality" | "balanced" | "light" | "battery";
+  /** Ancien : profil graphique des scènes 3D (lu par `presetOf` tant que `perfPreset` manque). */
   graphicsProfile?: "auto" | "quality" | "deck" | "battery";
-  /** Mode performance de l'interface (`services/performance.ts`) ; absent : automatique. */
+  /** Ancien : mode performance de l'interface (lu par `presetOf` tant que `perfPreset` manque). */
   performanceMode?: "auto" | "on" | "off";
+  /** Scènes 3D (`services/render3d.ts`) : `off` = vue en jaquettes partout ; absent : automatique. */
+  threeD?: "auto" | "on" | "off";
   /** Clips : qualité de l'image (480p 30 i/s, 720p 30 i/s, 1080p 60 i/s, 1440p 60 i/s). */
   clipQuality?: "low" | "medium" | "high" | "max";
   /** Clips : durée gardée, 5 secondes à 2 minutes. */
@@ -200,6 +209,12 @@ export interface SettingsState {
   gamepadConfirm: "auto" | "south" | "east";
   /** iBox SmartConfig (valeurs absentes : défauts de `services/smartconfig`). */
   smartConfig?: Partial<SmartConfigPrefs>;
+  /** Second écran des consoles Android (valeurs absentes : défauts de `components/second/model`). */
+  secondScreen?: Partial<SecondScreenPrefs>;
+  /** Android : ce qui est notifié pendant une partie (défauts : `services/androidNotify`). */
+  androidIngame?: Partial<IngamePrefs>;
+  /** Android : carte d'explication des notifications déjà montrée (une seule fois). */
+  notifyAsked?: boolean;
 
   set: <K extends keyof Omit<SettingsState, "set" | "toggleFavorite">>(
     key: K,

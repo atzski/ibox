@@ -1,5 +1,6 @@
 import type { Game, PcInstall } from "@/domain/types";
 import { isTauri } from "./native";
+import { usePlatform } from "./platform";
 
 /**
  * Plateforme PC : commandes natives (Rust › pc) et informations d'affichage
@@ -61,10 +62,17 @@ export const pcApi = {
   /** Clé API Web Steam : vérifiée par Steam, rangée dans le coffre Windows. Renvoie le nombre de jeux possédés. */
   setSteamKey: (key: string) => call<number>("pc_steam_key_set", { key }),
   deleteSteamKey: () => call<void>("pc_steam_key_delete"),
-  /** Choix d'un exécutable (boîte de dialogue Windows). */
+  /** Choix du programme d'un jeu : .exe/.bat/.cmd sous Windows ; AppImage, script ou tout fichier sous Linux. */
   pickExe: async (): Promise<string | null> => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ multiple: false, directory: false, filters: [{ name: "Programme ou fichier de commandes", extensions: ["exe", "bat", "cmd"] }] });
+    const linux = usePlatform.getState().os === "linux";
+    const picked = await open({
+      multiple: false,
+      directory: false,
+      filters: linux
+        ? [{ name: "AppImage ou script", extensions: ["AppImage", "appimage", "sh"] }, { name: "Tous les fichiers", extensions: ["*"] }]
+        : [{ name: "Programme ou fichier de commandes", extensions: ["exe", "bat", "cmd"] }],
+    });
     return typeof picked === "string" ? picked : null;
   },
 };

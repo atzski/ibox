@@ -3,6 +3,8 @@ import { useShell, type Hint } from "@/app/shellState";
 import { useGamepad } from "@/input/gamepad";
 import { useSettings } from "@/services/settings";
 import { PadGlyph, type PadKey } from "./PadGlyph";
+import { useCapability } from "@/services/capabilities";
+import { useCommands } from "@/input/commands";
 
 /** Touche clavier (telle qu'écrite dans les indications) → bouton de la manette. */
 const PAD_OF: Record<string, PadKey> = {
@@ -47,6 +49,13 @@ export function HintBar() {
   const raw = useShell((s) => s.hints);
   const { active, family } = useGamepad();
   const side = useSettings((s) => s.gamepadConfirm);
+  const keyboard = useCapability("keyboard");
+  const searching = useCommands((c) => c.search);
+  // Android au doigt : pas de touches de clavier à rappeler, la barre laisse sa place à l'écran
+  if (!keyboard && !active) return <footer aria-hidden className="h-2 shrink-0" />;
+  // Android : la fenêtre de recherche, plus petite que l'écran, a sa propre aide ; celle de la
+  // page restait visible dessous, avec d'autres commandes (D17)
+  if (!keyboard && searching) return <footer aria-hidden className="h-[3.25rem] shrink-0" />;
   // à la manette, une commande réservée au clavier (touche R…) n'a pas de bouton : on ne l'annonce pas
   const hints: Hint[] = active ? [{ keys: ["F1"], label: "Menu" }, ...raw.filter((h) => padKeysOf(h.keys).length > 0)] : raw;
   return (

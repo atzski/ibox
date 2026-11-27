@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePlatform } from "@/services/platform";
 import type { Platform } from "@/domain/types";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,7 @@ import {
  */
 export function ArtworkPicker({ platform, slot, onClose }: { platform: Platform; slot: PlatformSlot; onClose: () => void }) {
   const current = usePlatformArt(platform.id, slot);
+  const android = usePlatform((p) => !!p.android);
   const row = usePlatformArtRow(platform.id, slot);
   const refresh = usePlatformArtStore((s) => s.refresh);
   const linked = usePlatformArtStore((s) => s.links.some((l) => l.platformId === platform.id && (l.status === "matched" || l.status === "manual")));
@@ -144,7 +146,9 @@ export function ArtworkPicker({ platform, slot, onClose }: { platform: Platform;
         </>
       )}
       <p className="mt-4 text-[0.72rem] font-semibold text-ink-faint">
-        Images de la communauté iiDB (iisu.network), propriété de leurs auteurs et ayants droit ; téléchargées sur cet ordinateur uniquement.
+        {android
+          ? "Images de la communauté iiDB (iisu.network), propriété de leurs auteurs et ayants droit ; téléchargées sur cet appareil uniquement."
+          : "Images de la communauté iiDB (iisu.network), propriété de leurs auteurs et ayants droit ; téléchargées sur cet ordinateur uniquement."}
       </p>
     </Modal>
   );

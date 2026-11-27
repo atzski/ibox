@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { useGraphics } from "@/services/graphics";
+import { useGraphics } from "@/services/budget";
 import { tuneRenderer } from "../rendererTuning";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { Group } from "three";
@@ -37,11 +37,12 @@ export function FlightLayer() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]" style={flying ? undefined : { visibility: "hidden" }}>
       <Canvas
+        key={graphics.antialias ? "msaa" : "no-msaa"}
         frameloop={flying ? "always" : "never"}
         flat
         dpr={graphics.profile === "quality" ? [1, 2] : graphics.dpr}
         camera={{ fov: FOV, position: [0, 0, CAMERA_Z], near: 0.1, far: 50 }}
-        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        gl={{ antialias: graphics.antialias, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => tuneRenderer(gl)}
       >
         <StudioLights tint={lights.model === "box" ? lights.cardboard : lights.plastic} dark={dark} />

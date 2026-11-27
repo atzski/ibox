@@ -3,6 +3,7 @@ import { syncRaProgress } from "@/services/achievementProgress";
 import { useEffect, useMemo, useState } from "react";
 import { shellApi, type UpdateInfo, HELP } from "@/services/shell";
 import { buildDiagnostic } from "@/services/diagnostic";
+import { runDeviceDiagnostic, SHELF_SECONDS, PAD_SECONDS } from "@/services/deviceDiagnostic";
 import { LegalModal } from "@/components/extras/LegalModal";
 import { useSettings } from "@/services/settings";
 import { Button, Segmented } from "@/components/ui/Button";
@@ -14,7 +15,9 @@ import { useLibrary } from "@/services/library";
 import { CLIP_SECONDS_CHOICES } from "@/services/community";
 import { useNotifications } from "@/services/notifications";
 import { usePlatform } from "@/services/platform";
+import { useCapabilities } from "@/services/capabilities";
 import { Group, Row, Toggle } from "./ui";
+import { IngameGroup } from "./IngameGroup";
 import { ShortcutField } from "@/components/ui/ShortcutField";
 import { DEFAULT_KEYS, useShortcuts } from "@/services/shortcuts";
 
@@ -28,6 +31,7 @@ export function SystemPage() {
   const captureTaken = useShortcuts((x) => x.captureTaken);
   const platform = usePlatform();
   const linux = platform.os === "linux";
+  const caps = useCapabilities();
   const notifClear = useNotifications((n) => n.clear);
   const notifCount = useNotifications((n) => n.items.length);
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -37,16 +41,18 @@ export function SystemPage() {
   }, []);
   return (
     <>
-      <Group title="Fenêtre" icon="grid">
-        <Row label="Plein écran" note="Au démarrage d'iBox · F11 pour basculer à tout moment">
-          <Toggle checked={s.fullscreen} onChange={(v) => s.set("fullscreen", v)} label="Plein écran" />
-        </Row>
+      <Group title={caps.desktopWindow ? "Fenêtre" : "Éteindre"} icon={caps.desktopWindow ? "grid" : "power"}>
+        {caps.desktopWindow && (
+          <Row label="Plein écran" note="Au démarrage d'iBox · F11 pour basculer à tout moment">
+            <Toggle checked={s.fullscreen} onChange={(v) => s.set("fullscreen", v)} label="Plein écran" />
+          </Row>
+        )}
         <Row label="Confirmer avant de quitter" note="Bouton OFF">
           <Toggle checked={s.confirmQuit !== false} onChange={(v) => s.set("confirmQuit", v)} label="Confirmer avant de quitter" />
         </Row>
       </Group>
-      {/* Mode Jeu du Steam Deck : ni zone de notification, ni fenêtre masquée (Steam gère le premier plan) */}
-      {!platform.gameMode && (
+      {/* Mode Jeu du Steam Deck et Android : ni zone de notification, ni fenêtre masquée (le système gère le premier plan) */}
+      {caps.tray && (
         <Group title="Arrière-plan" icon="power">
           <Row label="S'effacer pendant le jeu" note="La fenêtre se masque au lancement d'un jeu et revient à la fin de la partie">
             <Toggle checked={s.hideOnLaunch} onChange={(v) => s.set("hideOnLaunch", v)} label="S'effacer pendant le jeu" />
@@ -60,36 +66,52 @@ export function SystemPage() {
         <Row label="Demander « Qui joue ? »" note="Choix du profil à chaque ouverture d'iBox">
           <Toggle checked={s.askProfileOnStart} onChange={(v) => s.set("askProfileOnStart", v)} label="Demander qui joue au démarrage" />
         </Row>
-        {!linux && (
+        {caps.autostart && (
           <Row label="Lancer avec Windows" note="iBox s'allume en arrière-plan à l'ouverture de session, sans fenêtre ni musique, et attend dans la zone de notification">
             <AutostartToggle />
           </Row>
         )}
-        {linux && (
+        {caps.steamShortcut && (
           <Row label="Ajouter iBox à Steam" note="iBox apparaît dans votre bibliothèque Steam comme jeu non-Steam, avec ses illustrations, lançable depuis le Mode Jeu. Fermez d'abord Steam (Mode Bureau).">
             <AddToSteamButton />
           </Row>
         )}
-        <Row label="Assistant de configuration" note={linux ? "Dossiers, émulateurs, clés Steam et SteamGridDB" : "Dossiers, émulateurs, clés Steam et SteamGridDB, comportement dans Windows"}>
+        <Row label="Assistant de configuration" note={platform.android ? "Langue, profil et dossiers de jeux" : linux ? "Dossiers, émulateurs, clés Steam et SteamGridDB" : "Dossiers, émulateurs, clés Steam et SteamGridDB, comportement dans Windows"}>
           <Button icon="sparkle" onClick={() => s.set("setupDone", false)}>
             Relancer
           </Button>
         </Row>
       </Group>
-      <Group title="Mises à jour" icon="download">
-        <div className="border-none">
-          <UpdatesPanel />
-        </div>
-      </Group>
+      {caps.autoUpdate && (
+        <Group title="Mises à jour" icon="download">
+          <div className="border-none">
+            <UpdatesPanel />
+          </div>
+        </Group>
+      )}
       <Group title="Diagnostic" icon="search">
-        <Row label="Afficher les performances" note="Un petit panneau en haut à droite : images par seconde et temps d'image, processeur, GPU, mémoire, et pendant Remote Play le ping, le décodage et le débit.">
+        <Row
+          label="Afficher les performances"
+          note={
+            caps.remotePlay
+              ? "Un petit panneau en haut à droite : images par seconde et temps d'image, processeur, GPU, mémoire, et pendant Remote Play le ping, le décodage et le débit."
+              : "Un petit panneau en haut à droite : images par seconde et temps d'image, processeur, GPU et mémoire."
+          }
+        >
           <Toggle checked={s.perfOverlay === true} onChange={(v) => s.set("perfOverlay", v)} label="Afficher les performances" />
         </Row>
       </Group>
       <Group title="Aide" icon="sparkle">
-        <Row label="Rapport de problème" note="Crée sur ce PC un fichier qui décrit votre installation (sans clé ni mot de passe) à joindre à votre message">
-          <DiagnosticButton />
-        </Row>
+        {caps.fileManager && (
+          <Row label="Rapport de problème" note="Crée sur ce PC un fichier qui décrit votre installation (sans clé ni mot de passe) à joindre à votre message">
+            <DiagnosticButton />
+          </Row>
+        )}
+        {(platform.android || import.meta.env.DEV) && (
+          <Row label="Diagnostic de l'appareil" note={`Mesure l'étagère 3D pendant ${SHELF_SECONDS} s, puis essaie la manette deux fois ${PAD_SECONDS} s (Gamepad API, puis relais natif d'Android) ; le rapport est enregistré dans Download, à renvoyer.`}>
+            <Button icon="chip" onClick={() => void runDeviceDiagnostic()}>Lancer le diagnostic</Button>
+          </Row>
+        )}
       </Group>
       <Group title="Notifications" icon="clock">
         <Row label="Notifications" note="Nouveaux jeux, actualisation, images récupérées, erreurs">
@@ -104,8 +126,9 @@ export function SystemPage() {
           </Button>
         </Row>
       </Group>
+      {caps.systemNotifications && <IngameGroup />}
       {/* Steam Deck : Steam fait déjà captures et enregistrements, et les raccourcis globaux n’existent pas sous gamescope */}
-      {!linux && (
+      {caps.capture && (
       <Group title="Overlay en jeu" icon="gamepad">
         <Row label="Overlay de capture" note="À tout moment, son raccourci ouvre l’overlay iBox pour capturer l’écran (clips et Communauté en partie).">
           <Toggle checked={s.captureHotkey !== false} onChange={(v) => s.set("captureHotkey", v)} label="Overlay de capture" />
@@ -177,7 +200,7 @@ export function SystemPage() {
             <div className="font-display text-[1.4rem] font-semibold text-ink">iBox</div>
             {info && <p className="text-[0.85rem] font-semibold text-ink-soft">{`Version ${info.version}`}</p>}
             <p className="mt-2 text-[0.9rem] text-ink-soft">
-              {linux ? "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Steam Deck." : "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Windows."}
+              {platform.android ? "Retrouvez vos jeux de console dans une seule bibliothèque sur Android." : linux ? "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Steam Deck." : "Retrouvez vos jeux PC et console dans une seule bibliothèque sur Windows."}
             </p>
           </div>
         </div>
@@ -258,6 +281,8 @@ export function DuplicatesButton() {
 
 function UpdatesPanel() {
   const { available, notes, installing, progress, error, check, install } = useUpdater();
+  // Android : APK vérifié par sa somme SHA-256, puis installeur d'Android (l'utilisateur confirme)
+  const android = usePlatform((p) => p.android);
   const [state, setState] = useState<{ busy: boolean; info?: UpdateInfo; error?: string }>({ busy: false });
   const lookup = async () => {
     setState({ busy: true });
@@ -277,8 +302,8 @@ function UpdatesPanel() {
     : undefined;
   const status = progress?.stage === "downloading"
     ? percent === undefined ? "Téléchargement de la mise à jour…" : `Téléchargement de la mise à jour… ${percent} %`
-    : progress?.stage === "verifying" ? "Vérification de la signature…"
-    : progress?.stage === "installing" ? "Installation et redémarrage d’iBox…"
+    : progress?.stage === "verifying" ? (android ? "Vérification du fichier…" : "Vérification de la signature…")
+    : progress?.stage === "installing" ? (android ? "Confirmez l’installation dans la fenêtre d’Android…" : "Installation et redémarrage d’iBox…")
     : "Préparation de la mise à jour…";
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -300,9 +325,9 @@ function UpdatesPanel() {
       {version ? (
         <div className="flex flex-col items-end gap-2">
           <Button variant="primary" icon="download" disabled={installing} onClick={() => void install()}>
-            {installing ? "Mise à jour en cours…" : error ? "Réessayer l’installation" : "Installer et redémarrer"}
+            {installing ? "Mise à jour en cours…" : error ? "Réessayer l’installation" : android ? "Installer" : "Installer et redémarrer"}
           </Button>
-          {error && !installing && (
+          {error && !installing && !android && (
             <Button icon="globe" onClick={() => void shellApi.openHelp(HELP.releases)}>Télécharger l’installeur</Button>
           )}
         </div>

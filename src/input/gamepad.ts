@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { useSettings } from "@/services/settings";
+import { usePlatform } from "@/services/platform";
+import { NATIVE_INDEX_BASE, NATIVE_PAD_EVENT, nativePads } from "./nativePad";
+import { attachAndroidInput } from "./android";
 
 /**
  * Manettes (API Gamepad du WebView, disposition « standard »).
@@ -299,13 +302,37 @@ function scrollWithStick(ry: number): void {
 /** Vrai pendant qu'une session Remote Play envoie la manette à l'hôte : iBox ne navigue plus avec. */
 export const padCapture = { active: false };
 
+/** Bouton Retour d'Android : ignoré juste après un B de la manette (Android peut doubler B en Retour). */
+const BACK_ECHO_MS = 300;
+/**
+ * Lecture des manettes, réglée par `services/attention.ts` (qui regarde iBox) :
+ * - `paused` : interface en veille (jeu en cours sans focus, fenêtre masquée) ; plus aucune lecture
+ *   à chaque image pendant la partie, la boucle reprend au réveil ;
+ * - `trustVisible` : Mode Jeu sans jeu en cours. iBox est alors la seule fenêtre à l'écran, ses
+ *   manettes comptent même si gamescope n'a pas rendu le focus à la fenêtre au retour d'un jeu.
+ */
+export const padPolicy = { paused: false, trustVisible: false };
+let wakePads: (() => void) | null = null;
+
+/** Met en pause ou relance la lecture des manettes (veille de l'interface). */
+export function setPadPaused(paused: boolean): void {
+  if (padPolicy.paused === paused) return;
+  padPolicy.paused = paused;
+  if (!paused) wakePads?.();
+}
+
 export function attachGamepads(): () => void {
-  if (typeof navigator === "undefined" || !("getGamepads" in navigator)) return () => undefined;
+  if (typeof navigator === "undefined") return () => undefined;
+  const api = "getGamepads" in navigator;
   const processors = new Map<number, PadProcessor>();
   let frame = 0;
   let running = false;
+  let lastPadBack = 0;
 
-  const connectedPads = () => navigator.getGamepads().filter((p): p is Gamepad => !!p && p.connected);
+  // manettes du navigateur et manettes relayées par Android (nativePad.ts)
+  // (`consume` : lecture de la boucle, qui reçoit aussi les appuis relayés plus brefs qu'une image)
+  const connectedPads = (consume = false) =>
+    [...(api ? navigator.getGamepads() : []), ...nativePads(consume)].filter((p): p is Gamepad => !!p && p.connected);
 
   const refreshInfo = () => {
     const pads = connectedPads();
@@ -323,21 +350,31 @@ export function attachGamepads(): () => void {
   };
 
   const loop = () => {
-    const pads = connectedPads();
+    if (padPolicy.paused) {
+      running = false;
+      return;
+    }
+    const pads = connectedPads(true);
     if (!pads.length) {
       running = false;
       refreshInfo();
       return;
     }
-    if (document.hasFocus() && !padCapture.active) {
+    // manette relayée par Android : ses touches n'arrivent qu'à la fenêtre d'iBox quand elle a le
+    // focus, même si la page ne le sait pas encore (retour de l'écran du bas : D1, ANDROID-RECETTE.md)
+    const focused = document.hasFocus() || padPolicy.trustVisible;
+    const relayed = (pad: Gamepad) => pad.index >= NATIVE_INDEX_BASE;
+    if ((focused || pads.some(relayed)) && !padCapture.active) {
       const players = useGamepad.getState().players;
       for (const pad of pads) {
+        if (!focused && !relayed(pad)) continue;
         const player = players.find((p) => p.index === pad.index);
         let processor = processors.get(pad.index);
         if (!processor) { processor = new PadProcessor(); processors.set(pad.index, processor); }
         const confirm = confirmButton(player?.family ?? detectFamily(pad.id), useSettings.getState().gamepadConfirm);
         const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), values: pad.buttons.map((b) => b.value), axes: [...pad.axes] }, confirm, performance.now());
         if (actions.length) {
+          if (actions.includes("back")) lastPadBack = performance.now();
           useGamepad.setState({ active: true, lastAction: actions[actions.length - 1], lastSlot: player?.slot ?? 1, ...(player ? { family: player.family } : {}) });
           actions.forEach(perform);
         }
@@ -358,21 +395,44 @@ export function attachGamepads(): () => void {
   };
 
   const start = () => {
-    if (refreshInfo() && !running) {
+    if (refreshInfo() && !running && !padPolicy.paused) {
       running = true;
       frame = requestAnimationFrame(loop);
     }
   };
+  wakePads = start;
   const onPointer = () => useGamepad.getState().active && useGamepad.setState({ active: false });
+
+  // Android : relais natif et bouton Retour, branchés dès que la plateforme est connue
+  const onBack = () => {
+    if (padCapture.active || performance.now() - lastPadBack < BACK_ECHO_MS) return;
+    perform("back");
+  };
+  let detachAndroid: (() => void) | null = null;
+  const watchPlatform = () => {
+    if (usePlatform.getState().android && !detachAndroid) detachAndroid = attachAndroidInput(onBack);
+  };
+  const offPlatform = usePlatform.subscribe(watchPlatform);
+  // un état relayé ne relance la boucle que si elle dort ; une arrivée ou un départ met à jour les joueurs
+  const onNative = (e: Event) => {
+    if (!running || (e as CustomEvent<{ changed?: boolean } | undefined>).detail?.changed !== false) start();
+  };
+  watchPlatform();
 
   window.addEventListener("gamepadconnected", start);
   window.addEventListener("gamepaddisconnected", refreshInfo);
+  window.addEventListener(NATIVE_PAD_EVENT, onNative);
   window.addEventListener("pointermove", onPointer, { passive: true });
   start();
   return () => {
     cancelAnimationFrame(frame);
+    running = false;
+    wakePads = null;
+    offPlatform();
+    detachAndroid?.();
     window.removeEventListener("gamepadconnected", start);
     window.removeEventListener("gamepaddisconnected", refreshInfo);
+    window.removeEventListener(NATIVE_PAD_EVENT, onNative);
     window.removeEventListener("pointermove", onPointer);
   };
 }

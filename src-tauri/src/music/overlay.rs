@@ -14,6 +14,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+#[cfg(mobile)]
+use crate::mobile::DesktopWindow;
 
 pub const LABEL: &str = "music";
 /// Durée de maintien du combo manette.
@@ -226,6 +228,13 @@ fn has_focus() -> bool {
     true
 }
 
+/// Android : pas de panneau musique flottant (une seule fenêtre).
+#[cfg(mobile)]
+fn window(_: &AppHandle) -> Option<tauri::WebviewWindow> {
+    None
+}
+
+#[cfg(desktop)]
 fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(LABEL) {
         return Some(w);

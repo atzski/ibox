@@ -127,9 +127,36 @@ export async function deleteProfile(id: string): Promise<void> {
   }
 }
 
+/** Rechargement pour changer de langue : le joueur choisi le reste (clé de `sessionStorage`). */
+const KEEP_CHOICE = "ibox.reload.profileChosen";
+
+function choiceKept(): boolean {
+  try {
+    const kept = sessionStorage.getItem(KEEP_CHOICE) === "1";
+    sessionStorage.removeItem(KEEP_CHOICE);
+    return kept;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Recharge la fenêtre pour changer de langue (la traduction repart du français). Ce n'est pas
+ * une nouvelle ouverture d'iBox : « Qui joue ? » ne revient pas par-dessus l'écran (D19,
+ * docs/ANDROID-RECETTE.md).
+ */
+export function reloadForLanguage(delayMs = 150): void {
+  try {
+    if (useSession.getState().chosen) sessionStorage.setItem(KEEP_CHOICE, "1");
+  } catch {
+    /* stockage indisponible : « Qui joue ? » reviendra, comme avant */
+  }
+  window.setTimeout(() => window.location.reload(), delayMs);
+}
+
 /** Session : le profil a été choisi pour ce lancement d'iBox. */
 export const useSession = create<{ chosen: boolean; forced: boolean; choose: () => void; reset: () => void }>((set) => ({
-  chosen: false,
+  chosen: typeof sessionStorage !== "undefined" && choiceKept(),
   /** « Qui joue ? » demandé à la main (même si l'écran est désactivé au démarrage). */
   forced: false,
   choose: () => set({ chosen: true, forced: false }),

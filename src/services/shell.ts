@@ -35,7 +35,7 @@ export type UpdateProgress =
   | { stage: "checking" | "verifying" | "installing" }
   | { stage: "downloading"; received: number; total: number | null };
 
-type NativeProgress = UpdateProgress | { stage: "failed"; message: string } | { stage: "upToDate" };
+type NativeProgress = UpdateProgress | { stage: "failed"; message: string } | { stage: "upToDate" } | { stage: "handedOver" };
 
 /** Sans nouvelle étape pendant ce délai, l'installation est considérée comme bloquée. */
 const STALL_MS = 90_000;
@@ -70,6 +70,8 @@ export const shellApi = {
       void listen<NativeProgress>("update://progress", ({ payload }) => {
         if (payload.stage === "failed") return finish(new Error(payload.message));
         if (payload.stage === "upToDate") return finish();
+        // Android : l'installeur d'Android a pris le relais (il remplace iBox si l'utilisateur accepte)
+        if (payload.stage === "handedOver") return finish();
         arm();
         onProgress(payload);
         // l'installeur prend le relais : iBox va se fermer puis redémarrer

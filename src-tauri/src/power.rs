@@ -46,7 +46,17 @@ pub fn read_sysfs(root: &Path) -> PowerStatus {
     out
 }
 
+/// Android : la batterie vient du plugin (`DeviceState.kt`), relayée par l'interface
+/// (`power_report`). `/sys/class/power_supply` y est fermé par SELinux : le lire toutes les 10 s
+/// (pouls iNetbox) remplissait `logcat` de refus (D13, docs/ANDROID-RECETTE.md).
+#[cfg(target_os = "android")]
+static REPORTED: std::sync::Mutex<PowerStatus> = std::sync::Mutex::new(PowerStatus { on_battery: false, percent: None });
+
 pub fn status() -> PowerStatus {
+    #[cfg(target_os = "android")]
+    {
+        REPORTED.lock().map(|s| *s).unwrap_or_default()
+    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
@@ -57,7 +67,7 @@ pub fn status() -> PowerStatus {
         let has_battery = s.BatteryFlag != 255 && s.BatteryFlag & 128 == 0;
         PowerStatus { on_battery: has_battery && s.ACLineStatus == 0, percent: (has_battery && s.BatteryLifePercent <= 100).then_some(s.BatteryLifePercent) }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "android")))]
     {
         read_sysfs(Path::new("/sys/class/power_supply"))
     }
@@ -68,9 +78,28 @@ pub fn power_status() -> PowerStatus {
     status()
 }
 
-/// Intervalle du pouls iNetbox : 10 s sur secteur, 30 s sur batterie.
-pub fn pulse_interval(on_battery: bool) -> Duration {
-    Duration::from_secs(if on_battery { 30 } else { 10 })
+/// Android : l'interface transmet l'état de la batterie reçu du plugin (sans effet ailleurs).
+#[tauri::command]
+pub fn power_report(on_battery: bool, percent: Option<u8>) {
+    #[cfg(target_os = "android")]
+    if let Ok(mut s) = REPORTED.lock() {
+        *s = PowerStatus { on_battery, percent };
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = (on_battery, percent);
+}
+
+/// Intervalle du pouls iNetbox : 10 s sur secteur, 30 s sur batterie, 45 s pendant une partie
+/// sur batterie (consoles portables, docs/HANDHELD.md). Le serveur efface une présence restée
+/// 90 s sans pouls : 45 s en laisse passer deux par fenêtre, un pouls perdu ne fait pas
+/// paraître le joueur hors ligne. Lancement et fin de partie envoient leur pouls tout de suite
+/// (interface, `inetbox.ts`) : les amis voient le jeu sans attendre.
+pub fn pulse_interval(on_battery: bool, playing: bool) -> Duration {
+    Duration::from_secs(match (on_battery, playing) {
+        (false, _) => 10,
+        (true, false) => 30,
+        (true, true) => 45,
+    })
 }
 
 /// Repère une mise en veille entre deux passages : le temps réel a avancé bien plus que
@@ -127,7 +156,11 @@ mod tests {
         supply(d.path(), "AC", &[("type", "Mains"), ("online", "1")]);
         assert_eq!(read_sysfs(d.path()), PowerStatus::default());
         assert_eq!(read_sysfs(Path::new("/nonexistent")), PowerStatus::default());
-        assert_eq!(pulse_interval(true), Duration::from_secs(30));
+        assert_eq!(pulse_interval(false, true), Duration::from_secs(10));
+        assert_eq!(pulse_interval(true, false), Duration::from_secs(30));
+        // en partie sur batterie : espacé, mais toujours deux pouls avant l'effacement (90 s)
+        assert_eq!(pulse_interval(true, true), Duration::from_secs(45));
+        assert!(pulse_interval(true, true) * 2 <= Duration::from_secs(90));
     }
 
     #[test]

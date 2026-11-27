@@ -376,10 +376,11 @@ pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         let mut watch = crate::power::SleepWatch::default();
         loop {
-            // toutes les 10 s (30 s sur batterie) : messages et activité des amis arrivent vite
-            // (présence envoyée au plus toutes les 20 s)
+            // toutes les 10 s (30 s sur batterie, 45 s en partie sur batterie) : messages et
+            // activité des amis arrivent vite (présence envoyée au plus toutes les 20 s)
             let on_battery = crate::power::status().on_battery;
-            std::thread::sleep(crate::power::pulse_interval(on_battery));
+            let playing = app.try_state::<crate::launcher::commands::LauncherState>().is_some_and(|s| s.running.lock().is_ok_and(|r| r.is_some()));
+            std::thread::sleep(crate::power::pulse_interval(on_battery, playing));
             // sortie de veille (Steam Deck) : l'interface reprend ses veilles, le pouls part aussitôt
             if watch.check(Duration::from_secs(20)) {
                 let _ = app.emit("system-resumed", ());

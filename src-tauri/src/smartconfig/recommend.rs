@@ -22,6 +22,7 @@
 use super::adapters::Adapter;
 use super::hardware::{classify, GpuVendor, HardwareInfo, Tier};
 use super::model::*;
+use super::providers::emuready::{DeviceHint, DeviceMatch};
 use super::validation::{self, Risk, Validated};
 use serde::Serialize;
 
@@ -103,6 +104,9 @@ pub struct Recommendation {
     pub auto_eligible: bool,
     /// Votre propre retour sur ce profil pour ce jeu, s'il y en a un.
     pub local: Option<LocalVerdict>,
+    /// Android : rapport venu de votre appareil ou d'un appareil à la même puce.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device: Option<DeviceMatch>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
@@ -201,6 +205,25 @@ pub fn evaluate(adapter: &dyn Adapter, p: &Profile, ctx: &Context) -> Recommenda
             similar += 1;
         }
     }
+    // Android : votre appareil (marque et modèle exacts), sinon votre puce, d'après la source
+    let device = ctx.hw.android.as_ref().and_then(|d| {
+        let hint = DeviceHint::new(d.manufacturer.as_deref(), d.model.as_deref(), d.soc_name.as_deref().or(d.soc_code.as_deref()));
+        match hint.classify(p.hardware.label.as_deref(), p.hardware.cpu.as_deref()) {
+            DeviceMatch::Other => None,
+            m => Some(m),
+        }
+    });
+    match device {
+        Some(DeviceMatch::SameDevice) => {
+            add(format!("Essayé sur le même appareil que le vôtre ({}).", p.hardware.label.as_deref().unwrap_or_default()), 15);
+            similar += 2;
+        }
+        Some(DeviceMatch::SameSoc) => {
+            add(format!("Essayé sur un appareil à la même puce ({}).", p.hardware.cpu.as_deref().unwrap_or_default()), 10);
+            similar += 1;
+        }
+        _ => {}
+    }
     let foreign = same_arch == Some(false) || same_os == Some(false);
     if foreign {
         add("Testé sur un autre type d'appareil (architecture ou système différents).".into(), -10);
@@ -284,7 +307,7 @@ pub fn evaluate(adapter: &dyn Adapter, p: &Profile, ctx: &Context) -> Recommenda
         && max_risk.is_some_and(|r| r == Risk::Low)
         && rank.is_some_and(|r| r <= 2)
         && local.is_none_or(|(v, _)| v == LocalVerdict::Worked);
-    Recommendation { profile: p.clone(), kind, score, mode, validated, max_risk, reasons, auto_eligible, local: local.map(|(v, _)| v) }
+    Recommendation { profile: p.clone(), kind, score, mode, validated, max_risk, reasons, auto_eligible, local: local.map(|(v, _)| v), device }
 }
 
 pub fn recommend(adapter: &dyn Adapter, profiles: &[Profile], ctx: &Context) -> Outcome {
@@ -336,6 +359,7 @@ mod tests {
             hardware: ReferenceHardware { os: Some("windows".into()), arch: Some("x86_64".into()), gpu: Some("NVIDIA GeForce RTX 3060".into()), ..Default::default() },
             performance: Some(ReportedPerformance { label: "Perfect".into(), rank, scale: 8 }),
             settings,
+            labels: vec![],
             ignored: vec![],
             notes: None,
             votes_up: 0,

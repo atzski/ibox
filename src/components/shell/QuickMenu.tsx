@@ -11,6 +11,7 @@ import { normalizeBlocks } from "@/services/homeLayout";
 import { sound } from "@/services/sound";
 import { PadGlyph, type PadKey } from "./PadGlyph";
 import { PadKeyboard } from "./PadKeyboard";
+import { useCapabilities, useCapability, type Capability } from "@/services/capabilities";
 
 /** Toutes les commandes d'iBox : bouton(s) de manette, touche(s) clavier, effet. */
 export const CONTROLS: { pad: PadKey[]; keys: string; label: string }[] = [
@@ -31,6 +32,8 @@ export const CONTROLS: { pad: PadKey[]; keys: string; label: string }[] = [
 
 /** Aide-mémoire des commandes, avec les boutons de la manette branchée. */
 export function ControlsSheet({ family, side, compact = false }: { family: PadFamily; side: ConfirmSide; compact?: boolean }) {
+  // Android : ni clavier ni souris, les touches ne sont pas rappelées
+  const keyboard = useCapability("keyboard");
   return (
     <div className={`grid gap-1.5 ${compact ? "" : "sm:grid-cols-2"}`}>
       {CONTROLS.map((c) => (
@@ -39,20 +42,20 @@ export function ControlsSheet({ family, side, compact = false }: { family: PadFa
             {c.pad.map((k) => <PadGlyph key={k} k={k} family={family} side={side} size={compact ? 24 : 28} />)}
           </span>
           <span className="min-w-0 flex-1 text-[0.86rem] font-semibold text-ink">{c.label}</span>
-          <kbd className="shrink-0 rounded-md bg-white px-2 py-0.5 font-body text-[0.7rem] font-extrabold text-ink-soft shadow-xs">{c.keys}</kbd>
+          {keyboard && <kbd className="shrink-0 rounded-md bg-white px-2 py-0.5 font-body text-[0.7rem] font-extrabold text-ink-soft shadow-xs">{c.keys}</kbd>}
         </div>
       ))}
     </div>
   );
 }
 
-const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "search" | "draw" }[] = [
+const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "search" | "draw"; needs?: Capability }[] = [
   { label: "Accueil", icon: "home", route: { name: "home" } },
   { label: "Toute la collection", icon: "shelf", route: { name: "library", platformId: "all" } },
-  { label: "iBox Platforms", icon: "gamepad", route: { name: "platforms" } },
+  { label: "iBox Platforms", icon: "gamepad", route: { name: "platforms" }, needs: "platforms" },
   { label: "Succès", icon: "trophy", route: { name: "achievements" } },
   { label: "Communauté", icon: "chat", route: { name: "community" } },
-  { label: "SmartConfig", icon: "tune", route: { name: "smartconfig" } },
+  { label: "SmartConfig", icon: "tune", route: { name: "smartconfig" }, needs: "smartConfig" },
   { label: "Au hasard", icon: "dice", action: "draw" },
   { label: "Recherche", icon: "search", action: "search" },
   { label: "Paramètres", icon: "gear", route: { name: "settings" } },
@@ -60,6 +63,7 @@ const DESTINATIONS: { label: string; icon: IconName; route?: Route; action?: "se
 
 /** Menu rapide (Start / F1) : aller partout en deux appuis, et l'aide des commandes. */
 function QuickMenu({ onClose }: { onClose: () => void }) {
+  const caps = useCapabilities();
   const { family, connected } = useGamepad();
   const side = useSettings((s) => s.gamepadConfirm);
   const route = useRoute();
@@ -81,7 +85,7 @@ function QuickMenu({ onClose }: { onClose: () => void }) {
     <Modal title="Menu" subtitle={connected ? "Start ou B pour fermer" : "F1 ou Échap pour fermer"} width="58rem" onClose={onClose}>
       <div className="grid grid-cols-[16rem_minmax(0,1fr)] gap-6">
         <nav data-nav-group="quick-menu" aria-label="Aller à" className="flex flex-col gap-1.5">
-          {DESTINATIONS.map((d, i) => {
+          {DESTINATIONS.filter((d) => !d.needs || caps[d.needs]).map((d, i) => {
             const here = d.route?.name === route.name;
             return (
               <button key={d.label} data-focusable data-autofocus={i === 0 || undefined} onClick={() => open(d)}

@@ -35,18 +35,77 @@ pub struct Emulator {
     pub version: Option<String>,
 }
 
-/// Vérifie qu'un chemin désigne bien un exécutable Windows existant.
-/// Seuls les .exe sont acceptés (pas de .bat/.cmd, interprétés par cmd.exe).
+/// Vérifie qu'un chemin désigne un programme que le système sait lancer.
+/// - Windows : un `.exe` existant (pas de .bat/.cmd, interprétés par cmd.exe) ;
+/// - Linux (Steam Deck) : un fichier exécutable : AppImage (rendue exécutable au besoin, comme le
+///   fait le gestionnaire de fichiers), lanceur Flatpak de `exports/bin`, programme natif ; un nom
+///   seul (`xdg-open` des jeux PC) est cherché dans le PATH. Avant la 1.0.29, seuls les `.exe`
+///   passaient : aucun émulateur ni jeu PC ne se lançait sous Linux.
 pub fn validate_exe(path: &str) -> Result<PathBuf> {
+    #[cfg(unix)]
+    {
+        unix_program(path)
+    }
+    #[cfg(not(unix))]
+    {
+        let p = Path::new(path);
+        let is_exe = p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("exe"));
+        if !is_exe {
+            return Err(LaunchError::NotAnExe(path.into()));
+        }
+        if !p.is_file() {
+            return Err(LaunchError::ExeMissing(path.into()));
+        }
+        Ok(p.to_path_buf())
+    }
+}
+
+#[cfg(unix)]
+fn is_executable(p: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    // `metadata` suit les liens symboliques (lanceurs Flatpak de `exports/bin`)
+    p.metadata().is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(unix)]
+fn unix_program(path: &str) -> Result<PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
     let p = Path::new(path);
-    let is_exe = p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("exe"));
-    if !is_exe {
-        return Err(LaunchError::NotAnExe(path.into()));
+    // nom seul : programme du système, cherché dans le PATH
+    if !path.contains('/') {
+        return std::env::var_os("PATH")
+            .and_then(|dirs| std::env::split_paths(&dirs).map(|d| d.join(p)).find(|c| is_executable(c)))
+            .ok_or_else(|| LaunchError::ExeMissing(path.into()));
     }
     if !p.is_file() {
         return Err(LaunchError::ExeMissing(path.into()));
     }
-    Ok(p.to_path_buf())
+    if is_executable(p) {
+        return Ok(p.to_path_buf());
+    }
+    // AppImage téléchargée sans le droit d'exécution : on le lui donne, comme Discover ou Dolphin
+    let appimage = p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("appimage"));
+    if appimage {
+        if let Ok(meta) = p.metadata() {
+            let mut perms = meta.permissions();
+            perms.set_mode(perms.mode() | 0o111);
+            if std::fs::set_permissions(p, perms).is_ok() && is_executable(p) {
+                return Ok(p.to_path_buf());
+            }
+        }
+    }
+    Err(LaunchError::NotExecutable(path.into()))
+}
+
+/// Chemin enregistré d'un émulateur. Sous Windows, forme stable (sans `\\?\`) ; ailleurs, le chemin
+/// tel quel : résoudre le lien d'un lanceur Flatpak (`exports/bin`) mènerait au binaire rangé
+/// dans le Flatpak, qu'on ne peut pas lancer hors de son bac à sable.
+fn stored_path(exe: &Path) -> String {
+    if cfg!(windows) {
+        crate::library::repo::display_path(exe)
+    } else {
+        exe.to_string_lossy().to_string()
+    }
 }
 
 fn read(conn: &Connection, id: i64) -> Result<Emulator> {
@@ -99,8 +158,8 @@ pub fn add(conn: &Connection, exe_path: &str) -> Result<Emulator> {
     } else {
         profile.name.to_string()
     };
-    // forme Windows stable (séparateurs « \ », chemin complet)
-    let shown = crate::library::repo::display_path(&exe);
+    // forme stable du chemin (voir `stored_path` : jamais le binaire caché d'un Flatpak)
+    let shown = stored_path(&exe);
     let exists: Option<i64> = conn.query_row("SELECT id FROM emulators WHERE exe_path = ?1", [&shown], |r| r.get(0)).optional()?;
     if let Some(id) = exists {
         return read(conn, id);
@@ -353,6 +412,12 @@ mod tests {
         let exe = tmp.path().join("Dolphin-x64").join("Dolphin.exe");
         fs::create_dir_all(exe.parent().unwrap()).unwrap();
         fs::write(&exe, b"MZ").unwrap();
+        // Linux (CI, Steam Deck) : un programme doit avoir le droit d'exécution
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
+        }
         let rom = tmp.path().join("Pikmin (Europe).iso");
         fs::write(&rom, b"x").unwrap();
         let conn = db::open_in_memory().unwrap();
@@ -389,6 +454,11 @@ mod tests {
         add(&conn, exe.to_str().unwrap()).unwrap();
         let other = tmp.path().join("Mon émulateur.exe");
         fs::write(&other, b"MZ").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&other, fs::Permissions::from_mode(0o755)).unwrap();
+        }
         let custom = add(&conn, other.to_str().unwrap()).unwrap();
         assert_eq!((custom.profile_id.as_str(), custom.name.as_str()), ("custom", "Mon émulateur"));
         set_game(&conn, 1, Some(custom.id)).unwrap();
@@ -402,7 +472,7 @@ mod tests {
         let (tmp, conn, exe, rom) = setup();
         let bat = tmp.path().join("lance.bat");
         fs::write(&bat, b"echo").unwrap();
-        assert!(matches!(add(&conn, bat.to_str().unwrap()), Err(LaunchError::NotAnExe(_))));
+        assert!(matches!(add(&conn, bat.to_str().unwrap()), Err(LaunchError::NotAnExe(_) | LaunchError::NotExecutable(_))));
         assert!(matches!(add(&conn, "C:/introuvable/Dolphin.exe"), Err(LaunchError::ExeMissing(_))));
         let emu = add(&conn, exe.to_str().unwrap()).unwrap();
         assert!(update(&conn, emu.id, "D", &["-e".into()], true, &BTreeMap::new()).is_err());
@@ -415,5 +485,38 @@ mod tests {
         fs::write(&rom, b"x").unwrap();
         fs::remove_file(&exe).unwrap();
         assert!(matches!(plan(&conn, 1), Err(LaunchError::ExeMissing(_))));
+    }
+
+    /// Linux : AppImage, lanceur Flatpak (lien de `exports/bin`) et programme du PATH sont acceptés ;
+    /// un fichier sans droit d'exécution qui n'est pas une AppImage est refusé.
+    #[cfg(unix)]
+    #[test]
+    fn programmes_linux() {
+        use std::os::unix::fs::PermissionsExt;
+        let (tmp, conn, _exe, _rom) = setup();
+        // AppImage téléchargée sans droit d'exécution : rendue exécutable
+        let appimage = tmp.path().join("PCSX2-v2.2.AppImage");
+        fs::write(&appimage, b"\x7fELF").unwrap();
+        fs::set_permissions(&appimage, fs::Permissions::from_mode(0o644)).unwrap();
+        let emu = add(&conn, appimage.to_str().unwrap()).unwrap();
+        assert_eq!(emu.exe_path, appimage.to_string_lossy());
+        assert!(fs::metadata(&appimage).unwrap().permissions().mode() & 0o111 != 0);
+        // lanceur Flatpak : le lien est gardé tel quel, jamais le binaire caché du Flatpak
+        let real = tmp.path().join("flatpak/app/org.DolphinEmu.dolphin-emu/files/bin/dolphin-emu");
+        fs::create_dir_all(real.parent().unwrap()).unwrap();
+        fs::write(&real, b"#!/bin/sh").unwrap();
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o755)).unwrap();
+        let bin = tmp.path().join("flatpak/exports/bin");
+        fs::create_dir_all(&bin).unwrap();
+        let link = bin.join("org.DolphinEmu.dolphin-emu");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert_eq!(add(&conn, link.to_str().unwrap()).unwrap().exe_path, link.to_string_lossy());
+        // un document n'est pas un programme
+        let doc = tmp.path().join("notes.txt");
+        fs::write(&doc, b"x").unwrap();
+        assert!(matches!(add(&conn, doc.to_str().unwrap()), Err(LaunchError::NotExecutable(_))));
+        // nom seul : cherché dans le PATH (`sh` existe partout)
+        assert!(validate_exe("sh").unwrap().is_absolute());
+        assert!(matches!(validate_exe("ibox-programme-inexistant"), Err(LaunchError::ExeMissing(_))));
     }
 }

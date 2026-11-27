@@ -79,6 +79,10 @@ pub fn toggle(app: &AppHandle) {
 
 /// Ouvre le panneau sur tout l'écran principal. La fenêtre se crée par la boucle
 /// d'événements depuis un autre fil (jamais dans une commande).
+#[cfg(mobile)]
+fn show(_: &AppHandle, _: &Active) {}
+
+#[cfg(desktop)]
 fn show(app: &AppHandle, a: &Active) {
     let Some(entry) = a.manifest.overlay.as_ref().and_then(|o| o.entry.clone()) else { return };
     // l'image du jeu est figée avant que le panneau ne la couvre (capture d'écran à garder)

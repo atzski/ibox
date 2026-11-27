@@ -2296,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "ibox"
-version = "1.0.28"
+version = "1.0.29"
 dependencies = [
  "base64 0.22.1",
  "crc32fast",
@@ -2304,15 +2304,19 @@ dependencies = [
  "getrandom 0.3.4",
  "gif",
  "imagesize",
+ "jni 0.22.4",
  "jpeg-encoder",
  "keyring-core",
  "libc",
  "lzma-rust2",
  "minisign-verify 0.2.5",
+ "ndk-context",
  "opus-rs",
  "png",
  "reqwest",
  "rusqlite",
+ "rustls",
+ "rustls-platform-verifier",
  "serde",
  "serde_json",
  "sevenz-rust2",
@@ -2324,6 +2328,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-autostart",
  "tauri-plugin-dialog",
+ "tauri-plugin-ibox-android",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tempfile",
@@ -4228,6 +4233,7 @@ version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -5365,6 +5371,17 @@ dependencies = [
  "thiserror 2.0.21",
  "toml 1.2.1+spec-1.1.0",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-ibox-android"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

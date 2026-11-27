@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { EASE, SPRING } from "@/motion/tokens";
 import { HomeBackgroundPicker } from "@/components/home/HomeBackgroundPicker";
 import { HomeQuickBar } from "@/components/home/HomeQuickBar";
@@ -20,7 +21,7 @@ import { useLauncher } from "@/services/launcher";
 import { usePlayState } from "@/components/library/PlayControls";
 import { CoverImage } from "@/components/game/CoverImage";
 import { getArtUrl } from "@/art/covers";
-import { useMediaUrl } from "@/art/useMediaUrl";
+import { hasMedia, useMediaUrl } from "@/art/useMediaUrl";
 import { GameCard } from "@/components/game/GameCard";
 import { PlatformCard } from "@/components/platform/PlatformCard";
 import { PlatformGlyph } from "@/components/platform/PlatformGlyph";
@@ -33,6 +34,7 @@ import { sound } from "@/services/sound";
 import { useOffscreenPause } from "@/motion/offscreen";
 import { interfaceAsleep, usePerformanceMode } from "@/services/performance";
 import { useSoftenedImage } from "@/art/soften";
+import { platformOnDevice } from "@/services/capabilities";
 
 export function HomeScreen() {
   const savedBlocks = useSettings((s) => s.homeBlocks);
@@ -90,7 +92,7 @@ export function HomeScreen() {
   const last = lastPlayed(games);
   const counts = useMemo(() => countByPlatform(games), [games]);
   const platforms = useMemo(
-    () => [...PLATFORMS].sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0)),
+    () => PLATFORMS.filter((p) => platformOnDevice(p.id)).sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0)),
     [counts],
   );
   const recent = recentlyAdded(games);
@@ -372,7 +374,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
   // mode performance : jaquette adoucie une fois (bitmap réduit) au lieu d'un filtre de flou animé
   const lite = usePerformanceMode();
   const softCover = useSoftenedImage(lite && !hero ? cover : null, 5, 1, 340);
-  const deep =`color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`;
+  const deep =compat(`color-mix(in oklab, ${platform.theme.deep} 82%, #0f1420)`);
 
   return (
     <motion.section
@@ -408,7 +410,7 @@ function LastAdventureTile({ game, label }: { game: Game; label: string }) {
           </motion.div>
         )}
         {/* voile léger : l'image reste bien visible, une ombre neutre en bas garde le texte lisible */}
-        <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${deep} 12%, transparent) 0%, color-mix(in oklab, ${deep} 28%, transparent) 45%, color-mix(in oklab, ${deep} 62%, transparent) 100%)` }} />
+        <div className="absolute inset-0" style={{ background: compat(`linear-gradient(180deg, color-mix(in oklab, ${deep} 12%, transparent) 0%, color-mix(in oklab, ${deep} 28%, transparent) 45%, color-mix(in oklab, ${deep} 62%, transparent) 100%)`) }} />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18)_0%,transparent_30%,rgba(0,0,0,0.38)_100%)]" />
       </div>
 
@@ -556,8 +558,12 @@ function useRandomHeroGame(games: Game[], active: boolean): Game | null {
   // de préférence un jeu avec une grande illustration ; sinon n'importe lequel (sa jaquette servira)
   const pool = useMemo(() => {
     const real = games.filter((g) => !g.isDemo);
-    const heroes = real.filter((g) => (g.media ?? []).some((m) => m.kind === "hero"));
-    return heroes.length > 0 ? heroes : real;
+    const heroes = real.filter((g) => hasMedia(g, "hero"));
+    if (heroes.length > 0) return heroes;
+    // sans grande illustration, la jaquette d'une application Android n'est qu'une grosse icône :
+    // les autres jeux d'abord
+    const covers = real.filter((g) => g.platformId !== "android");
+    return covers.length > 0 ? covers : real;
   }, [games]);
   const [id, setId] = useState<string | null>(null);
   const ready = pool.length > 0;
@@ -579,7 +585,7 @@ function CollectionShowcase({ games, paused = false, onOpen }: { games: Game[]; 
   const [featuredCover, setFeaturedCover] = useState<string | null>(null);
   useEffect(() => {
     setFeaturedCover(null);
-    if (!featured || (featured.media ?? []).some((m) => m.kind === "hero")) return;
+    if (!featured || hasMedia(featured, "hero")) return;
     let alive = true;
     getArtUrl(featured, "front").then((u) => alive && setFeaturedCover(u)).catch(() => undefined);
     return () => { alive = false; };

@@ -183,6 +183,7 @@ impl Adapter for Ppsspp {
             match SPECS.iter().find(|p| p.key == k)?.kind {
                 Kind::Bool => common::parse_bool(&s).map(Value::Bool),
                 Kind::Int { .. } => s.parse().ok().map(Value::Int),
+                Kind::Text => None,
                 Kind::Choice(_) => choice_of(k, s.parse().ok()?).map(|c| Value::Choice(c.into())),
             }
         })

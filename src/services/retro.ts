@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { batteryAware, RESUMED } from "./power";
 import { isTauri } from "./native";
 import { useSettings } from "./settings";
-import { notify } from "./notifications";
+import { notify, useNotifications } from "./notifications";
+import { usePlatform } from "./platform";
 import { RA_SYSTEM, matchRaProgress, syncRaProgress } from "./achievementProgress";
 import type { Game } from "@/domain/types";
 
@@ -180,6 +181,21 @@ function awardKind(type: string, extra: unknown): RaAward["kind"] {
   return "other";
 }
 
+/** Un succès de `API_GetUserRecentAchievements` (aussi la veille native d'Android, `ra-live`). */
+export const parseRecent = (a: Json): RaRecent => ({
+  id: num(a.AchievementID),
+  title: str(a.Title),
+  description: str(a.Description),
+  points: num(a.Points),
+  badge: opt(a.BadgeName),
+  date: str(a.Date),
+  hardcore: num(a.HardcoreMode) === 1,
+  gameId: num(a.GameID),
+  gameTitle: str(a.GameTitle),
+  gameIcon: raMedia(opt(a.GameIcon)),
+  console: opt(a.ConsoleName),
+});
+
 export const raApi = {
   profile: (user: string, force = false) =>
     cached(`profile|${user}`, 120_000, async (): Promise<RaProfile> => {
@@ -227,19 +243,7 @@ export const raApi = {
   recent: (user: string, minutes = 60 * 24 * 30, force = false) =>
     cached(`recent|${user}|${minutes}`, 60_000, async (): Promise<RaRecent[]> => {
       const rows = await call<Json[]>("API_GetUserRecentAchievements", { u: user, m: Math.min(minutes, 60 * 24 * 90) });
-      return (Array.isArray(rows) ? rows : []).map((a) => ({
-        id: num(a.AchievementID),
-        title: str(a.Title),
-        description: str(a.Description),
-        points: num(a.Points),
-        badge: opt(a.BadgeName),
-        date: str(a.Date),
-        hardcore: num(a.HardcoreMode) === 1,
-        gameId: num(a.GameID),
-        gameTitle: str(a.GameTitle),
-        gameIcon: raMedia(opt(a.GameIcon)),
-        console: opt(a.ConsoleName),
-      }));
+      return (Array.isArray(rows) ? rows : []).map(parseRecent);
     }, force),
 
   awards: (user: string, force = false) =>
@@ -333,6 +337,24 @@ interface LiveState {
 export const useRaLive = create<LiveState>(() => ({ unlocked: [] }));
 
 /**
+ * Annonce d'un succès débloqué. `quiet` (Android, iBox derrière l'émulateur) : rangé dans le
+ * centre de notifications sans son ni carte, la notification Android étant partie de Rust.
+ */
+function announce(a: RaRecent, quiet = false) {
+  useRaLive.setState((s) => ({ unlocked: [a, ...s.unlocked].slice(0, 50), last: a }));
+  const n = {
+    icon: "trophy" as const,
+    tone: "ok" as const,
+    title: `Succès débloqué : ${a.title}`,
+    body: `${a.gameTitle} · ${a.points} point${a.points > 1 ? "s" : ""}${a.hardcore ? " · Hardcore" : ""}`,
+    image: raBadge(a.badge),
+    link: { kind: "achievements" as const, gameId: `ra-${a.gameId}` },
+  };
+  if (quiet) useNotifications.getState().push(n);
+  else notify(n);
+}
+
+/**
  * Pendant une partie (et quelques minutes après), iBox regarde les succès débloqués :
  * chacun est annoncé par une notification cliquable, affichée par-dessus le jeu.
  */
@@ -345,23 +367,15 @@ export function startRaWatch(isPlaying: () => boolean, onPlayingChange: (fn: (pl
   const tick = async () => {
     const user = useSettings.getState().raUsername;
     if (!user || !isTauri()) return;
+    // Android : la veille est native pendant la partie (android_ingame.rs), annoncée par `ra-live`
+    if (usePlatform.getState().android) return;
     if (!isPlaying() && Date.now() - lastPlay > 5 * 60_000) return;
     try {
       const rows = await raApi.recent(user, 30, true);
       const fresh = rows.filter((r) => !seen.has(r.id));
       rows.forEach((r) => seen.add(r.id));
       if (!primed) { primed = true; return; }
-      for (const a of fresh.slice(0, 5).reverse()) {
-        useRaLive.setState((s) => ({ unlocked: [a, ...s.unlocked].slice(0, 50), last: a }));
-        notify({
-          icon: "trophy",
-          tone: "ok",
-          title: `Succès débloqué : ${a.title}`,
-          body: `${a.gameTitle} · ${a.points} point${a.points > 1 ? "s" : ""}${a.hardcore ? " · Hardcore" : ""}`,
-          image: raBadge(a.badge),
-          link: { kind: "achievements", gameId: `ra-${a.gameId}` },
-        });
-      }
+      for (const a of fresh.slice(0, 5).reverse()) announce(a);
       if (fresh.length) clearRaCache();
     } catch {
       /* hors ligne ou clé absente : on réessaiera */
@@ -388,5 +402,17 @@ export function startRaWatch(isPlaying: () => boolean, onPlayingChange: (fn: (pl
     }
   });
   schedule();
-  return () => { window.clearTimeout(timer); window.removeEventListener(RESUMED, onResume); off(); };
+  // Android : succès vus par la veille native (même iBox derrière l'émulateur)
+  let offLive: (() => void) | undefined;
+  let closed = false;
+  if (isTauri()) {
+    void import("@tauri-apps/api/event").then(({ listen }) => listen<Json>("ra-live", (e) => {
+      const a = parseRecent(e.payload);
+      if (!a.id || seen.has(a.id)) return;
+      seen.add(a.id);
+      announce(a, document.visibilityState !== "visible");
+      clearRaCache();
+    })).then((un) => { if (closed) un(); else offLive = un; }).catch(() => undefined);
+  }
+  return () => { closed = true; window.clearTimeout(timer); window.removeEventListener(RESUMED, onResume); off(); offLive?.(); };
 }

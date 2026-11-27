@@ -12,6 +12,8 @@ import { input } from "@/input/InputController";
 import { CoverGrid, CoverZoomControl } from "@/components/library/CoverGrid";
 import { clampZoom, stepZoom } from "@/domain/coverZoom";
 import { AddPcGameModal } from "@/components/pc/PcParts";
+import { AddAndroidAppsModal } from "@/components/android/AddAndroidApps";
+import { syncAndroidApps } from "@/services/androidApps";
 import { PC_DEMO_GAMES } from "@/domain/pcDemo";
 import { isInstalled } from "@/services/pc";
 import type { Game } from "@/domain/types";
@@ -23,7 +25,7 @@ import { IconBar, IconBarButton } from "@/components/ui/IconBar";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Section";
 import { IsoPendingButton } from "@/components/library/IsoConsoleModal";
-import { ShelfView } from "@/three/lazy";
+import { ShelfView, use3D } from "@/three/lazy";
 import { sound } from "@/services/sound";
 
 /**
@@ -34,6 +36,8 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
   const games = useLibrary((s) => s.games);
   const { libraryView: view, librarySort: sort, favorites, set } = useSettings();
   const isPc = platformId === "pc";
+  // applications Android : pas de dossier à scanner, ajout depuis les applications installées
+  const isAndroid = platformId === "android";
   // Chaque console s'ouvre sur l'étagère 3D (« Jaquettes » reste à un clic, ou L / R).
   // Le PC n'a pas de boîtier physique : grande grille de jaquettes.
   useEffect(() => {
@@ -52,6 +56,8 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
     settings.set("coverZoom", next);
   }, []);
   const [addingPc, setAddingPc] = useState(false);
+  const [addingApps, setAddingApps] = useState(false);
+  const [appsSyncing, setAppsSyncing] = useState(false);
   const reduced = useReducedMotion();
   const dark = useIsDark();
   const { go, replace } = useNav();
@@ -101,6 +107,8 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
 
   const total = isPc ? pool.length : platformId === "all" ? games.length : (counts.get(platformId) ?? 0);
   const effView = isPc ? "grid" : view;
+  // mode sans 3D : l'étagère est en jaquettes (FlatShelf), F y marque un favori
+  const threeD = use3D();
   // grille : l'en-tête se compacte et les filtres se replient dès qu'on fait défiler
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => setScrolled(false), [platformId, effView]);
@@ -121,7 +129,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
       ...(effView === "shelf"
         ? [
             ...(platformId === "all" ? [{ keys: ["↑", "↓"], label: "Étagère" }] : []),
-            { keys: ["F"], label: "Retourner" },
+            { keys: ["F"], label: threeD ? "Retourner" : "Favori" },
             { keys: ["X"], label: "Jouer" },
             ...(visible.length > 1 ? [{ keys: ["R"], label: "Au hasard" }] : []),
           ]
@@ -165,7 +173,8 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         animate={hidden ? { height: 0, opacity: 0, y: -18 } : { height: "auto", opacity: 1, y: 0 }}
         transition={reduced ? { duration: 0 } : SPRING.gentle}
         inert={hidden}
-        className={hidden ? "shrink-0 overflow-hidden" : "shrink-0"}
+        // ibox-lib-head : en-tête replié sur une ligne sur les petits écrans Android (styles/android.css)
+        className={hidden ? "ibox-lib-head shrink-0 overflow-hidden" : "ibox-lib-head shrink-0"}
       >
       {/* En-tête */}
       <ConsoleHeader platform={platform} total={total} compact={effView === "shelf" || scrolled}>
@@ -177,7 +186,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
           cue="view"
           iconOnly
           options={[
-            { value: "shelf", label: "Étagère 3D", icon: "shelf" },
+            { value: "shelf", label: threeD ? "Étagère 3D" : "Étagère", icon: "shelf" },
             { value: "grid", label: "Jaquettes", icon: "grid" },
           ]}
         />
@@ -185,6 +194,11 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         {isPc && native && (
           <Button variant="primary" icon="plus" onClick={() => setAddingPc(true)}>
             Ajouter un jeu PC
+          </Button>
+        )}
+        {isAndroid && native && (
+          <Button variant="primary" icon="plus" onClick={() => setAddingApps(true)}>
+            Ajouter des applications
           </Button>
         )}
       </ConsoleHeader>
@@ -221,12 +235,16 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
             <IconBarButton icon="sparkle" label={`À vérifier (${reviewCount})`} title="Jeux à identifier ou introuvables" active={onlyReview} badge={reviewCount}
               cue="toggle" onClick={() => setOnlyReview((v) => !v)} tint="var(--tone-purple-ink)" />
           )}
-          {!isPc && <IsoPendingButton />}
+          {!isPc && !isAndroid && <IsoPendingButton />}
+          {native && isAndroid && (
+            <IconBarButton icon="reset" label={appsSyncing ? "Lecture des applications…" : "Actualiser"} title="Relit les applications installées"
+              disabled={appsSyncing} onClick={() => { setAppsSyncing(true); void syncAndroidApps().finally(() => setAppsSyncing(false)); }} tint="var(--tone-blue-ink)" />
+          )}
           {native && isPc && (
             <IconBarButton icon="reset" label={pcSyncing ? "Lecture des boutiques…" : "Actualiser"} title="Relit les jeux installés des boutiques activées"
               disabled={pcSyncing} onClick={() => void syncPc()} tint="var(--tone-blue-ink)" />
           )}
-          {native && hasFolders && !isPc && (
+          {native && hasFolders && !isPc && !isAndroid && (
             <IconBarButton icon="reset" label={scanRunning ? "Actualisation…" : "Actualiser"} disabled={scanRunning} onClick={() => void startScan()} tint="var(--tone-blue-ink)" />
           )}
         </IconBar>
@@ -273,6 +291,7 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         </div>
       )}
       {addingPc && <AddPcGameModal onClose={() => setAddingPc(false)} />}
+      {addingApps && <AddAndroidAppsModal onClose={() => setAddingApps(false)} />}
 
       {/* Zone secondaire : raccourcis d'une grande bibliothèque (pas pendant une recherche) */}
       {effView !== "shelf" && platform && !query && !pcDemo && total >= 8 && !scrolled && <ConsoleHighlights platform={platform} games={pool} />}
@@ -285,12 +304,18 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
             icon={platform ? <PlatformGlyph glyph={platform.glyph} size={64} /> : <Icon name="grid" size="3rem" />}
             title={`Aucun jeu ${platform?.shortName ?? ""} pour l'instant`}
             body={
-              native
+              native && isAndroid
+                ? "Les jeux installés sur l'appareil apparaissent ici d'eux-mêmes. Ajoutez d'autres applications à la main si besoin."
+                : native
                 ? "Ajoutez le dossier qui contient ces jeux dans les paramètres, ou associez un dossier existant à cette console."
                 : "La gestion des dossiers est disponible dans l'application Windows. Les jeux de démonstration se trouvent dans la bibliothèque GameCube."
             }
           >
-            {native ? (
+            {native && isAndroid ? (
+              <Button variant="primary" icon="plus" autoFocusScreen onClick={() => setAddingApps(true)}>
+                Ajouter des applications
+              </Button>
+            ) : native ? (
               <Button variant="primary" icon="folder" autoFocusScreen onClick={() => go({ name: "settings", category: "library" })}>
                 Gérer les dossiers
               </Button>

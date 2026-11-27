@@ -23,7 +23,266 @@ pub struct PlatformInfo {
     /// Banc d'essai Remote Play de l'aperçu (`deck-preview.ps1 -RemotePlay`) : l'interface ne
     /// monte que le banc, pour que la scène 3D ne fausse pas les mesures de décodage.
     pub bench: bool,
+    /// Version Android (docs/ANDROID.md). `os` y vaut `linux` : l'interface prend le chemin
+    /// « une seule fenêtre, pas de raccourcis globaux » du Steam Deck.
+    pub android: bool,
+    /// Console portable PC reconnue (Steam Deck, ROG Ally, Legion Go, MSI Claw…) : écran et
+    /// puissance graphique, d'où l'interface tire son palier de performance et la taille du texte.
+    pub device: Option<HandheldDevice>,
 }
+
+/// Puissance graphique d'une console portable, pour le palier de performance de l'interface.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum GpuClass {
+    /// Consoles Android d'entrée de gamme (Unisoc T618, Helio G85…) : vue en jaquettes d'office.
+    Minimal,
+    /// Consoles Android modestes (Snapdragon 720G, Dimensity 900, Unisoc T820) : 3D allégée.
+    Weak,
+    /// Steam Deck (~1,6 TFLOPS), Ryzen Z1, Z2 A, Z2 Go, Snapdragon 865 : interface allégée.
+    Low,
+    /// Ryzen Z1 / Z2 Extreme, Z2, Intel Arc (MSI Claw), Snapdragon 8 Gen 1 et suivants :
+    /// interface complète, 3D bridée.
+    Mid,
+}
+
+/// Écran intégré d'une console portable (définition native, diagonale).
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HandheldScreen {
+    pub width: u32,
+    pub height: u32,
+    pub inches: f32,
+}
+
+/// Console portable PC reconnue par son micrologiciel (SMBIOS / DMI).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HandheldDevice {
+    /// Identifiant stable (`steam-deck-oled`, `rog-ally-x`, `legion-go`…) ; `handheld` pour une
+    /// console reconnue à son fabricant mais sans fiche détaillée.
+    pub id: &'static str,
+    /// Nom affiché (Paramètres, diagnostic).
+    pub name: String,
+    /// Écran intégré, s'il est connu.
+    pub screen: Option<HandheldScreen>,
+    pub gpu: GpuClass,
+    /// Console Android : puce reconnue (`android_chip.rs`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chip: Option<crate::android_chip::Chip>,
+}
+
+/// Ce que le micrologiciel dit de la machine (Windows : registre `HARDWARE\DESCRIPTION\System\BIOS` ;
+/// Linux : `/sys/class/dmi/id`), plus le nom du processeur. Jamais de numéro de série.
+#[derive(Debug, Clone, Default)]
+pub struct Firmware {
+    pub vendor: String,
+    pub product: String,
+    /// `SystemFamily` / `product_family` (Lenovo y met « Legion Go 8APU1 », le produit étant « 83E1 »).
+    pub family: String,
+    pub version: String,
+    pub cpu: String,
+}
+
+/// Puissance graphique d'après le processeur (APU des consoles portables).
+pub fn gpu_class_from_cpu(cpu: &str) -> GpuClass {
+    let c = cpu.to_lowercase();
+    let weak = c.contains("custom apu 0405") // Steam Deck LCD
+        || c.contains("custom apu 0932") // Steam Deck OLED
+        || c.contains("z2 a")
+        || c.contains("z2 go")
+        || (c.contains("z1") && !c.contains("extreme"))
+        || [" n100", " n200", " n300", "7520u", "athlon"].iter().any(|k| c.contains(k));
+    if weak { GpuClass::Low } else { GpuClass::Mid }
+}
+
+const fn screen(width: u32, height: u32, inches: f32) -> Option<HandheldScreen> {
+    Some(HandheldScreen { width, height, inches })
+}
+
+/// Reconnaît une console portable PC. Pur et testable : les fiches viennent des fabricants
+/// (définition et diagonale de l'écran intégré, APU). Les plus précises d'abord.
+pub fn identify(fw: &Firmware) -> Option<HandheldDevice> {
+    let vendor = fw.vendor.trim().to_lowercase();
+    let product = fw.product.trim().to_lowercase();
+    let all = format!("{product} {} {}", fw.family.trim().to_lowercase(), fw.version.trim().to_lowercase());
+    let has = |keys: &[&str]| keys.iter().any(|k| all.contains(k));
+    let by_cpu = || gpu_class_from_cpu(&fw.cpu);
+    let make = |id: &'static str, name: &str, screen: Option<HandheldScreen>, gpu: GpuClass| Some(HandheldDevice { id, name: name.to_string(), screen, gpu, chip: None });
+    if vendor.contains("valve") {
+        return match product.as_str() {
+            "jupiter" => make("steam-deck-lcd", "Steam Deck (LCD)", screen(1280, 800, 7.0), GpuClass::Low),
+            "galileo" => make("steam-deck-oled", "Steam Deck OLED", screen(1280, 800, 7.4), GpuClass::Low),
+            _ => None,
+        };
+    }
+    if vendor.contains("asus") {
+        return if has(&["rc73x", "xbox ally x"]) {
+            make("rog-xbox-ally-x", "ROG Xbox Ally X", screen(1920, 1080, 7.0), GpuClass::Mid)
+        } else if has(&["rc73y", "xbox ally"]) {
+            make("rog-xbox-ally", "ROG Xbox Ally", screen(1920, 1080, 7.0), GpuClass::Low)
+        } else if has(&["rc72l", "ally x"]) {
+            make("rog-ally-x", "ROG Ally X", screen(1920, 1080, 7.0), GpuClass::Mid)
+        } else if has(&["rc71l", "rog ally"]) {
+            make("rog-ally", "ROG Ally", screen(1920, 1080, 7.0), by_cpu())
+        } else {
+            None
+        };
+    }
+    if vendor.contains("lenovo") {
+        return if has(&["legion go s", "83l3", "83n6", "83q2", "83q3"]) {
+            make("legion-go-s", "Legion Go S", screen(1920, 1200, 8.0), by_cpu())
+        } else if has(&["legion go 2", "83n0", "83n1"]) {
+            make("legion-go-2", "Legion Go 2", screen(1920, 1200, 8.8), by_cpu())
+        } else if has(&["legion go", "83e1"]) {
+            make("legion-go", "Legion Go", screen(2560, 1600, 8.8), GpuClass::Mid)
+        } else {
+            None
+        };
+    }
+    if vendor.contains("micro-star") || vendor == "msi" {
+        return if has(&["claw 8"]) {
+            make("msi-claw-8", "MSI Claw 8 AI+", screen(1920, 1200, 8.0), GpuClass::Mid)
+        } else if has(&["claw 7"]) {
+            make("msi-claw-7", "MSI Claw 7 AI+", screen(1920, 1200, 7.0), GpuClass::Mid)
+        } else if has(&["claw"]) {
+            make("msi-claw", "MSI Claw", screen(1920, 1080, 7.0), GpuClass::Mid)
+        } else {
+            None
+        };
+    }
+    // autres fabricants de consoles portables : reconnues, sans fiche d'écran
+    let generic = ["ayaneo", "gpd win", "onexplayer", "onexfly", "zotac zone", "zotac gaming zone"];
+    if generic.iter().any(|k| vendor.contains(k) || all.contains(k)) || (vendor.contains("gpd") && all.contains("win")) {
+        let name: String = fw.product.trim().chars().take(60).collect();
+        return make("handheld", if name.is_empty() { "Console portable" } else { &name }, None, by_cpu());
+    }
+    None
+}
+
+/// Micrologiciel de cette machine (lu une fois).
+fn firmware() -> Firmware {
+    #[cfg(windows)]
+    {
+        use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
+        let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+        let bios = hklm.open_subkey(r"HARDWARE\DESCRIPTION\System\BIOS").ok();
+        let get = |name: &str| bios.as_ref().and_then(|k| k.get_value::<String, _>(name).ok()).unwrap_or_default();
+        let cpu = hklm.open_subkey(r"HARDWARE\DESCRIPTION\System\CentralProcessor\0").ok().and_then(|k| k.get_value::<String, _>("ProcessorNameString").ok()).unwrap_or_default();
+        Firmware { vendor: get("SystemManufacturer"), product: get("SystemProductName"), family: get("SystemFamily"), version: get("SystemVersion"), cpu }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let read = |f: &str| std::fs::read_to_string(format!("/sys/class/dmi/id/{f}")).unwrap_or_default();
+        let cpu = std::fs::read_to_string("/proc/cpuinfo").ok().and_then(|t| t.lines().find(|l| l.starts_with("model name")).and_then(|l| l.split_once(':')).map(|(_, v)| v.trim().to_string())).unwrap_or_default();
+        Firmware { vendor: read("sys_vendor"), product: read("product_name"), family: read("product_family"), version: read("product_version"), cpu }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        Firmware::default()
+    }
+}
+
+/// Console portable de cette machine (lue une fois) ; l'aperçu Steam Deck se présente en Deck OLED.
+pub fn device() -> Option<HandheldDevice> {
+    static DEVICE: std::sync::OnceLock<Option<HandheldDevice>> = std::sync::OnceLock::new();
+    DEVICE
+        .get_or_init(|| {
+            if preview() {
+                return identify(&Firmware { vendor: "Valve".into(), product: "Galileo".into(), ..Default::default() });
+            }
+            // console Android : la puce donne le palier (docs/ANDROID.md §9)
+            #[cfg(target_os = "android")]
+            return Some(crate::android_chip::identify(&crate::android_chip::props()));
+            #[cfg(not(target_os = "android"))]
+            {
+                let fw = firmware();
+                // modèle absent de la table : forme de la machine (Windows)
+                identify(&fw).or_else(|| generic_handheld(&fw, &form_factor()))
+            }
+        })
+        .clone()
+}
+
+/// Forme de la machine, pour une console portable absente de la table (`generic_handheld`).
+#[derive(Debug, Clone, Default)]
+pub struct FormFactor {
+    /// Windows la classe en tablette (`PowerDeterminePlatformRoleEx` = `PlatformRoleSlate`) :
+    /// boîtier « Tablet » ou « Detachable » du SMBIOS, comme les consoles portables.
+    pub slate: bool,
+    /// Une batterie est présente.
+    pub battery: bool,
+    /// Écran principal, taille physique en millimètres (EDID).
+    pub screen_mm: Option<(u32, u32)>,
+    /// Écran principal, définition en pixels.
+    pub screen_px: Option<(u32, u32)>,
+}
+
+/// Console portable que la table ne connaît pas (nouveau modèle, fabricant rare) : une tablette
+/// sur batterie dont l'écran fait de 4 à 9,5 pouces. Les tablettes Windows (Surface et autres) ont
+/// 10 pouces et plus ; une diagonale invraisemblable (EDID absent ou faux) ne conclut rien.
+pub fn generic_handheld(fw: &Firmware, f: &FormFactor) -> Option<HandheldDevice> {
+    if !f.slate || !f.battery {
+        return None;
+    }
+    let (w, h) = f.screen_mm?;
+    let inches = ((w as f32).hypot(h as f32) / 25.4 * 10.0).round() / 10.0;
+    if !(4.0..=9.5).contains(&inches) {
+        return None;
+    }
+    let screen = f.screen_px.filter(|&(pw, ph)| pw > 0 && ph > 0).map(|(pw, ph)| HandheldScreen { width: pw.max(ph), height: pw.min(ph), inches });
+    let product: String = fw.product.trim().chars().take(60).collect();
+    let generic = ["", "System Product Name", "To be filled by O.E.M.", "Default string"];
+    let name = if generic.contains(&product.as_str()) { "Console portable".to_string() } else { product };
+    Some(HandheldDevice { id: "handheld", name, screen, gpu: gpu_class_from_cpu(&fw.cpu), chip: None })
+}
+
+/// Forme de cette machine (Windows ; ailleurs, rien : SteamOS annonce ses consoles par `SteamDeck=1`).
+fn form_factor() -> FormFactor {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, ReleaseDC, DESKTOPHORZRES, DESKTOPVERTRES, HORZSIZE, VERTSIZE};
+        use windows_sys::Win32::System::Power::{PowerDeterminePlatformRoleEx, PlatformRoleSlate, POWER_PLATFORM_ROLE_V2};
+        let slate = unsafe { PowerDeterminePlatformRoleEx(POWER_PLATFORM_ROLE_V2) } == PlatformRoleSlate;
+        let battery = crate::power::status().percent.is_some();
+        let (mut mm, mut px) = (None, None);
+        unsafe {
+            let dc = GetDC(std::ptr::null_mut());
+            if !dc.is_null() {
+                let (w, h) = (GetDeviceCaps(dc, HORZSIZE as i32), GetDeviceCaps(dc, VERTSIZE as i32));
+                if w > 0 && h > 0 {
+                    mm = Some((w as u32, h as u32));
+                }
+                let (pw, ph) = (GetDeviceCaps(dc, DESKTOPHORZRES as i32), GetDeviceCaps(dc, DESKTOPVERTRES as i32));
+                if pw > 0 && ph > 0 {
+                    px = Some((pw as u32, ph as u32));
+                }
+                ReleaseDC(std::ptr::null_mut(), dc);
+            }
+        }
+        FormFactor { slate, battery, screen_mm: mm, screen_px: px }
+    }
+    #[cfg(not(windows))]
+    {
+        FormFactor::default()
+    }
+}
+
+/// Petits écrans : la taille minimale de la fenêtre (1100×700) dépasse l'écran d'une console
+/// portable réglée à 175 % ou 200 % (ROG Ally : 1097×617 ou 960×540 points). Le plein écran
+/// déborderait alors de l'écran : la contrainte est levée quand l'écran est plus petit qu'elle.
+pub fn fit_small_screen(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let Some(w) = app.get_webview_window("main") else { return };
+    let Ok(Some(m)) = w.current_monitor() else { return };
+    let logical = m.size().to_logical::<f64>(m.scale_factor());
+    if logical.width < 1100.0 || logical.height < 700.0 {
+        let _ = w.set_min_size(Some(tauri::LogicalSize::new(800.0, 480.0)));
+    }
+}
+
+/// Réponse des commandes propres au bureau sur Android.
+pub const UNAVAILABLE: &str = "Pas encore disponible sur Android.";
 
 /// Aperçu Steam Deck sur PC (`IBOX_SIMULATE_DECK=1`, Linux seulement).
 /// Aperçu Steam Deck (`IBOX_SIMULATE_DECK=1`) : sous Linux (WSL, `scripts/deck-preview.ps1`) la
@@ -41,6 +300,8 @@ pub fn apply_preview(app: &tauri::AppHandle) {
         return;
     }
     if let Some(w) = app.get_webview_window("main") {
+        #[cfg(mobile)]
+        use crate::mobile::DesktopWindow;
         let _ = w.set_fullscreen(false);
         let _ = w.set_min_size(None::<tauri::LogicalSize<f64>>);
         let _ = w.set_size(tauri::LogicalSize::new(1280.0, 800.0));
@@ -88,14 +349,18 @@ pub fn game_mode() -> bool {
 }
 
 pub fn current() -> PlatformInfo {
+    let device = device();
     PlatformInfo {
         // aperçu sous Windows : l'interface se comporte comme sur le Deck, en Mode Jeu
         os: if cfg!(windows) && !preview() { "windows" } else { "linux" },
         steam_deck: steam_deck(),
-        handheld: steam_deck().is_some() || (cfg!(target_os = "linux") && handheld_from(|k| std::env::var(k).ok())),
+        // console Android ou console portable PC reconnue : mode performance d'office
+        handheld: steam_deck().is_some() || device.is_some() || cfg!(target_os = "android") || (cfg!(target_os = "linux") && handheld_from(|k| std::env::var(k).ok())),
         game_mode: (cfg!(windows) && preview()) || (cfg!(target_os = "linux") && game_mode_from(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))),
         preview: preview(),
         bench: preview() && (std::env::var_os("IBOX_RP_SAMPLE_FILE").is_some() || std::env::var_os("IBOX_RP_OFFER_FILE").is_some()),
+        android: cfg!(target_os = "android"),
+        device,
     }
 }
 
@@ -196,7 +461,62 @@ mod tests {
         let p = current();
         assert_eq!(p.os, if cfg!(windows) && !preview() { "windows" } else { "linux" });
         if cfg!(windows) && !preview() {
-            assert!(p.steam_deck.is_none() && !p.game_mode && !p.handheld);
+            assert!(p.steam_deck.is_none() && !p.game_mode);
+            // console portable seulement si le micrologiciel la nomme
+            assert_eq!(p.handheld, p.device.is_some());
         }
+    }
+
+    fn fw(vendor: &str, product: &str, family: &str, cpu: &str) -> Firmware {
+        Firmware { vendor: vendor.into(), product: product.into(), family: family.into(), version: String::new(), cpu: cpu.into() }
+    }
+
+    #[test]
+    fn console_hors_table_reconnue_a_sa_forme() {
+        let fw = fw("NEWCO", "Handy X1", "", "AMD Ryzen Z2 Extreme");
+        // tablette sur batterie, écran de 7 pouces (155×87 mm) : console portable
+        let small = FormFactor { slate: true, battery: true, screen_mm: Some((155, 87)), screen_px: Some((1920, 1080)) };
+        let d = generic_handheld(&fw, &small).expect("console");
+        assert_eq!((d.id, d.name.as_str(), d.gpu), ("handheld", "Handy X1", GpuClass::Mid));
+        assert_eq!(d.screen, Some(HandheldScreen { width: 1920, height: 1080, inches: 7.0 }));
+        // Surface et tablettes de 10 pouces et plus, ordinateurs portables, bureau : rien
+        assert!(generic_handheld(&fw, &FormFactor { screen_mm: Some((260, 173)), ..small.clone() }).is_none());
+        assert!(generic_handheld(&fw, &FormFactor { slate: false, ..small.clone() }).is_none());
+        assert!(generic_handheld(&fw, &FormFactor { battery: false, ..small.clone() }).is_none());
+        // taille d'écran absente ou invraisemblable : rien n'est conclu
+        assert!(generic_handheld(&fw, &FormFactor { screen_mm: None, ..small.clone() }).is_none());
+        assert!(generic_handheld(&fw, &FormFactor { screen_mm: Some((16, 9)), ..small.clone() }).is_none());
+        // nom générique du micrologiciel
+        let anon = Firmware { product: "To be filled by O.E.M.".into(), ..fw.clone() };
+        assert_eq!(generic_handheld(&anon, &small).unwrap().name, "Console portable");
+    }
+
+    #[test]
+    fn consoles_portables_reconnues() {
+        let id = |f: Firmware| identify(&f).map(|d| (d.id, d.gpu));
+        assert_eq!(id(fw("Valve", "Jupiter\n", "", "AMD Custom APU 0405")), Some(("steam-deck-lcd", GpuClass::Low)));
+        assert_eq!(id(fw("Valve", "Galileo", "Sephiroth", "AMD Custom APU 0932")), Some(("steam-deck-oled", GpuClass::Low)));
+        // ROG Ally : même modèle, deux APU
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG Ally RC71L_RC71L", "ROG Ally", "AMD Ryzen Z1 Extreme")), Some(("rog-ally", GpuClass::Mid)));
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG Ally RC71L", "ROG Ally", "AMD Ryzen Z1")), Some(("rog-ally", GpuClass::Low)));
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG Ally X RC72LA_RC72LA", "ROG Ally X", "AMD Ryzen Z1 Extreme")), Some(("rog-ally-x", GpuClass::Mid)));
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG Xbox Ally RC73YA", "", "AMD Ryzen Z2 A")), Some(("rog-xbox-ally", GpuClass::Low)));
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG Xbox Ally X RC73XA", "", "AMD Ryzen AI Z2 Extreme")), Some(("rog-xbox-ally-x", GpuClass::Mid)));
+        // Lenovo : le produit est un numéro de type, le nom est dans la famille
+        assert_eq!(id(fw("LENOVO", "83E1", "Legion Go 8APU1", "AMD Ryzen Z1 Extreme")), Some(("legion-go", GpuClass::Mid)));
+        assert_eq!(id(fw("LENOVO", "83L3", "Legion Go S 8ARP1", "AMD Ryzen Z2 Go")), Some(("legion-go-s", GpuClass::Low)));
+        assert_eq!(id(fw("LENOVO", "83Q2", "", "AMD Ryzen Z1 Extreme")), Some(("legion-go-s", GpuClass::Mid)));
+        assert_eq!(id(fw("LENOVO", "83N0", "Legion Go 2 8AHP2", "AMD Ryzen Z2 Extreme")), Some(("legion-go-2", GpuClass::Mid)));
+        assert_eq!(id(fw("Micro-Star International Co., Ltd.", "Claw A1M", "", "Intel(R) Core(TM) Ultra 7 155H")), Some(("msi-claw", GpuClass::Mid)));
+        assert_eq!(id(fw("Micro-Star International Co., Ltd.", "Claw 8 AI+ A2VM", "", "Intel(R) Core(TM) Ultra 7 258V")), Some(("msi-claw-8", GpuClass::Mid)));
+        assert_eq!(id(fw("AYANEO", "AYANEO 2S", "", "AMD Ryzen 7 7840U")).map(|d| d.0), Some("handheld"));
+        assert_eq!(id(fw("GPD", "G1618-04", "WIN 4", "AMD Ryzen 7 6800U")).map(|d| d.0), Some("handheld"));
+        // PC ordinaires : rien
+        assert_eq!(id(fw("ASUSTeK COMPUTER INC.", "ROG STRIX B650E-F GAMING WIFI", "", "AMD Ryzen 7 7800X3D")), None);
+        assert_eq!(id(fw("LENOVO", "82JW", "Legion 5 15ACH6H", "AMD Ryzen 7 5800H")), None);
+        assert_eq!(id(fw("Micro-Star International Co., Ltd.", "MS-7D75", "", "AMD Ryzen 9 7950X")), None);
+        assert_eq!(id(fw("Valve", "Steam Machine", "", "")), None);
+        let ally = identify(&fw("ASUSTeK COMPUTER INC.", "RC71L", "", "AMD Ryzen Z1 Extreme")).unwrap();
+        assert_eq!(ally.screen, Some(HandheldScreen { width: 1920, height: 1080, inches: 7.0 }));
     }
 }

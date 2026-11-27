@@ -1,0 +1,196 @@
+/*
+ * Écran du bas (AYN Thor : 1240×1080, soit environ 620×540 pixels CSS à densité 2).
+ * Mêmes jetons qu'iBox (styles/tokens.css) ; tout se touche du doigt : cibles de 48 px au moins.
+ */
+.ibx2 {
+  --ibx2-a: var(--ibox-lavender);
+  --ibx2-b: var(--ibox-lavender-deep);
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--ibox-ink);
+  background: var(--ibox-cream);
+  transition: background 400ms var(--ease-out-soft);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* :where : sans poids, pour que les classes des boutons gardent leur fond */
+:where(.ibx2) button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+.ibx2-body button:disabled { opacity: 0.45; cursor: default; }
+.ibx2-faint { color: var(--ibox-ink-soft); }
+
+/* — attente — */
+.ibx2-wait { flex: 1; display: grid; place-items: center; }
+.ibx2-wait-logo { width: 96px; opacity: 0.85; animation: ibx2-breathe 2.4s var(--ease-in-out-soft) infinite; }
+.ibx2-wait-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.ibx2-wait-text { margin: 0; font-weight: 700; font-size: 1.05rem; color: var(--ibox-ink-soft); }
+@keyframes ibx2-breathe { 50% { transform: scale(0.94); opacity: 0.55; } }
+
+/* — barre du haut — */
+.ibx2-top { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.ibx2-logo { height: 30px; }
+.ibx2-context {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--radius-pill);
+  background: var(--ibox-white); box-shadow: var(--shadow-xs);
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
+}
+.ibx2-live { width: 9px; height: 9px; border-radius: 50%; background: var(--tone-green); box-shadow: 0 0 0 0 var(--tone-green); animation: ibx2-pulse 1.8s ease-out infinite; }
+@keyframes ibx2-pulse { 70% { box-shadow: 0 0 0 7px transparent; } }
+.ibx2-return {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  min-height: 48px; padding: 0 18px; border-radius: var(--radius-pill);
+  background: var(--ibx2-b); color: #ffffff !important;
+  font-family: var(--font-display); font-weight: 700; font-size: 1rem;
+  box-shadow: var(--shadow-sm), inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
+
+.ibx2-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* — boutons — */
+.ibx2-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; min-width: 52px; padding: 0 18px; border-radius: var(--radius-pill);
+  background: var(--ibox-white); box-shadow: var(--shadow-sm), inset 0 -3px 0 rgba(0, 0, 0, 0.06);
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+}
+.ibx2-btn-round { padding: 0; width: 52px; }
+.ibx2-btn-primary { background: var(--ibx2-b); color: #ffffff !important; box-shadow: var(--shadow-sm), inset 0 -3px 0 rgba(0, 0, 0, 0.2); padding: 0 26px; }
+.ibx2-btn[aria-pressed="true"] { background: var(--tone-yellow); color: #ffffff !important; }
+.ibx2-actions { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+
+/* — fiche du jeu — */
+.ibx2-card { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); gap: 16px; }
+.ibx2-cover-wrap { display: flex; align-items: center; justify-content: center; min-height: 0; }
+.ibx2-cover {
+  max-width: 100%; max-height: 100%; border-radius: var(--radius-md);
+  box-shadow: 0 18px 36px -14px rgba(40, 30, 80, 0.45), var(--shadow-sm);
+}
+.ibx2-cover-empty { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; background: var(--ibox-white); color: var(--ibx2-b); }
+.ibx2-info { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.ibx2-platform {
+  align-self: flex-start; padding: 3px 10px; border-radius: var(--radius-pill);
+  background: var(--ibox-white); color: var(--ibx2-b);
+  font-size: 0.78rem; font-weight: 800; letter-spacing: 0.02em;
+}
+.ibx2-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ibx2-meta { margin: 0; color: var(--ibox-ink-soft); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibx2-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.ibx2-stat {
+  display: grid; grid-template-columns: auto 1fr; column-gap: 6px; align-items: center;
+  padding: 6px 10px; border-radius: var(--radius-sm); background: var(--ibox-white); box-shadow: var(--shadow-xs);
+  color: var(--ibx2-b);
+}
+.ibx2-stat-label { font-size: 0.7rem; font-weight: 700; color: var(--ibox-ink-soft); }
+.ibx2-stat-value { grid-column: 2; font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: var(--ibox-ink); }
+.ibx2-summary { margin: 2px 0 0; font-size: 0.88rem; line-height: 1.4; color: var(--ibox-ink-soft); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* — raccourcis — */
+.ibx2-shortcuts { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.ibx2-tiles { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 10px; min-height: 0; }
+.ibx2-tiles > div { min-height: 0; }
+.ibx2-tile {
+  position: relative; width: 100%; height: 100%; min-height: 96px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 6px;
+  padding: 14px; border-radius: var(--radius-lg); text-align: left;
+  background: var(--ibox-white);
+  box-shadow: var(--shadow-sm), inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+}
+.ibx2-tile-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--tone); color: #ffffff; margin-bottom: auto; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+.ibx2-tile-label { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; }
+.ibx2-tile-hint { font-size: 0.78rem; color: var(--ibox-ink-soft); font-weight: 700; }
+.ibx2-badge { position: absolute; top: 12px; right: 12px; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 13px; background: var(--tone); color: #ffffff; font-weight: 800; display: grid; place-items: center; font-size: 0.85rem; }
+.ibx2-collections { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.ibx2-collection { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: var(--radius-pill); background: var(--ibox-white); box-shadow: var(--shadow-xs); font-weight: 700; }
+.ibx2-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+/* — partie en cours — */
+.ibx2-play { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.ibx2-play-head { display: flex; align-items: center; gap: 10px; }
+.ibx2-mini-cover { height: 52px; border-radius: 8px; box-shadow: var(--shadow-xs); }
+.ibx2-play-title { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ibx2-play-title strong { font-family: var(--font-display); font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibx2-tabs { margin-left: auto; display: flex; gap: 4px; padding: 4px; border-radius: var(--radius-pill); background: var(--ibox-white); box-shadow: var(--shadow-xs); }
+.ibx2-tab { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: var(--radius-pill); font-weight: 800; font-size: 0.88rem; color: var(--ibox-ink-soft) !important; }
+.ibx2-tab[aria-pressed="true"] { background: var(--ibx2-b); color: #ffffff !important; }
+.ibx2-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: var(--radius-lg); background: var(--ibox-white); box-shadow: var(--shadow-sm); padding: 12px; overflow: hidden; }
+.ibx2-empty { margin: auto; max-width: 30ch; text-align: center; color: var(--ibox-ink-soft); font-weight: 600; line-height: 1.4; }
+
+.ibx2-ach { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.ibx2-progress { display: flex; flex-direction: column; gap: 6px; }
+.ibx2-progress-text { font-size: 0.92rem; color: var(--ibox-ink-soft); }
+.ibx2-progress-text strong { font-family: var(--font-display); font-size: 1.3rem; color: var(--ibox-ink); }
+.ibx2-bar { height: 10px; border-radius: 5px; background: var(--ibox-cream-deep); overflow: hidden; }
+.ibx2-bar-fill { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--tone-yellow), var(--tone-orange)); }
+.ibx2-ach-list { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; overscroll-behavior: contain; }
+.ibx2-ach-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--ibox-cream); }
+.ibx2-ach-item:not(.is-earned) { opacity: 0.72; }
+.ibx2-ach-item.is-fresh { background: var(--ibox-white); box-shadow: inset 0 0 0 2px var(--tone-yellow); opacity: 1; }
+.ibx2-ach-badge { flex: none; width: 44px; height: 44px; border-radius: 8px; background: var(--ibox-cream-deep); }
+.ibx2-ach-text { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.ibx2-ach-title { font-weight: 800; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibx2-ach-desc { font-size: 0.78rem; color: var(--ibox-ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibx2-ach-points { flex: none; font-family: var(--font-display); font-weight: 700; color: var(--tone-orange-ink); }
+
+.ibx2-manual { flex: 1; min-height: 0; display: flex; align-items: center; gap: 10px; }
+.ibx2-page { position: relative; flex: 1; height: 100%; min-width: 0; display: grid; place-items: center; touch-action: pan-y; }
+.ibx2-page img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: var(--shadow-md); }
+.ibx2-page-num { position: absolute; bottom: 6px; padding: 3px 10px; border-radius: var(--radius-pill); background: rgba(30, 36, 50, 0.72); color: #ffffff; font-size: 0.8rem; font-weight: 800; }
+
+.ibx2-notes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.ibx2-note-text {
+  flex: 1; min-height: 56px; overflow-y: auto; padding: 10px 12px; border-radius: var(--radius-md);
+  background: var(--ibox-cream); border: 2px solid var(--ibox-line); font-size: 1rem; line-height: 1.4;
+  white-space: pre-wrap; word-break: break-word;
+}
+.ibx2-caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 1px; vertical-align: text-bottom; background: var(--ibx2-b); animation: ibx2-blink 1.1s steps(1) infinite; }
+@keyframes ibx2-blink { 50% { opacity: 0; } }
+.ibx2-keys { display: flex; flex-direction: column; gap: 5px; }
+.ibx2-key-row { display: flex; gap: 5px; }
+.ibx2-key {
+  flex: 1; min-width: 0; height: 44px; border-radius: 10px; background: var(--ibox-cream) !important;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08); font-weight: 800; font-size: 1.05rem; touch-action: manipulation;
+}
+.ibx2-key:active { background: var(--ibox-cream-deep) !important; }
+.ibx2-key-wide { flex: 1.4; }
+.ibx2-key-space { flex: 4; }
+.ibx2-key[aria-pressed="true"] { background: var(--ibx2-b) !important; color: #ffffff !important; }
+
+.ibx2-music { flex: 1; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; gap: 12px 14px; align-items: center; }
+.ibx2-music-art { width: 120px; height: 120px; border-radius: var(--radius-md); object-fit: cover; display: grid; place-items: center; background: var(--ibox-cream-deep); color: var(--ibx2-b); }
+.ibx2-music-text { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ibx2-music-text strong { font-family: var(--font-display); font-size: 1.3rem; }
+.ibx2-music .ibx2-actions { grid-column: 1 / -1; justify-content: center; }
+
+html[data-motion="reduced"] .ibx2 *, html[data-motion="reduced"] .ibx2 { animation: none !important; transition: none !important; }
+
+/*
+ * Mélanges de couleurs : seulement si la WebView connaît color-mix() (Chrome 111). Une déclaration
+ * qui contient var() n'est pas rejetée à la lecture : un color-mix() inconnu y annulerait aussi le
+ * repli écrit juste avant, d'où ce bloc à part.
+ */
+@supports (color: color-mix(in srgb, red, blue)) {
+  .ibx2 {
+    background:
+      radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--ibx2-a) 34%, transparent), transparent 62%),
+      radial-gradient(90% 60% at 0% 100%, color-mix(in srgb, var(--ibx2-a) 18%, transparent), transparent 70%),
+      var(--ibox-cream);
+  }
+  .ibx2-btn { box-shadow: var(--shadow-sm), inset 0 -3px 0 color-mix(in srgb, var(--ibox-ink) 8%, transparent); }
+  .ibx2-btn-primary { box-shadow: var(--shadow-sm), inset 0 -3px 0 rgba(0, 0, 0, 0.2); }
+  .ibx2-cover { box-shadow: 0 18px 36px -14px color-mix(in srgb, var(--ibx2-b) 70%, transparent), var(--shadow-sm); }
+  .ibx2-platform { background: color-mix(in srgb, var(--ibx2-a) 30%, var(--ibox-white)); }
+  .ibx2-tile {
+    background: linear-gradient(160deg, color-mix(in srgb, var(--tone) 22%, var(--ibox-white)), var(--ibox-white) 70%);
+    box-shadow: var(--shadow-sm), inset 0 -4px 0 color-mix(in srgb, var(--tone) 26%, transparent);
+  }
+  .ibx2-ach-item.is-fresh { background: color-mix(in srgb, var(--tone-yellow) 22%, var(--ibox-white)); }
+  .ibx2-page-num { background: color-mix(in srgb, var(--ibox-ink) 72%, transparent); }
+}

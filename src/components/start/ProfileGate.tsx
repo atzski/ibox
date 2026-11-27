@@ -66,7 +66,7 @@ export function ProfileGate() {
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[color-mix(in_oklab,var(--ibox-cream)_72%,transparent)] backdrop-blur-xl"
+      className="ibox-gate fixed inset-0 z-40 flex flex-col items-center justify-center bg-[color-mix(in_oklab,var(--ibox-cream)_72%,transparent)] backdrop-blur-xl"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: TWEEN.exit }}

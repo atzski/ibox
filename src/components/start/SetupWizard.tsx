@@ -40,7 +40,11 @@ const ALL_STEPS: { id: StepId; label: string }[] = [
 export function SetupWizard() {
   // Linux (Steam Deck) : pas d'étape « iBox et Windows » (ni zone de notification, ni démarrage automatique)
   const linux = usePlatform((p) => p.os === "linux");
-  const STEPS = linux ? ALL_STEPS.filter((s) => s.id !== "background") : ALL_STEPS;
+  // Android : ni émulateurs pour PC, ni jeux PC, ni étape Windows
+  const android = usePlatform((p) => p.android === true);
+  const STEPS = android
+    ? ALL_STEPS.filter((s) => s.id !== "background" && s.id !== "emulators" && s.id !== "pc")
+    : linux ? ALL_STEPS.filter((s) => s.id !== "background") : ALL_STEPS;
   const [i, setI] = useState(0);
   const [dir, setDir] = useState(1);
   const step = STEPS[i];
@@ -69,7 +73,7 @@ export function SetupWizard() {
 
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-40 grid place-items-center bg-[color-mix(in_oklab,var(--ibox-cream)_78%,transparent)] p-8 backdrop-blur-xl"
+      className="ibox-wizard fixed inset-0 z-40 grid place-items-center bg-[color-mix(in_oklab,var(--ibox-cream)_78%,transparent)] p-8 backdrop-blur-xl"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -190,21 +194,30 @@ function LanguagePicker() {
 }
 
 function Welcome() {
+  // Android : ni jeux PC ni émulateurs détectés sur l'appareil
+  const android = usePlatform((p) => p.android === true);
   return (
     <div className="flex flex-col items-center pt-2 text-center">
       <LanguagePicker />
       <div className="h-5" />
       <motion.img src="/logo.svg" alt="" width={96} height={96} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={SPRING.pop} />
       <h2 className="mt-6 font-display text-[2.6rem] font-semibold text-ink">Bienvenue dans iBox</h2>
-      <p className="mt-3 max-w-[34rem] text-[1.05rem] font-semibold text-ink-soft">
-        Tous vos jeux, consoles et PC, réunis dans une seule bibliothèque. Quelques étapes pour tout mettre en place — chacune peut être passée et
-        modifiée plus tard dans les Paramètres.
-      </p>
-      <div className="mt-8 grid w-full max-w-[38rem] grid-cols-3 gap-3 text-left">
+      {android ? (
+        <p className="mt-3 max-w-[34rem] text-[1.05rem] font-semibold text-ink-soft">
+          Tous vos jeux de console, réunis dans une seule bibliothèque. Quelques étapes pour tout mettre en place — chacune peut être passée et
+          modifiée plus tard dans les Paramètres.
+        </p>
+      ) : (
+        <p className="mt-3 max-w-[34rem] text-[1.05rem] font-semibold text-ink-soft">
+          Tous vos jeux, consoles et PC, réunis dans une seule bibliothèque. Quelques étapes pour tout mettre en place — chacune peut être passée et
+          modifiée plus tard dans les Paramètres.
+        </p>
+      )}
+      <div className={`mt-8 grid w-full max-w-[38rem] ${android ? "grid-cols-2" : "grid-cols-3"} gap-3 text-left`}>
         {(
           [
             ["folder", "Vos dossiers", "lus, jamais modifiés"],
-            ["gamepad", "Vos émulateurs", "détectés sur ce PC"],
+            ...(android ? [] : [["gamepad", "Vos émulateurs", "détectés sur ce PC"]]),
             ["front", "Les jaquettes", "récupérées automatiquement"],
           ] as [IconName, string, string][]
         ).map(([icon, a, b]) => (

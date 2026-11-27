@@ -1,4 +1,5 @@
 import { jinglesApi, useJingleSync, DEFAULT_JINGLE_VOLUME } from "@/services/jingles";
+import { usePlatform } from "@/services/platform";
 import { useEffect, useState } from "react";
 import { useSettings } from "@/services/settings";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +32,7 @@ export function SoundPage() {
 
 /** Jingles des jeux : téléchargement accepté par l'utilisateur, retirables à tout moment. */
 function GameJingles() {
+  const android = usePlatform((p) => !!p.android);
   const on = useSettings((st) => st.gameSounds !== false);
   const volume = useSettings((st) => st.jingleVolume ?? DEFAULT_JINGLE_VOLUME);
   const set = useSettings((st) => st.set);
@@ -51,7 +53,7 @@ function GameJingles() {
     : (sync.error ?? msg ?? (sync.last ? `${sync.last.downloaded} jingle${sync.last.downloaded > 1 ? "s" : ""} ajouté${sync.last.downloaded > 1 ? "s" : ""}${sync.last.missing ? `, ${sync.last.missing} jeu${sync.last.missing > 1 ? "x" : ""} sans son dans iiDB` : ""}.` : undefined));
   return (
     <>
-      <Row label="Jingles des jeux" note="Une petite musique quand vous ouvrez la fiche d'un jeu (sons iiDB, téléchargés sur ce PC)">
+      <Row label="Jingles des jeux" note={android ? "Une petite musique quand vous ouvrez la fiche d'un jeu (sons iiDB, téléchargés sur cet appareil)" : "Une petite musique quand vous ouvrez la fiche d'un jeu (sons iiDB, téléchargés sur ce PC)"}>
         <Toggle checked={on} onChange={(v) => (v && count === 0 ? void sync.start() : set("gameSounds", v))} label="Jingles des jeux" />
       </Row>
       <Row label="Volume des jingles">

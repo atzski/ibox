@@ -17,7 +17,14 @@ pub enum Kind {
     Int { min: i64, max: i64 },
     /// Identifiants internes autorisés.
     Choice(&'static [&'static str]),
+    /// Valeur d'une fiche à appliquer à la main (émulateurs Android autonomes) : booléen,
+    /// entier, ou texte court sans caractère de contrôle. **Jamais écrite dans un fichier** :
+    /// seuls les adaptateurs « fiche » (`android::Sheet`) l'emploient, pour l'affichage.
+    Text,
 }
+
+/// Longueur maximale d'un texte `Kind::Text`.
+pub const MAX_TEXT: usize = 60;
 
 /// Risque d'un paramètre : `High` n'est jamais appliqué automatiquement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -61,8 +68,9 @@ impl Validated {
     }
 }
 
+/// Spécification d'une clé ; une clé de liste terminée par `*` couvre un préfixe (fiches manuelles).
 pub fn spec<'a>(specs: &'a [SettingSpec], key: &str) -> Option<&'a SettingSpec> {
-    specs.iter().find(|s| s.key == key)
+    specs.iter().find(|s| s.key == key || s.key.strip_suffix('*').is_some_and(|p| key.len() > p.len() && key.starts_with(p)))
 }
 
 pub fn validate(settings: &[Setting], specs: &[SettingSpec], hw: &HardwareInfo) -> Validated {
@@ -119,6 +127,9 @@ fn check_kind(kind: &Kind, v: &Value) -> Result<(), String> {
         (Kind::Int { min, max }, Value::Int(i)) => Err(format!("valeur {i} hors de la plage {min}–{max}")),
         (Kind::Choice(allowed), Value::Choice(c)) if allowed.contains(&c.as_str()) => Ok(()),
         (Kind::Choice(_), Value::Choice(_)) => Err("option inconnue".into()),
+        (Kind::Text, Value::Bool(_) | Value::Int(_)) => Ok(()),
+        (Kind::Text, Value::Choice(t)) if t.chars().count() <= MAX_TEXT && !t.chars().any(char::is_control) && !t.trim().is_empty() => Ok(()),
+        (Kind::Text, Value::Choice(_)) => Err("texte trop long ou illisible".into()),
         _ => Err("type de valeur inattendu".into()),
     }
 }

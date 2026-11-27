@@ -12,6 +12,7 @@ import { isTauri, quitApp } from "@/services/native";
 import { useSettings } from "@/services/settings";
 import { shellApi } from "@/services/shell";
 import { usePlatform } from "@/services/platform";
+import { useCapability } from "@/services/capabilities";
 
 /**
  * Bouton « OFF » : éteint iBox après confirmation, avec un court fondu
@@ -96,7 +97,9 @@ export function MinimizeButton() {
   const reduced = useReducedMotion();
   // Mode Jeu du Steam Deck : réduire laisserait iBox invisible (c'est Steam qui gère le premier plan)
   const gameMode = usePlatform((p) => p.gameMode);
-  if (!isTauri() || gameMode) return null;
+  // Android : le bouton Accueil du système fait déjà ce travail
+  const desktop = useCapability("desktopWindow");
+  if (!isTauri() || gameMode || !desktop) return null;
 
   const minimize = () => {
     sound.play("minimize");

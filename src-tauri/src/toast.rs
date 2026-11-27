@@ -4,6 +4,8 @@
 use serde_json::Value;
 use std::{collections::VecDeque, sync::{atomic::{AtomicBool, Ordering}, Mutex}, time::Duration};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
+#[cfg(mobile)]
+use crate::mobile::DesktopWindow;
 
 static QUEUE: Mutex<VecDeque<Value>> = Mutex::new(VecDeque::new());
 static ENABLED: AtomicBool = AtomicBool::new(true);
@@ -15,6 +17,13 @@ const LABEL: &str = "toast";
 const WIDTH: f64 = 430.0;
 const HEIGHT: f64 = 160.0;
 
+/// Android : les notifications restent dans la fenêtre principale (`platform::SINGLE_WINDOW`).
+#[cfg(mobile)]
+fn window(_: &AppHandle) -> Option<tauri::WebviewWindow> {
+    None
+}
+
+#[cfg(desktop)]
 fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(LABEL) { return Some(w); }
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
@@ -90,6 +99,8 @@ pub fn push(app: &AppHandle, payload: Value) {
     // automatiques et clip gardé sans iBox devant, montrés même en « Ne pas déranger »
     let always = payload["always"].as_bool() == Some(true);
     if !always && !allowed(kind, ENABLED.load(Ordering::Relaxed), FRIENDS.load(Ordering::Relaxed)) { return; }
+    // Android : iBox derrière un émulateur, la nouvelle devient aussi une notification Android
+    crate::android_ingame::on_toast(app, &payload);
     if let Ok(mut q) = QUEUE.lock() {
         if q.len() >= 6 { q.pop_front(); }
         q.push_back(payload);

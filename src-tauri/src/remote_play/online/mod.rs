@@ -279,6 +279,11 @@ fn signal_message(e: &SignalError, peer: &str) -> String {
 
 // ——— Indicateur côté hôte ———
 
+/// Android : pas d'hôte Remote Play, donc pas d'indicateur.
+#[cfg(mobile)]
+fn show_indicator(_: &AppHandle) {}
+
+#[cfg(desktop)]
 fn show_indicator(app: &AppHandle) {
     let app = app.clone();
     // jamais de fenêtre créée pendant une commande synchrone (blocage de WebView2) : un autre fil

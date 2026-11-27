@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { memo } from "react";
 
 /**
@@ -59,7 +60,7 @@ function Shape({ kind, color }: { kind: string; color: string }) {
   return (
     <span
       className="block h-full w-full rounded-full"
-      style={{ background: `radial-gradient(circle at 30% 28%, rgba(255,255,255,0.85) 0 12%, transparent 13%), linear-gradient(140deg, color-mix(in oklab, ${color} 55%, white), ${color})` }}
+      style={{ background: compat(`radial-gradient(circle at 30% 28%, rgba(255,255,255,0.85) 0 12%, transparent 13%), linear-gradient(140deg, color-mix(in oklab, ${color} 55%, white), ${color})`) }}
     />
   );
 }

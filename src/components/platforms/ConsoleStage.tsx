@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { EASE } from "@/motion/tokens";
 import { AnimatePresence, motion } from "motion/react";
 import type { ConsoleInfo } from "@/domain/platformCatalog";
@@ -69,9 +70,9 @@ export function AmbienceHalo({ info, intensity = 1, center = "50% 42%" }: { info
           transition={{ duration: 0.9, ease: EASE.out }}
           style={{
             background: [
-              `radial-gradient(ellipse 55% 50% at ${center}, color-mix(in oklab, ${a.glow} ${pct(30)}, transparent) 0%, transparent 72%)`,
-              `radial-gradient(ellipse 30% 28% at 78% 22%, color-mix(in oklab, ${a.accent} ${pct(20)}, transparent) 0%, transparent 70%)`,
-              `linear-gradient(180deg, transparent 58%, color-mix(in oklab, ${a.floor} ${pct(12)}, transparent) 100%)`,
+              compat(`radial-gradient(ellipse 55% 50% at ${center}, color-mix(in oklab, ${a.glow} ${pct(30)}, transparent) 0%, transparent 72%)`),
+              compat(`radial-gradient(ellipse 30% 28% at 78% 22%, color-mix(in oklab, ${a.accent} ${pct(20)}, transparent) 0%, transparent 70%)`),
+              compat(`linear-gradient(180deg, transparent 58%, color-mix(in oklab, ${a.floor} ${pct(12)}, transparent) 100%)`),
             ].join(", "),
           }}
         />

@@ -14,6 +14,7 @@ pub mod extras;
 pub mod iso;
 pub mod repo;
 pub mod scan;
+pub mod suggest;
 pub mod time;
 
 pub use time::now_iso;

@@ -17,6 +17,7 @@ import { friendState, SettingTile } from "./Presence";
 import { gameKey } from "@/services/social";
 import { InviteDialog } from "@/components/remoteplay/RemotePlayOnline";
 import { isTauri } from "@/services/native";
+import { capabilities } from "@/services/capabilities";
 
 interface Activity { friendId?: string; displayName?: string; avatar?: AvatarChoice | null; gameTitle: string; platformId: string; startedAt: number }
 interface Profile { id: string; displayName: string; avatar: AvatarChoice | null; bio?: string; accent?: string | null; banner?: string | null; featuredGames?: FeaturedGame[]; achievementHighlight?: AchievementHighlight | null; since: number | null; activity: Activity[]; games: number | null }
@@ -117,7 +118,7 @@ export function ProfileView({ id, friend, onChat }: { id: string; friend?: InetF
             label={friend.favorite ? "Favori" : "Ajouter aux favoris"}
             active={friend.favorite}
           />
-          {isTauri() && <Button icon="play" onClick={() => setInviting(true)}>Inviter à jouer</Button>}
+          {isTauri() && capabilities().remotePlay && <Button icon="play" onClick={() => setInviting(true)}>Inviter à jouer</Button>}
         </div>} />
       {friend && inviting && <InviteDialog friendId={friend.id} friendName={friend.displayName} onClose={() => setInviting(false)} />}
       {friend && p?.achievementHighlight && <AchievementShowcase highlight={p.achievementHighlight} accent={p.accent} />}

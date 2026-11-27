@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import type { ReactNode } from "react";
 import { Avatar } from "./Avatar";
 import { getPlatform } from "@/domain/platforms";
@@ -20,13 +21,13 @@ export function PlayerCard({ name, avatar, bio, accent, banner, games, status, a
   return (
     <div
       className="isolate overflow-hidden rounded-[1.8rem] bg-cream-deep text-center shadow-[0_18px_40px_-22px_rgba(30,40,70,0.55)] ring-1 ring-ink/10"
-      style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${tint} 14%, var(--ibox-cream-deep)), var(--ibox-cream-deep) 55%)` }}
+      style={{ background: compat(`linear-gradient(180deg, color-mix(in oklab, ${tint} 14%, var(--ibox-cream-deep)), var(--ibox-cream-deep) 55%)`) }}
     >
       {/* bannière */}
-      <div aria-hidden className="relative h-40 overflow-hidden" style={{ background: `linear-gradient(125deg, ${tint}, color-mix(in oklab, ${tint} 35%, #F6E9FF) 60%, #FFEFE6)` }}>
+      <div aria-hidden className="relative h-40 overflow-hidden" style={{ background: compat(`linear-gradient(125deg, ${tint}, color-mix(in oklab, ${tint} 35%, #F6E9FF) 60%, #FFEFE6)`) }}>
         {banner && <img src={banner} alt="" className="h-full w-full scale-105 object-cover" />}
         <span className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_40%,rgba(10,15,30,0.35))]" />
-        <span className="absolute inset-x-0 bottom-0 h-16" style={{ background: `linear-gradient(180deg, transparent, color-mix(in oklab, ${tint} 14%, var(--ibox-cream-deep)))` }} />
+        <span className="absolute inset-x-0 bottom-0 h-16" style={{ background: compat(`linear-gradient(180deg, transparent, color-mix(in oklab, ${tint} 14%, var(--ibox-cream-deep)))`) }} />
       </div>
       <div className="relative px-5 pb-6">
         {/* photo avec halo à la couleur du profil */}

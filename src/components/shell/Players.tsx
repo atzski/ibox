@@ -1,3 +1,4 @@
+import { compat } from "@/theme/cssCompat";
 import { SPRING } from "@/motion/tokens";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -41,7 +42,7 @@ export function PlayersIndicator() {
         animate={{ scale: on ? 1.12 : 1 }}
         transition={SPRING.pop}
         className={`grid ${size} place-items-center rounded-full px-2 font-display text-[0.82rem] font-semibold text-white shadow-xs`}
-        style={{ background: color(slot), boxShadow: on ? `0 0 0 3px color-mix(in oklab, ${color(slot)} 35%, transparent)` : undefined }}
+        style={{ background: color(slot), boxShadow: on ? compat(`0 0 0 3px color-mix(in oklab, ${color(slot)} 35%, transparent)`) : undefined }}
       >
         P{slot}
       </motion.span>
@@ -144,7 +145,7 @@ export function PlayerJoinedOverlay() {
               animate={{ rotate: [0, -8, 8, 0], scale: 1 }}
               transition={{ duration: 0.7 }}
               className="grid size-16 place-items-center rounded-[1.4rem] font-display text-[1.6rem] font-semibold text-white shadow-md"
-              style={{ background: `linear-gradient(140deg, color-mix(in oklab, ${color(shown.slot)} 70%, white), ${color(shown.slot)})` }}
+              style={{ background: compat(`linear-gradient(140deg, color-mix(in oklab, ${color(shown.slot)} 70%, white), ${color(shown.slot)})`) }}
             >
               P{shown.slot}
             </motion.span>

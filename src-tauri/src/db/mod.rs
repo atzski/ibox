@@ -28,6 +28,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/015_smartconfig.sql"),
     include_str!("migrations/016_manuals.sql"),
     include_str!("migrations/017_manual_research.sql"),
+    include_str!("migrations/018_launchbox_discs.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]

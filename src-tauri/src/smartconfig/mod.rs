@@ -23,6 +23,7 @@
 //! (`platform::locate` choisit selon le système).
 
 pub mod adapters;
+pub mod android;
 pub mod autotune;
 pub mod backup;
 pub mod cfg;

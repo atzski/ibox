@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchesQuery, relativeDay, sortKey, variantKey, versionTags } from "./text";
-import { PLATFORMS, platformsForExtension, getPlatform, folderHintsOf } from "./platforms";
+import { PLATFORMS, platformsForExtension, getPlatform, folderHintsOf, isEmulatedPlatform } from "./platforms";
 import formats from "../../shared/platform-formats.json";
 import { DEMO_GAMES } from "./demoLibrary";
 import { countByPlatform, lastPlayed, recentlyAdded } from "@/services/library";
@@ -53,8 +53,9 @@ describe("registre des consoles", () => {
 
   it("déclare des extensions normalisées", () => {
     for (const p of PLATFORMS) {
-      // le PC n'est pas une console à fichiers : ses jeux viennent des boutiques et des ajouts
-      if (p.id !== "pc") expect(p.extensions.length).toBeGreaterThan(0);
+      // le PC et Android ne sont pas des consoles à fichiers : leurs jeux viennent des boutiques,
+      // des applications installées et des ajouts
+      if (isEmulatedPlatform(p.id)) expect(p.extensions.length).toBeGreaterThan(0);
       for (const e of p.extensions) expect(e).toMatch(/^\.[a-z0-9]+$/);
     }
   });
@@ -66,8 +67,11 @@ describe("registre des consoles", () => {
   });
 
   it("est synchronisé avec la table partagée du scanner", () => {
-    expect(Object.keys(formats.platforms).sort()).toEqual(PLATFORMS.map((p) => p.id).sort());
-    for (const p of PLATFORMS) expect(folderHintsOf(p.id).length).toBeGreaterThan(0);
+    // les applications Android ne sont jamais scannées : hors de la table du scanner
+    const scanned = PLATFORMS.filter((p) => p.id !== "android");
+    expect(Object.keys(formats.platforms).sort()).toEqual(scanned.map((p) => p.id).sort());
+    for (const p of scanned) expect(folderHintsOf(p.id).length).toBeGreaterThan(0);
+    expect(getPlatform("android")?.extensions).toEqual([]);
   });
 
   it("signale les extensions ambiguës au lieu de deviner", () => {

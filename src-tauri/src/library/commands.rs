@@ -80,6 +80,14 @@ pub fn folders_list(state: State<LibraryState>) -> Res<Vec<repo::Folder>> {
     state.with(|c| repo::list_folders(c))
 }
 
+/// Dossiers de jeux usuels présents sur cette machine (EmuDeck, RetroDECK, carte SD), proposés
+/// d'un bouton : ajouter un dossier ne demande alors ni souris ni sélecteur du système.
+#[tauri::command]
+pub async fn folder_suggestions(app: AppHandle) -> Res<Vec<String>> {
+    let known: Vec<String> = app.state::<LibraryState>().with(|c| repo::list_folders(c))?.into_iter().map(|f| f.path).collect();
+    tauri::async_runtime::spawn_blocking(move || super::suggest::suggestions(&super::suggest::roots(), &known)).await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn folder_add(state: State<LibraryState>, path: String, platform_id: Option<String>) -> Res<repo::Folder> {
     state.with(|c| repo::add_folder(c, &path, platform_id.as_deref()))

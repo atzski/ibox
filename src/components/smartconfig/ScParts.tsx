@@ -2,7 +2,10 @@ import { useState, type ReactNode } from "react";
 import { Segmented } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { useLauncher } from "@/services/launcher";
+import { usePlatform } from "@/services/platform";
 import {
+  DEVICE_HINT,
+  DEVICE_LABEL,
   KIND_HINT,
   KIND_LABEL,
   LOCAL_HINT,
@@ -19,17 +22,45 @@ import {
 } from "@/services/smartconfig";
 import type { Tone } from "@/components/ui/Button";
 
+/** Mots de l'appareil : « votre PC » sur le bureau, « votre appareil » sur Android. */
+export function useHereWords() {
+  const android = usePlatform((p) => !!p.android);
+  return android ? { android, yours: "votre appareil", here: "cet appareil" } : { android, yours: "votre PC", here: "ce PC" };
+}
+
+/** Émulateurs Android autonomes (adaptateurs « fiche », `src-tauri/src/smartconfig/android.rs`). */
+const ANDROID_NAMES: Record<string, string> = {
+  "android.dolphin": "Dolphin",
+  "android.nethersx2": "NetherSX2",
+  "android.armsx2": "ARMSX2",
+  "android.duckstation": "DuckStation",
+  "android.ppsspp": "PPSSPP",
+  "android.azahar": "Azahar",
+  "android.lime3ds": "Lime3DS",
+  "android.citra": "Citra",
+  "android.eden": "Eden",
+  "android.melonds": "melonDS",
+  "android.drastic": "DraStic",
+  "android.flycast": "Flycast",
+  "android.redream": "Redream",
+  "android.cemu": "Cemu",
+  "android.aps3e": "aPS3e",
+  "android.yabasanshiro": "Yaba Sanshiro",
+  retroarch: "RetroArch",
+};
+
 /** Nom affiché de l'émulateur d'un adaptateur (celui que l'utilisateur a installé). */
 export function useEmulatorName(adapter: string | null | undefined): string {
   const emulators = useLauncher((s) => s.emulators);
   if (!adapter) return "";
-  return emulators.find((e) => e.profileId === adapter)?.name ?? adapter.charAt(0).toUpperCase() + adapter.slice(1);
+  return emulators.find((e) => e.profileId === adapter)?.name ?? ANDROID_NAMES[adapter] ?? adapter.charAt(0).toUpperCase() + adapter.slice(1);
 }
 
 /** États de la fiche : texte, icône et couleur d'action (tokens.css). */
 export const BADGE: Record<ScBadge, { label: string; icon: IconName; tone: Tone }> = {
   searching: { label: "Recherche en cours…", icon: "search", tone: "blue" },
   applied: { label: "Optimisé", icon: "check", tone: "green" },
+  sheet: { label: "Réglages à reporter dans l'émulateur", icon: "manual", tone: "orange" },
   custom: { label: "Configuration personnalisée", icon: "tune", tone: "purple" },
   newRecommendation: { label: "Nouvelle recommandation", icon: "sparkle", tone: "yellow" },
   available: { label: "Recommandation disponible", icon: "sparkle", tone: "orange" },
@@ -87,6 +118,12 @@ export const VerifiedChip = () => (
     Vérifié par iBox
   </Chip>
 );
+/** Android : rapport fait sur votre appareil, ou sur un appareil à la même puce. */
+export const DeviceChip = ({ match }: { match: "sameDevice" | "sameSoc" }) => (
+  <Chip tone={match === "sameDevice" ? "green" : "blue"} icon="chip" title={DEVICE_HINT[match]}>
+    {DEVICE_LABEL[match]}
+  </Chip>
+);
 export const RiskChip = ({ risk }: { risk: Risk }) => <Chip tone={RISK_TONE[risk]}>{RISK_LABEL[risk]}</Chip>;
 export const ModeChip = ({ mode }: { mode: ScMode }) => <Chip tone="purple" icon="tune">{MODE_LABEL[mode]}</Chip>;
 
@@ -111,8 +148,9 @@ export function ReportedPerf({ rec, source }: { rec: Recommendation; source: str
   );
 }
 
-/** Tableau avant → après (aperçu exact ou journal). */
-export function ChangesList({ changes, empty }: { changes: Change[]; empty?: string }) {
+/** Tableau avant → après (aperçu exact ou journal). `noBefore` : valeur à reporter seule (fiche
+ * Android : iBox ne connaît pas la valeur actuelle dans l'émulateur). */
+export function ChangesList({ changes, empty, noBefore }: { changes: Change[]; empty?: string; noBefore?: boolean }) {
   if (changes.length === 0) return <p className="py-2 text-[0.88rem] font-semibold text-ink-soft">{empty ?? "Aucune modification."}</p>;
   return (
     <ul className="flex flex-col divide-y divide-ink/6">
@@ -120,12 +158,12 @@ export function ChangesList({ changes, empty }: { changes: Change[]; empty?: str
         <li key={c.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2">
           <span className="min-w-0 truncate text-[0.9rem] font-bold text-ink">{c.label}</span>
           <span className="inline-flex items-center gap-2 text-[0.85rem] font-bold">
-            {c.before !== null ? (
+            {noBefore ? null : c.before !== null ? (
               <span data-no-i18n className="rounded-md bg-ink/6 px-2 py-0.5 text-ink-soft line-through decoration-ink/30">{c.before}</span>
             ) : (
               <span className="rounded-md bg-ink/6 px-2 py-0.5 text-ink-soft">par défaut</span>
             )}
-            <Icon name="chevronRight" size="0.9em" className="text-ink-faint" />
+            {!noBefore && <Icon name="chevronRight" size="0.9em" className="text-ink-faint" />}
             <span data-no-i18n className="tone-green rounded-md bg-[color-mix(in_srgb,var(--tone)_14%,transparent)] px-2 py-0.5 text-[var(--tone-ink)]">{c.after}</span>
           </span>
         </li>

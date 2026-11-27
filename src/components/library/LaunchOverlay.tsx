@@ -1,5 +1,5 @@
 import { SPRING } from "@/motion/tokens";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLauncher } from "@/services/launcher";
 import { useGame } from "@/services/library";
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { input } from "@/input/InputController";
 import { consoleInfo } from "@/domain/platformCatalog";
+import { capabilities } from "@/services/capabilities";
+import { usePlatform } from "@/services/platform";
 
 /**
  * Transition de lancement : la jaquette s'avance, le disque en sort et tourne,
@@ -25,6 +27,36 @@ export function LaunchOverlay() {
   const wasAnimated = useLauncherWasAnimated();
   // aucun émulateur associé et une fiche iBox Platforms existe : parcours d'installation
   const noEmulator = !!error && error.startsWith("Aucun émulateur") && !!game && !!consoleInfo(game.platformId)?.recommended;
+
+  // retour d'un jeu : l'élément choisi avant le lancement reprend le focus. Sans lui (bouton
+  // désactivé pendant le lancement, fenêtre rendue par le système), plus rien n'était sélectionné
+  // et le premier appui de la croix ne servait qu'à le retrouver (D16, docs/ANDROID-RECETTE.md)
+  const chosen = useRef<string | undefined>(undefined);
+  const played = useRef(false);
+  useEffect(() => {
+    const el = document.activeElement as HTMLElement | null;
+    if (phase === "animating" || phase === "starting") {
+      if (el && el !== document.body) chosen.current = el.dataset.focusId ?? chosen.current;
+      played.current = true;
+      return;
+    }
+    if (phase !== "idle" || !played.current) return;
+    const refocus = () => {
+      const active = document.activeElement;
+      if (!active || active === document.body) input.focusInitial(chosen.current);
+    };
+    refocus();
+    // la fenêtre revient parfois après la fin de la partie : on recommence à son retour
+    window.addEventListener("focus", refocus);
+    const stop = window.setTimeout(() => {
+      played.current = false;
+      window.removeEventListener("focus", refocus);
+    }, 15_000);
+    return () => {
+      window.clearTimeout(stop);
+      window.removeEventListener("focus", refocus);
+    };
+  }, [phase]);
 
   // Échap / Retour ferme le message d'erreur
   useEffect(() => {
@@ -130,7 +162,9 @@ export function LaunchOverlay() {
                 icon="gear"
                 onClick={() => {
                   dismiss();
-                  go({ name: "settings", category: "pc" });
+                  // Android : les émulateurs se règlent sur la fiche de la console (iBox Platforms)
+                  if (usePlatform.getState().android && game && consoleInfo(game.platformId)) go({ name: "platform", platformId: game.platformId });
+                  else go({ name: "settings", category: capabilities().pcEmulators ? "pc" : "consoles" });
                 }}
               >
                 Paramètres des émulateurs

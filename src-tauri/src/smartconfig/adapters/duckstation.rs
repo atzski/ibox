@@ -132,6 +132,7 @@ fn decode(key: &str, ini: &Ini) -> Option<Value> {
     match spec.kind {
         Kind::Bool => common::parse_bool(&s).map(Value::Bool),
         Kind::Int { .. } => s.parse().ok().map(Value::Int),
+        Kind::Text => None,
         Kind::Choice(_) if key == "duckstation.msaa" => MSAA.iter().find(|m| **m == s).map(|m| Value::Choice(m.to_string())),
         Kind::Choice(_) => NAMES.iter().find(|(k2, _, name)| *k2 == key && *name == s).map(|(_, id, _)| Value::Choice(id.to_string())),
     }

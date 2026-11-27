@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import type { Plugin } from "vite";
+import { addCssFallbacks } from "./src/build/cssFallbacks.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -39,10 +40,27 @@ function pdfjsAssets(): Plugin {
   };
 }
 
+/**
+ * Replis pour les WebView anciennes (Android, Chrome 100 et plus) ajoutés au CSS final :
+ * `src/build/cssFallbacks.ts`. Construction seulement ; rendu inchangé sur un moteur récent.
+ */
+function webviewFallbacks(): Plugin {
+  return {
+    name: "ibox-webview-fallbacks",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      for (const file of Object.values(bundle)) {
+        if (file.type === "asset" && file.fileName.endsWith(".css")) file.source = addCssFallbacks(String(file.source));
+      }
+    },
+  };
+}
+
 // Configuration Vite pensée pour Tauri : port fixe, pas d'effacement de console,
 // et le dossier src-tauri ignoré par le watcher.
 export default defineConfig({
-  plugins: [react(), tailwindcss(), pdfjsAssets()],
+  plugins: [react(), tailwindcss(), pdfjsAssets(), webviewFallbacks()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

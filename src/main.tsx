@@ -1,3 +1,4 @@
+import "./services/polyfills";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/nunito";
@@ -19,11 +20,13 @@ sound.attachClicks();
 // et tout enregistrement réussi sa pastille « Enregistré » (voir services/saved.ts)
 attachSaved();
 
-// Outils de vérification en développement uniquement (absents du build de production)
-if (import.meta.env.DEV) {
-  void Promise.all([import("./services/library"), import("./app/navigation"), import("./domain/demoLibrary"), import("./services/sound")]).then(
-    ([lib, nav, demo, snd]) => {
-      (window as unknown as Record<string, unknown>).__ibox = { useLibrary: lib.useLibrary, useNav: nav.useNav, DEMO_GAMES: demo.DEMO_GAMES, sound: snd.sound };
+// Outils de vérification en développement, et dans le build de mesure (`VITE_IBOX_BENCH=1`,
+// docs/HANDHELD.md) ; absents du build publié
+if (import.meta.env.DEV || import.meta.env.VITE_IBOX_BENCH === "1") {
+  void Promise.all([import("./services/library"), import("./app/navigation"), import("./domain/demoLibrary"), import("./services/sound"), import("./art/covers")]).then(
+    ([lib, nav, demo, snd, art]) => {
+      // art : comparer les faces peintes par le worker et sur le fil principal (docs/HANDHELD.md §4)
+      (window as unknown as Record<string, unknown>).__ibox = { useLibrary: lib.useLibrary, useNav: nav.useNav, DEMO_GAMES: demo.DEMO_GAMES, sound: snd.sound, art };
     },
   );
 }
@@ -47,6 +50,14 @@ if (isToast || isOverlay || isMusic) {
 // fenêtres transparentes : jamais de décor plein écran derrière leur contenu
 if (isToast || isOverlay || isIndicator || isMusic) document.documentElement.classList.add("ibox-transparent-window");
 const root = createRoot(document.getElementById("root")!);
+// Écran du bas des consoles à deux écrans (Android, `SecondScreen.kt`) : page sans IPC, réglages
+// relus dans le stockage local partagé avec la fenêtre principale (docs/ANDROID.md, « Second écran »)
+const isSecond = new URLSearchParams(window.location.search).get("screen") === "second";
+if (isSecond) {
+  window.addEventListener("storage", (e) => {
+    if (e.key === "ibox.settings") void useSettings.persist.rehydrate();
+  });
+}
 const initialize = async () => {
   await loadPlatform();
   if (!isToast && !isOverlay && !isIndicator && !isMusic) await restorePortableSettings().catch((error) => console.error("Sauvegarde iBox", error));
@@ -54,7 +65,10 @@ const initialize = async () => {
   if (!settings.language) settings.set("language", defaultLang());
   startTranslation(useSettings.getState().language ?? "fr");
 };
-if (isIndicator) {
+if (isSecond) {
+  startTranslation(useSettings.getState().language ?? defaultLang());
+  void import("./components/second/SecondScreen").then(({ SecondScreen }) => root.render(<SecondScreen />));
+} else if (isIndicator) {
   void initialize().then(() => import("./components/remoteplay/RemotePlayIndicator")).then(({ RemotePlayIndicator }) => root.render(<RemotePlayIndicator />));
 } else if (isMusic) {
   void initialize().then(() => import("./components/music/MusicWindow")).then(({ MusicWindow }) => root.render(<MusicWindow />));
@@ -64,6 +78,8 @@ if (isIndicator) {
   void initialize().then(() => import("./components/social/ToastWindow")).then(({ ToastWindow }) => root.render(<ToastWindow />));
 } else {
   void initialize().then(async () => {
+    // Android : WebView trop ancienne, le message de `public/webview-check.js` reste affiché
+    if ((window as { __iboxWebViewTooOld?: unknown }).__iboxWebViewTooOld) return;
     const { usePlatform } = await import("./services/platform");
     if (!usePlatform.getState().bench) return renderApp();
     // banc d'essai Remote Play de l'aperçu Steam Deck : mesures sans la scène 3D derrière

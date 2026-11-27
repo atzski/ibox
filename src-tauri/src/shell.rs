@@ -8,9 +8,15 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, WindowEvent};
+#[cfg(desktop)]
+use tauri::WindowEvent;
+use tauri::{AppHandle, Emitter, Manager};
+#[cfg(mobile)]
+use crate::mobile::DesktopWindow;
 
 /// Comportements choisis dans Paramètres › Système (transmis au démarrage).
 pub struct Behavior {
@@ -59,7 +65,14 @@ fn show_and_go(app: &AppHandle, place: &str) {
     let _ = app.emit("tray://navigate", place);
 }
 
+/// Android : ni zone de notification, ni fenêtre à masquer.
+#[cfg(mobile)]
+pub fn install(_: &AppHandle) -> tauri::Result<()> {
+    Ok(())
+}
+
 /// Icône de la zone de notification et son menu.
+#[cfg(desktop)]
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
     // Mode Jeu (gamescope) : ni zone de notification, ni fermeture qui masque la fenêtre
     if crate::platform::game_mode() {
@@ -212,7 +225,7 @@ pub fn startup(app: &AppHandle) {
     if !started_hidden() {
         show_main(app);
     }
-    #[cfg(not(debug_assertions))]
+    #[cfg(all(desktop, not(debug_assertions)))]
     {
         use tauri_plugin_autostart::ManagerExt;
         let l = app.autolaunch();
@@ -227,21 +240,42 @@ pub fn startup(app: &AppHandle) {
 /// La fenêtre principale est-elle visible ? (l'interface se met au repos sinon)
 #[tauri::command]
 pub fn shell_visible(app: AppHandle) -> bool {
+    // Android : la fenêtre mobile se dit toujours invisible ; l'arrière-plan s'y lit par
+    // `document.hidden` (services/performance.ts), sinon l'interface resterait en veille
+    if cfg!(mobile) {
+        return true;
+    }
     app.get_webview_window("main").and_then(|w| w.is_visible().ok()).unwrap_or(true)
 }
 
 #[tauri::command]
 pub fn autostart_get(app: AppHandle) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(false)
+    }
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        app.autolaunch().is_enabled().map_err(|e| e.to_string())
+    }
 }
 
 #[tauri::command]
 pub fn autostart_set(app: AppHandle, enabled: bool) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let l = app.autolaunch();
-    if enabled { l.enable() } else { l.disable() }.map_err(|e| e.to_string())?;
-    l.is_enabled().map_err(|e| e.to_string())
+    #[cfg(mobile)]
+    {
+        let _ = (app, enabled);
+        Err(crate::platform::UNAVAILABLE.into())
+    }
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        let l = app.autolaunch();
+        if enabled { l.enable() } else { l.disable() }.map_err(|e| e.to_string())?;
+        l.is_enabled().map_err(|e| e.to_string())
+    }
 }
 
 // ——— Rapport de problème ———
@@ -287,6 +321,7 @@ const INSTALL_DEADLINE: Duration = Duration::from_secs(15 * 60);
 /// Événement de progression d'une installation (écouté par l'interface).
 pub const UPDATE_EVENT: &str = "update://progress";
 
+#[cfg(desktop)]
 fn updater(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Updater>, String> {
     use tauri_plugin_updater::UpdaterExt;
     let Some(url) = UPDATE_URL else { return Ok(None) };
@@ -319,14 +354,35 @@ fn update_log(app: &AppHandle, line: &str) {
 #[tauri::command]
 pub async fn update_check(app: AppHandle) -> Result<UpdateInfo, String> {
     let current = app.package_info().version.to_string();
-    let Some(u) = updater(&app)? else {
-        return Ok(UpdateInfo { configured: false, current, available: None, notes: None });
-    };
-    let found = u.check().await.map_err(|e| check_error(&app, e))?;
-    Ok(UpdateInfo { configured: true, current, available: found.as_ref().map(|f| f.version.clone()), notes: found.and_then(|f| f.body) })
+    // Android : entrée `android` du même latest.json (APK ouvert avec l'installeur d'Android)
+    #[cfg(mobile)]
+    {
+        use crate::android_apps::update;
+        let Some(url) = update::run::endpoint_of(&app, UPDATE_URL) else {
+            return Ok(UpdateInfo { configured: false, current, available: None, notes: None });
+        };
+        let m = update::run::manifest(&url, CHECK_TIMEOUT).await.map_err(|e| {
+            update_log(&app, &format!("recherche impossible : {e}"));
+            "Impossible de joindre le serveur de mises à jour. Vérifiez votre connexion, puis réessayez.".to_string()
+        })?;
+        let found = update::available(&m, &current);
+        if found.is_none() {
+            update::run::clean_downloads(&app);
+        }
+        return Ok(UpdateInfo { configured: true, current, available: found.as_ref().map(|f| f.0.clone()), notes: found.and_then(|f| f.1) });
+    }
+    #[cfg(desktop)]
+    {
+        let Some(u) = updater(&app)? else {
+            return Ok(UpdateInfo { configured: false, current, available: None, notes: None });
+        };
+        let found = u.check().await.map_err(|e| check_error(&app, e))?;
+        Ok(UpdateInfo { configured: true, current, available: found.as_ref().map(|f| f.version.clone()), notes: found.and_then(|f| f.body) })
+    }
 }
 
 /// Échec de la vérification : message clair (le détail technique va dans le journal).
+#[cfg(desktop)]
 fn check_error(app: &AppHandle, e: tauri_plugin_updater::Error) -> String {
     update_log(app, &format!("recherche impossible : {e}"));
     "Impossible de joindre le serveur de mises à jour. Vérifiez votre connexion, puis réessayez.".into()
@@ -342,6 +398,8 @@ pub enum UpdateProgress {
     Installing,
     /// Échec : iBox reste ouvert, l'interface propose de réessayer ou de télécharger l'installeur.
     Failed { message: String },
+    /// Android : l'installeur d'Android a pris le relais (c'est lui qui remplace iBox).
+    HandedOver,
     UpToDate,
 }
 
@@ -352,7 +410,11 @@ static INSTALLING: AtomicBool = AtomicBool::new(false);
 /// La progression arrive par l'événement `update://progress` ; la commande répond aussitôt.
 #[tauri::command]
 pub async fn update_install(app: AppHandle) -> Result<(), String> {
-    if UPDATE_URL.is_none() {
+    #[cfg(desktop)]
+    let configured = UPDATE_URL.is_some();
+    #[cfg(mobile)]
+    let configured = crate::android_apps::update::run::endpoint_of(&app, UPDATE_URL).is_some();
+    if !configured {
         return Err("Mises à jour non configurées.".into());
     }
     if INSTALLING.swap(true, Ordering::AcqRel) {
@@ -374,7 +436,11 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
             }));
         INSTALLING.store(false, Ordering::Release);
         match result {
-            Ok(()) => {}
+            Ok(()) => {
+                if cfg!(mobile) {
+                    emit(UpdateProgress::HandedOver);
+                }
+            }
             Err(message) if message == UP_TO_DATE => emit(UpdateProgress::UpToDate),
             Err(message) => {
                 update_log(&app, &format!("échec : {message}"));
@@ -391,6 +457,16 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
 
 const UP_TO_DATE: &str = "iBox est déjà à jour.";
 
+/// Android : APK téléchargé, vérifié (SHA-256, taille), puis installeur d'Android ; c'est
+/// l'utilisateur qui confirme, et Android remplace iBox s'il accepte.
+#[cfg(mobile)]
+async fn run_update(app: &AppHandle, emit: &impl Fn(UpdateProgress)) -> Result<(), String> {
+    use crate::android_apps::update::run;
+    let url = run::endpoint_of(app, UPDATE_URL).ok_or("Mises à jour non configurées.")?;
+    run::install(app, &url, CHECK_TIMEOUT, DOWNLOAD_TIMEOUT, UP_TO_DATE, emit, &|line| update_log(app, line)).await
+}
+
+#[cfg(desktop)]
 async fn run_update(app: &AppHandle, emit: &impl Fn(UpdateProgress)) -> Result<(), String> {
     emit(UpdateProgress::Checking);
     update_log(app, "recherche");

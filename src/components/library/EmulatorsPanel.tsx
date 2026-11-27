@@ -1,7 +1,7 @@
 import { saved } from "@/services/saved";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { PLATFORMS, getPlatform } from "@/domain/platforms";
+import { PLATFORMS, getPlatform, isEmulatedPlatform } from "@/domain/platforms";
 import { launcherApi, useLauncher, type Emulator, type Suggestion } from "@/services/launcher";
 import { useSettings } from "@/services/settings";
 import { useLibrary } from "@/services/library";
@@ -143,7 +143,7 @@ export function EmulatorsPanel() {
       {/* Émulateur par console */}
       <h3 className="mt-7 mb-3 text-[1.05rem] font-semibold text-ink">Émulateurs par console</h3>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-2" data-nav-group="platform-emulators">
-        {PLATFORMS.filter((p) => p.id !== "pc").map((p) => {
+        {PLATFORMS.filter((p) => isEmulatedPlatform(p.id)).map((p) => {
           const emu = emulators.find((e) => e.id === platformMap[p.id]);
           const missingCore = emu?.needsCore && !emu.cores[p.id];
           return (

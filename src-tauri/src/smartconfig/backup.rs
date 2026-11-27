@@ -263,6 +263,9 @@ pub fn restore(conn: &Connection, id: i64, force: bool) -> Result<()> {
     if status != "applied" {
         return Err(BackupError::Io("cette optimisation n'est plus active".into()));
     }
+    if is_sheet(&target) {
+        return Err(BackupError::Forbidden("fiche de réglages : rien n'a été écrit, retirez la fiche".into()));
+    }
     let target = PathBuf::from(target);
     if latest_active(conn, &target)?.map(|e| e.id) != Some(id) {
         return Err(BackupError::NotLatest);
@@ -312,9 +315,73 @@ pub fn recover(conn: &Connection) -> Result<usize> {
     Ok(conflicts)
 }
 
+/// Préfixe des cibles de fiches manuelles (aucun fichier : `android-sheet:<émulateur>:<jeu>`).
+pub const SHEET_PREFIX: &str = "android-sheet:";
+
+pub fn is_sheet(target: &str) -> bool {
+    target.starts_with(SHEET_PREFIX)
+}
+
+/// Fiche à appliquer à la main (émulateurs Android autonomes) : rien n'est écrit sur le disque.
+/// L'entrée, active (`applied`) et de cible `android-sheet:…` (le schéma 015 n'admet pas d'autre
+/// statut), garde la liste des réglages et ce qui est fait (`changes`). Une seule fiche active
+/// par cible : la précédente est retirée.
+pub fn record_manual(conn: &Connection, target: &str, e: &NewEntry) -> Result<i64> {
+    if !is_sheet(target) {
+        return Err(BackupError::Forbidden("cible de fiche invalide".into()));
+    }
+    let now = crate::library::now_iso();
+    conn.execute("UPDATE sc_applications SET status = 'restored', restored_at = ?2 WHERE target = ?1 AND status = 'applied'", params![target, now])?;
+    conn.execute(
+        "INSERT INTO sc_applications (game_id, adapter, emulator_version, target, source, source_ref, mode, profile, changes, before_sha, after_sha, backup_file, status, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL, ?10, NULL, 'applied', ?11)",
+        params![e.game_id, e.adapter, e.emulator_version, target, e.source, e.source_ref, e.mode, e.profile_json, e.changes_json, sha256(e.changes_json.as_bytes()), now],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// Coche ou décoche des réglages d'une fiche active.
+pub fn update_manual(conn: &Connection, id: i64, changes_json: &str) -> Result<()> {
+    let n = conn.execute("UPDATE sc_applications SET changes = ?2, after_sha = ?3 WHERE id = ?1 AND status = 'applied' AND target LIKE 'android-sheet:%'", params![id, changes_json, sha256(changes_json.as_bytes())])?;
+    if n == 0 {
+        return Err(BackupError::NotLatest);
+    }
+    Ok(())
+}
+
+/// Retire une fiche (« retour arrière » : l'interface rappelle les réglages à remettre).
+pub fn withdraw_manual(conn: &Connection, id: i64) -> Result<()> {
+    let n = conn.execute("UPDATE sc_applications SET status = 'restored', restored_at = ?2 WHERE id = ?1 AND status = 'applied' AND target LIKE 'android-sheet:%'", params![id, crate::library::now_iso()])?;
+    if n == 0 {
+        return Err(BackupError::NotLatest);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fiche_manuelle_journalisee() {
+        let conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch("INSERT INTO games (id, platform_id, title, sort_title, id_method, id_confidence, added_at) VALUES (1, 'ps2', 'Jeu', 'jeu', 'header', 1, 'x')").unwrap();
+        let e = NewEntry { game_id: 1, adapter: "android.nethersx2", emulator_version: None, source: "emuready", source_ref: "r1", mode: None, profile_json: "{}", changes_json: "[]" };
+        let a = record_manual(&conn, "android-sheet:android.nethersx2:1", &e).unwrap();
+        update_manual(&conn, a, r#"[{"key":"sheet.x","label":"X","before":null,"after":"2x","done":true}]"#).unwrap();
+        assert!(entry(&conn, a).unwrap().unwrap().changes.contains("\"done\":true"));
+        // une nouvelle fiche remplace la précédente ; retrait possible une seule fois
+        let b = record_manual(&conn, "android-sheet:android.nethersx2:1", &e).unwrap();
+        assert_eq!(entry(&conn, a).unwrap().unwrap().status, "restored");
+        assert_eq!(update_manual(&conn, a, "[]"), Err(BackupError::NotLatest));
+        withdraw_manual(&conn, b).unwrap();
+        assert_eq!(withdraw_manual(&conn, b), Err(BackupError::NotLatest));
+        // jamais touchée par la reprise au démarrage, jamais « restaurée » comme un fichier
+        assert_eq!(recover(&conn).unwrap(), 0);
+        let c = record_manual(&conn, "android-sheet:android.nethersx2:1", &e).unwrap();
+        assert!(matches!(restore(&conn, c, false), Err(BackupError::Forbidden(_))));
+        assert!(record_manual(&conn, "/tmp/x.ini", &e).is_err());
+    }
 
     fn setup() -> (tempfile::TempDir, Connection, PathBuf, PathBuf) {
         let tmp = tempfile::tempdir().unwrap();

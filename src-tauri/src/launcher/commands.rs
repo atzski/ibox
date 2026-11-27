@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
 pub struct LauncherState {
-    running: Mutex<Option<Running>>,
+    pub(crate) running: Mutex<Option<Running>>,
 }
 
 type Res<T> = Result<T, String>;
@@ -99,6 +99,7 @@ pub fn args_split(text: String) -> Vec<String> {
 }
 
 /// Commande qui serait exécutée (aperçu, ou erreur explicite si impossible).
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn launch_plan(lib: State<LibraryState>, game_id: i64) -> Res<LaunchPlan> {
     lib.with(|c| repo::plan(c, game_id).map_err(lib_err))
@@ -121,7 +122,22 @@ pub fn launch_status(state: State<LauncherState>) -> Option<Running> {
     state.running.lock().ok().and_then(|r| r.clone())
 }
 
+/// Android : activité de l'émulateur choisi dans la table d'ES-DE (`android.rs`).
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn launch_plan(app: AppHandle, game_id: i64) -> Res<LaunchPlan> {
+    tauri::async_runtime::spawn_blocking(move || super::android::plan(&app, game_id)).await.map_err(|e| e.to_string())?
+}
+
+/// Android : intent vers l'émulateur ; la session se termine au retour dans iBox.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
+    tauri::async_runtime::spawn_blocking(move || super::android::launch(&app, game_id)).await.map_err(|e| e.to_string())?
+}
+
 /// Lance un jeu. La fin de session est signalée par `launch://ended`.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 pub fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
     let state = app.state::<LauncherState>();

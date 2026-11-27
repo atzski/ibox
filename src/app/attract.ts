@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Game } from "@/domain/types";
+import { hasMedia } from "@/art/useMediaUrl";
 import { focusAmbientGame, useShell } from "./shellState";
 
 const IDLE_MS = 45_000;
@@ -50,6 +51,5 @@ export function useAttractMode(games: Game[], enabled: boolean): void {
 }
 
 function score(g: Game): number {
-  const kinds = new Set((g.media ?? []).map((m) => m.kind));
-  return (kinds.has("hero") ? 2 : 0) + (kinds.has("front") ? 1 : 0);
+  return (hasMedia(g, "hero") ? 2 : 0) + (hasMedia(g, "front") ? 1 : 0);
 }

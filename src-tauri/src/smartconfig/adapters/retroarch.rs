@@ -45,7 +45,7 @@ pub const CORES: &[(&str, &str)] = &[
 
 pub const DRIVERS: &[&str] = &["vulkan", "opengl", "d3d11", "d3d12"];
 
-const SPECS: &[SettingSpec] = &[
+pub const SPECS: &[SettingSpec] = &[
     SettingSpec { key: "retroarch.video_driver", label: "Pilote vidéo", kind: Kind::Choice(DRIVERS), risk: Risk::High, check: Some(common::api_check) },
     SettingSpec { key: "retroarch.vsync", label: "Synchronisation verticale", kind: Kind::Bool, risk: Risk::Low, check: None },
     SettingSpec { key: "retroarch.hard_sync", label: "Synchronisation GPU stricte", kind: Kind::Bool, risk: Risk::Low, check: None },

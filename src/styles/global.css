@@ -9,6 +9,7 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./performance.css";
+@import "./android.css";
 
 /* Mapping des tokens vers les utilitaires Tailwind (bg-cream, text-ink, rounded-lg…) */
 @theme inline {

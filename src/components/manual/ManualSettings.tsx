@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { useSettings } from "@/services/settings";
 import { formatBytes } from "@/services/metadata";
 import { isTauri } from "@/services/native";
+import { useCapability } from "@/services/capabilities";
 import { manualsApi, watchManuals, useManuals, useManualJob, type ManualSource, type ManualStatus, type ScreenScraperUser } from "@/services/manuals";
 
 /** Sources des manuels : le seul endroit de l'interface où elles sont nommées. */
@@ -28,6 +29,9 @@ const SOURCES: { id: ManualSource; label: string; note: string }[] = [
 /** Paramètres › Manuels. */
 export function ManualSettings({ ui: { Group, Row, Toggle } }: { ui: SettingsUi }) {
   const s = useSettings();
+  // Android : pas de jeux PC, donc pas de manuels Steam ; « cet appareil » plutôt que « ce PC »
+  const pcGames = useCapability("pcGames");
+  const sources = pcGames ? SOURCES : SOURCES.filter((src) => src.id !== "steam");
   const count = useManuals((m) => Object.keys(m.byGame).length);
   const [status, setStatus] = useState<ManualStatus | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export function ManualSettings({ ui: { Group, Row, Toggle } }: { ui: SettingsUi 
         <JobPanel onDone={refresh} />
         <Row
           label="Manuels enregistrés"
-          note={status ? `${status.count} manuel${status.count > 1 ? "s" : ""} · ${formatBytes(status.cacheBytes)} sur ce PC` : "Rangés dans les données d'iBox"}
+          note={status ? `${status.count} manuel${status.count > 1 ? "s" : ""} · ${formatBytes(status.cacheBytes)} ${pcGames ? "sur ce PC" : "sur cet appareil"}` : "Rangés dans les données d'iBox"}
         >
           <Button
             tone="red"
@@ -75,8 +79,16 @@ export function ManualSettings({ ui: { Group, Row, Toggle } }: { ui: SettingsUi 
         {msg && <p className="py-2 text-[0.85rem] font-semibold text-ink-soft">{msg}</p>}
       </Group>
 
-      <Group title="Sources" icon="globe" note="Consultées dans cet ordre, de la plus sûre à la plus large. Les manuels restent sur ce PC et ne sont jamais partagés.">
-        {SOURCES.map((src) => {
+      <Group
+        title="Sources"
+        icon="globe"
+        note={
+          pcGames
+            ? "Consultées dans cet ordre, de la plus sûre à la plus large. Les manuels restent sur ce PC et ne sont jamais partagés."
+            : "Consultées dans cet ordre, de la plus sûre à la plus large. Les manuels restent sur cet appareil et ne sont jamais partagés."
+        }
+      >
+        {sources.map((src) => {
           const unavailable = src.id === "screenscraper" && status !== null && !status.screenscraperAvailable;
           return (
             <Row key={src.id} label={src.label} note={unavailable ? "Indisponible dans cette version d'iBox." : src.note}>

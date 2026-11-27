@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { CONSOLES, localizeSpec } from "./platformCatalog";
-import { PLATFORMS, getPlatform } from "./platforms";
+import { PLATFORMS, getPlatform, isEmulatedPlatform } from "./platforms";
 import { PLATFORM_BLURBS } from "./platformBlurbs";
 
 // identifiants du catalogue natif (src-tauri/src/emulators/catalog.rs)
@@ -24,8 +24,8 @@ describe("iBox Platforms : catalogue des consoles", () => {
       expect(getPlatform(c.id), c.id).toBeDefined();
       expect(PLATFORM_BLURBS[c.id], c.id).toBeTruthy();
     }
-    // toutes les consoles de la bibliothèque (sauf le PC) ont leur fiche
-    for (const p of PLATFORMS.filter((p) => p.id !== "pc")) {
+    // toutes les consoles de la bibliothèque (sauf le PC et Android, sans émulateur) ont leur fiche
+    for (const p of PLATFORMS.filter((p) => isEmulatedPlatform(p.id))) {
       expect(CONSOLES.some((c) => c.id === p.id), p.id).toBe(true);
     }
   });

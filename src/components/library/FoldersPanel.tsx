@@ -23,6 +23,17 @@ export function FoldersPanel() {
   const setSetting = useSettings((s) => s.set);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<FolderDto | null>(null);
+  // emplacements usuels trouvés sur la machine : ajoutés d'un bouton, sans sélecteur de fichiers
+  const [suggested, setSuggested] = useState<string[]>([]);
+  const folderKey = folders.map((f) => f.path).join("|");
+  useEffect(() => {
+    if (!native) return;
+    let alive = true;
+    void nativeLibrary.folderSuggestions().then((s) => alive && setSuggested(s), () => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [native, folderKey]);
 
   if (!native) {
     return (
@@ -43,13 +54,15 @@ export function FoldersPanel() {
     }
   };
 
+  const add = async (path: string) => {
+    const folder = await addFolder(path);
+    sound.play("select");
+    await startScan([folder.id]);
+  };
   const pickAndAdd = () =>
     run(async () => {
       const path = await nativeLibrary.pickFolder();
-      if (!path) return;
-      const folder = await addFolder(path);
-      sound.play("select");
-      await startScan([folder.id]);
+      if (path) await add(path);
     });
 
   return (
@@ -78,6 +91,19 @@ export function FoldersPanel() {
           </div>
         )}
       </div>
+
+      {suggested.length > 0 && (
+        <div className="mt-4 rounded-lg bg-cream-deep px-4 py-3" data-nav-group="folder-suggestions">
+          <p className="mb-2 text-[0.9rem] font-bold text-ink">Dossiers de jeux trouvés sur cet appareil</p>
+          <div className="flex flex-col gap-2">
+            {suggested.map((path) => (
+              <Button key={path} icon="plus" disabled={scan.running} onClick={() => void run(() => add(path))} className="justify-start">
+                <span data-no-i18n className="truncate">{path}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div role="alert" className="mt-3 rounded-lg bg-peach-soft px-4 py-3 text-[0.9rem] font-bold text-peach-deep">

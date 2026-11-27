@@ -7,7 +7,8 @@ import { Button, type Tone } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { useLauncher, type Ended } from "@/services/launcher";
 import { sound } from "@/services/sound";
-import { dismissFeedback, errorText, feedbackDismissed, scPrefs, smartConfigApi, useSmartConfig, type Entry } from "@/services/smartconfig";
+import { dismissFeedback, errorText, feedbackDismissed, isSheetEntry, scPrefs, smartConfigApi, useSmartConfig, type Entry } from "@/services/smartconfig";
+import { useHereWords } from "./ScParts";
 
 interface Ask {
   ended: Ended;
@@ -35,6 +36,7 @@ const AUTO_HIDE_MS = 60_000;
 export function SmartConfigFeedback() {
   const lastEnded = useLauncher((s) => s.lastEnded);
   const [ask, setAsk] = useState<Ask | null>(null);
+  const w = useHereWords();
   const [answered, setAnswered] = useState<null | "good" | "bad">(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +106,9 @@ export function SmartConfigFeedback() {
     if (!ask) return;
     setBusy(true);
     try {
-      await useSmartConfig.getState().restore(ask.ended.gameId, ask.ended.title, ask.entry.id);
+      // fiche Android : rien n'a été écrit, on la retire (les réglages se remettent à la main)
+      if (isSheetEntry(ask.entry)) await useSmartConfig.getState().sheetWithdraw(ask.ended.gameId, ask.ended.title, ask.entry.id);
+      else await useSmartConfig.getState().restore(ask.ended.gameId, ask.ended.title, ask.entry.id);
       close();
     } catch (e) {
       setError(errorText(e));
@@ -135,7 +139,7 @@ export function SmartConfigFeedback() {
               <div className="min-w-0 flex-1">
                 <div className="text-[0.95rem] font-extrabold text-ink">{answered ? "Merci !" : "Comment s'est passée la partie ?"}</div>
                 <div className="truncate text-[0.8rem] font-semibold text-ink-soft">
-                  {answered === "bad" ? "Votre avis reste sur ce PC. Revenir aux réglages d'origine ?" : <><span data-no-i18n>{ask.ended.title}</span> · réglages SmartConfig</>}
+                  {answered === "bad" ? (w.android ? "Votre avis reste sur cet appareil. Revenir aux réglages d'origine ?" : "Votre avis reste sur ce PC. Revenir aux réglages d'origine ?") : <><span data-no-i18n>{ask.ended.title}</span> · réglages SmartConfig</>}
                 </div>
               </div>
               {!answered && (

@@ -91,7 +91,7 @@ export function GamesArtPanel() {
         </p>
       )}
       {!sync.running && r?.errors.map((e) => (
-        <p key={e} className="mt-1 text-[0.76rem] font-semibold text-peach-deep">
+        <p key={e} data-no-i18n className="mt-1 text-[0.76rem] font-semibold text-peach-deep">
           {e}
         </p>
       ))}

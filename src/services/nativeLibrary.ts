@@ -116,6 +116,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 export const nativeLibrary = {
   listFolders: () => call<FolderDto[]>("folders_list"),
   addFolder: (path: string, platformId: string | null = null) => call<FolderDto>("folder_add", { path, platformId }),
+  /** Dossiers de jeux usuels présents (EmuDeck, RetroDECK, carte SD), pas encore dans la collection. */
+  folderSuggestions: () => call<string[]>("folder_suggestions"),
   updateFolder: (id: number, platformId: string | null, enabled: boolean) =>
     call<FolderDto>("folder_update", { id, platformId, enabled }),
   removeFolder: (id: number) => call<void>("folder_remove", { id }),
@@ -145,6 +147,9 @@ export const nativeLibrary = {
   /** Sélecteur de dossier natif. null si l'utilisateur annule. */
   async pickFolder(title = "Choisir un dossier de jeux"): Promise<string | null> {
     if (!isTauri()) return null;
+    // Android : accès aux fichiers puis sélecteur du système (services/android.ts)
+    const android = await import("./android");
+    if (android.isAndroid()) return android.androidApi.pickRomFolder(title);
     const { open } = await import("@tauri-apps/plugin-dialog");
     const picked = await open({ directory: true, multiple: false, title });
     return typeof picked === "string" ? picked : null;

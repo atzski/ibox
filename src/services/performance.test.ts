@@ -1,17 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isHandheld, resolvePerformance, shouldSleep } from "./performance";
+import { isHandheld, shouldSleep } from "./performance";
+import { attentionOf } from "./attention";
 import { scenesActive, SETTLE_MS } from "@/three/activity";
 
 describe("mode performance", () => {
-  it("automatique : seulement sur une console portable", () => {
-    expect(resolvePerformance(undefined, false)).toBe(false);
-    expect(resolvePerformance("auto", false)).toBe(false);
-    expect(resolvePerformance("auto", true)).toBe(true);
-  });
-  it("le choix de l'utilisateur l'emporte sur l'appareil", () => {
-    expect(resolvePerformance("on", false)).toBe(true);
-    expect(resolvePerformance("off", true)).toBe(false);
-  });
   it("reconnaît le Steam Deck et les machines annoncées par Steam", () => {
     expect(isHandheld({ steamDeck: "Steam Deck OLED" })).toBe(true);
     expect(isHandheld({ steamDeck: null, handheld: true })).toBe(true);
@@ -41,5 +33,15 @@ describe("rendu 3D à la demande", () => {
     expect(scenesActive(1000, 1000)).toBe(true);
     expect(scenesActive(1000 + SETTLE_MS - 1, 1000)).toBe(true);
     expect(scenesActive(1000 + SETTLE_MS, 1000)).toBe(false);
+  });
+});
+
+describe("attention : iBox seul à l'écran (Mode Jeu)", () => {
+  const base = { documentHidden: false, windowHidden: false, focused: false, playing: false };
+  it("manette lue sans focus seulement en Mode Jeu, sans partie ni lancement", () => {
+    expect(attentionOf({ ...base, gameMode: true })).toEqual({ asleep: false, alone: true });
+    expect(attentionOf({ ...base, gameMode: true, launching: true }).alone).toBe(false);
+    expect(attentionOf({ ...base, gameMode: true, playing: true })).toEqual({ asleep: true, alone: false });
+    expect(attentionOf({ ...base, gameMode: false }).alone).toBe(false);
   });
 });

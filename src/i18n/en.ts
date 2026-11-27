@@ -4033,4 +4033,503 @@ export const EN: Record<string, string> = {
   "jeu dans la collection": "game in the collection",
   "Tous les jeux en attente ont été traités. Relancez « Compléter les images des jeux ».":
     "All pending games have been handled. Run “Complete game images” again.",
+  // ——— Diagnostic de l'appareil (Android) ———
+  "Diagnostic de l'appareil": "Device diagnostic",
+  "Diagnostic de l’appareil": "Device diagnostic",
+  "Mesure l'étagère 3D pendant {0} s, puis essaie la manette pendant {1} s ; le rapport est enregistré dans Download, à renvoyer.":
+    "Measures the 3D shelf for {0} s, then tests the controller for {1} s; the report is saved in Download, ready to send back.",
+  "Diagnostic : préparation…": "Diagnostic: getting ready…",
+  "Diagnostic : mesure de l’étagère, {0} s": "Diagnostic: measuring the shelf, {0} s",
+  "Appuyez sur tous les boutons de la manette": "Press every button on the controller",
+  "Croix, A B X Y, gâchettes, sticks, Start, Select… Encore": "D-pad, A B X Y, triggers, sticks, Start, Select… Still",
+  "Aucune manette vue par la Gamepad API pour l’instant.": "No controller seen by the Gamepad API yet.",
+  "Touches reçues :": "Keys received:",
+  "Rapport prêt à renvoyer": "Report ready to send back",
+  "Interrompu : {0}": "Interrupted: {0}",
+  "Fichier enregistré ici :": "File saved here:",
+  "Aucun fichier écrit : copiez le rapport.": "No file written: copy the report.",
+  "Copier le rapport": "Copy the report",
+  "Pas encore disponible sur Android.": "Not available on Android yet.",
+
+  // ——— Socle Android : manette, stockage, lancement (docs/ANDROID.md) ———
+  "Mesure l'étagère 3D pendant {0} s, puis essaie la manette deux fois {1} s (Gamepad API, puis relais natif d'Android) ; le rapport est enregistré dans Download, à renvoyer.":
+    "Measures the 3D shelf for {0} s, then tests the controller twice for {1} s (Gamepad API, then Android's native relay); the report is saved in Download, ready to send back.",
+  "Deuxième essai, relais natif d’Android.": "Second test, Android's native relay.",
+  "Aucune manette vue par le relais natif pour l’instant.": "No controller seen by the native relay yet.",
+  "iBox a besoin de l'accès à tous les fichiers pour lire vos jeux : autorisez-le dans la page d'Android qui vient de s'ouvrir.":
+    "iBox needs access to all files to read your games: allow it on the Android page that just opened.",
+  "Choisissez un dossier de la mémoire interne ou de la carte SD.": "Pick a folder in internal storage or on the SD card.",
+  "Aucun sélecteur de dossier sur cet appareil.": "No folder picker on this device.",
+  "Aucun émulateur Android installé pour la console « {0} ». Installez par exemple {1}.":
+    "No Android emulator installed for “{0}”. Install for example {1}.",
+  "Aucun émulateur Android connu pour la console « {0} ».": "No known Android emulator for “{0}”.",
+  "{0} s'est fermé aussitôt. Ouvrez-le une fois seul pour vérifier qu'il démarre, que son BIOS est installé et qu'il a accès aux fichiers.":
+    "{0} closed right away. Open it once on its own to check that it starts, that its BIOS is installed and that it can access files.",
+  "Le fichier du jeu est introuvable : {0}. La carte SD est peut-être retirée.": "The game file can't be found: {0}. The SD card may have been removed.",
+  "Disponible uniquement sur Android.": "Only available on Android.",
+  // Android : interface (session B)
+  "Langue, profil et dossiers de jeux": "Language, profile and game folders",
+  "Retrouvez vos jeux de console dans une seule bibliothèque sur Android.": "All your console games in one library on Android.",
+  "Automatique : Console portable pour l'instant (définition de l'écran, 60 images par seconde).": "Automatic: Handheld console for now (screen resolution, 60 frames per second).",
+  "Joueurs de cet appareil": "Players on this device",
+  "Reliez RetroAchievements (gratuit) pour vos jeux rétro : succès, maîtrises, niveau de joueur et classement entre amis apparaîtront ici. Chaque succès débloqué s’affiche en direct pendant vos parties.": "Link RetroAchievements (free) for your retro games: achievements, masteries, player level and leaderboard with friends will appear here. Every unlocked achievement shows up live while you play.",
+  "Les captures et clips partagés par vos amis, et leurs profils publics.": "Screenshots and clips shared by your friends, and their public profiles.",
+  "Les captures que vos amis partagent apparaîtront ici.": "Screenshots your friends share will appear here.",
+  "Notifications, sauvegardes, à propos": "Notifications, backups, about",
+  "Tous vos jeux de console, réunis dans une seule bibliothèque. Quelques étapes pour tout mettre en place — chacune peut être passée et modifiée plus tard dans les Paramètres.": "All your console games, together in one library. A few steps to set everything up — each one can be skipped and changed later in Settings.",
+  // Consoles portables PC (docs/HANDHELD.md)
+  "Rendu affiné jusqu'à ×1,5, 60 images par seconde.":
+    "Sharper rendering up to ×1.5, 60 frames per second.",
+  "Automatique : console portable pour l'instant (rendu affiné jusqu'à ×1,5, 60 images par seconde).":
+    "Automatic: handheld for now (sharper rendering up to ×1.5, 60 frames per second).",
+  "Automatique : désactivé, cette console portable a assez de puissance pour tous les effets. L'étagère 3D reste à 60 images par seconde et au repos quand rien ne bouge.":
+    "Automatic: off, this handheld is powerful enough for every effect. The 3D shelf stays at 60 frames per second and rests when nothing moves.",
+  "Automatique : désactivé pour l'instant. Il s'active tout seul sur un Steam Deck et sur les consoles portables les plus modestes.":
+    "Automatic: off for now. It turns on by itself on a Steam Deck and on the less powerful handhelds.",
+  "Dossiers de jeux trouvés sur cet appareil":
+    "Game folders found on this device",
+
+  // ——— Android : émulateurs autonomes et iBox Platforms (docs/ANDROID.md §8) ———
+  "Recherche des émulateurs installés…": "Looking for installed emulators…",
+  "Aucun émulateur Android connu pour cette console.": "No known Android emulator for this console.",
+  "Émulateur utilisé": "Emulator in use",
+  "choisi par vous": "chosen by you",
+  "choisi par iBox": "chosen by iBox",
+  "Aucun émulateur installé pour cette console. Installez-en un ci-dessous : Android vous demandera de confirmer, puis iBox le trouvera tout seul.":
+    "No emulator installed for this console. Install one below: Android will ask you to confirm, then iBox will find it on its own.",
+  "Émulateurs installés": "Installed emulators",
+  "Installés sur cet appareil": "Installed on this device",
+  "Utiliser par défaut": "Use by default",
+  "Laisser iBox choisir": "Let iBox choose",
+  "Play Store": "Play Store",
+  "Versions GitHub": "GitHub releases",
+  "Obtainium": "Obtainium",
+  "Chercher sur le Play Store": "Search the Play Store",
+  "BIOS": "BIOS",
+  "iBox ne fournit aucun BIOS : copiez ceux de votre console dans un dossier, iBox vérifie qu'ils y sont. Indiquez ensuite ce dossier à l'émulateur s'il le demande.":
+    "iBox provides no BIOS: copy your console's files into a folder and iBox checks they are there. Then point the emulator to that folder if it asks.",
+  "(indispensable)": "(required)",
+  "(conseillé)": "(recommended)",
+  "fichier .bin": ".bin file",
+  "Choisir le dossier des BIOS": "Choose the BIOS folder",
+  "Changer le dossier des BIOS": "Change the BIOS folder",
+  "BIOS PlayStation": "PlayStation BIOS",
+  "BIOS PlayStation 2": "PlayStation 2 BIOS",
+  "BIOS Saturn": "Saturn BIOS",
+  "BIOS Dreamcast": "Dreamcast BIOS",
+  "BIOS ARM7 de la DS": "DS ARM7 BIOS",
+  "BIOS ARM9 de la DS": "DS ARM9 BIOS",
+  "Micrologiciel de la DS": "DS firmware",
+  "BIOS Game Boy Advance": "Game Boy Advance BIOS",
+  "Installer un émulateur": "Install an emulator",
+  "Émulateurs et BIOS": "Emulators and BIOS",
+  "Adresse refusée.": "Address refused.",
+  "Obtainium n'a pas pu s'ouvrir.": "Obtainium could not open.",
+  "Aucune application ne peut ouvrir cette page : {0}": "No app can open this page: {0}",
+  "Dossier introuvable : {0}": "Folder not found: {0}",
+  "{0} n'est plus installé ou a changé de version : réinstallez-le depuis iBox Platforms ({1}).":
+    "{0} is no longer installed or has changed version: reinstall it from iBox Platforms ({1}).",
+  "{0} s'est fermé aussitôt. {1}": "{0} closed right away. {1}",
+  "Chaque console a besoin de son cœur : dans RetroArch, Menu principal › Mise à jour en ligne › Télécharger des cœurs.":
+    "Each console needs its core: in RetroArch, Main Menu › Online Updater › Core Downloader.",
+  "Au premier démarrage, Dolphin demande l'accès aux fichiers : acceptez.": "On first launch, Dolphin asks for file access: accept.",
+  "DuckStation a besoin d'un BIOS PlayStation : au premier démarrage, indiquez le dossier qui le contient.":
+    "DuckStation needs a PlayStation BIOS: on first launch, point it to the folder that holds it.",
+  "NetherSX2 demande d'importer un BIOS PlayStation 2 au premier démarrage.": "NetherSX2 asks you to import a PlayStation 2 BIOS on first launch.",
+  "Importez un BIOS PlayStation 2 au premier démarrage.": "Import a PlayStation 2 BIOS on first launch.",
+  "Au premier démarrage, Azahar demande l'accès à tous les fichiers et un dossier utilisateur : accordez les deux, sinon il se ferme au lancement d'un jeu.":
+    "On first launch, Azahar asks for all-files access and a user folder: grant both, otherwise it closes when a game starts.",
+  "Fonctionne sans BIOS ; les BIOS de la DS améliorent la compatibilité.": "Works without BIOS; the DS BIOS files improve compatibility.",
+  "Fonctionne sans BIOS ; le BIOS de la Dreamcast est conseillé pour certains jeux.": "Works without BIOS; the Dreamcast BIOS is recommended for some games.",
+  // Second écran des consoles Android (docs/ANDROID.md, « Second écran »)
+  "Jamais joué":
+    "Never played",
+  "Moins d'une minute":
+    "Less than a minute",
+  "Revenir à iBox":
+    "Back to iBox",
+  "Lecture des succès…":
+    "Reading achievements…",
+  "Reliez votre compte RetroAchievements dans Paramètres › Profil pour suivre vos succès en direct.":
+    "Link your RetroAchievements account in Settings › Profile to follow your achievements live.",
+  "Aucun succès RetroAchievements trouvé pour ce jeu.":
+    "No RetroAchievements achievements found for this game.",
+  "Un code, un chemin, où vous en êtes…":
+    "A code, a route, where you are at…",
+  "Clavier":
+    "Keyboard",
+  "Majuscule":
+    "Shift",
+  "Nouvelle ligne":
+    "New line",
+  "Titre précédent":
+    "Previous song",
+  "Second écran":
+    "Second screen",
+  "Écran du bas des consoles à deux écrans":
+    "Bottom screen of dual-screen handhelds",
+  "double écran AYN Thor tactile bas":
+    "dual screen AYN Thor touch bottom",
+  "Progression RetroAchievements du jeu, les nouveaux succès en tête":
+    "RetroAchievements progress for the game, new achievements first",
+  "Pages du manuel téléchargé, tournées au doigt":
+    "Pages of the downloaded manual, turned with your finger",
+  "Un bloc-notes par jeu, gardé par iBox":
+    "A notepad per game, kept by iBox",
+  "Titre en cours et commandes, si le plugin est actif":
+    "Current song and controls, if the plugin is on",
+  "Aucun second écran branché : iBox reste sur un seul écran.":
+    "No second screen connected: iBox stays on one screen.",
+  "Second écran trouvé, non utilisé.":
+    "Second screen found, not used.",
+  "Écran du bas actif.":
+    "Bottom screen on.",
+  "Ouverture de l'écran du bas…":
+    "Opening the bottom screen…",
+  "Écran du bas":
+    "Bottom screen",
+  "Utiliser le second écran":
+    "Use the second screen",
+  "Sur les consoles qui en ont un, comme l'AYN Thor":
+    "On handhelds that have one, like the AYN Thor",
+  "Dans les menus":
+    "In the menus",
+  "Ce que montre l'écran du bas quand vous parcourez vos jeux":
+    "What the bottom screen shows while you browse your games",
+  "Raccourcis":
+    "Shortcuts",
+  "Laisser l'écran aux jeux DS et 3DS":
+    "Leave the screen to DS and 3DS games",
+  "Leurs émulateurs affichent eux-mêmes l'écran du bas pendant la partie":
+    "Their emulators show the bottom screen themselves while you play",
+  "Pendant une partie":
+    "While playing",
+  "Le jeu occupe l'écran du haut ; l'écran du bas se touche du doigt, la manette reste au jeu.":
+    "The game fills the top screen; the bottom screen is for your fingers, the controller stays with the game.",
+  "Manuel du jeu":
+    "Game manual",
+  "Notes":
+    "Notes",
+  "Musique":
+    "Music",
+  "Jeu choisi":
+    "Selected game",
+  "Bonne partie !":
+    "Have a good game!",
+  "Panneaux":
+    "Panels",
+  "Ouverture du manuel…":
+    "Opening the manual…",
+  "iBox : page du manuel pour l'écran du bas":
+    "iBox: manual page for the bottom screen",
+  "iBox : second écran indisponible":
+    "iBox: second screen unavailable",
+  // Android : applications de la bibliothèque, mises à jour par APK (docs/ANDROID.md §9-10)
+  "Ajouter des applications": "Add apps",
+  "Les jeux installés sont ajoutés d'office. Choisissez ici d'autres applications à ranger avec vos jeux.": "Installed games are added automatically. Pick other apps here to keep alongside your games.",
+  "Rechercher une application…": "Search for an app…",
+  "Rechercher une application": "Search for an app",
+  "Lecture des applications installées…": "Reading installed apps…",
+  "Autres applications": "Other apps",
+  "Aucune application ne correspond.": "No app matches.",
+  "Déjà dans la bibliothèque": "Already in the library",
+  "{0} application choisie": "{0} app selected",
+  "{0} applications choisies": "{0} apps selected",
+  "Aucune application choisie": "No app selected",
+  "Désinstallée": "Uninstalled",
+  "Installée": "Installed",
+  "Désinstallation annulée ou refusée par Android : l'application est toujours là.": "Uninstall cancelled or refused by Android: the app is still there.",
+  "Application désinstallée. Sa fiche et son temps de jeu restent dans iBox.": "App uninstalled. Its page and play time stay in iBox.",
+  "Cette application n'est plus installée sur l'appareil. Réinstallez-la depuis sa boutique : iBox la retrouvera à votre retour.": "This app is no longer installed on the device. Reinstall it from its store: iBox will find it again when you come back.",
+  "Retire l'application de la bibliothèque iBox ; elle reste installée": "Removes the app from the iBox library; it stays installed",
+  "Application désinstallée": "App uninstalled",
+  "Lecture des applications…": "Reading apps…",
+  "Relit les applications installées": "Reads installed apps again",
+  "Les jeux installés sur l'appareil apparaissent ici d'eux-mêmes. Ajoutez d'autres applications à la main si besoin.": "Games installed on the device show up here by themselves. Add other apps by hand if you like.",
+  "{0} nouveau jeu Android": "{0} new Android game",
+  "{0} nouveaux jeux Android": "{0} new Android games",
+  "Ajouté depuis les applications installées.": "Added from the installed apps.",
+  "Ajoutés depuis les applications installées.": "Added from the installed apps.",
+  "Touchez pour installer la mise à jour : Android vous demandera de confirmer.": "Tap to install the update: Android will ask you to confirm.",
+  "Touchez pour réessayer.": "Tap to try again.",
+  "Confirmez l’installation dans la fenêtre d’Android…": "Confirm the installation in Android's window…",
+  "Application Android": "Android app",
+  "« {0} » n'est plus installé sur cet appareil.": "“{0}” is no longer installed on this device.",
+  "« {0} » s'est fermé aussitôt. Ouvrez-le une fois depuis Android pour vérifier qu'il démarre.": "“{0}” closed right away. Open it once from Android to check that it starts.",
+  "Application introuvable : {0}": "App not found: {0}",
+  "Nom d'application invalide : {0}": "Invalid app name: {0}",
+  "Android ne propose pas de page de désinstallation.": "Android offers no uninstall page.",
+  "Installation annulée.": "Installation cancelled.",
+  "Autorisez iBox à installer des applications (page d'Android), puis réessayez.": "Allow iBox to install apps (Android page), then try again.",
+  "Android a refusé la mise à jour. Si iBox a été installé depuis une autre source (clé différente), désinstallez-le puis installez le nouvel APK.": "Android refused the update. If iBox was installed from another source (different key), uninstall it and then install the new APK.",
+  "La mise à jour téléchargée est abîmée (somme de contrôle différente). Réessayez.": "The downloaded update is damaged (checksum mismatch). Try again.",
+  "Mise à jour incomplète ({0} octets reçus sur {1}).": "Incomplete update ({0} of {1} bytes received).",
+  "Somme de contrôle de la mise à jour absente ou invalide.": "Update checksum missing or invalid.",
+  "Adresse de la mise à jour refusée (HTTPS obligatoire).": "Update address refused (HTTPS required).",
+  "La mise à jour téléchargée est plus grande qu'annoncé.": "The downloaded update is larger than announced.",
+  "Aucun installeur d'applications sur cet appareil.": "No app installer on this device.",
+  "Fichier de mise à jour introuvable.": "Update file not found.",
+  // SmartConfig sur Android (docs/SMARTCONFIG.md §16.2)
+  "Votre appareil": "Your device",
+  "Même puce": "Same chip",
+  "Rapport fait sur le même modèle d'appareil que le vôtre.": "Report made on the same device model as yours.",
+  "Rapport fait sur un appareil équipé de la même puce que le vôtre.": "Report made on a device with the same chip as yours.",
+  "Essayé sur le même appareil que le vôtre ({0}).": "Tested on the same device as yours ({0}).",
+  "Essayé sur un appareil à la même puce ({0}).": "Tested on a device with the same chip ({0}).",
+  "Réglages à reporter dans l'émulateur": "Settings to copy into the emulator",
+  "À reporter": "To copy",
+  "Réglages à reporter": "Settings to copy",
+  "Aucun réglage exploitable.": "No usable setting.",
+  "Rien n'est écrit par iBox : Android réserve les réglages de cet émulateur à l'émulateur lui-même.": "iBox writes nothing: Android keeps this emulator's settings for the emulator itself.",
+  "Préparer la fiche": "Prepare the sheet",
+  "Réglages à reporter vous-même dans l'émulateur, avec ce qui reste à faire coché.": "Settings to copy into the emulator yourself, with what's left to do checked off.",
+  "Des réglages adaptés à votre appareil, en un geste. Rien n'est modifié sans votre accord.": "Settings suited to your device, in one move. Nothing is changed without your consent.",
+  "{0} / {1} réglage(s) reporté(s) dans {2} · fiche du {3}": "{0} / {1} setting(s) copied into {2} · sheet from {3}",
+  "Fiche de réglages": "Settings sheet",
+  "Android ne permet pas à iBox d'écrire les réglages de {0}. Ouvrez-le, allez dans les réglages de ce jeu (ou ses réglages généraux s'il n'en a pas par jeu), reportez chaque valeur, puis cochez-la ici.":
+    "Android doesn't let iBox write {0}'s settings. Open it, go to this game's settings (or its general settings if it has none per game), copy each value, then check it here.",
+  "cet émulateur": "this emulator",
+  "{0} / {1} réglage(s) reporté(s)": "{0} / {1} setting(s) copied",
+  "Fiche du {0}": "Sheet from {0}",
+  "La fiche sera retirée. Les réglages déjà reportés restent dans l'émulateur : remettez-les à la main si vous voulez revenir en arrière.":
+    "The sheet will be removed. Settings already copied stay in the emulator: change them back by hand if you want to go back.",
+  "Retirer la fiche": "Remove the sheet",
+  "Tout est reporté": "All copied",
+  "Fiche SmartConfig prête": "SmartConfig sheet ready",
+  "Fiche SmartConfig retirée": "SmartConfig sheet removed",
+  "Fiche retirée": "Sheet removed",
+  "Fiche : {0} / {1}": "Sheet: {0} / {1}",
+  "À reporter à la main dans l'émulateur : rien n'a été écrit par iBox.": "To copy by hand into the emulator: iBox wrote nothing.",
+  "Votre avis reste sur cet appareil. Revenir aux réglages d'origine ?": "Your feedback stays on this device. Go back to the original settings?",
+  "Des réglages d'émulateur adaptés à votre appareil, jeu par jeu. Rien n'est modifié sans votre accord, et tout se restaure.":
+    "Emulator settings suited to your device, game by game. Nothing is changed without your consent, and everything can be restored.",
+  "Aucune télémétrie. Votre matériel est détecté sur cet appareil et n'est jamais envoyé.": "No telemetry. Your hardware is detected on this device and never sent.",
+  "Ni chemin, ni bibliothèque, ni identifiant de votre appareil ne sont transmis.": "No path, library or identifier of your device is sent.",
+  "Votre appareil est reconnu sur place parmi les rapports reçus : son modèle n'est jamais envoyé.": "Your device is recognized locally among the reports received: its model is never sent.",
+  "Vos retours après une partie restent sur cet appareil.": "Your feedback after a game stays on this device.",
+  "Sur Android, SmartConfig n'écrit qu'un fichier de réglages RetroArch par jeu, dans le dossier iBox/SmartConfig ; les autres émulateurs reçoivent une fiche à reporter à la main.":
+    "On Android, SmartConfig only writes one RetroArch settings file per game, in the iBox/SmartConfig folder; other emulators get a sheet to copy by hand.",
+  "Des réglages d'émulateur adaptés à votre appareil, jeu par jeu. Appliqués à RetroArch au lancement, en fiche à reporter pour les autres émulateurs ; retour en arrière à tout moment.":
+    "Emulator settings suited to your device, game by game. Applied to RetroArch at launch, as a sheet to copy for other emulators; undo at any time.",
+  "Ce que SmartConfig sait de votre appareil": "What SmartConfig knows about your device",
+  "Détecté sur cet appareil, jamais envoyé. Aucun numéro de série ni identifiant unique n'est lu.": "Detected on this device, never sent. No serial number or unique identifier is read.",
+  "Relevé simulé (version de débogage) : les essais dans l'émulateur Android du PC se font comme sur l'appareil indiqué.":
+    "Simulated reading (debug build): tests in the PC's Android emulator run as on the device shown.",
+  "Puce": "Chip",
+  "Appareil": "Device",
+  "Puce {0}": "Chip {0}",
+  "Sur Android, les rapports faits sur votre appareil, puis sur la même puce, passent en premier.": "On Android, reports made on your device, then on the same chip, come first.",
+  "Vulkan (pilote déclaré par le fabricant)": "Vulkan (driver declared by the manufacturer)",
+  "Sur la fiche d'un jeu, « Optimiser » propose une configuration adaptée à votre appareil. Rien n'est modifié sans votre accord.":
+    "On a game's page, “Optimize” suggests a configuration suited to your device. Nothing is changed without your consent.",
+  "Disponible uniquement dans l'application iBox.": "Only available in the iBox app.",
+  "réglages à appliquer à la main dans l'émulateur (Android ne permet pas à iBox de les écrire)": "settings to apply by hand in the emulator (Android doesn't let iBox write them)",
+  "EmuReady n'a pas de réglages RetroArch pour cette console": "EmuReady has no RetroArch settings for this console",
+  "configuration principale de RetroArch inconnue pour ce lancement": "RetroArch's main configuration is unknown for this launch",
+  "dossier d'iBox impossible à créer ({0}) : {1}": "iBox folder can't be created ({0}): {1}",
+  "cet émulateur reçoit ses réglages directement : utilisez « Appliquer »": "this emulator gets its settings directly: use “Apply”",
+  "aucun réglage à reporter dans cette configuration": "no setting to copy in this configuration",
+  "fiche introuvable": "sheet not found",
+  "console non couverte par EmuReady": "console not covered by EmuReady",
+  "fiche de réglages : rien n'a été écrit, retirez la fiche": "settings sheet: nothing was written, remove the sheet",
+  "cible de fiche invalide": "invalid sheet target",
+  "texte trop long ou illisible": "text too long or unreadable",
+  "texte illisible": "unreadable text",
+  // Android : paliers de performance et mode sans 3D (docs/ANDROID.md §9)
+  "Jaquettes. Flèches pour parcourir, Entrée pour ouvrir, X pour jouer, R pour un jeu au hasard.":
+    "Covers. Arrows to browse, Enter to open, X to play, R for a random game.",
+  "Réessayer la 3D": "Retry 3D",
+  "Automatique : désactivé pour l'instant.": "Automatic: off for now.",
+  "Automatique : désactivé, cette console Android a assez de puissance pour tous les effets. L'étagère 3D suit la fréquence de l'écran et reste au repos quand rien ne bouge.":
+    "Automatic: off, this Android handheld is powerful enough for every effect. The 3D shelf follows the screen's refresh rate and rests when nothing moves.",
+  "Automatique : activé pour l'instant, sur cette console Android (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge).":
+    "Automatic: on for now, on this Android handheld (lighter blurs and shadows, 3D shelf drawn only when it moves).",
+  "Automatique : activé, console Android modeste (flous et ombres allégés, étagère 3D plus légère à 30 images par seconde).":
+    "Automatic: on, modest Android handheld (lighter blurs and shadows, lighter 3D shelf at 30 frames per second).",
+  "Automatique : activé, console Android d'entrée de gamme (flous et ombres allégés, vue en jaquettes à la place de l'étagère 3D).":
+    "Automatic: on, entry-level Android handheld (lighter blurs and shadows, cover view instead of the 3D shelf).",
+  "Palier complet": "Full tier",
+  "Palier fort": "High tier",
+  "Palier allégé": "Light tier",
+  "Palier modeste": "Modest tier",
+  "Palier minimal": "Minimal tier",
+  "La console chauffe : un palier de moins pour l'instant, le temps qu'elle refroidisse.":
+    "The handheld is running hot: one tier lower for now, until it cools down.",
+  "Puce absente de la table d'iBox : palier choisi d'après la mémoire et le processeur graphique.":
+    "Chip not in iBox's table: tier chosen from the memory and the graphics processor.",
+  "Choisi d'après la puce et la mémoire de la console.": "Chosen from the handheld's chip and memory.",
+  "WebGL n'est pas disponible sur cet appareil : vue en jaquettes à la place de l'étagère 3D.":
+    "WebGL isn't available on this device: cover view instead of the 3D shelf.",
+  "La 3D s'est arrêtée deux fois (contexte graphique perdu) : vue en jaquettes jusqu'au prochain démarrage.":
+    "3D stopped twice (graphics context lost): cover view until the next start.",
+  "Vue en jaquettes partout : étagère, collections et fiches sans 3D. Le plus léger pour les petites machines.":
+    "Cover view everywhere: shelf, collections and game pages without 3D. The lightest option for small machines.",
+  "Étagère et boîtiers en 3D, même sur un appareil modeste.": "3D shelf and cases, even on a modest device.",
+  "Automatique : vue en jaquettes, cet appareil est trop modeste pour l'étagère 3D.":
+    "Automatic: cover view, this device is too modest for the 3D shelf.",
+  "Automatique : vue en jaquettes, la carte graphique n'est pas accélérée (rendu logiciel).":
+    "Automatic: cover view, the graphics card isn't accelerated (software rendering).",
+  "Automatique : 3D active. Elle laisse sa place à la vue en jaquettes si WebGL manque, si la 3D s'arrête ou sur les appareils les plus modestes.":
+    "Automatic: 3D on. It gives way to the cover view if WebGL is missing, if 3D stops or on the most modest devices.",
+  "Automatique : console modeste pour l'instant (définition réduite, 30 images par seconde).":
+    "Automatic: modest handheld for now (reduced resolution, 30 frames per second).",
+  "Automatique : Économie d'énergie pour l'instant, avec l'économiseur d'énergie d'Android (30 images par seconde).":
+    "Automatic: Power saving for now, with Android's battery saver (30 frames per second).",
+  "Automatique : console portable pour l'instant (définition native, au rythme de l'écran jusqu'à 120 images par seconde).":
+    "Automatic: handheld for now (native resolution, at the screen's rate up to 120 frames per second).",
+  // Réglage Performances unique (services/budget.ts)
+  "Allégé":
+    "Light",
+  "Automatique : tous les effets pour l'instant.":
+    "Automatic: every effect for now.",
+  "Automatique : tous les effets, cette console Android est assez puissante. L'étagère 3D suit la fréquence de l'écran et reste au repos quand rien ne bouge.":
+    "Automatic: every effect, this Android handheld is powerful enough. The 3D shelf follows the screen's refresh rate and rests when nothing moves.",
+  "Automatique : allégé, sur cette console Android (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge).":
+    "Automatic: light, on this Android handheld (lighter blurs and shadows, 3D shelf drawn only when it moves).",
+  "Automatique : allégé, console Android modeste (flous et ombres allégés, étagère 3D plus légère à 30 images par seconde).":
+    "Automatic: light, modest Android handheld (lighter blurs and shadows, lighter 3D shelf at 30 frames per second).",
+  "Automatique : allégé, console Android d'entrée de gamme (flous et ombres allégés, vue en jaquettes à la place de l'étagère 3D).":
+    "Automatic: light, entry-level Android handheld (lighter blurs and shadows, cover view instead of the 3D shelf).",
+  "Tous les effets, rendu 3D affiné jusqu'à ×1,5, au rythme de l'écran.":
+    "Every effect, 3D rendering sharpened up to ×1.5, at the screen's refresh rate.",
+  "Tous les effets, étagère 3D à 60 images par seconde et au repos quand rien ne bouge. Pour les consoles portables puissantes et les ordinateurs portables.":
+    "Every effect, 3D shelf at 60 frames per second and resting when nothing moves. For powerful handhelds and laptops.",
+  "Comme Allégé, à 30 images par seconde : la batterie dure plus longtemps.":
+    "Like Light, at 30 frames per second: the battery lasts longer.",
+  "Automatique : économie pour l'instant, avec l'économiseur d'énergie d'Android (30 images par seconde).":
+    "Automatic: battery saver for now, with Android's battery saver (30 frames per second).",
+  "Automatique : économie pour l'instant, sur batterie (30 images par seconde).":
+    "Automatic: battery saver for now, on battery (30 frames per second).",
+  "Automatique : allégé, sur cette console portable (flous et ombres allégés, étagère 3D dessinée seulement quand elle bouge).":
+    "Automatic: light, on this handheld (lighter blurs and shadows, 3D shelf drawn only when it moves).",
+  "Automatique : tous les effets, cette console portable est assez puissante. L'étagère 3D reste à 60 images par seconde et au repos quand rien ne bouge.":
+    "Automatic: every effect, this handheld is powerful enough. The 3D shelf stays at 60 frames per second and rests when nothing moves.",
+  "Automatique : tous les effets pour l'instant. Allégé tout seul sur un Steam Deck et les consoles portables modestes, économie sur batterie.":
+    "Automatic: every effect for now. Light by itself on a Steam Deck and modest handhelds, battery saver on battery.",
+
+  // ——— Android : choix de l'émulateur, sélecteur de dossier, BIOS par console (docs/ANDROID.md §17) ———
+  "Dossier propre à {0}": "Separate folder for {0}",
+  "Changer le dossier {0}": "Change the {0} folder",
+  "Dossier commun pour {0}": "Shared folder for {0}",
+  "Dossier commun à toutes les consoles": "Shared folder for all consoles",
+  "Changer le dossier commun": "Change the shared folder",
+  "Dossiers lus, dans l'ordre :": "Folders read, in order:",
+  "Dossier des BIOS {0}": "{0} BIOS folder",
+  "Dossier des BIOS (toutes les consoles)": "BIOS folder (all consoles)",
+  "Cœur RetroArch nécessaire :": "RetroArch core needed:",
+  ". Installez-le dans RetroArch : Menu principal › Mise à jour en ligne › Télécharger des cœurs. iBox ne peut pas vérifier sa présence.": ". Install it in RetroArch: Main Menu › Online Updater › Core Downloader. iBox can't check whether it is there.",
+  "Émulateur, choisi par vous": "Emulator, chosen by you",
+  "Émulateur, choisi par iBox": "Emulator, chosen by iBox",
+  "Aucun émulateur installé": "No emulator installed",
+  "iBox prend l'émulateur autonome installé, RetroArch en dernier.": "iBox picks the installed standalone emulator, RetroArch last.",
+  "autonome": "standalone",
+  "cœur RetroArch": "RetroArch core",
+  "{0} autre{1} émulateur{2} pour cette console": "{0} other emulator{2?s} for this console",
+  "Installer dans iBox Platforms": "Install in iBox Platforms",
+  "Autoriser les émulateurs": "Allow emulators",
+  "Pour que les émulateurs ouvrent ces jeux et les fichiers à côté, Android demande de confirmer ce dossier une fois : choisissez « Utiliser ce dossier » puis « Autoriser ». À la racine d'une carte SD, Android refuse : les émulateurs reçoivent alors les jeux par iBox.": "For emulators to open these games and the files next to them, Android asks you to confirm this folder once: choose “Use this folder” then “Allow”. At the root of an SD card, Android refuses: emulators then get the games through iBox.",
+  "Autoriser": "Allow",
+  "Mémoire interne et cartes SD": "Internal storage and SD cards",
+  "Mémoire interne": "Internal storage",
+  "Dossier parent": "Parent folder",
+  "Volumes": "Volumes",
+  "Choisir ce dossier ({0} jeu{1} ici)": "Choose this folder ({0} game{1?s} here)",
+  "Choisir ce dossier": "Choose this folder",
+  "Aucun sous-dossier.": "No subfolders.",
+  "Sélecteur du système": "System picker",
+  "Dossier illisible : {0} ({1})": "Unreadable folder: {0} ({1})",
+  "{0} s'est fermé sans lancer le jeu. {1}": "{0} closed without starting the game. {1}",
+  "{0} s'est fermé sans lancer le jeu. Ouvrez-le une fois seul pour vérifier qu'il démarre, que son BIOS est installé et qu'il a accès aux fichiers.": "{0} closed without starting the game. Open it once on its own to check that it starts, that its BIOS is installed and that it can access files.",
+  "{0} n'a pas lancé le jeu ? Le cœur « {1} » ({2}) n'est sans doute pas installé. Dans RetroArch : Menu principal › Mise à jour en ligne › Télécharger des cœurs › {3}.": "{0} didn't start the game? The “{1}” core ({2}) is probably not installed. In RetroArch: Main Menu › Online Updater › Core Downloader › {3}.",
+  // Android : pendant les parties (services/androidNotify.ts, docs/ANDROID.md §17)
+  "Demandes et invitations":
+    "Requests and invitations",
+  "{0} · touchez pour revenir à iBox":
+    "{0} · tap to return to iBox",
+  "{0} lance « {1} »":
+    "{0} is playing “{1}”",
+  "{0} vous a ajouté en ami":
+    "{0} added you as a friend",
+  "{0} vous invite à « {1} »":
+    "{0} invites you to “{1}”",
+  "{0} vous a écrit":
+    "{0} sent you a message",
+  "Pendant les parties":
+    "During games",
+  "Quand un émulateur occupe l'écran, iBox prévient par les notifications d'Android.":
+    "While an emulator fills the screen, iBox keeps you posted through Android notifications.",
+  "Lecture de l'autorisation…":
+    "Reading the permission…",
+  "Accordée : succès et messages s'affichent par-dessus le jeu.":
+    "Granted: achievements and messages appear over the game.",
+  "Pas encore accordée : iBox garde les nouvelles pour votre retour.":
+    "Not granted yet: iBox keeps the news for when you come back.",
+  "Coupées dans les Paramètres d'Android : iBox garde les nouvelles pour votre retour.":
+    "Turned off in Android settings: iBox keeps the news for when you come back.",
+  "Autorisation d'Android":
+    "Android permission",
+  "Réglages d'Android":
+    "Android settings",
+  "Succès débloqués":
+    "Unlocked achievements",
+  "RetroAchievements, avec le badge du succès":
+    "RetroAchievements, with the achievement badge",
+  "Messages des amis":
+    "Messages from friends",
+  "Activité et invitations des amis":
+    "Friends' activity and invitations",
+  "Ami qui lance un jeu, demandes d'ami, invitations, mentions":
+    "A friend starting a game, friend requests, invitations, mentions",
+  "Temps de jeu et retour à iBox dans les notifications. Garde iBox éveillé pendant la partie, pour les succès et les messages.":
+    "Play time and a way back to iBox in the notifications. Keeps iBox awake during the game, for achievements and messages.",
+  "Capture d'écran":
+    "Screenshot",
+  "Capture du système : Marche + Volume bas, ou le bouton de capture de la console. Les images vont dans Pictures/Screenshots.":
+    "Use the system screenshot: Power + Volume down, or the handheld's capture button. Images go to Pictures/Screenshots.",
+  "Notifications pendant vos parties":
+    "Notifications during your games",
+  "Vos succès débloqués, par-dessus le jeu":
+    "Your unlocked achievements, over the game",
+  "Les messages et invitations de vos amis":
+    "Messages and invitations from your friends",
+  "Le temps de jeu, et le retour à iBox d'un toucher":
+    "Play time, and back to iBox with one tap",
+  "Android demande votre accord. Vous pourrez changer d'avis dans Paramètres › Système › Pendant les parties.":
+    "Android asks for your permission. You can change your mind in Settings › System › During games.",
+  // recette Android
+  "Réglages d'émulateurs adaptés à votre appareil, sources de données": "Emulator settings tailored to your device, data sources",
+  "RetroArch installé, cœur à vérifier": "RetroArch installed, check the core",
+  "Vous êtes le seul joueur sur cet appareil.": "You are the only player on this device.",
+  "Les correspondances sûres (identifiant interne, nom identique, même jeu dans une autre région) sont appliquées automatiquement. Les autres vous sont proposées sur la fiche du jeu, jamais appliquées sans vous. Tout est conservé sur cet appareil et reste disponible hors connexion.": "Reliable matches (internal identifier, identical name, same game in another region) are applied automatically. Others are suggested on the game's page, never applied without you. Everything is kept on this device and stays available offline.",
+  "Une petite musique quand vous ouvrez la fiche d'un jeu (sons iiDB, téléchargés sur cet appareil)": "A short tune when you open a game's page (iiDB sounds, downloaded to this device)",
+  "Galerie iiDB ou image de votre appareil. Votre choix reste prioritaire sur les mises à jour.": "iiDB gallery or an image from your device. Your choice stays ahead of updates.",
+  "Des milliers d’illustrations de jeux, issues de la communauté SteamGridDB. L’image choisie est téléchargée une fois puis gardée sur cet appareil.": "Thousands of game artworks from the SteamGridDB community. The chosen image is downloaded once and kept on this device.",
+  "Une image de votre appareil (PNG, JPEG, WebP ou GIF). iBox en garde une copie ; l’original n’est pas touché.": "An image from your device (PNG, JPEG, WebP or GIF). iBox keeps a copy; the original is untouched.",
+  "Un petit panneau en haut à droite : images par seconde et temps d'image, processeur, GPU et mémoire.": "A small panel at the top right: frames per second and frame time, CPU, GPU and memory.",
+  "Une question, au plus une fois par optimisation et par semaine ; les réponses restent sur cet appareil": "One question, at most once per optimization and per week; answers stay on this device",
+  "Consultées dans cet ordre, de la plus sûre à la plus large. Les manuels restent sur cet appareil et ne sont jamais partagés.": "Checked in this order, from the most reliable to the broadest. Manuals stay on this device and are never shared.",
+  "{0} manuel{1} · {2} sur cet appareil": "{0} manual{1} · {2} on this device",
+  "Images de la communauté iiDB (iisu.network), propriété de leurs auteurs et ayants droit ; téléchargées sur cet appareil uniquement.": "Images from the iiDB community (iisu.network), owned by their authors and rights holders; downloaded to this device only.",
+  "Images de la communauté iiDB (iisu.network), propriété de leurs auteurs et ayants droit ; téléchargées sur cet ordinateur uniquement.": "Images from the iiDB community (iisu.network), owned by their authors and rights holders; downloaded to this computer only.",
+  "iiDB (projet iiSU) fournit icônes, logos et illustrations de consoles. Chaque personne utilise sa propre clé, à copier depuis son profil iiSU Accounts. Les images sont téléchargées sur cet appareil, jamais intégrées au projet ; sans connexion, iBox garde celles déjà reçues et son propre habillage.": "iiDB (the iiSU project) provides console icons, logos and artwork. Everyone uses their own key, copied from their iiSU Accounts profile. Images are downloaded to this device, never bundled with the project; offline, iBox keeps the ones it already has and its own look.",
+  "iiDB (projet iiSU) fournit icônes, logos et illustrations de consoles. Chaque personne utilise sa propre clé, à copier depuis son profil iiSU Accounts. Les images sont téléchargées sur cet ordinateur, jamais intégrées au projet ; sans connexion, iBox garde celles déjà reçues et son propre habillage.": "iiDB (the iiSU project) provides console icons, logos and artwork. Everyone uses their own key, copied from their iiSU Accounts profile. Images are downloaded to this computer, never bundled with the project; offline, iBox keeps the ones it already has and its own look.",
+  "Suivez l'assistant sur l'écran du haut.": "Follow the setup on the top screen.",
+  // Linux : choix du programme d'un jeu PC (AppImage, script)
+  "Choisissez le programme du jeu (AppImage, script ou programme Linux). Il n'est ni copié ni modifié.":
+    "Pick the game's program (AppImage, script or Linux program). It isn't copied or changed.",
+  // ——— 1.0.29 ———
+  "Steam Deck : vos jeux se lancent": "Steam Deck: your games launch",
+  "Sous Linux, iBox n’acceptait que les programmes Windows (.exe) : les émulateurs en AppImage ou en Flatpak, et les jeux PC, refusaient de se lancer. Ils se lancent maintenant, et vous pouvez choisir vous-même une AppImage ou un lanceur Flatpak dans les paramètres. Merci au joueur qui l’a signalé.":
+    "On Linux, iBox only accepted Windows programs (.exe): AppImage and Flatpak emulators, and PC games, refused to launch. They launch now, and you can pick an AppImage or a Flatpak launcher yourself in Settings. Thanks to the player who reported it.",
+  "Consoles portables reconnues": "Handhelds recognized",
+  "iBox reconnaît le Steam Deck, le ROG Ally, la Legion Go, la MSI Claw et les autres portables Windows, et s’y adapte tout seul : réglages de performance à leur mesure, texte agrandi sur l’écran intégré (pas sur une télé ni un moniteur), toucher et clavier virtuel partout où l’on tape.":
+    "iBox recognizes the Steam Deck, ROG Ally, Legion Go, MSI Claw and other Windows handhelds, and adapts on its own: performance settings that fit, larger text on the built-in screen (not on a TV or monitor), touch and the on-screen keyboard wherever you type.",
+  "Plus léger et plus économe": "Lighter and more efficient",
+  "Un seul réglage Performances règle effets, flous et étagère 3D. Les jaquettes sont peintes en arrière-plan, sans bloquer l’interface, et prennent bien moins de mémoire ; le démarrage est plus rapide. En mode allégé, le décor de l’accueil reste immobile et les fonds adoucis ne font plus de carrés.":
+    "A single Performance setting covers effects, blur and the 3D shelf. Covers are painted in the background without blocking the interface and use far less memory; startup is faster. In light mode, the home scenery stays still and softened backgrounds no longer look blocky.",
+  "Vue en jaquettes si la 3D manque": "Cover view when 3D isn't available",
+  "Sans 3D utilisable (vieux PC, pilote graphique absent ou qui se réinitialise), l’étagère laisse place à une vue en jaquettes qui fait la même chose. Vous pouvez aussi la choisir dans Paramètres › Apparence › Performances.":
+    "Without usable 3D (an old PC, a missing or resetting graphics driver), the shelf gives way to a cover view that does the same job. You can also choose it in Settings › Appearance › Performance.",
+  "Les bases LaunchBox se mettent de nouveau à jour. Un jeu sans fiche prend un titre propre tiré de son fichier. Au retour d’un jeu, la sélection revient où vous l’aviez laissée. Changer de langue ne fait plus réapparaître « Qui joue ? ». Les vignettes des jeux PC s’affichent en entier.":
+    "LaunchBox databases update again. A game without details gets a clean title from its file name. When you come back from a game, the selection is where you left it. Changing the language no longer brings back “Who's playing?”. PC game thumbnails show in full.",
 };

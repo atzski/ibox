@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { RESUMED } from "./power";
 import { shellApi, type UpdateProgress } from "./shell";
 import { notify } from "./notifications";
+import { usePlatform } from "./platform";
 
 /**
  * Mises à jour d'iBox : recherche automatique (au démarrage, puis régulièrement et au retour
@@ -42,7 +43,8 @@ export const useUpdater = create<UpdaterState>((set, get) => ({
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       set({ error });
-      notify({ icon: "download", tone: "warn", title: "Mise à jour non installée", body: `${error} Cliquez pour réessayer ; l’installeur est aussi téléchargeable dans Paramètres › Système.`, link: { kind: "update" } });
+      const hint = usePlatform.getState().android ? "Touchez pour réessayer." : "Cliquez pour réessayer ; l’installeur est aussi téléchargeable dans Paramètres › Système.";
+      notify({ icon: "download", tone: "warn", title: "Mise à jour non installée", body: `${error} ${hint}`, link: { kind: "update" } });
     } finally {
       set({ installing: false, progress: null });
     }
@@ -59,7 +61,9 @@ function announce(version: string) {
     icon: "download",
     tone: "info",
     title: `iBox ${version} est disponible`,
-    body: "Cliquez pour installer la mise à jour. iBox redémarre tout seul.",
+    body: usePlatform.getState().android
+      ? "Touchez pour installer la mise à jour : Android vous demandera de confirmer."
+      : "Cliquez pour installer la mise à jour. iBox redémarre tout seul.",
     link: { kind: "update" },
   });
   // la fenêtre en bas à droite s'affiche aussi par-dessus un jeu, même en « Ne pas déranger »

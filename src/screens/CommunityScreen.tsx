@@ -15,10 +15,10 @@ import { relativeDay } from "@/domain/text";
 import { captures, community, formatBytes, quotaFull, quotaText, useCaptureUrl, type LocalCapture, type ReactionKey, type SharedCapture, type ShareQuota } from "@/services/community";
 import { useInetbox } from "@/services/inetbox";
 import { isTauri } from "@/services/native";
-import { isLinux } from "@/services/platform";
 import { sound } from "@/services/sound";
 import { useSettings } from "@/services/settings";
 import { DEFAULT_KEYS } from "@/services/shortcuts";
+import { capabilities, useCapability } from "@/services/capabilities";
 
 type Tab = "feed" | "mine";
 
@@ -28,6 +28,8 @@ type Tab = "feed" | "mine";
  */
 export function CommunityScreen() {
   const [tab, setTab] = useState<Tab>("feed");
+  // Android : rien n'est capturé sur l'appareil, seul le fil des amis reste
+  const local = useCapability("localCaptures");
   const reduced = useReducedMotion();
   useScreenChrome({
     title: "Communauté",
@@ -63,11 +65,14 @@ export function CommunityScreen() {
             <div className="text-[0.75rem] font-extrabold tracking-[0.18em] text-white/75 uppercase">Hub de la communauté</div>
             <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={SPRING.smooth}
               className="mt-1 font-display text-[2.3rem] leading-tight font-semibold">Vos meilleurs moments</motion.h1>
-            <p className="mt-1 max-w-[36rem] text-[0.95rem] font-semibold text-white/85">
+            {!local && (
+              <p className="mt-1 max-w-[36rem] text-[0.95rem] font-semibold text-white/85">Les captures et clips partagés par vos amis, et leurs profils publics.</p>
+            )}
+            {local && <p className="mt-1 max-w-[36rem] text-[0.95rem] font-semibold text-white/85">
               À tout moment, appuyez sur <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">Alt</kbd> + <kbd className="rounded-md bg-white/20 px-1.5 py-0.5 font-extrabold">E</kbd>: l’overlay iBox fige l’écran ; en pleine partie, il garde aussi les 12 dernières secondes en clip.
-            </p>
+            </p>}
           </div>
-          <Segmented<Tab>
+          {local && <Segmented<Tab>
             label="Communauté"
             value={tab}
             onChange={(v) => { sound.play("tab"); setTab(v); }}
@@ -75,19 +80,19 @@ export function CommunityScreen() {
               { value: "feed", label: "Fil des amis", icon: "globe" },
               { value: "mine", label: "Mes captures", icon: "front" },
             ]}
-          />
+          />}
         </div>
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={TWEEN.fast}>
-          {tab === "feed" ? <Feed onMine={() => setTab("mine")} /> : <Mine />}
+          {tab === "feed" ? <Feed onMine={local ? () => setTab("mine") : undefined} /> : <Mine />}
         </motion.div>
       </AnimatePresence>
     </div>
   );
 }
 
-function Feed({ onMine }: { onMine: () => void }) {
+function Feed({ onMine }: { onMine?: () => void }) {
   const user = useInetbox((s) => s.user);
   const [items, setItems] = useState<SharedCapture[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,8 +140,8 @@ function Feed({ onMine }: { onMine: () => void }) {
   }
   if (items.length === 0) {
     return (
-      <Empty icon="sparkle" title="Le fil est encore vide" body="Partagez votre première capture, ou invitez vos amis à partager les leurs.">
-        <Button variant="primary" icon="front" onClick={onMine}>Mes captures</Button>
+      <Empty icon="sparkle" title="Le fil est encore vide" body={onMine ? "Partagez votre première capture, ou invitez vos amis à partager les leurs." : "Les captures que vos amis partagent apparaîtront ici."}>
+        {onMine && <Button variant="primary" icon="front" onClick={onMine}>Mes captures</Button>}
       </Empty>
     );
   }
@@ -242,7 +247,7 @@ function Mine() {
         <Button icon="folder" onClick={() => void captures.folder()}>Ouvrir le dossier</Button>
       </div>
       {items.length === 0 ? (
-        <Empty icon="front" title="Aucune capture pour l’instant" body={isLinux() ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : `Appuyez sur ${captureKeys} au bon moment, en jeu ou non.`} />
+        <Empty icon="front" title="Aucune capture pour l’instant" body={!capabilities().capture ? "Sur Steam Deck, les captures se font avec Steam (bouton Steam + R1)." : `Appuyez sur ${captureKeys} au bon moment, en jeu ou non.`} />
       ) : (
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-4" data-nav-group="community-mine">
           {items.map((it, i) => <LocalCard key={it.name} item={it} index={i} onOpen={() => { setOpen(it); setCaption(""); setStatus(null); picked.current = new Map(); loadQuota(); }} />)}

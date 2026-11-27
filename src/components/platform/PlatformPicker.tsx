@@ -4,6 +4,7 @@ import { themeVars } from "@/theme/platformTheme";
 import { PlatformGlyph } from "./PlatformGlyph";
 import { Icon } from "@/components/ui/Icon";
 import { sound } from "@/services/sound";
+import { platformOnDevice } from "@/services/capabilities";
 
 /**
  * Grille de choix de console. `suggested` met en avant les candidats
@@ -25,7 +26,7 @@ export function PlatformPicker({
 }) {
   const allowed = (id: string) => !only || only.includes(id);
   const suggestions = suggested.filter(allowed).map(getPlatform).filter((p) => !!p);
-  const others = PLATFORMS.filter((p) => allowed(p.id) && !suggested.includes(p.id));
+  const others = PLATFORMS.filter((p) => platformOnDevice(p.id) && p.id !== "android" && allowed(p.id) && !suggested.includes(p.id));
   // sans rien de présélectionné, la première console reçoit le focus (manette, clavier)
   const first = only && value === null ? (suggestions[0] ?? others[0])?.id : undefined;
 
