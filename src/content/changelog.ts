@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.28",
+    date: "2026-11-27",
+    highlights: [
+      { icon: "globe", title: "Des plugins dans votre langue", text: "Dans Paramètres › Plugins, le nom, la description et les notes de version des plugins s’affichent dans la langue d’iBox : en anglais par défaut, en français si iBox est en français. Les permissions, les messages d’installation et les fenêtres d’iClips suivent aussi la langue." },
+    ],
+  },
+  {
     version: "1.0.27",
     date: "2026-11-27",
     highlights: [

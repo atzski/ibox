@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { call } from "@/services/inetbox";
 import { PLUGINS_CHANGED } from "@/services/nowPlaying";
-import { formatSize, installPlugin, listPlugins, openPluginScreen, permissionLabel, setPluginEnabled, uninstallPlugin, type PluginAuthor, type PluginList, type PluginView } from "@/services/plugins";
+import { formatSize, installPlugin, listPlugins, openPluginScreen, permissionLabel, pluginText, setPluginEnabled, uninstallPlugin, type PluginAuthor, type PluginList, type PluginView } from "@/services/plugins";
 import { useSettings, type AvatarChoice } from "@/services/settings";
 import { sound } from "@/services/sound";
 import { Group, Toggle } from "./ui";
@@ -30,6 +30,7 @@ export function PluginsPage() {
   const [confirm, setConfirm] = useState<{ id: string; action: "install" | "uninstall" } | null>(null);
   // réglages du plugin ouverts sous la liste
   const [settingsOf, setSettingsOf] = useState<string | null>(null);
+  const lang = useLang();
 
   const load = useCallback((refresh: boolean) => {
     setError(null);
@@ -74,10 +75,10 @@ export function PluginsPage() {
           installed.map((p) => (
             <PluginCard key={p.id} plugin={p} busy={busy === p.id} confirm={confirm?.id === p.id ? confirm.action : null}>
               <div className="flex flex-wrap items-center gap-2">
-                <Toggle label={`Activer ${p.name}`} checked={!!p.installed?.enabled} onChange={(v) => void run(p.id, () => setPluginEnabled(p.id, v), v ? "on" : "off")} />
+                <Toggle label={`Activer ${pluginText(p, "name", lang)}`} checked={!!p.installed?.enabled} onChange={(v) => void run(p.id, () => setPluginEnabled(p.id, v), v ? "on" : "off")} />
                 {p.screen && p.installed?.enabled && (
-                  <Button variant="primary" icon="open" disabled={!!busy} onClick={() => void openPluginScreen(p.id, useSettings.getState().language ?? "fr").catch(() => undefined)}>
-                    Ouvrir {p.screen}
+                  <Button variant="primary" icon="open" disabled={!!busy} onClick={() => void openPluginScreen(p.id, lang).catch(() => undefined)}>
+                    Ouvrir <span data-no-i18n>{pluginText(p, "screen", lang)}</span>
                   </Button>
                 )}
                 {p.update && p.available && (
@@ -141,8 +142,15 @@ export function PluginsPage() {
   );
 }
 
+/** Langue d'iBox pour les textes des plugins (l'anglais est leur langue par défaut). */
+function useLang(): "fr" | "en" {
+  return useSettings((s) => (s.language === "fr" ? "fr" : "en"));
+}
+
 function PluginCard({ plugin: p, busy, children }: { plugin: PluginView; busy: boolean; confirm: string | null; children: ReactNode }) {
   const version = p.installed?.version ?? p.available?.version;
+  const lang = useLang();
+  const description = pluginText(p, "description", lang);
   return (
     <div className={`flex flex-col gap-3 py-4 ${busy ? "opacity-70" : ""}`} aria-busy={busy || undefined}>
       <div className="flex items-start gap-4">
@@ -155,12 +163,12 @@ function PluginCard({ plugin: p, busy, children }: { plugin: PluginView; busy: b
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[1.05rem] font-bold text-ink">{p.name}</span>
+            <span data-no-i18n className="text-[1.05rem] font-bold text-ink">{pluginText(p, "name", lang)}</span>
             {version && <span className="text-[0.8rem] font-bold text-ink-faint">{version}</span>}
             {p.update && p.available && <span className="rounded-full bg-[var(--accent-deep)] px-2 py-0.5 text-[0.7rem] font-extrabold text-white">{p.available.version}</span>}
           </div>
           <Creator author={p.author} />
-          {p.description && <p className="mt-1 text-[0.86rem] font-semibold text-ink-soft">{p.description}</p>}
+          {description && <p data-no-i18n className="mt-1 text-[0.86rem] font-semibold text-ink-soft">{description}</p>}
         </div>
       </div>
       {busy && <p className="text-[0.85rem] font-bold text-ink-soft">Vérification et installation…</p>}
@@ -206,6 +214,9 @@ function Creator({ author }: { author: PluginAuthor }) {
 
 function Confirm({ plugin: p, action, busy, onCancel, onConfirm }: { plugin: PluginView; action: "install" | "uninstall"; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const size = formatSize(p.available?.size ?? 0);
+  const lang = useLang();
+  const notes = pluginText(p, "notes", lang);
+  const name = pluginText(p, "name", lang);
   return (
     <div className="rounded-2xl bg-cream/70 p-4 ring-1 ring-ink/6">
       {action === "install" ? (
@@ -221,11 +232,11 @@ function Confirm({ plugin: p, action, busy, onCancel, onConfirm }: { plugin: Plu
               ))}
             </ul>
           )}
-          {p.available?.notes && <p className="mt-3 text-[0.84rem] font-semibold whitespace-pre-line text-ink-soft">{p.available.notes}</p>}
+          {notes && <p data-no-i18n className="mt-3 text-[0.84rem] font-semibold whitespace-pre-line text-ink-soft">{notes}</p>}
           {size && <p className="mt-2 text-[0.78rem] font-bold text-ink-faint">{size}</p>}
         </>
       ) : (
-        <div className="text-[0.92rem] font-bold text-ink">Désinstaller {p.name} ? Ses fichiers sont supprimés de ce PC.</div>
+        <div className="text-[0.92rem] font-bold text-ink">{`Désinstaller ${name} ? Ses fichiers sont supprimés de ce PC.`}</div>
       )}
       <div className="mt-3 flex gap-2">
         <Button variant="primary" icon={action === "install" ? "download" : "trash"} disabled={busy} onClick={onConfirm} autoFocus>

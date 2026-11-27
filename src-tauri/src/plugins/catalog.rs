@@ -54,6 +54,9 @@ pub struct Entry {
     pub ibox: Option<String>,
     #[serde(default)]
     pub platforms: Vec<String>,
+    /// Nom, description et notes dans d'autres langues (base en anglais, voir `manifest::Texts`).
+    #[serde(default, deserialize_with = "manifest::lenient_locales", skip_serializing_if = "manifest::Locales::is_empty")]
+    pub i18n: manifest::Locales,
 }
 
 fn default_publisher() -> String {
@@ -103,6 +106,13 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<Entry>, String> {
     let c: Catalog = serde_json::from_slice(bytes).map_err(|_| "Catalogue des plugins illisible.".to_string())?;
     Ok(c.plugins
         .into_iter()
+        .map(|mut e| {
+            // traductions hors limites : l'entrée reste, dans sa langue de base
+            if !manifest::locales_ok(&e.i18n) {
+                e.i18n.clear();
+            }
+            e
+        })
         .filter(|e| {
             manifest::valid_id(&e.id)
                 && manifest::parse_version(&e.version).is_some()
@@ -171,5 +181,25 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].publisher, "atzski");
         assert!(parse(b"nope").is_err());
+    }
+
+    #[test]
+    fn translations_never_break_the_catalog() {
+        let mut ok = serde_json::json!({ "id": "demo", "name": "Demo", "version": "1.0.0", "author": { "name": "atzski" },
+            "url": "https://example.com/demo.iboxplugin", "sha256": "a".repeat(64), "signature": "x", "description": "A demo.",
+            "i18n": { "fr": { "description": "Une démo.", "notes": "Première version." } } });
+        let mut long = ok.clone();
+        long["id"] = "long".into();
+        long["i18n"]["fr"]["description"] = "x".repeat(601).into();
+        let mut odd = ok.clone();
+        odd["id"] = "odd".into();
+        odd["i18n"] = serde_json::json!(["fr"]);
+        let list = parse(serde_json::json!({ "plugins": [ok.clone(), long, odd] }).to_string().as_bytes()).unwrap();
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0].i18n["fr"].notes.as_deref(), Some("Première version."));
+        assert!(list[1].i18n.is_empty() && list[2].i18n.is_empty());
+        // une ancienne iBox lit la même entrée (champ inconnu ignoré, base en anglais)
+        ok.as_object_mut().unwrap().remove("i18n");
+        assert_eq!(parse(serde_json::json!({ "plugins": [ok] }).to_string().as_bytes()).unwrap()[0].description, "A demo.");
     }
 }

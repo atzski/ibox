@@ -4,7 +4,62 @@
 //! (identifiant, chemins relatifs sûrs, permissions connues, adresses en https) avant que le
 //! socle ne s'en serve.
 
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Deserializer, Serialize};
+
+/// Textes d'un plugin dans une langue : `"i18n": { "fr": { "description": "…" } }`.
+///
+/// Les champs de base (`name`, `description`, `notes` du catalogue, `screen.title`) sont en
+/// anglais, langue par défaut ; `i18n` ne fait que les remplacer dans une autre langue. Une
+/// langue absente, ou un champ absent, retombe sur `i18n.en` puis sur la base. Un ancien
+/// manifeste (base en français, sans `i18n`) reste donc valable tel quel, et une ancienne iBox
+/// ignore ce champ et lit la base.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Texts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Notes de version (catalogue seulement).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    /// Titre de l'écran plein (`screen.title`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen: Option<String>,
+}
+
+/// Langue (`fr`, `en`…) → textes.
+pub type Locales = BTreeMap<String, Texts>;
+
+/// Code de langue : deux ou trois lettres minuscules.
+pub fn valid_lang(l: &str) -> bool {
+    (2..=3).contains(&l.len()) && l.bytes().all(|c| c.is_ascii_lowercase())
+}
+
+/// Lecture tolérante de `i18n` : une langue mal formée est ignorée, jamais tout le manifeste ni
+/// tout le catalogue (une seule entrée illisible refusait la liste entière).
+pub fn lenient_locales<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Locales, D::Error> {
+    let serde_json::Value::Object(map) = serde_json::Value::deserialize(d)? else { return Ok(Locales::new()) };
+    Ok(map
+        .into_iter()
+        .filter(|(l, _)| valid_lang(l))
+        .filter_map(|(l, v)| serde_json::from_value::<Texts>(v).ok().map(|t| (l, t)))
+        .take(8)
+        .collect())
+}
+
+/// Longueurs raisonnables (celles des champs de base).
+pub fn locales_ok(l: &Locales) -> bool {
+    let fits = |s: &Option<String>, max: usize| s.as_ref().is_none_or(|s| !s.trim().is_empty() && s.len() <= max);
+    l.values().all(|t| fits(&t.name, 80) && fits(&t.description, 600) && fits(&t.notes, 4000) && fits(&t.screen, 60))
+}
+
+/// Texte dans la langue voulue : `i18n[lang]`, puis `i18n.en`, sinon `None` (la base).
+pub fn localized<'a>(l: &'a Locales, lang: &str, field: impl Fn(&'a Texts) -> Option<&'a String>) -> Option<&'a str> {
+    l.get(lang).and_then(&field).or_else(|| l.get("en").and_then(&field)).map(String::as_str)
+}
 
 /// Permissions connues. `webview:<origine https>` s'ajoute à cette liste.
 /// `backdrop` : image de la zone sous l'overlay (verre flouté), la fenêtre étant exclue des captures.
@@ -95,6 +150,9 @@ pub struct Manifest {
     /// Origines d'images autorisées par la CSP de la fenêtre (`https://*.ytimg.com`).
     #[serde(default)]
     pub images: Vec<String>,
+    /// Nom, description et titre d'écran dans d'autres langues ([`Texts`]).
+    #[serde(default, deserialize_with = "lenient_locales", skip_serializing_if = "BTreeMap::is_empty")]
+    pub i18n: Locales,
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -243,6 +301,9 @@ impl Manifest {
         if self.name.trim().is_empty() || self.name.len() > 80 || self.author.name.trim().is_empty() || self.author.name.len() > 80 || self.description.len() > 600 {
             return Err("Nom, créateur ou description invalide.".into());
         }
+        if !locales_ok(&self.i18n) {
+            return Err("Textes traduits invalides.".into());
+        }
         if parse_version(&self.version).is_none() {
             return Err("Version du plugin invalide.".into());
         }
@@ -384,6 +445,28 @@ mod tests {
         // iClips 0.7 : pas de raccourci à lui, celui de l'overlay d'iBox ouvre son panneau
         assert!(m.overlay.as_ref().unwrap().hotkey.is_none());
         assert!(m.has("clips-capture") && m.has("clips-auto"));
+    }
+
+    #[test]
+    fn texts_in_other_languages_fall_back_to_english() {
+        let m = with(|v| {
+            v["description"] = "Music over your games.".into();
+            v["i18n"] = serde_json::json!({ "fr": { "description": "Musique par-dessus vos parties." }, "EN": { "name": "x" }, "de": 3 });
+        })
+        .unwrap();
+        // langue mal formée (« EN », un nombre) : ignorée, le manifeste reste valable
+        assert_eq!(m.i18n.keys().collect::<Vec<_>>(), ["fr"]);
+        assert_eq!(localized(&m.i18n, "fr", |t| t.description.as_ref()), Some("Musique par-dessus vos parties."));
+        // pas d'allemand ni d'anglais traduit : la base (anglais)
+        assert_eq!(localized(&m.i18n, "de", |t| t.description.as_ref()), None);
+        assert_eq!(localized(&m.i18n, "fr", |t| t.name.as_ref()), None);
+        // un ancien manifeste à base française qui donne l'anglais à part
+        let old = with(|v| v["i18n"] = serde_json::json!({ "en": { "description": "Music over your games." } })).unwrap();
+        assert_eq!(localized(&old.i18n, "de", |t| t.description.as_ref()), Some("Music over your games."));
+        // textes trop longs ou vides : refusés comme la base
+        assert!(with(|v| v["i18n"] = serde_json::json!({ "fr": { "description": "x".repeat(601) } })).is_err());
+        assert!(with(|v| v["i18n"] = serde_json::json!({ "fr": { "name": " " } })).is_err());
+        assert!(with(|v| v["i18n"] = "fr".into()).unwrap().i18n.is_empty());
     }
 
     #[test]

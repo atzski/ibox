@@ -53,13 +53,22 @@ static BUSY: Mutex<()> = Mutex::new(());
 static LOOK: Mutex<Option<(&'static str, bool)>> = Mutex::new(None);
 
 pub fn look() -> (&'static str, bool) {
-    LOOK.lock().ok().and_then(|l| *l).unwrap_or(("fr", true))
+    LOOK.lock().ok().and_then(|l| *l).unwrap_or(("en", true))
+}
+
+/// Langue passée aux plugins : le français s'il est demandé, l'anglais sinon (langue par défaut).
+pub fn plugin_lang(lang: Option<&str>) -> &'static str {
+    if lang == Some("fr") {
+        "fr"
+    } else {
+        "en"
+    }
 }
 
 /// L'interface d'iBox donne sa langue et son thème (au démarrage et à chaque changement).
 #[tauri::command]
 pub async fn plugins_look(app: AppHandle, lang: Option<String>, dark: Option<bool>) {
-    let next = (if lang.as_deref() == Some("en") { "en" } else { "fr" }, dark.unwrap_or(true));
+    let next = (plugin_lang(lang.as_deref()), dark.unwrap_or(true));
     let before = LOOK.lock().ok().and_then(|mut l| l.replace(next));
     // langue ou thème changés : les fenêtres de plugin déjà ouvertes suivent (`look://changed`)
     if before.is_some_and(|b| b != next) {
@@ -160,6 +169,45 @@ pub struct PluginView {
     pub update: bool,
     /// Titre de l'écran plein du plugin installé (bouton « Ouvrir »), s'il en a un.
     pub screen: Option<String>,
+    /// Nom, description, notes et titre d'écran dans d'autres langues : l'interface prend
+    /// `i18n[langue]`, puis `i18n.en`, puis la base (voir `manifest::Texts`).
+    #[serde(skip_serializing_if = "manifest::Locales::is_empty")]
+    pub i18n: manifest::Locales,
+}
+
+/// Titre de la fenêtre de l'écran plein, dans la langue d'iBox.
+fn screen_title(m: &Manifest, lang: &str) -> String {
+    let base = m.screen.as_ref().and_then(|s| s.title.as_deref());
+    manifest::localized(&m.i18n, lang, |t| t.screen.as_ref())
+        .or(base)
+        .or_else(|| manifest::localized(&m.i18n, lang, |t| t.name.as_ref()))
+        .unwrap_or(&m.name)
+        .to_string()
+}
+
+/// Textes d'un plugin installé. La source la plus traduite l'emporte : l'entrée du catalogue
+/// (textes à jour) si elle a des traductions ou si le manifeste n'en a pas, sinon le manifeste.
+/// Un plugin installé avant les traductions s'affiche ainsi dans la langue d'iBox dès que le
+/// catalogue les donne. Les notes viennent du catalogue, le titre d'écran du manifeste.
+fn installed_texts(m: &Manifest, entry: Option<&catalog::Entry>) -> (String, String, manifest::Locales) {
+    let (name, description, source) = match entry.filter(|e| !e.i18n.is_empty() || m.i18n.is_empty()) {
+        Some(e) => (e.name.clone(), e.description.clone(), &e.i18n),
+        None => (m.name.clone(), m.description.clone(), &m.i18n),
+    };
+    let notes = entry.map(|e| &e.i18n);
+    let mut out = manifest::Locales::new();
+    for lang in source.keys().chain(m.i18n.keys()).chain(notes.into_iter().flat_map(|n| n.keys())) {
+        let t = manifest::Texts {
+            name: source.get(lang).and_then(|t| t.name.clone()),
+            description: source.get(lang).and_then(|t| t.description.clone()),
+            notes: notes.and_then(|n| n.get(lang)).and_then(|t| t.notes.clone()),
+            screen: m.i18n.get(lang).and_then(|t| t.screen.clone()),
+        };
+        if t != manifest::Texts::default() {
+            out.insert(lang.clone(), t);
+        }
+    }
+    (name, description, out)
 }
 
 #[derive(Debug, Serialize)]
@@ -252,10 +300,12 @@ fn list_view(app: &AppHandle, entries: &[catalog::Entry], catalog_error: Option<
         let m = dir.as_deref().and_then(load_manifest);
         let entry = entries.iter().find(|e| &e.id == id);
         let Some(m) = m else { continue };
+        let (name, description, i18n) = installed_texts(&m, entry);
         out.push(PluginView {
             id: id.clone(),
-            name: m.name.clone(),
-            description: m.description.clone(),
+            name,
+            description,
+            i18n,
             author: catalog::Author { name: entry.map(|e| e.author.name.clone()).unwrap_or_else(|| m.author.name.clone()), inetbox: m.author.inetbox.clone().or_else(|| entry.and_then(|e| e.author.inetbox.clone())), username: m.author.username.clone() },
             permissions: m.permissions.clone(),
             icon: dir.as_deref().and_then(icon_of).or_else(|| entry.and_then(|e| e.icon.clone())),
@@ -277,6 +327,7 @@ fn list_view(app: &AppHandle, entries: &[catalog::Entry], catalog_error: Option<
             available: Some(AvailableView { version: e.version.clone(), notes: e.notes.clone(), size: e.size, compatible: compatible(e) }),
             update: false,
             screen: None,
+            i18n: e.i18n.clone(),
         });
     }
     PluginList { plugins: out, catalog_error, platform_supported: cfg!(windows) }
@@ -378,11 +429,11 @@ pub async fn plugins_open_screen(app: AppHandle, id: String, lang: Option<String
     let a = active(app.clone(), &id).ok_or("Plugin absent ou désactivé.")?;
     let screen = a.manifest.screen.clone().ok_or("Ce plugin n'a pas d'écran.")?;
     // langue et thème d'iBox, seules valeurs passées à la page
-    let lang = if lang.as_deref() == Some("en") { "en" } else { "fr" };
+    let lang = plugin_lang(lang.as_deref());
     let scheme = if dark.unwrap_or(true) { "dark" } else { "light" };
     let url: tauri::Url = format!("{}?lang={lang}&scheme={scheme}", protocol::url(&id, &screen.entry)).parse().map_err(|_| "Adresse invalide.")?;
     let home = protocol::url(&id, "");
-    let title = screen.title.unwrap_or_else(|| a.manifest.name.clone());
+    let title = screen_title(&a.manifest, lang);
     let label = protocol::screen_label(&id);
     let icon = window_icon(&a.dir);
     std::thread::spawn(move || {
@@ -438,6 +489,32 @@ mod tests {
             let icon = window_icon(&dir).expect("icon.png d'iClips lisible");
             assert_eq!(icon.rgba().len() as u32, icon.width() * icon.height() * 4);
         }
+    }
+
+    #[test]
+    fn textes_traduits_d_un_plugin_installe() {
+        // manifeste d'avant les traductions (base en français), catalogue traduit
+        let m = Manifest::parse(br#"{ "id": "iclips", "name": "iClips", "version": "0.9.2", "author": { "name": "atzski" },
+            "description": "Le studio de vos clips.", "permissions": ["clips"], "screen": { "entry": "ui/studio.html", "title": "iClips Studio" } }"#).unwrap();
+        let entry: catalog::Entry = serde_json::from_value(serde_json::json!({ "id": "iclips", "name": "iClips", "version": "0.9.3",
+            "author": { "name": "atzski" }, "url": "https://x/y", "sha256": "a".repeat(64), "signature": "s",
+            "description": "Your game clip studio.", "notes": "Fixes.", "i18n": { "fr": { "description": "Le studio de vos clips de jeu.", "notes": "Corrections." } } })).unwrap();
+        let (_, description, i18n) = installed_texts(&m, Some(&entry));
+        assert_eq!(description, "Your game clip studio.");
+        assert_eq!(i18n["fr"].description.as_deref(), Some("Le studio de vos clips de jeu."));
+        assert_eq!(i18n["fr"].notes.as_deref(), Some("Corrections."));
+        // hors ligne, sans catalogue : le manifeste tel quel
+        assert_eq!(installed_texts(&m, None).1, "Le studio de vos clips.");
+        // un manifeste traduit l'emporte sur une entrée de catalogue qui ne l'est pas
+        let mut tm = m.clone();
+        tm.i18n.insert("fr".into(), manifest::Texts { screen: Some("Studio iClips".into()), ..Default::default() });
+        let mut plain = entry.clone();
+        plain.i18n.clear();
+        assert_eq!(installed_texts(&tm, Some(&plain)).1, "Le studio de vos clips.");
+        assert_eq!(screen_title(&tm, "fr"), "Studio iClips");
+        assert_eq!(screen_title(&tm, "en"), "iClips Studio");
+        assert_eq!(plugin_lang(None), "en");
+        assert_eq!(plugin_lang(Some("de")), "en");
     }
 
     #[test]

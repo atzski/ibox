@@ -72,9 +72,11 @@ for (const file of files) {
       continue;
     }
     // texte JSX : entre « > » et « < » / « { », hors code
-    if (c === ">" && file.endsWith(".tsx")) {
+    // (pas après « => » ; arrêt sur « " » et « ` » : une comparaison « a > b » suivie d'une
+    // chaîne avalait la chaîne, et un gabarit avalé inversait tout le reste du fichier)
+    if (c === ">" && file.endsWith(".tsx") && s[i - 1] !== "=") {
       let j = i + 1, v = "";
-      while (j < n && s[j] !== "<" && s[j] !== "{" && s[j] !== ">" && s[j] !== "}" && s[j] !== ";" && s[j] !== "(" && s[j] !== ")" && s[j] !== "=") v += s[j++];
+      while (j < n && s[j] !== "<" && s[j] !== "{" && s[j] !== ">" && s[j] !== "}" && s[j] !== ";" && s[j] !== "(" && s[j] !== ")" && s[j] !== "=" && s[j] !== '"' && s[j] !== "`") v += s[j++];
       if (j < n && (s[j] === "<" || s[j] === "{") && /[a-zà-ÿ]/i.test(v) && !/^\s*[\w.]+\s*$/.test(v.trim() === v ? "" : "") ) add(v, file, "jsx");
       i = j;
       continue;

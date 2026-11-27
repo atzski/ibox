@@ -17,6 +17,18 @@ export interface PluginView {
   update: boolean;
   /** Titre de l'écran plein du plugin installé (iClips Studio), s'il en a un. */
   screen?: string | null;
+  /** Textes dans d'autres langues ; la base (`name`, `description`…) est en anglais. */
+  i18n?: Record<string, PluginTexts>;
+}
+export interface PluginTexts { name?: string; description?: string; notes?: string; screen?: string }
+
+/**
+ * Texte d'un plugin dans la langue d'iBox : `i18n[langue]`, puis `i18n.en`, puis la base.
+ * L'anglais est la langue par défaut des plugins ; un ancien plugin sans `i18n` garde son texte.
+ */
+export function pluginText(p: PluginView, field: keyof PluginTexts, lang: "fr" | "en"): string {
+  const base = field === "notes" ? p.available?.notes : field === "screen" ? p.screen : p[field];
+  return p.i18n?.[lang]?.[field] || p.i18n?.en?.[field] || base || "";
 }
 export interface PluginList { plugins: PluginView[]; catalogError?: string | null; platformSupported: boolean }
 
