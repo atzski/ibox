@@ -10,6 +10,13 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.27",
+    date: "2026-11-27",
+    highlights: [
+      { icon: "disc", title: "Retour d’un cran", text: "Dans Music in the Box, Retour revient à l’écran d’avant : la fiche d’un artiste ouverte depuis une playlist ramène à la playlist, là où vous en étiez, et non au lecteur. B et Échap font de même." },
+    ],
+  },
+  {
     version: "1.0.26",
     date: "2026-11-26",
     highlights: [

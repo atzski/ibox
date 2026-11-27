@@ -37,7 +37,7 @@ setInterval(() => emit("music://state", snapshot()), 500);
 const wait = (ms: number) => new Promise((f) => setTimeout(f, ms));
 const LIST: Playlist = { id: "VLPL-essai", playlistId: "PL-essai", title: "Morceaux d’essai", subtitle: `${player.songs.length} titres calculés sur place`, thumbnail: artwork(player.songs[0]) };
 const ARTIST = { id: "UCf_gP4AMRSgAfyzbkeS9k4g", name: "Travis Scott", subtitle: "94,2 M auditeurs/mois", thumbnail: null };
-const track = (s: Song): Track => ({ videoId: s.id, title: s.title, artist: s.artist, album: "Morceaux d’essai", duration: formatTime(s.dur * 1000), thumbnail: artwork(s) });
+const track = (s: Song): Track => ({ videoId: s.id, title: s.title, artist: s.artist, artists: [{ name: s.artist, id: ARTIST.id }], album: "Morceaux d’essai", duration: formatTime(s.dur * 1000), thumbnail: artwork(s) });
 // chaque titre d’essai porte deux artistes : le premier mène à la page d’artiste enregistrée, le second n’a pas de page
 const queue = (): QueueItem[] => player.songs.map((s, i) => ({ videoId: s.id, title: s.title, artist: `${s.artist}, Invité`, artists: [{ name: s.artist, id: ARTIST.id }, { name: "Invité", id: null }], duration: formatTime(s.dur * 1000), thumbnail: artwork(s), selected: i === player.index, playlistId: "PL-essai", index: i }));
 
