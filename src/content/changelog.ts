@@ -10,6 +10,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.30",
+    date: "2026-11-28",
+    highlights: [
+      { icon: "shelf", title: "L’étagère 3D ne se coupe plus", text: "Depuis la 1.0.29, fermer deux fiches de jeu, ou changer deux fois le réglage Étagère 3D, faisait passer iBox en vue en jaquettes jusqu’à « Réessayer la 3D » : la fermeture normale d’une scène était prise pour une panne de la carte graphique. La 3D reste maintenant active. Merci aux joueurs qui l’ont signalé." },
+      { icon: "globe", title: "Traductions complétées", text: "Une vingtaine de textes restaient en français dans l’interface en anglais (« Ordre d’origine » dans Paramètres › Accueil, filtres des succès, choix d’images…) : ils sont traduits." },
+    ],
+  },
+  {
     version: "1.0.29",
     date: "2026-11-27",
     highlights: [

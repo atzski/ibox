@@ -24,6 +24,10 @@ export function watchContextLoss(canvas: HTMLCanvasElement): void {
     (e) => {
       // sans `preventDefault`, le navigateur ne rendrait jamais le contexte
       e.preventDefault();
+      // Canevas retiré de la page : c'est React Three Fiber qui libère son contexte au démontage
+      // (`forceContextLoss` : fiche fermée, réglage passé en jaquettes), pas une panne. Comptée,
+      // cette libération coupait la 3D à la deuxième fiche fermée (1.0.29).
+      if (!canvas.isConnected) return;
       void import("@/services/render3d").then((m) => m.reportContextLost());
     },
     { once: true },

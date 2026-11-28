@@ -4532,4 +4532,31 @@ export const EN: Record<string, string> = {
     "Without usable 3D (an old PC, a missing or resetting graphics driver), the shelf gives way to a cover view that does the same job. You can also choose it in Settings › Appearance › Performance.",
   "Les bases LaunchBox se mettent de nouveau à jour. Un jeu sans fiche prend un titre propre tiré de son fichier. Au retour d’un jeu, la sélection revient où vous l’aviez laissée. Changer de langue ne fait plus réapparaître « Qui joue ? ». Les vignettes des jeux PC s’affichent en entier.":
     "LaunchBox databases update again. A game without details gets a clean title from its file name. When you come back from a game, the selection is where you left it. Changing the language no longer brings back “Who's playing?”. PC game thumbnails show in full.",
+  // textes sans accent, invisibles pour le test de couverture (1.0.30)
+  "Ordre d'origine": "Original order",
+  "Plus d'images": "More images",
+  "Aucun jeu en attente": "No games pending",
+  "Chercher un jeu {0}": "Search for a {0} game",
+  "{0} · {1} · musique en pause": "{0} · {1} · music paused",
+  "Nouveau": "New",
+  "Passer": "Skip",
+  "Disponible sur": "Available on",
+  "Multijoueur / coop": "Multiplayer / co-op",
+  "Filtrer": "Filter",
+  "Trier": "Sort",
+  "Tous": "All",
+  "Titre RetroAchievements": "RetroAchievements title",
+  "Pseudo RetroAchievements": "RetroAchievements username",
+  "Synchroniser": "Sync",
+  "Tous les fichiers": "All files",
+  "AppImage ou script": "AppImage or script",
+  "Bornes d'arcade": "Arcade cabinets",
+  "L’étagère 3D ne se coupe plus":
+    "The 3D shelf no longer switches off",
+  "Depuis la 1.0.29, fermer deux fiches de jeu, ou changer deux fois le réglage Étagère 3D, faisait passer iBox en vue en jaquettes jusqu’à « Réessayer la 3D » : la fermeture normale d’une scène était prise pour une panne de la carte graphique. La 3D reste maintenant active. Merci aux joueurs qui l’ont signalé.":
+    "Since 1.0.29, closing two game pages, or changing the 3D shelf setting twice, switched iBox to the cover view until “Retry 3D”: the normal closing of a scene was mistaken for a graphics card failure. 3D now stays on. Thanks to the players who reported it.",
+  "Traductions complétées":
+    "Translations completed",
+  "Une vingtaine de textes restaient en français dans l’interface en anglais (« Ordre d’origine » dans Paramètres › Accueil, filtres des succès, choix d’images…) : ils sont traduits.":
+    "About twenty texts were still in French in the English interface (“Original order” in Settings › Home, achievement filters, image picker…): they are now translated.",
 };
