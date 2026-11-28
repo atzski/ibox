@@ -12,6 +12,7 @@
 pub mod backdrop;
 pub mod diag;
 pub mod overlay;
+pub mod resume;
 pub mod ytm;
 
 use std::sync::Mutex;
@@ -77,7 +78,11 @@ pub fn current(app: &AppHandle) -> MusicState {
     if let Some(v) = &yt {
         diag::music(app, &ytm::log_lines(v));
     }
-    let now = yt.as_ref().and_then(ytm::now_playing);
+    if let Some(v) = &yt {
+        resume::remember(app, v);
+    }
+    // reprise en cours (titre muet en train de se placer) : rien à montrer encore
+    let now = yt.as_ref().filter(|_| !resume::restoring()).and_then(ytm::now_playing);
     if let Ok(mut last) = LAST.lock() {
         *last = now.as_ref().map(|n| n.source);
     }
@@ -129,5 +134,6 @@ pub async fn music_control(app: AppHandle, action: String, value: Option<f64>) -
 
 /// Démarre les raccourcis (clavier, manette) et le suivi de l'état pendant que le panneau est ouvert.
 pub fn start(app: AppHandle) {
-    overlay::start(app);
+    overlay::start(app.clone());
+    resume::start(app);
 }

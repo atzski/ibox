@@ -15,7 +15,7 @@ import { attachAndroidInput } from "./android";
  * Les actions sont traduites en touches clavier sur l'élément actif : toute
  * l'interface (navigation spatiale, visionneuse 3D, étagère) les comprend déjà.
  */
-export type PadFamily = "xbox" | "playstation" | "nintendo" | "generic";
+export type PadFamily = "xbox" | "playstation" | "nintendo" | "deck" | "generic";
 export type ConfirmSide = "auto" | "south" | "east";
 
 /**
@@ -35,7 +35,10 @@ const B = { south: 0, east: 1, west: 2, north: 3, lb: 4, rb: 5, lt: 6, rt: 7, se
 
 export function detectFamily(id: string): PadFamily {
   const s = id.toLowerCase();
-  if (/(xbox|xinput|045e)/.test(s)) return "xbox";
+  // commandes intégrées du Steam Deck (Valve, 28de) : lettres A B X Y, gâchettes L1 R1 L2 R2
+  if (/(steam deck|valve|28de)/.test(s)) return "deck";
+  // « Microsoft X-Box 360 pad » : nom donné par Linux, et par Steam à sa manette virtuelle (Mode Jeu)
+  if (/(xbox|x-box|xinput|045e)/.test(s)) return "xbox";
   if (/(playstation|dualsense|dualshock|054c|wireless controller)/.test(s)) return "playstation";
   if (/(nintendo|pro controller|joy-con|057e)/.test(s)) return "nintendo";
   return "generic";
@@ -54,6 +57,7 @@ export function padLabels(family: PadFamily, side: ConfirmSide) {
     xbox: { south: "A", east: "B", lb: "LB", rb: "RB" },
     playstation: { south: "✕", east: "○", lb: "L1", rb: "R1" },
     nintendo: { south: "B", east: "A", lb: "L", rb: "R" },
+    deck: { south: "A", east: "B", lb: "L1", rb: "R1" },
     generic: { south: "Bas", east: "Droite", lb: "L", rb: "R" },
   };
   const f = faces[family];
@@ -63,7 +67,7 @@ export function padLabels(family: PadFamily, side: ConfirmSide) {
     tabPrev: f.lb,
     tabNext: f.rb,
     dpad: "Croix",
-    quick: { xbox: "X", playstation: "□", nintendo: "Y", generic: "Gauche" }[family],
+    quick: { xbox: "X", playstation: "□", nintendo: "Y", deck: "X", generic: "Gauche" }[family],
   };
 }
 
@@ -75,6 +79,10 @@ export interface PadState {
 }
 
 const DEADZONE = 0.55;
+/** Une direction du stick engagée tient jusqu'ici : un stick qui tremble au seuil ne répète pas l'appui. */
+const STICK_RELEASE = 0.4;
+/** L'axe engagé garde la main tant que l'autre ne le dépasse pas de cette marge. */
+const AXIS_STICKY = 0.2;
 const TRIGGER = 0.5;
 const REPEAT_DELAY = 380;
 const REPEAT_RATE = 110;
@@ -93,11 +101,35 @@ export function repeatRate(action: PadAction, heldFor: number): number {
   return 0;
 }
 
+type StickDirection = "up" | "down" | "left" | "right";
+
+/**
+ * Direction du stick gauche : une seule à la fois, celle de l'axe le plus poussé (une diagonale
+ * ne déplace pas le focus deux fois). `prev` est la direction déjà engagée : elle tient jusqu'à
+ * `STICK_RELEASE` et son axe garde la main tant que l'autre ne le dépasse pas nettement.
+ */
+export function stickDirection(x: number, y: number, prev: StickDirection | null): StickDirection | null {
+  const ax = Math.abs(x);
+  const ay = Math.abs(y);
+  const prevH = prev === "left" || prev === "right";
+  const prevV = prev === "up" || prev === "down";
+  const horizontal = prevH ? ax + AXIS_STICKY >= ay : prevV ? !(ay + AXIS_STICKY >= ax) : ax >= ay;
+  const dir: StickDirection = horizontal ? (x > 0 ? "right" : "left") : y > 0 ? "down" : "up";
+  const value = horizontal ? ax : ay;
+  return value > (dir === prev ? STICK_RELEASE : DEADZONE) ? dir : null;
+}
+
+/** Gâchettes déjà utilisées par un objet 3D (zoom du boîtier) : elles ne font pas aussi défiler. */
+export function dropPaging(actions: PadAction[], zoomed: boolean): PadAction[] {
+  return zoomed ? actions.filter((a) => a !== "pagePrev" && a !== "pageNext") : actions;
+}
+
 /**
  * Traduit l'état d'une manette en actions, avec répétition des directions
  * maintenues (délai puis cadence). Pure et testable.
  */
 export class PadProcessor {
+  private stick: StickDirection | null = null;
   private prev: Record<string, boolean> = {};
   private held: Record<string, number> = {};
   private lastRepeat: Record<string, number> = {};
@@ -105,11 +137,12 @@ export class PadProcessor {
   update(state: PadState, confirm: "south" | "east", now: number): PadAction[] {
     const b = (i: number) => !!state.buttons[i];
     const ax = (i: number) => state.axes[i] ?? 0;
+    const stick = (this.stick = stickDirection(ax(0), ax(1), this.stick));
     const pressed: Record<string, boolean> = {
-      up: b(B.up) || ax(1) < -DEADZONE,
-      down: b(B.down) || ax(1) > DEADZONE,
-      left: b(B.left) || ax(0) < -DEADZONE,
-      right: b(B.right) || ax(0) > DEADZONE,
+      up: b(B.up) || stick === "up",
+      down: b(B.down) || stick === "down",
+      left: b(B.left) || stick === "left",
+      right: b(B.right) || stick === "right",
       confirm: b(confirm === "east" ? B.east : B.south),
       back: b(confirm === "east" ? B.south : B.east),
       tabPrev: b(B.lb),
@@ -372,13 +405,21 @@ export function attachGamepads(): () => void {
         let processor = processors.get(pad.index);
         if (!processor) { processor = new PadProcessor(); processors.set(pad.index, processor); }
         const confirm = confirmButton(player?.family ?? detectFamily(pad.id), useSettings.getState().gamepadConfirm);
-        const actions = processor.update({ buttons: pad.buttons.map((b) => b.pressed), values: pad.buttons.map((b) => b.value), axes: [...pad.axes] }, confirm, performance.now());
+        // gâchettes : zoom de l'objet 3D s'il y en a un (il annule alors l'événement), sinon défilement
+        const zoom = (pad.buttons[B.rt]?.value ?? 0) - (pad.buttons[B.lt]?.value ?? 0);
+        let zoomed = false;
+        if (Math.abs(zoom) > 0.1) {
+          const event = new CustomEvent("ibox:zoom", { detail: { value: zoom }, cancelable: true });
+          window.dispatchEvent(event);
+          zoomed = event.defaultPrevented;
+        }
+        const actions = dropPaging(processor.update({ buttons: pad.buttons.map((b) => b.pressed), values: pad.buttons.map((b) => b.value), axes: [...pad.axes] }, confirm, performance.now()), zoomed);
         if (actions.length) {
           if (actions.includes("back")) lastPadBack = performance.now();
           useGamepad.setState({ active: true, lastAction: actions[actions.length - 1], lastSlot: player?.slot ?? 1, ...(player ? { family: player.family } : {}) });
           actions.forEach(perform);
         }
-        // stick droit : rotation de l'objet 3D ; gâchettes : zoom
+        // stick droit : rotation de l'objet 3D
         const rx = pad.axes[2] ?? 0;
         const ry = pad.axes[3] ?? 0;
         if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) {
@@ -387,8 +428,6 @@ export function attachGamepads(): () => void {
           window.dispatchEvent(analog);
           if (!analog.defaultPrevented && Math.abs(ry) > 0.2) scrollWithStick(ry);
         }
-        const zoom = (pad.buttons[B.rt]?.value ?? 0) - (pad.buttons[B.lt]?.value ?? 0);
-        if (Math.abs(zoom) > 0.1) window.dispatchEvent(new CustomEvent("ibox:zoom", { detail: { value: zoom } }));
       }
     }
     frame = requestAnimationFrame(loop);

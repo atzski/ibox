@@ -48,6 +48,8 @@ export function TopBar() {
 
   return (
     <motion.header
+      // habillage : un écran sans focus initial déclaré ne s'ouvre pas sur « Retour »
+      data-nav-chrome
       initial={false}
       animate={{ height: immersive ? "3.6rem" : "5.25rem" }}
       transition={SPRING.smooth}

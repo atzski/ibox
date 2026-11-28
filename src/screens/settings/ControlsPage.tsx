@@ -15,6 +15,7 @@ export function ControlsPage() {
     xbox: "manette type Xbox",
     playstation: "manette type PlayStation",
     nintendo: "manette type Nintendo",
+    deck: "commandes du Steam Deck",
     generic: "manette standard",
   };
   return (

@@ -2,7 +2,8 @@
 #
 #   1. .\scripts\release.ps1            construit release\v<version>\ et vérifie tout
 #   2. (relire release\v<version>\NOTES.md)
-#   3. .\scripts\release.ps1 -Publish   publie ce dossier, sans rien reconstruire
+#   3. .\scripts\release.ps1 -Publish   publie ce dossier, sans rien reconstruire,
+#      puis lance scripts\menage.ps1 (efface les compilations de développement)
 #
 # Garanties :
 #   - rien n'est construit si tsc, vitest ou cargo test échoue (-SkipTests : urgence seulement) ;
@@ -340,3 +341,6 @@ else { Write-Host "Vérifié : $updateUrl annonce $version." }
 & $gh workflow run bot.yml --repo atzski/ibox-bot *> $null
 if ($LASTEXITCODE -eq 0) { Write-Host "Bot Discord lancé : l'annonce part dans #releases d'ici quelques minutes." }
 else { Write-Warning "Bot Discord non lancé : gh workflow run bot.yml --repo atzski/ibox-bot" }
+
+# Version publiée : on libère la place des compilations de développement (target\publish est gardé).
+& (Join-Path $PSScriptRoot "menage.ps1")

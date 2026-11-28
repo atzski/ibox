@@ -23,6 +23,13 @@ export type InputAction =
  *  - `data-nav-capture="x"|"xy"`: l'élément consomme lui-même ces directions
  *                                 (carrousel 3D, visionneuse de boîtier…)
  *  - `data-nav-group`           : mémorise le dernier élément focalisé du groupe
+ *  - `data-nav-contain="up down"`: sur un groupe, directions qui n'en sortent pas (le focus reste)
+ *  - `data-nav-left="sélecteur"` (ou right, up, down) : sur un groupe, où aller quand il n'a plus
+ *                                 rien dans cette direction (page de réglages → rail des catégories)
+ *  - `data-nav-chrome`          : habillage (barre du haut, bouton Fermer) ; jamais le focus
+ *                                 initial tant que l'écran a autre chose à proposer
+ *  - `data-autofocus="fallback"`: focus initial de secours, si le `data-autofocus` normal est absent
+ *                                 ou désactivé
  */
 /** `"quiet"` : action traitée, l'écran joue lui-même son propre son. */
 type BackHandler = () => boolean | "quiet";
@@ -118,8 +125,8 @@ class InputControllerImpl {
     // d'un jeu qui ne se lance pas) refuse le focus et laissait l'écran sans rien de sélectionné
     const usable = this.focusables();
     const remembered = preferId ? usable.find((e) => e.dataset.focusId === preferId) ?? null : null;
-    const auto = usable.find((e) => e.hasAttribute("data-autofocus")) ?? null;
-    let el = remembered ?? auto ?? usable[0];
+    const auto = pickInitial(usable.map((e) => ({ autofocus: e.getAttribute("data-autofocus"), chrome: !!e.closest("[data-nav-chrome]") })));
+    let el = remembered ?? (auto >= 0 ? usable[auto] : undefined);
     if (opts.top) {
       for (const s of root.querySelectorAll<HTMLElement>("*")) {
         if (s.scrollTop > 0) s.scrollTop = 0;
@@ -130,7 +137,7 @@ class InputControllerImpl {
         const r = e.getBoundingClientRect();
         return r.top >= 0 && r.bottom <= window.innerHeight;
       };
-      el = [remembered, auto, ...usable].find(firstScreen) ?? el;
+      el = [remembered, el, ...usable.filter((e) => !e.closest("[data-nav-chrome]")), ...usable].find(firstScreen) ?? el;
     }
     if (el) this.focus(el, { instant: true });
     if (document.activeElement !== el) retry();
@@ -218,13 +225,27 @@ class InputControllerImpl {
     // Puis dans les groupes parents, du plus proche au plus large (une grille dans
     // une page de réglages : on reste dans la page avant de rejoindre le menu).
     let target: HTMLElement | null = null;
+    /** Sortie déclarée empruntée : l'élément mémorisé du groupe d'arrivée doit la respecter. */
+    let via: string | null = null;
     for (let g = active.closest<HTMLElement>("[data-nav-group]"); g && !target; g = g.parentElement?.closest<HTMLElement>("[data-nav-group]") ?? null) {
       const inGroup = others.filter((el) => g!.contains(el));
       const i = inGroup.length ? pickNext(toRect(active), inGroup.map(toRect), dir) : -1;
-      if (i >= 0) target = inGroup[i];
+      if (i >= 0) {
+        target = inGroup[i];
+        break;
+      }
+      // rien dans le groupe : sa sortie déclarée dans cette direction, sinon il retient le focus
+      const exit = g.getAttribute(`data-nav-${dir}`);
+      const linked = exit ? others.find((el) => el.matches(exit)) : undefined;
+      if (linked) {
+        target = linked;
+        via = exit;
+        break;
+      }
+      if ((g.dataset.navContain ?? "").split(" ").includes(dir)) return false;
     }
     if (!target) {
-      const idx = pickNext(toRect(active), others.map(toRect), dir);
+      const idx = pickNext(toRect(active), others.map(toRect), dir, { overlapFirst: true });
       if (idx < 0) return false;
       target = others[idx];
     }
@@ -233,7 +254,8 @@ class InputControllerImpl {
     const activeGroup = active.closest<HTMLElement>("[data-nav-group]")?.dataset.navGroup;
     if (group && group !== activeGroup) {
       const remembered = this.groupMemory.get(group);
-      if (remembered && remembered.isConnected && items.includes(remembered)) target = remembered;
+      // (catégorie changée avec LB / RB depuis la page : le rail mémorisait encore l'ancienne)
+      if (remembered && remembered.isConnected && items.includes(remembered) && (!via || remembered.matches(via))) target = remembered;
     }
     this.focus(target, { sound: true });
     return true;
@@ -361,6 +383,25 @@ class InputControllerImpl {
       window.removeEventListener("pointerdown", onPointer);
     };
   }
+}
+
+/**
+ * Focus initial parmi les éléments sélectionnables d'un écran (dans l'ordre du DOM) :
+ * `data-autofocus`, sinon `data-autofocus="fallback"`, sinon le premier qui n'est pas de
+ * l'habillage (barre du haut, bouton Fermer), sinon le premier. Renvoie -1 si la liste est vide.
+ */
+export function pickInitial(items: { autofocus: string | null; chrome: boolean }[]): number {
+  const tries: ((i: (typeof items)[number]) => boolean)[] = [
+    (i) => i.autofocus !== null && i.autofocus !== "fallback",
+    (i) => i.autofocus === "fallback",
+    (i) => !i.chrome,
+    () => true,
+  ];
+  for (const test of tries) {
+    const at = items.findIndex(test);
+    if (at >= 0) return at;
+  }
+  return -1;
 }
 
 function toRect(el: HTMLElement) {

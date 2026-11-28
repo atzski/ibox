@@ -125,11 +125,36 @@ deux côtés pour que l'invité compile sous Linux.
 | Ajout manuel `.exe/.bat/.cmd` (`pc/mod.rs`) | `.sh`, `.AppImage`, `.desktop`, binaire exécutable. Un `.exe` passerait par Proton (`umu-launcher`) : option avancée, pas pour la v1 |
 | Jeu en cours (`pc/running.rs`, `sysinfo`) | Marche, mais un jeu Proton apparaît comme `wine64-preloader`/`reaper`. Le lanceur Steam `reaper SteamLaunch AppId=<id>` sert à la détection |
 
-**Mode Jeu et lancement d'un jeu Steam depuis iBox.** iBox est lui-même un « jeu non-Steam ». Un
-`steam://rungameid` envoyé depuis iBox lance le jeu, et Steam le met au premier plan, tandis qu'iBox
-reste « en cours » derrière. C'est le comportement des frontends comme ES-DE et RetroDECK. Le retour
-se fait en quittant le jeu. Ce point est à valider sur le matériel : retour au premier plan, suivi du
-temps de jeu, succès.
+**Autour d'une partie Steam, en Mode Jeu** (étudié le 28/11/2026 après trois retours d'un joueur ;
+rien n'a pu être essayé sur un Deck, marche à suivre dans `docs/STEAMDECK-TESTS.md` § 4 bis).
+iBox est lui-même un « jeu non-Steam ». `steam -applaunch <id>` passe la demande au Steam déjà
+ouvert et rend la main en une ou deux secondes : c'est Steam qui lance le jeu, sous son propre
+processus `reaper SteamLaunch AppId=<id>`, et qui le met au premier plan.
+
+- **Qui est affiché.** gamescope n'obéit pas aux fenêtres : il montre la première application de
+  la liste que Steam écrit dans `GAMESCOPECTRL_BASELAYER_APPID`
+  (`pick_primary_focus_and_override`, [steamcompmgr.cpp](https://github.com/ValveSoftware/gamescope/blob/master/src/steamcompmgr.cpp)).
+  Une fenêtre ne peut pas se mettre devant d'elle-même (`set_focus` est sans effet sur
+  l'affichage). Le retour à iBox quand le jeu se ferme dépend donc de Steam seul, qui revient
+  souvent à sa propre page du jeu. ES-DE décrit la même limite pour un RetroArch lancé par
+  Steam : il continue de tourner derrière, et le focus peut ne pas lui revenir
+  ([guide ES-DE](https://gitlab.com/es-de/emulationstation-de/-/blob/master/USERGUIDE.md), « Using the Steam release of RetroArch »).
+  Contournement : bouton Steam, puis iBox dans la liste des jeux en cours.
+- **Suivi de la partie** (`launcher/commands.rs`, `follow_steam_game`). gamescope reconnaît le
+  jeu d'une fenêtre à ce même `reaper` ([Process.cpp](https://github.com/ValveSoftware/gamescope/blob/master/src/Utils/Process.cpp), `GetAppIdFromReaper`) ;
+  iBox fait de même : après le lancement il attend ce processus (deux minutes au plus), annonce
+  `launch://store-game`, puis ne relit que lui toutes les deux secondes jusqu'à sa disparition.
+  Pendant ce temps l'interface est en veille derrière le jeu (animations, 3D, musique) et ne lit
+  plus la manette sans focus. Avant, la phase revenait à « idle » dès la commande rendue : iBox
+  se croyait seul à l'écran pendant toute la partie.
+- **Le bouton « Jouer » n'est jamais retenu par un jeu Steam.** Le `reaper` peut survivre au jeu
+  (serveur Wine, synchronisation, processus oublié) : le suivi ne sert qu'à la veille. Si un
+  second jeu ne part pas tout de suite, c'est Steam qui attend la fin du premier.
+- **Hors de portée d'iBox** : le temps de jeu et les succès Steam (tenus par Steam), et le choix
+  de la fenêtre au retour. Piste non essayée : demander à Steam de remettre iBox devant par
+  `steam://rungameid/<SteamGameId d'iBox>` quand le `reaper` du jeu disparaît.
+
+Sous Windows rien ne change : le suivi ne s'exécute que sous Linux.
 
 ### 4.2 Émulateurs (iBox Platforms, `emulators/catalog.rs`)
 

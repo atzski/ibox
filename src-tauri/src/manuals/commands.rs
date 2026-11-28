@@ -29,9 +29,26 @@ pub struct ManualState {
 
 impl ManualState {
     pub fn open(app: &AppHandle) -> Result<Self, String> {
-        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("manuals");
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let dir = crate::storage::manuals_dir(&app.path().app_data_dir().map_err(|e| e.to_string())?);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            eprintln!("iBox : dossier des manuels indisponible ({}) : {e}", dir.display());
+        }
         Ok(Self { store: Arc::new(ManualStore::new(dir)), candidates: Mutex::new(HashMap::new()), busy: Mutex::new(HashSet::new()), job_running: AtomicBool::new(false), job_cancel: AtomicBool::new(false) })
+    }
+}
+
+impl ManualState {
+    /// Prend le drapeau de la récupération des manuels (déplacement du stockage).
+    pub fn claim(&self) -> bool {
+        !self.job_running.swap(true, Ordering::SeqCst)
+    }
+
+    pub fn release(&self) {
+        self.job_running.store(false, Ordering::SeqCst);
+    }
+
+    pub fn set_root(&self, root: std::path::PathBuf) {
+        self.store.set_root(root);
     }
 }
 

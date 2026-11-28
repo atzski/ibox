@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isHandheld, shouldSleep } from "./performance";
-import { attentionOf } from "./attention";
+import { attentionOf, isPlaying } from "./attention";
+import { nextStoreGame } from "./launcher";
 import { scenesActive, SETTLE_MS } from "@/three/activity";
 
 describe("mode performance", () => {
@@ -43,5 +44,28 @@ describe("attention : iBox seul à l'écran (Mode Jeu)", () => {
     expect(attentionOf({ ...base, gameMode: true, launching: true }).alone).toBe(false);
     expect(attentionOf({ ...base, gameMode: true, playing: true })).toEqual({ asleep: true, alone: false });
     expect(attentionOf({ ...base, gameMode: false }).alone).toBe(false);
+  });
+  it("un jeu Steam suivi compte comme une partie, sans que « Jouer » soit pris", () => {
+    const hades = { gameId: 7, title: "Hades", follow: 3 };
+    // la commande de lancement a rendu la main (phase « idle »), Steam fait tourner le jeu
+    expect(isPlaying({ phase: "idle", storeGame: hades })).toBe(true);
+    expect(isPlaying({ phase: "idle", storeGame: null })).toBe(false);
+    expect(isPlaying({ phase: "running", storeGame: null })).toBe(true);
+    // derrière le jeu : en veille, et la manette n'est plus lue sans focus
+    expect(attentionOf({ ...base, gameMode: true, playing: isPlaying({ phase: "idle", storeGame: hades }) })).toEqual({ asleep: true, alone: false });
+  });
+});
+
+describe("jeu Steam suivi (launch://store-game)", () => {
+  const hades = { gameId: 7, title: "Hades", follow: 3 };
+  it("apparaît avec son reaper, disparaît avec lui", () => {
+    expect(nextStoreGame(null, { ...hades, running: true })).toEqual(hades);
+    expect(nextStoreGame(hades, { ...hades, running: false })).toBeNull();
+  });
+  it("un nouveau lancement efface le suivi ; l'arrêt d'un ancien suivi ne touche pas au nouveau", () => {
+    expect(nextStoreGame(hades, { gameId: 0, title: "", follow: 0, running: false })).toBeNull();
+    const celeste = { gameId: 9, title: "Celeste", follow: 4 };
+    expect(nextStoreGame(celeste, { ...hades, running: false })).toBe(celeste);
+    expect(nextStoreGame(hades, { ...celeste, running: true })).toEqual(celeste);
   });
 });

@@ -10,6 +10,18 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: "1.0.31",
+    date: "2026-11-28",
+    highlights: [
+      { icon: "gamepad", title: "Une manette plus précise", text: "Gauche et droite restent sur leur rangée, haut et bas ne sautent plus vers un bouton lointain. Dans les Paramètres, haut et bas restent dans la page ouverte. Le stick gauche ne compte plus qu’une direction à la fois, sans double appui." },
+      { icon: "shelf", title: "Le focus ne se perd plus", text: "Passer de l’étagère à la grille garde le jeu choisi. Sur une fiche, les gâchettes zooment le boîtier sans déplacer la sélection. Communauté, SmartConfig, Amis et les fenêtres s’ouvrent avec la sélection sur leur contenu, et le menu « Changer d’utilisateur » se pilote à la manette." },
+      { icon: "disc", title: "Music in the Box reprend où vous étiez", text: "Au lancement d’iBox, Music in the Box retrouve le même titre, au même moment et au même volume, en pause : rien ne se met à jouer tout seul." },
+      { icon: "disc", title: "Music in the Box sur le bon écran", text: "Avec plusieurs écrans, le lecteur s’ouvre sur l’écran d’iBox ou du jeu en cours, et non plus sur l’écran principal de Windows." },
+      { icon: "manual", title: "Images et manuels où vous voulez", text: "Paramètres › Images et données › Emplacement des fichiers : choisissez un autre dossier, sur un autre disque par exemple. Les jaquettes, illustrations et manuels déjà récupérés y sont déplacés tout de suite, avec une barre de progression : rien à retélécharger ni à réinstaller." },
+      { icon: "gamepad", title: "Steam Deck : iBox se repose pendant un jeu Steam", text: "Sous Linux, iBox suit le jeu Steam lancé depuis lui : pendant la partie, ses animations, sa 3D et sa musique s’arrêtent et la manette n’agit plus dans iBox derrière le jeu. La carte « En jeu » disparaît plus vite à la fin d’une partie. En Mode Jeu, c’est Steam qui choisit l’écran affiché à la fermeture d’un jeu : pour revenir à iBox, bouton Steam puis iBox." },
+    ],
+  },
+  {
     version: "1.0.30",
     date: "2026-11-28",
     highlights: [

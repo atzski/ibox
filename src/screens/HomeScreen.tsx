@@ -604,6 +604,8 @@ function CollectionShowcase({ games, paused = false, onOpen }: { games: Game[]; 
       <button
         data-focusable
         data-focus-id="collection-tile"
+        // focus de secours : « Reprendre » désactivé (jeu qui ne se lance pas) ou absent
+        data-autofocus="fallback"
         onClick={() => {
           sound.play("select");
           onOpen();

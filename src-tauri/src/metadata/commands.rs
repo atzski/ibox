@@ -23,14 +23,29 @@ pub struct MetadataState {
 
 impl MetadataState {
     pub fn open(app: &AppHandle) -> Result<Self, String> {
-        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("media");
-        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        // dossier choisi dans les Paramètres (`storage`) ; s'il est introuvable (disque
+        // débranché), iBox démarre quand même et le signale dans Images et données
+        let dir = crate::storage::media_dir(&app.path().app_data_dir().map_err(|e| e.to_string())?);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            eprintln!("iBox : dossier des images indisponible ({}) : {e}", dir.display());
+        }
         Ok(Self {
             media: Arc::new(MediaStore::new(dir)),
             http: Arc::new(Http::new().map_err(|e| e.to_string())?),
             running: AtomicBool::new(false),
             cancel: Arc::new(AtomicBool::new(false)),
         })
+    }
+}
+
+impl MetadataState {
+    /// Prend le drapeau des récupérations (déplacement du stockage) ; faux s'il est déjà pris.
+    pub fn claim(&self) -> bool {
+        !self.running.swap(true, Ordering::SeqCst)
+    }
+
+    pub fn release(&self) {
+        self.running.store(false, Ordering::SeqCst);
     }
 }
 

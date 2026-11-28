@@ -8,6 +8,7 @@ import { IconBar, IconBarButton } from "@/components/ui/IconBar";
 import { useSettings } from "@/services/settings";
 import { listProfiles, switchProfile, useSession } from "@/services/profiles";
 import { sound } from "@/services/sound";
+import { input } from "@/input/InputController";
 
 /**
  * Petite barre de l'accueil : à gauche le joueur actif (changer d'utilisateur
@@ -51,7 +52,22 @@ export function UserSwitcher() {
       if (!box.current?.contains(e.target as Node)) setOpen(false);
     };
     window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
+    // manette, clavier : le focus entre dans le menu, Retour le referme et rend le focus au bouton
+    const id = requestAnimationFrame(() => {
+      const first = box.current?.querySelector<HTMLElement>('[data-nav-group="user-switch"] [data-focusable]:not(:disabled)');
+      if (first && document.documentElement.dataset.input !== "pointer") input.focus(first, { instant: true });
+    });
+    const off = input.onBack(() => {
+      setOpen(false);
+      const button = box.current?.querySelector<HTMLElement>("[aria-expanded]");
+      if (button) input.focus(button, { instant: true });
+      return true;
+    });
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      cancelAnimationFrame(id);
+      off();
+    };
   }, [open]);
 
   const pick = async (id: string) => {

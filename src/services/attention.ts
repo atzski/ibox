@@ -26,7 +26,7 @@ export interface AttentionSignals {
   windowHidden: boolean;
   /** La fenêtre a le focus. */
   focused: boolean;
-  /** Un jeu lancé par iBox est en cours. */
+  /** Un jeu lancé par iBox est en cours (ou un jeu Steam lancé depuis iBox, suivi sous Linux). */
   playing: boolean;
   /** Un jeu se lance (animation, démarrage de l'émulateur). */
   launching?: boolean;
@@ -77,7 +77,8 @@ export function setWindowHidden(hidden: boolean): void {
   refresh();
 }
 
-const isPlaying = (phase: LaunchPhase) => phase === "running";
+/** Une partie occupe l'écran : jeu lancé par iBox, ou jeu Steam que Steam fait tourner pour lui. */
+export const isPlaying = (s: { phase: LaunchPhase; storeGame: unknown }): boolean => s.phase === "running" || s.storeGame != null;
 const isLaunching = (phase: LaunchPhase) => phase === "animating" || phase === "starting";
 
 /** Suit focus, visibilité, partie en cours et Mode Jeu ; renvoie la fonction d'arrêt. */
@@ -98,12 +99,12 @@ export function attachAttention(): () => void {
     signals.focused = false;
     refresh();
   };
-  const phase = useLauncher.getState().phase;
-  signals.playing = isPlaying(phase);
-  signals.launching = isLaunching(phase);
+  const launcher = useLauncher.getState();
+  signals.playing = isPlaying(launcher);
+  signals.launching = isLaunching(launcher.phase);
   signals.gameMode = usePlatform.getState().gameMode;
   const offLauncher = useLauncher.subscribe((s) => {
-    const playing = isPlaying(s.phase);
+    const playing = isPlaying(s);
     const launching = isLaunching(s.phase);
     if (playing === signals.playing && launching === signals.launching) return;
     signals.playing = playing;

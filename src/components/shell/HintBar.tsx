@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { input } from "@/input/InputController";
 import { useShell, type Hint } from "@/app/shellState";
 import { useGamepad } from "@/input/gamepad";
 import { useSettings } from "@/services/settings";
@@ -27,6 +29,13 @@ const PAD_OF: Record<string, PadKey> = {
 
 const ARROWS = ["↑", "↓", "←", "→"];
 
+/** Aide affichée tant qu'une fenêtre est ouverte par-dessus l'écran : ce qui y vaut toujours. */
+export const OVERLAY_HINTS: Hint[] = [
+  { keys: ["↑", "↓", "←", "→"], label: "Naviguer" },
+  { keys: ["Entrée"], label: "Valider" },
+  { keys: ["Échap"], label: "Retour" },
+];
+
 /** Boutons de manette d'une indication (la croix remplace les flèches). */
 export function padKeysOf(keys: string[]): PadKey[] {
   const v = keys.some((k) => k === "↑" || k === "↓");
@@ -51,13 +60,31 @@ export function HintBar() {
   const side = useSettings((s) => s.gamepadConfirm);
   const keyboard = useCapability("keyboard");
   const searching = useCommands((c) => c.search);
+  const menu = useCommands((c) => c.menu);
+  // Une fenêtre par-dessus l'écran (modale, menu rapide, panneau Amis…) : les commandes de l'écran
+  // (« X Jouer », « F Favori ») n'y valent plus. Le focus y entre à l'ouverture et en sort à la
+  // fermeture : on relit la racine de navigation à chaque déplacement du focus.
+  const [overlay, setOverlay] = useState(false);
+  useEffect(() => {
+    let id = 0;
+    const sync = () => {
+      cancelAnimationFrame(id);
+      id = requestAnimationFrame(() => setOverlay(!input.isMainRoot()));
+    };
+    sync();
+    window.addEventListener("focusin", sync);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener("focusin", sync);
+    };
+  }, [menu, searching]);
   // Android au doigt : pas de touches de clavier à rappeler, la barre laisse sa place à l'écran
   if (!keyboard && !active) return <footer aria-hidden className="h-2 shrink-0" />;
   // Android : la fenêtre de recherche, plus petite que l'écran, a sa propre aide ; celle de la
   // page restait visible dessous, avec d'autres commandes (D17)
   if (!keyboard && searching) return <footer aria-hidden className="h-[3.25rem] shrink-0" />;
   // à la manette, une commande réservée au clavier (touche R…) n'a pas de bouton : on ne l'annonce pas
-  const hints: Hint[] = active ? [{ keys: ["F1"], label: "Menu" }, ...raw.filter((h) => padKeysOf(h.keys).length > 0)] : raw;
+  const hints: Hint[] = overlay ? OVERLAY_HINTS : active ? [{ keys: ["F1"], label: "Menu" }, ...raw.filter((h) => padKeysOf(h.keys).length > 0)] : raw;
   return (
     <footer className="pointer-events-none relative z-20 flex h-[3.25rem] shrink-0 items-center justify-end gap-6 px-[3rem]">
       <AnimatePresence mode="popLayout" initial={false}>

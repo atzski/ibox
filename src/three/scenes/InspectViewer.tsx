@@ -229,7 +229,11 @@ export function InspectViewer(props: ViewerProps) {
       controller.nudge(x * 0.05, y * 0.03);
       e.preventDefault();
     };
-    const onZoom = (e: Event) => controller.zoomBy(1 - (e as CustomEvent<{ value: number }>).detail.value * 0.015);
+    const onZoom = (e: Event) => {
+      controller.zoomBy(1 - (e as CustomEvent<{ value: number }>).detail.value * 0.015);
+      // consommées ici : les gâchettes ne font pas en plus sauter le focus d'une page
+      e.preventDefault();
+    };
     window.addEventListener("ibox:analog", onAnalog);
     window.addEventListener("ibox:zoom", onZoom);
     return () => {

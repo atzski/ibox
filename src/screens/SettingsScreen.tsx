@@ -121,6 +121,9 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
       <nav
         className="flex min-h-0 flex-col overflow-y-auto rounded-[1.8rem] bg-white/55 p-3 shadow-[0_14px_40px_-24px_rgba(30,40,70,0.4)] ring-1 ring-white/70 backdrop-blur-md"
         data-nav-group="settings-nav"
+        // droite : on entre dans la page affichée ; en bas de la liste, on y reste
+        data-nav-right={`[data-nav-group="settings-${cat}"] [data-focusable]`}
+        data-nav-contain="down"
         aria-label="Catégories des paramètres"
       >
         <div className="mb-2 flex items-center gap-3 rounded-2xl px-2 py-2">
@@ -167,7 +170,15 @@ export function SettingsScreen({ category }: { category?: string } = {}) {
         ))}
       </nav>
 
-      <section ref={pageRef} className={`tone-${current.hue} min-h-0 overflow-y-auto pr-1 pb-8`} data-nav-group={`settings-${cat}`}>
+      {/* en haut et en bas d'une page le focus reste dans la page (il partait dans la liste et
+          changeait de catégorie) ; gauche revient à la catégorie affichée */}
+      <section
+        ref={pageRef}
+        className={`tone-${current.hue} min-h-0 overflow-y-auto pr-1 pb-8`}
+        data-nav-group={`settings-${cat}`}
+        data-nav-contain="up down"
+        data-nav-left={`[data-category="${cat}"]`}
+      >
         {/* la page précédente disparaît aussitôt : la manette ne vise jamais un élément sortant */}
         <motion.div
           key={cat}

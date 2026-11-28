@@ -7,12 +7,68 @@ use super::{detect, profiles, LaunchError};
 use crate::library::commands::LibraryState;
 use crate::library::now_iso;
 use std::collections::BTreeMap;
+#[cfg_attr(target_os = "android", allow(unused_imports))]
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
 pub struct LauncherState {
     pub(crate) running: Mutex<Option<Running>>,
+    /// Numéro du dernier lancement : un nouveau lancement remplace le suivi du jeu de boutique précédent.
+    #[cfg_attr(target_os = "android", allow(dead_code))]
+    follow: AtomicU64,
+}
+
+/// Jeu de boutique suivi après son lancement (`launch://store-game`). `follow` = 0 avec
+/// `running` faux : plus aucun jeu suivi (un nouveau lancement commence).
+#[cfg(not(target_os = "android"))]
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoreGame {
+    game_id: i64,
+    title: String,
+    running: bool,
+    follow: u64,
+}
+
+/// Suit un jeu Steam que Steam a lancé pour iBox (Linux, à appeler dans un fil dédié).
+///
+/// La commande `steam -applaunch` rend la main en une ou deux secondes : sans ce suivi, iBox se
+/// croit seul à l'écran pendant toute la partie (interface animée, manette lue derrière le jeu en
+/// Mode Jeu). Le jeu vit sous un processus `reaper SteamLaunch AppId=<id>` : `launch://store-game`
+/// l'annonce quand il apparaît, puis quand il disparaît. Le suivi ne bloque aucun lancement (c'est
+/// Steam qui arbitre) et s'arrête de lui-même si le jeu ne démarre pas.
+#[cfg(not(target_os = "android"))]
+fn follow_steam_game(app: &AppHandle, follow: u64, game_id: i64, title: &str, app_id: u32) {
+    use crate::pc::running;
+    use std::time::Duration;
+    let state = app.state::<LauncherState>();
+    let current = || state.follow.load(Ordering::SeqCst) == follow;
+    // le jeu apparaît en quelques secondes ; au-delà de deux minutes (mise à jour, fenêtre de
+    // Steam en attente), on renonce : iBox reste éveillé, comme avant
+    let mut pid = None;
+    for attempt in 0..50 {
+        if !current() {
+            return;
+        }
+        pid = running::steam_reaper(app_id);
+        if pid.is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_secs(if attempt < 15 { 1 } else { 3 }));
+    }
+    let Some(pid) = pid else { return };
+    let event = |running: bool| StoreGame { game_id, title: title.to_string(), running, follow };
+    let _ = app.emit("launch://store-game", event(true));
+    // un seul processus relu toutes les deux secondes : rien de coûteux pendant la partie
+    while current() && running::alive(pid) {
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    if current() {
+        running::forget();
+        let _ = app.emit("launch://store-game", event(false));
+    }
 }
 
 type Res<T> = Result<T, String>;
@@ -159,6 +215,9 @@ pub fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
     };
     *running = Some(info.clone());
     drop(running);
+    // ce lancement remplace le suivi du jeu de boutique précédent
+    let follow = state.follow.fetch_add(1, Ordering::SeqCst) + 1;
+    let _ = app.emit("launch://store-game", StoreGame { game_id: 0, title: String::new(), running: false, follow: 0 });
     let _ = app.emit("launch://started", &info);
     crate::shell::game_started(&app);
 
@@ -170,6 +229,12 @@ pub fn game_launch(app: AppHandle, game_id: i64) -> Res<Running> {
         }
         let _ = app2.emit("launch://ended", &ended);
         crate::shell::game_ended(&app2);
+        // Linux : la partie Steam continue après la commande de lancement, iBox la suit
+        if cfg!(target_os = "linux") && plan.detached {
+            if let Some(app_id) = crate::pc::running::applaunch_id(&plan.args) {
+                follow_steam_game(&app2, follow, plan.game_id, &plan.title, app_id);
+            }
+        }
     });
     Ok(info)
 }

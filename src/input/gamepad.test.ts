@@ -56,6 +56,57 @@ describe("PadProcessor", () => {
   });
 });
 
+import { dropPaging, stickDirection } from "./gamepad";
+import { pickInitial } from "./InputController";
+
+describe("navigation à la manette 1.0.31", () => {
+  it("reconnaît le Steam Deck et la manette Xbox telle que Linux la nomme", () => {
+    expect(detectFamily("Valve Software Steam Deck Controller")).toBe("deck");
+    expect(detectFamily("Steam Deck (Vendor: 28de Product: 1205)")).toBe("deck");
+    expect(detectFamily("Microsoft X-Box 360 pad")).toBe("xbox");
+    expect(padLabels("deck", "auto")).toMatchObject({ confirm: "A", back: "B", tabPrev: "L1", tabNext: "R1" });
+  });
+
+  it("stick en diagonale : une seule direction, celle de l'axe le plus poussé", () => {
+    const p = new PadProcessor();
+    expect(p.update(pad([], [0.8, 0.7, 0, 0]), "south", 0)).toEqual(["right"]);
+    expect(stickDirection(0.6, -0.9, null)).toBe("up");
+    expect(stickDirection(0.3, 0.3, null)).toBeNull();
+  });
+
+  it("stick qui tremble autour du seuil : pas de second appui", () => {
+    const p = new PadProcessor();
+    const seq: string[] = [];
+    [0.6, 0.52, 0.58, 0.5, 0.57, 0.45].forEach((x, i) => seq.push(...p.update(pad([], [x, 0, 0, 0]), "south", i * 16)));
+    expect(seq).toEqual(["right"]);
+    // relâché pour de bon, puis poussé à nouveau : nouvel appui
+    expect(p.update(pad([], [0.2, 0, 0, 0]), "south", 200)).toEqual([]);
+    expect(p.update(pad([], [0.7, 0, 0, 0]), "south", 216)).toEqual(["right"]);
+  });
+
+  it("l'axe engagé garde la main tant que l'autre ne le dépasse pas nettement", () => {
+    expect(stickDirection(0.7, 0.8, "right")).toBe("right");
+    expect(stickDirection(0.5, 0.95, "right")).toBe("down");
+  });
+
+  it("gâchettes consommées par le zoom du boîtier : pas de saut de page en plus", () => {
+    expect(dropPaging(["pageNext", "confirm"], true)).toEqual(["confirm"]);
+    expect(dropPaging(["pageNext", "confirm"], false)).toEqual(["pageNext", "confirm"]);
+  });
+
+  it("focus initial : autofocus, puis secours, puis hors habillage", () => {
+    const item = (autofocus: string | null, chrome = false) => ({ autofocus, chrome });
+    // écran sans focus déclaré : pas « Retour » de la barre du haut
+    expect(pickInitial([item(null, true), item(null, true), item(null), item(null)])).toBe(2);
+    // « Reprendre » désactivé donc absent de la liste : la tuile de secours
+    expect(pickInitial([item(null, true), item(null), item("fallback"), item(null)])).toBe(2);
+    expect(pickInitial([item(null, true), item("fallback"), item("true")])).toBe(2);
+    // seulement de l'habillage (panneau vide) : on le prend quand même
+    expect(pickInitial([item(null, true)])).toBe(0);
+    expect(pickInitial([])).toBe(-1);
+  });
+});
+
 import { assignSlots } from "./gamepad";
 describe("joueurs", () => {
   it("numérote les manettes et garde les numéros", () => {

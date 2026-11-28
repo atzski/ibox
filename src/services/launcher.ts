@@ -64,6 +64,27 @@ export interface Ended {
   detached?: boolean;
 }
 
+/** Jeu de boutique (Steam) que la boutique fait tourner et qu'iBox suit (`launch://store-game`). */
+export interface StoreGame {
+  gameId: number;
+  title: string;
+  /** Numéro du suivi natif : un arrêt ne vaut que pour le suivi qui l'a annoncé. */
+  follow: number;
+}
+
+export interface StoreGameEvent extends StoreGame {
+  running: boolean;
+}
+
+/**
+ * Jeu de boutique suivi après un événement natif. Un arrêt sans numéro (`follow` 0, nouveau
+ * lancement) efface tout ; l'arrêt d'un ancien suivi ne touche pas au jeu suivi depuis.
+ */
+export function nextStoreGame(current: StoreGame | null, e: StoreGameEvent): StoreGame | null {
+  if (e.running) return { gameId: e.gameId, title: e.title, follow: e.follow };
+  return current && e.follow !== 0 && e.follow !== current.follow ? current : null;
+}
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri()) throw new Error("Disponible uniquement dans l'application Windows.");
   const { invoke } = await import("@tauri-apps/api/core");
@@ -125,6 +146,11 @@ interface LauncherState {
   phase: LaunchPhase;
   /** Jeu en cours de lancement ou en cours de partie. */
   current: { gameId: number; title: string; emulatorName?: string; startedAt?: number } | null;
+  /**
+   * Jeu Steam en cours, lancé depuis iBox et tenu par Steam (Linux). Il met l'interface au repos
+   * derrière le jeu mais ne bloque pas « Jouer » : `phase` est déjà revenue à « idle ».
+   */
+  storeGame: StoreGame | null;
   error: string | null;
   lastEnded: Ended | null;
 
@@ -143,6 +169,7 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   loaded: false,
   phase: "idle",
   current: null,
+  storeGame: null,
   error: null,
   lastEnded: null,
 
@@ -197,8 +224,15 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   attach: async () => {
     if (!isTauri()) return () => undefined;
     const { listen } = await import("@tauri-apps/api/event");
-    const off = await listen<Ended>("launch://ended", (e) => {
-      music.setSuspended(false);
+    // jeu Steam suivi par le natif : la musique se tait et l'interface se repose pendant la partie
+    const offStore = await listen<StoreGameEvent>("launch://store-game", (e) => {
+      const storeGame = nextStoreGame(get().storeGame, e.payload);
+      if (storeGame === get().storeGame) return;
+      set({ storeGame });
+      music.setSuspended(storeGame !== null || get().phase === "running");
+    });
+    const offEnded = await listen<Ended>("launch://ended", (e) => {
+      music.setSuspended(get().storeGame !== null);
       const ended = e.payload;
       if (ended.error) {
         sound.play("error");
@@ -209,7 +243,10 @@ export const useLauncher = create<LauncherState>((set, get) => ({
       // l'historique de jeu (dernière partie, temps de jeu) a changé
       void import("./library").then(({ useLibrary }) => useLibrary.getState().reload());
     });
-    return off;
+    return () => {
+      offStore();
+      offEnded();
+    };
   },
 }));
 

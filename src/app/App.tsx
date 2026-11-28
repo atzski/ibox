@@ -59,7 +59,6 @@ import { SmartConfigFeedback } from "@/components/smartconfig/SmartConfigFeedbac
 import { captures } from "@/services/community";
 import { applyShortcuts, DEFAULT_KEYS } from "@/services/shortcuts";
 import { isTauri } from "@/services/native";
-import { invoke } from "@tauri-apps/api/core";
 import { usePlatform } from "@/services/platform";
 import { capabilities, useCapability } from "@/services/capabilities";
 import { forgetPcStoreNotices } from "@/services/notifications";
@@ -294,11 +293,6 @@ export function App() {
   const captureKeys = useSettings((s) => s.captureKeys ?? DEFAULT_KEYS.capture);
   const musicKeys = useSettings((s) => s.musicKeys ?? DEFAULT_KEYS.music);
   useEffect(() => void applyShortcuts(captureKeys, musicKeys), [captureKeys, musicKeys]);
-  // écran où le lecteur Music in the Box s’ouvre (le dernier où il a été posé)
-  const musicMonitor = useSettings((s) => s.musicMonitor ?? null);
-  useEffect(() => {
-    if (isTauri()) void invoke("music_set_monitor", { name: musicMonitor }).catch(() => undefined);
-  }, [musicMonitor]);
   useEffect(() => {
     if (!isTauri()) return;
     const off = import("@tauri-apps/api/event").then(({ listen }) => listen("open-community", () => useNav.getState().go({ name: "community" })));

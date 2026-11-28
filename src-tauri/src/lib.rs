@@ -20,6 +20,7 @@ pub mod emulators;
 pub mod launcher;
 pub mod library;
 pub mod manuals;
+pub mod storage;
 pub mod metadata;
 pub mod paths;
 pub mod pc;
@@ -186,6 +187,9 @@ pub fn run() {
             perf::perf_sample,
             pc::steam_shortcut::steam_add_ibox,
             manuals::commands::manual_list,
+            storage::storage_info,
+            storage::storage_move,
+            storage::storage_reveal,
             manuals::commands::manual_read,
             manuals::commands::manual_cover,
             manuals::commands::manual_cover_save,
@@ -257,7 +261,6 @@ pub fn run() {
             music::overlay::music_open,
             music::overlay::music_close,
             music::overlay::music_layout,
-            music::overlay::music_set_monitor,
             music::overlay::music_follow_cursor,
             music::overlay::music_release,
             music::ytm::music_ytm_open,

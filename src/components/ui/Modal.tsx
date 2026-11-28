@@ -22,6 +22,7 @@ export function Modal({
   children,
   width = "36rem",
   layer,
+  locked = false,
 }: {
   title: string;
   subtitle?: string;
@@ -31,13 +32,17 @@ export function Modal({
   width?: string;
   /** Au-dessus d'un panneau déjà ouvert (ex. le panneau Social, z-70). */
   layer?: number;
+  /** Ne se ferme pas (opération en cours) : ni Échap, ni Retour, ni clic à côté, pas de croix. */
+  locked?: boolean;
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
   const [closing, setClosing] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const requestClose = useCallback(() => {
-    if (timer.current !== undefined) return;
+    if (timer.current !== undefined || lockedRef.current) return;
     setClosing(true);
     sound.play("close");
     timer.current = window.setTimeout(() => closeRef.current(), DUR.exit * 1000);
@@ -89,14 +94,15 @@ export function Modal({
             {subtitle && <p className="mt-1 text-[0.9rem] font-semibold text-ink-soft">{subtitle}</p>}
           </div>
           {headerAction}
-          <button
+          {!locked && <button
             data-focusable
+            data-nav-chrome
             aria-label="Fermer"
             onClick={requestClose}
             className="ibox-focusable ibox-chip grid h-10 w-10 shrink-0 place-items-center rounded-full [--ring-radius:999px]"
           >
             <Icon name="plus" className="rotate-45" />
-          </button>
+          </button>}
         </div>
         <div className="min-h-0 overflow-y-auto px-7 pb-7">{children}</div>
       </motion.div>

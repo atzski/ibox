@@ -151,6 +151,8 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
       screenActive
         ? input.onTab(() => {
             if (isPc) return "quiet";
+            // le jeu choisi sur l'étagère reste le jeu sélectionné dans la grille
+            carried.current = document.querySelector('[data-focus-id="shelf"]')?.getAttribute("aria-activedescendant")?.replace(/^shelf-/, "game:");
             sound.play("view");
             set("libraryView", view === "grid" ? "shelf" : "grid");
             return "quiet";
@@ -158,6 +160,29 @@ export function LibraryScreen({ platformId, shelfGameId }: { platformId: string 
         : undefined,
     [view, set, isPc, screenActive],
   );
+
+  // Changement de vue : l'étagère (ou la grille) qui avait le focus disparaît avec lui. On le
+  // replace dans la nouvelle vue, sinon plus rien n'est sélectionné et le premier appui est perdu.
+  const carried = useRef<string | undefined>(undefined);
+  const shownView = useRef(effView);
+  useEffect(() => {
+    if (shownView.current === effView) return;
+    shownView.current = effView;
+    const prefer = carried.current;
+    carried.current = undefined;
+    // l'ancienne vue reste montée le temps de sa sortie : on attend qu'elle ait rendu le focus
+    let tries = 90;
+    let id = 0;
+    const settle = () => {
+      const active = document.activeElement as HTMLElement | null;
+      const lost = !active || active === document.body || !active.isConnected;
+      const leaving = !lost && (active.matches('[data-focus-id="shelf"]') ? effView !== "shelf" : !!active.closest('[data-nav-group="library-grid"]') && effView !== "grid");
+      if (lost) input.focusInitial(prefer);
+      else if (leaving && tries-- > 0) id = requestAnimationFrame(settle);
+    };
+    id = requestAnimationFrame(settle);
+    return () => cancelAnimationFrame(id);
+  }, [effView]);
 
   const switchPlatform = (id: string) => {
     if (id === platformId) return;

@@ -1,5 +1,5 @@
 //! Fenêtre `music` : le panneau Music in the Box, par-dessus le jeu. La fenêtre couvre tout
-//! l'écran principal, transparente ; la carte s'y place selon le réglage de position.
+//! l'écran d'iBox ou du jeu (`screen::pick`), transparente ; la carte s'y place selon le réglage de position.
 //! Ouverte par son raccourci (Alt+C par défaut, `shortcut.rs`) ou en maintenant Vue + Y sur une
 //! manette (XInput, lu en natif : la Gamepad API de Chromium ne voit rien quand la fenêtre est
 //! cachée ou sans focus).
@@ -101,30 +101,94 @@ pub async fn music_layout(stay_open: bool, card: Option<[f64; 4]>, scale: Option
     }
 }
 
-/// Écran du lecteur (nom Windows, ex. « \\.\DISPLAY2 ») ; absent : l'écran principal.
+/// Écran où la carte a été glissée depuis le lancement d'iBox (nom Windows, ex.
+/// « \\.\DISPLAY2 »). Absent : le lecteur s'ouvre là où l'on regarde (`screen::pick`). Il
+/// n'est plus relu des réglages : l'écran gardé d'un lancement à l'autre se perdait entre
+/// les fenêtres, et le lecteur s'ouvrait ailleurs que sur l'écran d'iBox (28/11/2026).
 static MONITOR: Mutex<Option<String>> = Mutex::new(None);
 
-fn chosen_monitor(w: &tauri::WebviewWindow) -> Option<tauri::Monitor> {
+pub mod screen {
+    //! Choix de l'écran du lecteur (sans dépendance Windows : testable).
+
+    /// Écran du bureau, en pixels physiques.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Rect {
+        pub x: i32,
+        pub y: i32,
+        pub w: u32,
+        pub h: u32,
+    }
+
+    fn at(screens: &[Rect], (px, py): (i32, i32)) -> Option<usize> {
+        screens.iter().position(|s| px >= s.x && py >= s.y && (px as i64) < s.x as i64 + s.w as i64 && (py as i64) < s.y as i64 + s.h as i64)
+    }
+
+    /// Dans l'ordre : l'écran où la carte a été glissée depuis le lancement (`pinned`), celui
+    /// de la fenêtre qui avait la main à l'ouverture (le jeu, ou iBox : centre `foreground`),
+    /// celui de la fenêtre d'iBox (centre `ibox`), puis l'écran principal.
+    pub fn pick(screens: &[Rect], pinned: Option<usize>, foreground: Option<(i32, i32)>, ibox: Option<(i32, i32)>, primary: Option<usize>) -> Option<usize> {
+        pinned
+            .filter(|i| *i < screens.len())
+            .or_else(|| foreground.and_then(|p| at(screens, p)))
+            .or_else(|| ibox.and_then(|p| at(screens, p)))
+            .or(primary.filter(|i| *i < screens.len()))
+            .or((!screens.is_empty()).then_some(0))
+    }
+}
+
+fn chosen_monitor(app: &AppHandle, w: &tauri::WebviewWindow) -> Option<tauri::Monitor> {
+    let monitors = w.available_monitors().ok()?;
+    let screens: Vec<screen::Rect> = monitors.iter().map(|m| screen::Rect { x: m.position().x, y: m.position().y, w: m.size().width, h: m.size().height }).collect();
     let wanted = MONITOR.lock().ok().and_then(|m| m.clone());
-    if let Some(name) = wanted {
-        if let Some(m) = w.available_monitors().ok()?.into_iter().find(|m| m.name() == Some(&name)) {
-            return Some(m);
+    let pinned = wanted.and_then(|name| monitors.iter().position(|m| m.name() == Some(&name)));
+    let primary = w.primary_monitor().ok().flatten().and_then(|p| monitors.iter().position(|m| m.position() == p.position()));
+    // fenêtre d'iBox réduite : sa position ne dit plus rien (-32000), on passe à la suite
+    let ibox = app.get_webview_window("main").filter(|m| !m.is_minimized().unwrap_or(true)).and_then(|m| {
+        let (p, s) = (m.outer_position().ok()?, m.outer_size().ok()?);
+        Some((p.x + s.width as i32 / 2, p.y + s.height as i32 / 2))
+    });
+    let i = screen::pick(&screens, pinned, foreground_center(), ibox, primary)?;
+    monitors.into_iter().nth(i)
+}
+
+/// Centre de la fenêtre qui avait la main à l'ouverture (retenue par `remember_foreground`).
+/// Rien pour le bureau ou la barre des tâches (leur fenêtre s'étend sur tous les écrans) ni
+/// pour une fenêtre réduite.
+#[cfg(windows)]
+fn foreground_center() -> Option<(i32, i32)> {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetClassNameW, GetWindowRect, IsIconic, IsWindow, IsWindowVisible};
+    let hwnd = PREVIOUS.load(Ordering::Relaxed);
+    if hwnd == 0 || hwnd == OWN.load(Ordering::Relaxed) {
+        return None;
+    }
+    unsafe {
+        let h = hwnd as _;
+        if IsWindow(h) == 0 || IsWindowVisible(h) == 0 || IsIconic(h) != 0 {
+            return None;
         }
+        let mut class = [0u16; 64];
+        let n = GetClassNameW(h, class.as_mut_ptr(), class.len() as i32).max(0) as usize;
+        let class = String::from_utf16_lossy(&class[..n]);
+        if matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd") {
+            return None;
+        }
+        let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        (GetWindowRect(h, &mut r) != 0).then_some((r.left + (r.right - r.left) / 2, r.top + (r.bottom - r.top) / 2))
     }
-    w.primary_monitor().ok().flatten()
+}
+#[cfg(not(windows))]
+fn foreground_center() -> Option<(i32, i32)> {
+    None
 }
 
+/// Position d'abord : en changeant d'écran, Windows redimensionne la fenêtre quand l'échelle
+/// d'affichage diffère ; la taille posée ensuite est la bonne, puis la position est confirmée.
 fn cover(w: &tauri::WebviewWindow, m: &tauri::Monitor) {
+    let at = PhysicalPosition::new(m.position().x, m.position().y);
+    let _ = w.set_position(at);
     let _ = w.set_size(PhysicalSize::new(m.size().width, m.size().height));
-    let _ = w.set_position(PhysicalPosition::new(m.position().x, m.position().y));
-}
-
-/// Écran retenu dans les réglages (au démarrage d'iBox).
-#[tauri::command]
-pub async fn music_set_monitor(name: Option<String>) {
-    if let Ok(mut m) = MONITOR.lock() {
-        *m = name;
-    }
+    let _ = w.set_position(at);
 }
 
 /// Pendant un glissement de la carte : si la souris est passée sur un autre écran, la
@@ -277,9 +341,9 @@ pub fn show(app: &AppHandle) {
                 VISIBLE.store(false, Ordering::Relaxed);
                 return;
             };
-            // tout l'écran choisi (le dernier où la carte a été posée), transparent : la
-            // carte s'y place où l'utilisateur l'a mise
-            if let Some(m) = chosen_monitor(&w) {
+            // tout l'écran choisi (celui d'iBox ou du jeu, voir `screen::pick`), transparent :
+            // la carte s'y place où l'utilisateur l'a mise
+            if let Some(m) = chosen_monitor(&app, &w) {
                 cover(&w, &m);
             }
             let _ = w.show();
@@ -567,6 +631,36 @@ fn pad_thread(_app: AppHandle) {}
 #[cfg(test)]
 mod tests {
     use super::pad::*;
+    use super::screen::{pick, Rect};
+
+    /// Deux écrans : le principal 4K à droite (indice 1), un plus petit à gauche (indice 0).
+    const SCREENS: [Rect; 2] = [Rect { x: -1920, y: 0, w: 1920, h: 1080 }, Rect { x: 0, y: 0, w: 3840, h: 2160 }];
+
+    #[test]
+    fn the_player_opens_on_the_screen_of_ibox_not_the_primary_one() {
+        // iBox au premier plan sur le petit écran : c'est lui, pas l'écran principal
+        assert_eq!(pick(&SCREENS, None, Some((-960, 540)), Some((-960, 540)), Some(1)), Some(0));
+        // aucune fenêtre retenue (bureau au premier plan) : l'écran de la fenêtre d'iBox
+        assert_eq!(pick(&SCREENS, None, None, Some((-960, 540)), Some(1)), Some(0));
+        // un jeu sur l'autre écran : le lecteur s'ouvre par-dessus le jeu
+        assert_eq!(pick(&SCREENS, None, Some((1920, 1080)), Some((-960, 540)), Some(0)), Some(1));
+    }
+
+    #[test]
+    fn a_card_dragged_to_another_screen_stays_there_until_ibox_restarts() {
+        assert_eq!(pick(&SCREENS, Some(1), Some((-960, 540)), Some((-960, 540)), Some(0)), Some(1));
+        // écran débranché depuis : on revient à celui d'iBox
+        assert_eq!(pick(&SCREENS[..1], Some(1), None, Some((-960, 540)), Some(0)), Some(0));
+    }
+
+    #[test]
+    fn without_any_window_the_primary_screen_is_used() {
+        assert_eq!(pick(&SCREENS, None, None, None, Some(1)), Some(1));
+        // fenêtre hors de tout écran (réduite, écran retiré)
+        assert_eq!(pick(&SCREENS, None, Some((-32000, -32000)), None, Some(1)), Some(1));
+        assert_eq!(pick(&SCREENS, None, None, None, None), Some(0));
+        assert_eq!(pick(&[], None, None, None, Some(0)), None);
+    }
 
     #[test]
     fn only_fresh_buttons_become_actions() {

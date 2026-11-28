@@ -119,6 +119,34 @@ naviguant.
 - [ ] Ajouter un dossier de ROM sur la carte microSD (`/run/media/...`) : les jeux apparaissent.
 - [ ] Redémarrer le Deck : la bibliothèque est intacte.
 
+## 4 bis. Autour d'une partie Steam, en Mode Jeu
+
+À faire avec un jeu Steam installé (Proton ou natif), iBox lancé depuis Steam en Mode Jeu, panneau
+des performances affiché (section 0). Compter dix minutes. Explications : `docs/STEAMDECK.md`,
+« Autour d'une partie Steam ».
+
+- [ ] **Pendant la partie.** Lancer le jeu depuis iBox, jouer deux minutes en naviguant dans les
+  menus du jeu à la croix et avec A. Appuyer sur le bouton Steam et revenir à iBox (il est dans
+  la liste des jeux en cours) : iBox doit être **sur l'écran où on l'a laissé**, sans avoir bougé
+  ni lancé quoi que ce soit, et sa musique ne doit pas s'être fait entendre pendant le jeu.
+- [ ] **Réveil.** À ce retour dans iBox, jeu toujours ouvert : la croix répond tout de suite.
+  Si iBox reste figé ou sourd à la manette, toucher l'écran, puis noter si cela l'a réveillé.
+- [ ] **Fin de partie.** Retourner au jeu, le quitter par son propre menu. Noter ce que Steam
+  affiche : iBox, ou la page du jeu dans Steam. Si c'est Steam : bouton Steam, puis iBox dans la
+  liste des jeux en cours.
+- [ ] **Délai.** De retour dans iBox, chronométrer entre la fermeture du jeu et le moment où la
+  carte « En jeu » disparaît du panneau Amis (bouton en haut à droite) : attendu, moins de cinq
+  secondes après que Steam lui-même a cessé d'afficher le jeu comme lancé.
+- [ ] **Relance immédiate.** Dès le retour dans iBox, lancer un autre jeu Steam. Le bouton
+  « Jouer » doit être disponible. Si le jeu ne démarre pas, noter ce que Steam affiche (bouton
+  Steam) : le premier jeu y est-il encore marqué comme lancé ou « en cours d'arrêt » ?
+- [ ] **Même parcours avec un jeu d'émulateur** (section 5), pour comparer : à la fermeture de
+  l'émulateur, Steam n'a plus qu'iBox à montrer.
+- [ ] Facultatif, avec une session SSH ouverte sur le Deck, pendant qu'un jeu Steam lancé depuis
+  iBox tourne : `pgrep -af "reaper SteamLaunch"` doit montrer deux lignes, une pour iBox et une
+  `AppId=<identifiant du jeu>` ; après la fermeture du jeu, noter en combien de secondes la
+  seconde disparaît.
+
 ## 5. Émulateurs
 
 À faire **depuis le Mode Jeu** (c'est le cas difficile), avec une connexion Wi-Fi.
@@ -192,6 +220,7 @@ Date :
 | 2. Manette | | |
 | 3. Étagère et profils | | |
 | 4. Bibliothèque | | |
+| 4 bis. Autour d'une partie Steam | | |
 | 5. Émulateurs | | |
 | 6. Remote Play | | |
 | 7. Batterie et veille | | |

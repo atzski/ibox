@@ -52,7 +52,6 @@ fn validate_settings(json: &str) -> Result<(), String> {
 pub async fn portable_export(app: AppHandle, path: String, settings: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         validate_settings(&settings)?;
-        let dir = app.path().app_data_dir().map_err(message)?;
         let snapshot = tempfile::NamedTempFile::new().map_err(message)?;
         app.state::<LibraryState>().with(|conn| {
             conn.execute(
@@ -84,8 +83,10 @@ pub async fn portable_export(app: AppHandle, path: String, settings: String) -> 
             Ok(())
         };
         add("library.db", snapshot.path())?;
+        // images : dossier choisi dans les Paramètres (`storage`), pas forcément sous `dir`
+        let media = app.state::<crate::metadata::commands::MetadataState>().media.root();
         for folder in ["media/sounds", "media/collections"] {
-            let entries = match fs::read_dir(dir.join(folder)) {
+            let entries = match fs::read_dir(media.join(&folder["media/".len()..])) {
                 Ok(entries) => entries,
                 Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
                 Err(error) => return Err(message(error)),
@@ -180,6 +181,18 @@ pub fn apply(dir: &Path) -> Result<(), String> {
         .tempdir_in(dir)
         .map_err(message)?
         .keep();
+    // images : dossier choisi dans les Paramètres (`storage`), éventuellement sur un autre
+    // disque ; l'ancien y est mis de côté sur place (pas de copie de gigaoctets vers `dir`)
+    let media = crate::storage::media_dir(dir);
+    let archive_name = archive.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let live = |name: &str| if name == "media" { media.clone() } else { dir.join(name) };
+    let kept = |name: &str| {
+        if name == "media" && crate::storage::custom_root(dir).is_some() {
+            media.with_file_name(format!("media.{archive_name}"))
+        } else {
+            archive.join(name)
+        }
+    };
     let mut old = Vec::new();
     let mut installed = Vec::new();
     let result = (|| -> io::Result<()> {
@@ -190,8 +203,8 @@ pub fn apply(dir: &Path) -> Result<(), String> {
             "media",
             SETTINGS,
         ] {
-            if dir.join(name).exists() {
-                fs::rename(dir.join(name), archive.join(name))?;
+            if live(name).exists() {
+                fs::rename(live(name), kept(name))?;
                 old.push(name);
             }
         }
@@ -201,7 +214,7 @@ pub fn apply(dir: &Path) -> Result<(), String> {
             ("settings.json", SETTINGS),
         ] {
             if pending.join(source).exists() {
-                fs::rename(pending.join(source), dir.join(target))?;
+                crate::storage::move_path(&pending.join(source), &live(target))?;
                 installed.push((source, target));
             }
         }
@@ -209,10 +222,10 @@ pub fn apply(dir: &Path) -> Result<(), String> {
     })();
     if let Err(error) = result {
         for (source, target) in installed.into_iter().rev() {
-            fs::rename(dir.join(target), pending.join(source)).map_err(message)?;
+            crate::storage::move_path(&live(target), &pending.join(source)).map_err(message)?;
         }
         for name in old.into_iter().rev() {
-            fs::rename(archive.join(name), dir.join(name)).map_err(message)?;
+            fs::rename(kept(name), live(name)).map_err(message)?;
         }
         return Err(message(error));
     }
@@ -291,5 +304,24 @@ mod tests {
         assert!(allowed("media/sounds/2.custom.0a1b2c3d.ogg"));
         assert!(!allowed("media/sounds/2.custom.x/../y.ogg"));
         assert!(!allowed("media/collections/1-hero:other"));
+    }
+
+    #[test]
+    fn restores_media_into_chosen_storage_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("storage.json"), serde_json::json!({ "root": elsewhere.path() }).to_string()).unwrap();
+        fs::create_dir_all(elsewhere.path().join("media/7")).unwrap();
+        fs::write(elsewhere.path().join("media/7/front.png"), b"old").unwrap();
+        let pending = dir.path().join(PENDING);
+        fs::create_dir_all(pending.join("media/sounds")).unwrap();
+        fs::write(pending.join("library.db"), b"db").unwrap();
+        fs::write(pending.join("media/sounds/1.custom.ogg"), b"new").unwrap();
+        apply(dir.path()).unwrap();
+        assert_eq!(fs::read(elsewhere.path().join("media/sounds/1.custom.ogg")).unwrap(), b"new");
+        assert!(!dir.path().join("media").exists());
+        // l'ancien dossier des images est gardé à côté, sur le même disque
+        let kept = fs::read_dir(elsewhere.path()).unwrap().filter_map(Result::ok).any(|e| e.file_name().to_string_lossy().starts_with("media.before-portable-"));
+        assert!(kept);
     }
 }

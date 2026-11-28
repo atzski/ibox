@@ -154,16 +154,21 @@ pub fn game_info(conn: &Connection, game_id: i64) -> Result<GameInfo> {
 
 /// Rangement des PDF.
 pub struct ManualStore {
-    root: PathBuf,
+    /// Modifiable à chaud : déplacement du stockage (`crate::storage`).
+    root: std::sync::RwLock<PathBuf>,
 }
 
 impl ManualStore {
     pub fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self { root: std::sync::RwLock::new(root) }
     }
 
-    pub fn root(&self) -> &Path {
-        &self.root
+    pub fn root(&self) -> PathBuf {
+        self.root.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_root(&self, root: PathBuf) {
+        *self.root.write().unwrap_or_else(|e| e.into_inner()) = root;
     }
 
     fn path(&self, file: &str) -> Result<PathBuf> {
@@ -171,7 +176,7 @@ impl ManualStore {
         if file.contains(['/', '\\']) || file.contains("..") {
             return Err(MetaError::Invalid(file.to_string()));
         }
-        Ok(self.root.join(file))
+        Ok(self.root().join(file))
     }
 
     pub fn info(&self, conn: &Connection, game_id: i64) -> Result<Option<ManualInfo>> {
@@ -223,7 +228,7 @@ impl ManualStore {
     /// Dossier du cache des pages d'un manuel (supprimé avec lui).
     fn cache_dir(&self, file: &str) -> Result<PathBuf> {
         self.path(file)?;
-        Ok(self.root.join("cache").join(file.trim_end_matches(".pdf")))
+        Ok(self.root().join("cache").join(file.trim_end_matches(".pdf")))
     }
 
     /// Page déjà rendue (JPEG), à une largeur donnée.
@@ -300,8 +305,8 @@ impl ManualStore {
 
     /// Télécharge un manuel trouvé chez une source.
     pub fn download(&self, conn: &Connection, http: &Http, game_id: i64, found: &Found) -> Result<ManualInfo> {
-        std::fs::create_dir_all(&self.root)?;
-        let tmp = self.root.join(format!("{game_id}.part"));
+        std::fs::create_dir_all(&self.root())?;
+        let tmp = self.root().join(format!("{game_id}.part"));
         let result = (|| {
             let mut out = std::fs::File::create(&tmp)?;
             http.download_to(&found.url, &mut out, MAX_BYTES, "le manuel")?;
@@ -323,7 +328,7 @@ impl ManualStore {
         reference: Option<&str>,
         region: Option<&str>,
     ) -> Result<ManualInfo> {
-        std::fs::create_dir_all(&self.root)?;
+        std::fs::create_dir_all(&self.root())?;
         let mut head = [0u8; 1024];
         let n = read_up_to(src, &mut head)?;
         if !is_pdf(&head[..n]) {
@@ -373,7 +378,7 @@ impl ManualStore {
                 })
                 .unwrap_or(0)
         }
-        walk(&self.root)
+        walk(&self.root())
     }
 
     /// Fichiers orphelins (jeu retiré, téléchargement interrompu).
@@ -382,7 +387,7 @@ impl ManualStore {
         let keep: std::collections::HashSet<String> =
             st.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?.into_iter().flat_map(|f| [cover_name(&f), f]).collect();
         let mut n = 0;
-        if let Ok(it) = std::fs::read_dir(&self.root) {
+        if let Ok(it) = std::fs::read_dir(&self.root()) {
             for e in it.flatten() {
                 let name = e.file_name().to_string_lossy().into_owned();
                 if e.path().is_dir() {
@@ -394,7 +399,7 @@ impl ManualStore {
             }
         }
         // caches de pages des manuels disparus
-        if let Ok(it) = std::fs::read_dir(self.root.join("cache")) {
+        if let Ok(it) = std::fs::read_dir(self.root().join("cache")) {
             for e in it.flatten() {
                 let name = format!("{}.pdf", e.file_name().to_string_lossy());
                 if !keep.contains(&name) && std::fs::remove_dir_all(e.path()).is_ok() {

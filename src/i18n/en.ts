@@ -803,6 +803,7 @@ export const EN: Record<string, string> = {
   "Commandes": "Controls",
   "manette standard": "standard controller",
   "manette type Nintendo": "Nintendo-style controller",
+  "commandes du Steam Deck": "Steam Deck controls",
   "manette type PlayStation": "PlayStation-style controller",
   "manette type Xbox": "Xbox-style controller",
   "Valider : {0} · Retour : {1}": "Confirm: {0} · Back: {1}",
@@ -4559,4 +4560,63 @@ export const EN: Record<string, string> = {
     "Translations completed",
   "Une vingtaine de textes restaient en français dans l’interface en anglais (« Ordre d’origine » dans Paramètres › Accueil, filtres des succès, choix d’images…) : ils sont traduits.":
     "About twenty texts were still in French in the English interface (“Original order” in Settings › Home, achievement filters, image picker…): they are now translated.",
+  "Une manette plus précise":
+    "A more precise controller",
+  "Gauche et droite restent sur leur rangée, haut et bas ne sautent plus vers un bouton lointain. Dans les Paramètres, haut et bas restent dans la page ouverte. Le stick gauche ne compte plus qu’une direction à la fois, sans double appui.":
+    "Left and right stay on their row, and up and down no longer jump to a distant button. In Settings, up and down stay inside the open page. The left stick now counts one direction at a time, with no double press.",
+  "Le focus ne se perd plus":
+    "Focus no longer gets lost",
+  "Passer de l’étagère à la grille garde le jeu choisi. Sur une fiche, les gâchettes zooment le boîtier sans déplacer la sélection. Communauté, SmartConfig, Amis et les fenêtres s’ouvrent avec la sélection sur leur contenu, et le menu « Changer d’utilisateur » se pilote à la manette.":
+    "Switching from the shelf to the grid keeps the chosen game. On a game page, the triggers zoom the case without moving the selection. Community, SmartConfig, Friends and dialogs open with the selection on their content, and the “Switch user” menu works with a controller.",
+  "Music in the Box reprend où vous étiez":
+    "Music in the Box picks up where you left off",
+  "Au lancement d’iBox, Music in the Box retrouve le même titre, au même moment et au même volume, en pause : rien ne se met à jouer tout seul.":
+    "When iBox starts, Music in the Box restores the same track, at the same position and volume, paused: nothing starts playing on its own.",
+  "Music in the Box sur le bon écran":
+    "Music in the Box on the right screen",
+  "Avec plusieurs écrans, le lecteur s’ouvre sur l’écran d’iBox ou du jeu en cours, et non plus sur l’écran principal de Windows.":
+    "With several screens, the player opens on the screen showing iBox or the running game, no longer on the main Windows screen.",
+
+  // ——— Emplacement des images et des manuels (components/library/StorageGroup.tsx, src-tauri/src/storage.rs) ———
+  "Emplacement des fichiers": "File location",
+  "Images et manuels": "Images and manuals",
+  "Dossier choisi · {0} Go": "Chosen folder · {0} GB",
+  "Dossier choisi · {0} Mo": "Chosen folder · {0} MB",
+  "Dans les données d'iBox · {0}": "In iBox's data folder · {0}",
+  "Dans les données d'iBox · {0} Go": "In iBox's data folder · {0} GB",
+  "Dans les données d'iBox · {0} Mo": "In iBox's data folder · {0} MB",
+  "Dossier introuvable : le disque est-il branché ? Les jaquettes et les manuels réapparaîtront dès qu'il le sera.": "Folder not found: is the drive connected? Covers and manuals will come back as soon as it is.",
+  "Jaquettes, illustrations, sons et images des collections, manuels. Changer de dossier y déplace tout de suite ce qui existe déjà : rien à retélécharger.": "Covers, artwork, collection sounds and images, manuals. Changing the folder moves everything already there right away: nothing to download again.",
+  "Choisir le dossier des images et des manuels": "Choose the folder for images and manuals",
+  "Fichiers déplacés": "Files moved",
+  "Revenir au dossier d'iBox": "Back to iBox's folder",
+  "Déplacer les images et les manuels": "Move images and manuals",
+  "Ne fermez pas iBox pendant le déplacement.": "Don't close iBox while files are moving.",
+  "{0} à déplacer.": "{0} to move.",
+  "{0} Go à déplacer.": "{0} GB to move.",
+  "{0} Mo à déplacer.": "{0} MB to move.",
+  "Les fichiers quittent l'ancien dossier ; jaquettes et manuels restent à leur place dans iBox.": "Files leave the old folder; covers and manuals stay where they are in iBox.",
+  "Les images et les manuels sont maintenant ici :": "Images and manuals are now here:",
+  "Quelques fichiers n'ont pas pu être effacés de l'ancien dossier (ouverts ailleurs ?). Ils sont déjà copiés : vous pouvez supprimer cet ancien dossier vous-même.": "A few files couldn't be removed from the old folder (open somewhere else?). They are already copied: you can delete that old folder yourself.",
+  "{0} Go sur {1} Go": "{0} GB of {1} GB",
+  "{0} Mo sur {1} Go": "{0} MB of {1} GB",
+  "{0} Mo sur {1} Mo": "{0} MB of {1} MB",
+  "Les images et les manuels sont déjà dans ce dossier.": "Images and manuals are already in this folder.",
+  "Le nouveau dossier ne peut pas se trouver dans l'ancien (ni l'inverse).": "The new folder can't be inside the old one (or the other way around).",
+  "Ce dossier contient déjà un dossier « {0} » qui n'est pas vide. Choisissez un dossier vide, ou créez-en un nouveau (par exemple « iBox »).": "This folder already has a “{0}” folder that isn't empty. Choose an empty folder, or create a new one (for example “iBox”).",
+  "Impossible de créer ce dossier : {0}": "Can't create this folder: {0}",
+  "Impossible d'écrire dans ce dossier (lecture seule ou accès refusé).": "Can't write to this folder (read-only or access denied).",
+  "Espace insuffisant sur ce disque : {0} nécessaires, {1} libres.": "Not enough space on this drive: {0} needed, {1} free.",
+  "Déplacement interrompu, rien n'a changé : {0}": "Move stopped, nothing changed: {0}",
+  "Déplacement annulé, rien n'a changé : {0}": "Move cancelled, nothing changed: {0}",
+  "Une récupération d'images est en cours : attendez qu'elle se termine ou arrêtez-la.": "Images are being downloaded: wait for it to finish or stop it.",
+  "Une récupération de manuels est en cours : attendez qu'elle se termine ou arrêtez-la.": "Manuals are being downloaded: wait for it to finish or stop it.",
+  "Dossier introuvable : le disque est-il branché ?": "Folder not found: is the drive connected?",
+  "Images et manuels où vous voulez": "Images and manuals wherever you want",
+  "Paramètres › Images et données › Emplacement des fichiers : choisissez un autre dossier, sur un autre disque par exemple. Les jaquettes, illustrations et manuels déjà récupérés y sont déplacés tout de suite, avec une barre de progression : rien à retélécharger ni à réinstaller.":
+    "Settings › Images and data › File location: choose another folder, on another drive for example. Covers, artwork and manuals you already have are moved there right away, with a progress bar: nothing to download or reinstall.",
+  "Steam Deck : iBox se repose pendant un jeu Steam":
+    "Steam Deck: iBox rests during a Steam game",
+  "Sous Linux, iBox suit le jeu Steam lancé depuis lui : pendant la partie, ses animations, sa 3D et sa musique s’arrêtent et la manette n’agit plus dans iBox derrière le jeu. La carte « En jeu » disparaît plus vite à la fin d’une partie. En Mode Jeu, c’est Steam qui choisit l’écran affiché à la fermeture d’un jeu : pour revenir à iBox, bouton Steam puis iBox.":
+    "On Linux, iBox follows the Steam game launched from it: during the game, its animations, 3D and music stop and the controller no longer acts in iBox behind the game. The “In game” card disappears faster when a game ends. In Game Mode, Steam chooses which screen shows when a game closes: to get back to iBox, press the Steam button, then pick iBox.",
 };

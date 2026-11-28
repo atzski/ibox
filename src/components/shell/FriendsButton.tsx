@@ -159,10 +159,8 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
 
   // Le focus entre dans le panneau à chaque changement de vue
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const first = panel.current?.querySelector<HTMLElement>("[data-autofocus],[data-focusable]");
-      if (first) input.focus(first, { instant: true });
-    });
+    // le contenu d'abord (un ami, un champ, « Rejoindre iNetbox »), pas le bouton Fermer de l'en-tête
+    const id = requestAnimationFrame(() => input.focusInitial());
     return () => cancelAnimationFrame(id);
   }, [view, friendId, social.user?.id]);
 
@@ -199,7 +197,7 @@ function FriendsDrawer({ onClose, onAccount, target }: { onClose: () => void; on
         transition={SPRING.snappy}
         className="ibox-friends-panel absolute top-3 right-3 bottom-3 flex w-[min(27rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.8rem] bg-white/94 shadow-[0_24px_60px_-20px_rgba(30,40,70,0.5)] ring-1 ring-white/70 backdrop-blur-xl"
       >
-        <header className="flex items-center gap-2 px-5 pt-5 pb-3">
+        <header data-nav-chrome className="flex items-center gap-2 px-5 pt-5 pb-3">
           {view !== "list" ? (
             <RoundIcon icon="back" label="Retour" onClick={() => go(view === "chat" && friend ? "profile" : view === "profile" ? profileFrom : "list")} />
           ) : (
@@ -775,7 +773,8 @@ function FriendsGlyph({ size = 20 }: { size?: number }) {
 
 /** Moi en jeu : le jeu lancé depuis iBox, avec son logo (ou sa jaquette). */
 function MyGame() {
-  const launched = useLauncher((s) => (s.phase === "running" || s.phase === "starting" ? s.current : null));
+  // jeu lancé par iBox, ou jeu Steam lancé depuis iBox et suivi par lui (Linux)
+  const launched = useLauncher((s) => (s.phase === "running" || s.phase === "starting" ? s.current : s.storeGame));
   // jeu PC lancé par sa boutique (Epic, Steam…) : détecté par iBox
   const [detected, setDetected] = useState<{ gameId: number; title: string } | null>(null);
   useEffect(() => {

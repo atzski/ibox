@@ -23,7 +23,8 @@ pub struct MediaRow {
 }
 
 pub struct MediaStore {
-    root: PathBuf,
+    /// Modifiable à chaud : déplacement du stockage (`crate::storage`).
+    root: std::sync::RwLock<PathBuf>,
 }
 
 /// Format réel d'après les premiers octets (l'extension ne fait pas foi).
@@ -44,11 +45,15 @@ pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
 
 impl MediaStore {
     pub fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self { root: std::sync::RwLock::new(root) }
     }
 
-    pub fn root(&self) -> &Path {
-        &self.root
+    pub fn root(&self) -> PathBuf {
+        self.root.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    pub fn set_root(&self, root: PathBuf) {
+        *self.root.write().unwrap_or_else(|e| e.into_inner()) = root;
     }
 
     /// Valide puis enregistre une image ; remplace l'éventuelle image précédente.
@@ -76,7 +81,7 @@ impl MediaStore {
             return Err(MetaError::NotFound);
         }
 
-        let dir = self.root.join(game_id.to_string());
+        let dir = self.root().join(game_id.to_string());
         fs::create_dir_all(&dir)?;
         let stem = format!("{}-{slot}", kind.as_str());
         let rel = format!("{game_id}/{stem}.{ext}");
@@ -88,7 +93,7 @@ impl MediaStore {
                 let _ = fs::remove_file(dir.join(format!("{stem}.{other}")));
             }
         }
-        fs::rename(&tmp, self.root.join(&rel))?;
+        fs::rename(&tmp, self.root().join(&rel))?;
 
         let now = now_iso();
         conn.execute(
@@ -169,7 +174,7 @@ impl MediaStore {
 
     /// Supprime les dossiers d'images de jeux qui ne sont plus dans la collection.
     pub fn collect_garbage(&self, conn: &Connection) -> Result<usize> {
-        let Ok(entries) = fs::read_dir(&self.root) else { return Ok(0) };
+        let Ok(entries) = fs::read_dir(&self.root()) else { return Ok(0) };
         let mut removed = 0;
         for e in entries.flatten() {
             let Some(id) = e.file_name().to_str().and_then(|n| n.parse::<i64>().ok()) else { continue };
@@ -195,7 +200,7 @@ impl MediaStore {
                 })
                 .unwrap_or(0)
         }
-        walk(&self.root)
+        walk(&self.root())
     }
 
     /// Chemin absolu d'un fichier du cache, sans possibilité d'en sortir.
@@ -203,7 +208,7 @@ impl MediaStore {
         if rel.contains("..") || Path::new(rel).is_absolute() {
             return Err(MetaError::Invalid("chemin de média invalide".into()));
         }
-        Ok(self.root.join(rel))
+        Ok(self.root().join(rel))
     }
 }
 

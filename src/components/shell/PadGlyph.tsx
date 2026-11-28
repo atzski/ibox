@@ -34,6 +34,12 @@ const FACES: Record<PadFamily, Record<Face, { label: string; color: string }>> =
     west: { label: "Y", color: "#FFFFFF" },
     north: { label: "X", color: "#FFFFFF" },
   },
+  deck: {
+    south: { label: "A", color: "#FFFFFF" },
+    east: { label: "B", color: "#FFFFFF" },
+    west: { label: "X", color: "#FFFFFF" },
+    north: { label: "Y", color: "#FFFFFF" },
+  },
   generic: {
     south: { label: "", color: "#FFFFFF" },
     east: { label: "", color: "#FFFFFF" },
@@ -46,6 +52,7 @@ const SHOULDERS: Record<PadFamily, { lb: string; rb: string; lt: string; rt: str
   xbox: { lb: "LB", rb: "RB", lt: "LT", rt: "RT", ls: "L", rs: "R", l3: "LS", r3: "RS" },
   playstation: { lb: "L1", rb: "R1", lt: "L2", rt: "R2", ls: "L", rs: "R", l3: "L3", r3: "R3" },
   nintendo: { lb: "L", rb: "R", lt: "ZL", rt: "ZR", ls: "L", rs: "R", l3: "L", r3: "R" },
+  deck: { lb: "L1", rb: "R1", lt: "L2", rt: "R2", ls: "L", rs: "R", l3: "L3", r3: "R3" },
   generic: { lb: "L1", rb: "R1", lt: "L2", rt: "R2", ls: "L", rs: "R", l3: "L3", r3: "R3" },
 };
 

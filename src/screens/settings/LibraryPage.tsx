@@ -5,6 +5,8 @@ import { sound } from "@/services/sound";
 import { FoldersPanel } from "@/components/library/FoldersPanel";
 import { MetadataPanel } from "@/components/library/MetadataPanel";
 import { IidbPanel } from "@/components/assets/IidbPanel";
+import { StorageGroup } from "@/components/library/StorageGroup";
+import { useCapabilities } from "@/services/capabilities";
 import { CoverImage } from "@/components/game/CoverImage";
 import { useLibrary } from "@/services/library";
 import { isHidden, pcApi } from "@/services/pc";
@@ -98,6 +100,7 @@ function HiddenGamesGroup() {
 
 export function ImagesPage() {
   const s = useSettings();
+  const caps = useCapabilities();
   return (
     <>
       <Group title="Jaquettes et informations" icon="front">
@@ -115,6 +118,8 @@ export function ImagesPage() {
           <Toggle checked={s.riotAvatars !== false} onChange={(value) => s.set("riotAvatars", value)} label="Portraits League of Legends" />
         </Row>
       </Group>
+      {/* Windows et Linux : un dossier au choix ; Android garde le stockage privé de l'application */}
+      {caps.fileManager && <StorageGroup />}
     </>
   );
 }

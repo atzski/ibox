@@ -1057,11 +1057,13 @@ export function ShelfView({
 function FlowAction({ icon, label, onClick, primary, disabled, title }: { icon: IconName; label: string; onClick: () => void; primary?: boolean; disabled?: boolean; title?: string }) {
   return (
     <button
+      // manette : bas depuis l'étagère mène à ces boutons (« Au hasard » n'a pas de bouton à lui)
+      data-focusable
       tabIndex={-1}
       disabled={disabled}
       title={title}
       onClick={onClick}
-      className={`flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-[0.86rem] font-semibold backdrop-blur-md transition-[transform,background-color] active:scale-95 disabled:opacity-40 ${
+      className={`ibox-focusable [--ring-radius:999px] flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-[0.86rem] font-semibold backdrop-blur-md transition-[transform,background-color] active:scale-95 disabled:opacity-40 ${
         primary ? "bg-[#ebebf0] text-[#10121a] hover:bg-[#ffffff]" : "border border-[rgba(255,255,255,.16)] bg-[rgba(8,10,20,.46)] text-[#f3f5fb] hover:bg-[rgba(255,255,255,.16)]"
       }`}
     >

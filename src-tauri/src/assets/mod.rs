@@ -468,7 +468,7 @@ pub mod commands {
             let c = client()?;
             let db_path = app.state::<LibraryState>().db_path().to_path_buf();
             let meta = app.state::<MetadataState>();
-            let root = meta.media.root().to_path_buf();
+            let root = meta.media.root();
             let http = meta.http.clone();
             let download = move |url: &str| -> Result<Vec<u8>> {
                 let u = crate::metadata::commands::check_image_link(url).map_err(|e| e.to_string())?;
@@ -492,7 +492,7 @@ pub mod commands {
     #[tauri::command]
     pub fn platform_art_read(lib: State<LibraryState>, meta: State<MetadataState>, platform_id: String, slot: String) -> Result<tauri::ipc::Response> {
         let path = lib
-            .with(|c| Ok(file_of(c, meta.media.root(), &platform_id, &slot)))
+            .with(|c| Ok(file_of(c, &meta.media.root(), &platform_id, &slot)))
             .map_err(|e| e.to_string())??
             .ok_or("Aucune image.")?;
         std::fs::read(path).map(tauri::ipc::Response::new).map_err(|e| e.to_string())
@@ -521,7 +521,7 @@ pub mod commands {
             let meta = app.state::<MetadataState>();
             let u = crate::metadata::commands::check_image_link(&asset.url).map_err(|e| e.to_string())?;
             let bytes = meta.http.bytes(u.as_str(), MAX_IMAGE_BYTES, "l'illustration").map_err(|e| e.to_string())?;
-            let root = meta.media.root().to_path_buf();
+            let root = meta.media.root();
             app.state::<LibraryState>()
                 .with(|c| Ok(save(c, &root, &platform_id, &slot, &bytes, "iidb", "manual", Some(&asset))))
                 .map_err(|e| e.to_string())?
@@ -537,13 +537,13 @@ pub mod commands {
             return Err("Image trop volumineuse (25 Mo maximum).".into());
         }
         let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-        lib.with(|c| Ok(save(c, meta.media.root(), &platform_id, &slot, &bytes, "user", "user", None)))
+        lib.with(|c| Ok(save(c, &meta.media.root(), &platform_id, &slot, &bytes, "user", "user", None)))
             .map_err(|e| e.to_string())?
     }
 
     #[tauri::command]
     pub fn platform_art_reset(lib: State<LibraryState>, meta: State<MetadataState>, platform_id: String, slot: String) -> Result<()> {
-        lib.with(|c| Ok(reset(c, meta.media.root(), &platform_id, &slot))).map_err(|e| e.to_string())?
+        lib.with(|c| Ok(reset(c, &meta.media.root(), &platform_id, &slot))).map_err(|e| e.to_string())?
     }
 
     #[tauri::command]
